@@ -122,6 +122,12 @@ After implementing a feature:
 
 <List platforms: iOS + Android, web, etc.>
 
+## Flutter & Dart rules
+
+Follow the official Flutter rules in `docs/flutter-rules.md`. These cover
+SOLID principles, code quality, Dart best practices, testing, theming,
+accessibility, layout, and code generation conventions.
+
 ## Working with Claude Code in this repo
 
 - **Commands:** `/init-app`, `/step`, `/plan-status`, `/plan-extend`,
