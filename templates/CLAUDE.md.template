@@ -1,0 +1,132 @@
+# CLAUDE.md — <PROJECT_NAME>
+
+> <PROJECT_TAGLINE>
+> <ONE_LINE_DESCRIPTION>
+
+## Project overview
+
+<One paragraph: what the app does, who uses it, current stage
+(greenfield / beta / production), and any UI fidelity or performance
+constraints.>
+
+**Bundle ID:** `<com.example.app>`
+**Firebase project (if any):** `<your-project-id>`
+
+## Architecture
+
+Layered Clean Architecture, organised in **vertical slices** (one folder per
+feature, each with its own `domain/`, `data/`, `presentation/`).
+
+```
+lib/
+├── main.dart
+├── bootstrap.dart              Pre-runApp init (DI, Firebase, error zone)
+├── app.dart                    MaterialApp.router + global providers
+├── core/                       Cross-cutting kernel
+│   ├── di/                     get_it + injectable
+│   ├── error/                  Failure sealed hierarchy + error mapper
+│   ├── extensions/             context.colors, context.l10n, context.mq
+│   ├── logging/                Talker wrapper
+│   ├── network/                ConnectivityService
+│   ├── router/                 go_router declarative
+│   ├── theme/                  AppTheme, AppColors, AppTypography
+│   ├── time/                   Clock (inject; never raw DateTime.now())
+│   └── widgets/                Shared widgets
+└── features/
+    ├── _template/              Reference skeleton — copy for new features
+    └── <feature_name>/
+        ├── data/{datasources, dtos, repositories}/
+        ├── domain/{entities, repositories, usecases}/
+        └── presentation/{blocs, pages, widgets}/
+```
+
+### Layer rules
+
+- `domain/` — **pure Dart.** Must NOT import: `flutter/*`, Firebase,
+  drift, data layer, presentation layer.
+- `data/` — infrastructure. May import: own feature's `domain/`, `core/`.
+  DTOs own JSON serialization. Repository impls map infra errors → `Failure`.
+- `presentation/` — Flutter. May import: own feature's `domain/`, `core/`.
+  **Must NOT** import `data/`.
+
+### Hard rules
+
+- **No `BuildContext` in events.** Side effects via `BlocListener`.
+- **No `setState()` inside `build()`.** Ever.
+- **Use `MediaQuery.sizeOf(context)`** — never `MediaQuery.of`.
+- **Inject `Clock`** (`core/time/clock.dart`). Never raw `DateTime.now()`.
+- **All `StreamSubscription`, `*Controller`, `FocusNode`** must be disposed.
+- **All Firestore queries:** `.where('ownerId', isEqualTo: uid)` + `.limit(...)`.
+- **All multi-doc writes:** `WriteBatch` or `runTransaction`.
+- **BLoCs screen-scoped via `BlocProvider(create:)` by default.**
+- **Every BLoC overrides `close()`** if it holds subscriptions.
+
+### Performance rules
+
+- `const` everywhere it compiles.
+- Lazy lists only (`ListView.builder`, `SliverList`).
+- Heavy work (>50 ms) in isolates.
+- `BlocSelector` / `buildWhen` for any state with >3 fields.
+- Extract any `build` method >150 lines into a separate widget class.
+
+## Tech stack
+
+- **State:** `flutter_bloc` + sealed states via `freezed`.
+- **Models:** `freezed` + `json_serializable`.
+- **Routing:** `go_router` (declarative; deep links).
+- **DI:** `get_it` + `injectable`.
+- **Local DB:** `drift` (compile-time SQL).
+- **Backend:** <Firebase / Supabase / none>
+- **Logging:** `talker_flutter`.
+- **Lints:** `very_good_analysis`.
+- **Testing:** `bloc_test`, `mocktail`, `integration_test`.
+
+<ADD_PROJECT_SPECIFIC_DEPENDENCIES_HERE>
+
+## Design reference
+
+<Path to design files, design token mapping table, key component patterns.
+Filled by /init-app during design intake.>
+
+## Common commands
+
+```bash
+flutter pub get
+dart run build_runner build
+flutter gen-l10n
+flutter run
+dart format .
+flutter analyze
+flutter test
+flutter test integration_test/ -d <device>
+xcrun simctl io "iPhone 16 Pro" screenshot /tmp/screenshot.png
+```
+
+## Codegen workflow
+
+Generated files are committed. Workflow:
+
+1. Edit `*.dart` annotated with `@freezed`, `@JsonSerializable`, etc.
+2. Run `dart run build_runner build`.
+3. Commit the generated files.
+
+## Verification
+
+After implementing a feature:
+1. `flutter analyze` — must be clean
+2. `flutter test` — all tests pass
+3. `xcrun simctl io "<device>" screenshot` — visual check
+4. Integration tests for user-facing flows
+
+## Platform support
+
+<List platforms: iOS + Android, web, etc.>
+
+## Working with Claude Code in this repo
+
+- **Commands:** `/init-app`, `/step`, `/plan-status`, `/plan-extend`,
+  `/feature`, `/fix`, `/refactor`, `/review`, `/test`, `/ship`,
+  `/codegen`, `/clean`, `/deps`
+- **Agents:** flutter-architect, developer, debugger, refactorer,
+  releaser, reviewer, tester, ui-designer
+- **MCP required:** `dart` (dart mcp-server). Firebase plugin optional.

@@ -1,0 +1,65 @@
+# <PROJECT_NAME> — project plan
+
+Each `## Step N` is one implementation session. Steps are worked through
+in order via `/step`. Mark `[x]` when complete.
+
+Format per step:
+
+```
+## Step N — <Title>
+- [ ] <!-- checkbox, flipped to [x] when done -->
+- id: <kebab-slug>
+- depends_on: <comma-separated step ids, or none>
+
+### Description
+...what to build...
+
+### Acceptance
+- bullet list of verifiable criteria
+
+### Touchpoints
+- expected files/dirs
+```
+
+---
+
+## Step 0 — Bootstrap the project
+- [ ]
+- id: bootstrap
+- depends_on: none
+
+### Description
+
+Set up the Flutter project scaffolding. `/init-app` already ran
+`flutter create`, so the project structure exists.
+
+- Replace the generated `pubspec.yaml` with the full dependency set
+  from CLAUDE.md → Tech stack.
+- Create the directory skeleton under `lib/`: `core/` and `features/_template/`.
+- Add `analysis_options.yaml` extending `very_good_analysis`.
+- Stub `bootstrap.dart`, `app.dart`, theme/router/logging/clock.
+- Set up DI scaffolding and run `build_runner build`.
+- Set up `l10n.yaml` and stub ARB files.
+
+### Acceptance
+- `flutter analyze` exits 0.
+- `flutter test` exits 0.
+- `flutter run` boots to a blank Material screen.
+- `dart run build_runner build` succeeds.
+
+### Touchpoints
+- `pubspec.yaml`, `analysis_options.yaml`, `l10n.yaml`,
+  `lib/main.dart`, `lib/app.dart`, `lib/bootstrap.dart`,
+  `lib/core/**`, `lib/features/_template/**`.
+
+---
+
+<!--
+/init-app populates additional steps based on the app idea.
+Expected shape:
+
+  Step 1: Backend init (if Firebase/Supabase)
+  Steps 2..N: Features in dependency order
+  Step N+1: Polish
+  Step N+2: Release prep
+-->

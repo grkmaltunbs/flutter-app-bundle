@@ -1,0 +1,43 @@
+# <PROJECT_NAME> — human setup checklist
+
+Complete these items before starting `/step`. Items that don't apply
+to your project should be struck through: `- [x] ~~item~~ _(not needed)_`
+
+## Toolchain (one-time per machine)
+
+- [ ] Flutter SDK installed (`flutter doctor` green).
+- [ ] `claude` CLI installed and `claude login` done.
+- [ ] Dart MCP registered: `claude mcp add dart -- dart mcp-server`
+- [ ] Claude Code restarted; `claude mcp list` shows dart Connected.
+
+## Firebase (if using Firebase)
+
+- [ ] Firebase project created. Project ID: ___________________
+- [ ] `firebase login` done.
+- [ ] `flutterfire configure --project=<id>` run; `firebase_options.dart` generated.
+- [ ] Sign-in providers enabled (Email, Google, Apple — as needed).
+- [ ] Emulator ports decided in `firebase.json` (use 8088 for Firestore if 8080 is taken).
+
+## Apple Developer (if shipping to iOS)
+
+- [ ] Apple Developer Program enrolled.
+- [ ] App ID created with bundle ID.
+- [ ] Xcode auto-signing configured (Runner → Signing & Capabilities → select team).
+
+## Android signing (if shipping to Play Store)
+
+- [ ] Release keystore generated.
+- [ ] `android/key.properties` created.
+- [ ] SHA fingerprints added to Firebase project.
+
+## Project-specific items
+
+<INIT_APP_WILL_ADD_MORE_HERE>
+
+---
+
+When all items are `[x]`, you're ready to start building:
+
+```
+/step
+```
