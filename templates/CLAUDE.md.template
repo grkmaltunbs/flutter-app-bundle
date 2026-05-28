@@ -208,8 +208,8 @@ permits.
 ## Working with Claude Code in this repo
 
 - **Commands:** `/init-app`, `/step`, `/plan-status`, `/plan-extend`,
-  `/feature`, `/fix`, `/refactor`, `/review`, `/test`, `/ship`,
+  `/feature`, `/fix`, `/refactor`, `/review`, `/test`, `/qa`, `/ship`,
   `/codegen`, `/clean`, `/deps`
 - **Agents:** flutter-architect, developer, debugger, refactorer,
-  releaser, reviewer, tester, ui-designer
+  releaser, reviewer, tester, qa, ui-designer
 - **MCP required:** `dart` (dart mcp-server). Firebase plugin optional.

@@ -13,18 +13,29 @@ Workflow:
    `@freezed` / `@JsonSerializable` / `@injectable` / `@DriftDatabase` edit.
 
 3. Delegate to the **flutter-tester** agent to add bloc_tests, usecase tests,
-   widget tests, and golden tests for visually-critical widgets.
+   widget tests, the integration test(s) for each flow (happy + error/edge,
+   demo flavor), the responsive overflow-guard test, and golden tests for
+   visually-critical widgets. Build the `demo`-flavor fakes the flows need.
 
 4. Delegate to the **flutter-reviewer** agent for a final audit against the
-   v2 hard rules (no `BuildContext` in events, no `setState` in build, no
-   `MediaQuery.of`, no `GetIt.I` in BLoCs, etc.). Address any blockers;
-   surface important findings to the user.
+   hard rules (no `BuildContext` in events, no `setState` in build, no
+   `MediaQuery.of`, no `GetIt.I` in BLoCs, paid features entitlement-gated,
+   etc.). Address any blockers; surface important findings to the user.
 
-5. Run `dart format .`, `flutter analyze`, `flutter test`. Everything green
-   before declaring done.
+5. Run `dart format .`, `flutter analyze`, `flutter test`. All green before
+   proceeding.
 
-6. Summarize:
+6. **Runtime verification (gating).** Delegate to the **flutter-qa** agent with
+   the feature's flows and the dependent-flow regression set. It boots the iOS
+   and Android simulators, drives the new flow + dependent flows on the demo
+   flavor, sweeps runtime errors, and runs the responsive/overflow pass. If it
+   returns FAIL, route defects (`→ debugger` / `→ developer` / `→ tester`) and
+   re-verify until PASS. Do not declare done while any runtime error or overflow
+   remains.
+
+7. Summarize:
    - What was built (one short paragraph)
    - Files added/modified
    - Test count delta
+   - flutter-qa verdict (platforms run, flows exercised) + screenshots
    - Anything left as TODO and why
