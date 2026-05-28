@@ -20,14 +20,16 @@ feature, each with its own `domain/`, `data/`, `presentation/`).
 ```
 lib/
 ├── main.dart
-├── bootstrap.dart              Pre-runApp init (DI, Firebase, error zone)
+├── bootstrap.dart              Pre-runApp init (env, DI, backend, error zone)
 ├── app.dart                    MaterialApp.router + global providers
 ├── core/                       Cross-cutting kernel
-│   ├── di/                     get_it + injectable
+│   ├── di/                     get_it + injectable (env-scoped registration)
+│   ├── env/                    AppEnv (demo | prod) from --dart-define
 │   ├── error/                  Failure sealed hierarchy + error mapper
 │   ├── extensions/             context.colors, context.l10n, context.mq
 │   ├── logging/                Talker wrapper
 │   ├── network/                ConnectivityService
+│   ├── payments/               RevenueCat wrapper + entitlement interface
 │   ├── router/                 go_router declarative
 │   ├── theme/                  AppTheme, AppColors, AppTypography
 │   ├── time/                   Clock (inject; never raw DateTime.now())
@@ -35,7 +37,11 @@ lib/
 └── features/
     ├── _template/              Reference skeleton — copy for new features
     └── <feature_name>/
-        ├── data/{datasources, dtos, repositories}/
+        ├── data/
+        │   ├── datasources/
+        │   ├── dtos/
+        │   ├── repositories/   real (prod) repository impls
+        │   └── fakes/          in-memory seeded fakes (demo flavor)
         ├── domain/{entities, repositories, usecases}/
         └── presentation/{blocs, pages, widgets}/
 ```
@@ -60,6 +66,12 @@ lib/
 - **All multi-doc writes:** `WriteBatch` or `runTransaction`.
 - **BLoCs screen-scoped via `BlocProvider(create:)` by default.**
 - **Every BLoC overrides `close()`** if it holds subscriptions.
+- **Every paid feature is gated through `SubscriptionBloc`** (entitlement check)
+  — never read a purchase SDK directly from a widget or feature Bloc.
+- **Every repository interface has a fake** in `data/fakes/`, registered under
+  the `demo` environment. Real impls register under `prod`.
+- **No Firebase emulators.** Verification runs the `demo` flavor against fakes
+  on real simulators. Never add emulator wiring to `bootstrap.dart`.
 
 ### Performance rules
 
@@ -68,6 +80,52 @@ lib/
 - Heavy work (>50 ms) in isolates.
 - `BlocSelector` / `buildWhen` for any state with >3 fields.
 - Extract any `build` method >150 lines into a separate widget class.
+
+## Flavors, fakes & no emulators
+
+This project does **not** use Firebase emulators. Every backend dependency sits
+behind a repository interface with two implementations, selected by environment:
+
+- **`prod`** — real impls (Firebase, RevenueCat, network).
+- **`demo`** — in-memory, **seeded** fakes in `data/fakes/`. Deterministic,
+  offline, instant. This is what all verification runs against.
+
+```bash
+# Build/run the demo flavor (fakes) — used for all simulator verification:
+flutter run --dart-define=APP_ENV=demo -d <device>
+```
+
+Wiring (via `injectable` environments):
+
+```dart
+@Environment('prod')
+@LazySingleton(as: AuthRepository)
+class FirebaseAuthRepository implements AuthRepository { … }
+
+@Environment('demo')
+@LazySingleton(as: AuthRepository)
+class FakeAuthRepository implements AuthRepository { … }   // seeded users
+```
+
+Rules:
+- Fakes are **seeded with representative data** covering each screen state
+  (populated, empty, error, offline) and each entitlement state (free,
+  subscribed, expired) so every flow is reachable on a simulator.
+- Fakes can simulate failures (toggle/inject errors) so error/edge paths are
+  testable without a backend.
+- The real `prod` path is exercised only by the human via `HUMAN_SETUP.md`
+  smoke items — Claude never touches the live backend project.
+
+### Monetization (RevenueCat)
+
+- Entitlements via `purchases_flutter` (RevenueCat), exposed through
+  `core/payments/` and consumed only via `SubscriptionBloc`.
+- **iOS simulator:** purchases are testable with a StoreKit configuration file
+  (`ios/*.storekit`) — purchase, restore, subscribe, expire — no App Store
+  Connect needed. Enable it in the Runner scheme.
+- **Android & cross-platform:** `FakePurchaseRepository` (demo flavor) covers
+  paywall, gating, restore, upgrade/downgrade, and expiry on the emulator.
+- A **Restore Purchases** action is mandatory (App Store requirement).
 
 ## Tech stack
 
@@ -79,12 +137,15 @@ lib/
 - **State:** `flutter_bloc` + sealed states via `freezed`.
 - **Models:** `freezed` + `json_serializable`.
 - **Routing:** `go_router` (declarative; deep links).
-- **DI:** `get_it` + `injectable`.
+- **DI:** `get_it` + `injectable` (env-scoped: `demo` | `prod`).
 - **Local DB:** `drift` (compile-time SQL).
 - **Backend:** <Firebase / Supabase / none>
+- **Payments:** `purchases_flutter` (RevenueCat); fakes + `.storekit` for sims.
 - **Logging:** `talker_flutter`.
+- **App icon / splash:** `flutter_launcher_icons`, `flutter_native_splash`.
 - **Lints:** `very_good_analysis`.
-- **Testing:** `bloc_test`, `mocktail`, `integration_test`.
+- **Testing:** `bloc_test`, `mocktail`, `integration_test` (run on simulators
+  against the `demo` flavor — no emulators).
 
 <ADD_PROJECT_SPECIFIC_DEPENDENCIES_HERE>
 
@@ -99,11 +160,13 @@ Filled by /init-app during design intake.>
 flutter pub get
 dart run build_runner build
 flutter gen-l10n
-flutter run
 dart format .
 flutter analyze
 flutter test
-flutter test integration_test/ -d <device>
+# Run / test the demo flavor (fakes) on a simulator — no emulators:
+flutter run --dart-define=APP_ENV=demo -d <device>
+flutter test integration_test/ --dart-define=APP_ENV=demo -d <ios-sim>
+flutter test integration_test/ --dart-define=APP_ENV=demo -d <android-emu>
 xcrun simctl io "iPhone 16 Pro" screenshot /tmp/screenshot.png
 ```
 
@@ -117,11 +180,16 @@ Generated files are committed. Workflow:
 
 ## Verification
 
-After implementing a feature:
-1. `flutter analyze` — must be clean
-2. `flutter test` — all tests pass
-3. `xcrun simctl io "<device>" screenshot` — visual check
-4. Integration tests for user-facing flows
+After implementing a feature, `/step` (via the `flutter-qa` agent) gates on:
+1. `flutter analyze` — clean.
+2. `flutter test` — all unit/bloc/widget tests pass.
+3. Demo flavor runs on an **iOS simulator** and an **Android emulator**; the new
+   flow's happy + error/edge paths and **every dependent flow** are exercised
+   via `integration_test`.
+4. **Zero runtime errors/exceptions** in the Dart MCP error log during the runs.
+5. **Zero render (overflow) errors** across the responsive size matrix (see
+   `PRODUCT_SPEC.md` → Non-functional) at textScale 1.0 and 2.0.
+6. Successful flows captured as permanent integration tests; screenshots saved.
 
 ## Platform support
 

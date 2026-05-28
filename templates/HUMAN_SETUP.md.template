@@ -1,7 +1,15 @@
 # <PROJECT_NAME> — human setup checklist
 
-Complete these items before starting `/step`. Items that don't apply
-to your project should be struck through: `- [x] ~~item~~ _(not needed)_`
+These are the **irreducibly human** tasks — external accounts, store/dashboard
+config, signing, secrets, and legal — that Claude cannot do for you. Everything
+else (all code, and all simulator verification against fakes) is automated.
+
+The app **builds and is fully verified on simulators against fakes** without any
+backend, so most of this is needed only for the real (`prod`) build and
+real-device smoke tests. Front-load the slow ones (Apple enrollment, store IAP
+products, RevenueCat) — they gate later release work.
+
+Items that don't apply should be struck through: `- [x] ~~item~~ _(not needed)_`
 
 ## Toolchain (one-time per machine)
 
@@ -16,7 +24,24 @@ to your project should be struck through: `- [x] ~~item~~ _(not needed)_`
 - [ ] `firebase login` done.
 - [ ] `flutterfire configure --project=<id>` run; `firebase_options.dart` generated.
 - [ ] Sign-in providers enabled (Email, Google, Apple — as needed).
-- [ ] Emulator ports decided in `firebase.json` (use 8088 for Firestore if 8080 is taken).
+- [ ] Firestore security rules scoped to the owner; published.
+
+> No emulator setup — this bundle verifies against fakes (`demo` flavor). The
+> real Firebase project is only needed for `prod` builds and your own smoke
+> tests.
+
+## Monetization — RevenueCat + store products (if paid)
+
+- [ ] RevenueCat account created; project + public SDK API keys obtained.
+- [ ] API keys provided to the app via `--dart-define` / CI secret (not committed).
+- [ ] **App Store Connect:** subscription/IAP products created (IDs match the
+      spec); pricing, localizations, and agreements/tax/banking completed.
+- [ ] **Google Play Console:** matching products created; pricing set.
+- [ ] RevenueCat entitlement + offerings configured; products linked to both stores.
+- [ ] `ios/Configuration.storekit` product IDs match the store products (for
+      simulator purchase testing).
+- [ ] Sandbox/license test accounts added; real-device purchase + **restore**
+      verified.
 
 ## Apple Developer (if shipping to iOS)
 

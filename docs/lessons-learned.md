@@ -64,39 +64,28 @@ project without completing setup.
 Fix: `/init-app` runs `flutter create` during Stage 5 (before the
 setup walkthrough), so all items can be completed immediately.
 
-## Firestore emulator port collisions
+## No Firebase emulators — verify against fakes
 
-Default Firestore port `:8080` is often taken (Unity MCP, Tomcat, etc.).
+This bundle does **not** use Firebase emulators. They were a recurring source of
+pain — port collisions (`:8080` taken by Unity MCP, Tomcat, etc.), stale
+processes holding ports after crashes, and `useFirestoreEmulator` /
+`useAuthEmulator` hanging or throwing when the emulator wasn't running (which
+blocks `runApp()` → blank white screen).
 
-Fix in `firebase.json`:
-```json
-"emulators": { "firestore": { "port": 8088 } }
-```
+Instead, every backend dependency sits behind a repository interface with a
+**seeded in-memory fake** (`lib/**/data/fakes/`), wired under the `demo`
+environment via `injectable`. All verification runs the **demo flavor on real
+simulators**:
 
-CRITICAL: also update the matching `useFirestoreEmulator(host, 8088)`
-in `bootstrap.dart`. They must move in lockstep.
-
-Stale emulators from crashed sessions hold ports. Kill with:
 ```bash
-pkill -f "firebase emulators"
+flutter run --dart-define=APP_ENV=demo -d <device>
 ```
 
-## Emulator connections should be try/catch wrapped
-
-If emulators aren't running, `useAuthEmulator` / `useFirestoreEmulator`
-can hang or throw, preventing `runApp()` from being called (blank white
-screen).
-
-```dart
-if (kDebugMode) {
-  try {
-    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8088);
-    await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
-  } on Object catch (e) {
-    debugPrint('Could not connect to emulators: $e');
-  }
-}
-```
+This is deterministic, offline, instant, and never touches the live project.
+Seed fakes to cover every screen state (populated/empty/error/offline) and
+entitlement state (free/subscribed/expired), and let them toggle error modes so
+edge paths are testable. The real `prod` backend is exercised only by the human
+in `HUMAN_SETUP.md` smoke items. See `CLAUDE.md` → "Flavors, fakes & no emulators".
 
 ## iOS cold builds are slow (3–7 minutes)
 

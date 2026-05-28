@@ -11,6 +11,6 @@ After the agent finishes:
 - Surface any production-code defects discovered during test writing —
   do NOT silently fix them; let the user route them to the debugger.
 
-For integration tests, the agent uses Firebase emulators (NEVER hits live
-`<YOUR_PROJECT_ID>` project). The emulator command is:
-`firebase emulators:exec --only auth,firestore,functions,storage "flutter test integration_test/"`
+Integration tests run the **demo flavor against fakes** on a simulator — no
+Firebase emulators, and NEVER the live `<YOUR_PROJECT_ID>` project:
+`flutter test integration_test/ --dart-define=APP_ENV=demo -d <device>`
