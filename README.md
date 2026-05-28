@@ -7,13 +7,15 @@ workflow — you direct, Claude Code implements.
 
 ```
 .claude/
-├── commands/       Slash commands (/init-app, /step, /plan-status, etc.)
-├── agents/         8 specialist agents (architect, developer, debugger, etc.)
-├── skills/         10 Flutter-specific skills
+├── commands/       Slash commands (/init-app, /step, /qa, /plan-status, etc.)
+├── agents/         9 specialist agents (architect, developer, debugger, qa, …)
+├── skills/         Official Dart + Flutter skills
 └── settings.json   Permissions (allow/ask/deny lists)
-templates/          CLAUDE.md, PROJECT_PLAN.md, HUMAN_SETUP.md templates
+templates/          CLAUDE.md, PRODUCT_SPEC, PROJECT_PLAN, HUMAN_SETUP templates
 docs/
-└── lessons-learned.md  Known pitfalls and fixes
+├── requirements-checklist.md  29-category intake coverage engine
+├── flutter-rules.md           Primary, authoritative Flutter/Dart rules
+└── lessons-learned.md         Known pitfalls and fixes
 ```
 
 ## Quick start
@@ -35,8 +37,10 @@ docs/
    claude
    /init-app
    ```
-   This walks you through: app idea → design intake → creative pass →
-   fill project files → `flutter create` → setup walkthrough → smoke test.
+   This walks you through: app idea → design intake → a **29-category
+   requirements interview** → an **assumptions gate** (confirm/override every
+   default so nothing is forgotten) → writes `PRODUCT_SPEC.md` → derives
+   `PROJECT_PLAN.md` from it → `flutter create` → setup walkthrough → smoke test.
 
 4. **Build step by step:**
    ```bash
@@ -58,6 +62,7 @@ docs/
 | `/refactor <desc>` | Refactor with tests |
 | `/review [files]` | Code review (read-only) |
 | `/test [files]` | Add or improve tests |
+| `/qa [scope]` | Run/observe the app on iOS + Android simulators (fakes) |
 | `/ship [args]` | Prepare a release |
 | `/codegen [args]` | Run build_runner / gen-l10n |
 | `/clean` | Clean and rebuild |
@@ -73,7 +78,9 @@ Specialist agents invoked automatically by commands:
 - **flutter-refactorer** — Restructures code (test-driven)
 - **flutter-releaser** — Builds and prepares releases
 - **flutter-reviewer** — Reviews code (read-only findings)
-- **flutter-tester** — Writes and runs tests
+- **flutter-tester** — Writes unit/bloc/widget/integration tests
+- **flutter-qa** — Runs the app on iOS + Android simulators, drives every flow,
+  reports runtime errors and overflow (read-only)
 - **flutter-ui-designer** — Builds polished UI components
 
 ## Requirements
@@ -85,12 +92,22 @@ Specialist agents invoked automatically by commands:
 
 ## Verification approach
 
-No flutter-skill dependency. The bundle verifies work via:
+**No Firebase emulators, no flutter-skill dependency.** Every backend sits behind
+a repository interface with a seeded in-memory **fake**, wired under a **demo
+flavor** (`--dart-define=APP_ENV=demo`). All verification runs that flavor on real
+simulators — offline, deterministic, never touching the live project.
 
-1. `flutter analyze` — static analysis
-2. `flutter test` — unit + widget tests
-3. `flutter test integration_test/` — integration tests on simulator
-4. `xcrun simctl io "<device>" screenshot` — visual verification
+Each `/step` is gated by the **flutter-qa** agent before it counts as done:
+
+1. `flutter analyze` + `flutter test` — static + unit/bloc/widget tests
+2. The new flow **and its dependent flows** driven via `integration_test` on an
+   **iOS simulator and an Android emulator**
+3. Dart MCP runtime-error sweep — zero unhandled exceptions
+4. Responsive pass — zero render (overflow) errors across the size matrix
+   (iPhone SE → Pro Max → iPad; small/Pixel/tablet Android) at textScale 1.0 & 2.0
+5. `xcrun simctl io "<device>" screenshot` — visual capture
+
+Run it anytime with `/qa`.
 
 ## Architecture
 
@@ -98,22 +115,24 @@ Default stack (customizable during `/init-app`):
 
 - **State:** flutter_bloc + freezed
 - **Routing:** go_router
-- **DI:** get_it + injectable
+- **DI:** get_it + injectable (env-scoped: demo | prod)
 - **Local DB:** drift
-- **Backend:** Firebase (optional)
+- **Backend:** Firebase (optional) — behind repository interfaces with fakes
+- **Payments:** RevenueCat (`purchases_flutter`); `.storekit` + fakes for sims
 - **Lints:** very_good_analysis
-- **Testing:** bloc_test, mocktail, integration_test
+- **Testing:** bloc_test, mocktail, integration_test (demo flavor on simulators)
 
 Clean architecture with vertical feature slices:
-`domain/` (pure Dart) → `data/` (infrastructure) → `presentation/` (Flutter + Bloc)
+`domain/` (pure Dart) → `data/` (infrastructure + `fakes/`) → `presentation/` (Flutter + Bloc)
 
 ## Lessons learned
 
 See `docs/lessons-learned.md` for known pitfalls:
+- Why fakes, not Firebase emulators
 - Firebase bootstrap order
 - iOS cold build times
 - CocoaPods conflicts
-- Emulator port collisions
+- APNS on the iOS simulator
 - And more
 
 ## License
