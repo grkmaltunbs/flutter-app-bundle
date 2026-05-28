@@ -68,23 +68,7 @@
       "Bash(xcrun simctl screenshot *)",
       "Bash(xcrun simctl list *)",
       "Bash(pkill -f \"firebase emulators\")",
-      "Bash(lsof -nP -iTCP* -sTCP:LISTEN)"
-    ],
-    "deny": [
-      "Bash(rm -rf /*)",
-      "Bash(rm -rf ~/*)",
-      "Bash(rm -rf ~)",
-      "Bash(sudo *)",
-      "Bash(git push --force *)",
-      "Bash(git push -f *)",
-      "Bash(git push * main)",
-      "Bash(git push * master)",
-      "Bash(git push origin main)",
-      "Bash(git push origin master)",
-      "Bash(curl * | sh)",
-      "Bash(curl * | bash)"
-    ],
-    "ask": [
+      "Bash(lsof -nP -iTCP* -sTCP:LISTEN)",
       "Bash(flutter build *)",
       "Bash(flutter run *)",
       "Bash(flutter pub add *)",
@@ -101,7 +85,24 @@
       "Bash(git tag *)",
       "Bash(git reset --hard *)",
       "Bash(rm *)",
-      "Bash(pod *)"
+      "Bash(pod *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git push * main)",
+      "Bash(git push * master)",
+      "Bash(git push origin main)",
+      "Bash(git push origin master)",
+    ],
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~/*)",
+      "Bash(rm -rf ~)",
+      "Bash(sudo *)",
+      "Bash(curl * | sh)",
+      "Bash(curl * | bash)"
+    ],
+    "ask": [
+
     ]
   },
   "enabledPlugins": {

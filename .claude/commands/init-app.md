@@ -1,130 +1,141 @@
 # /init-app — Project initialization
 
-You are running the initialization flow for a new Flutter app. Your job
-is to take the user from "empty directory with this bundle cloned" to
-"ready to start building features step by step."
+You are running the initialization flow for a new Flutter app. Your job is to
+take the user from "empty directory with this bundle cloned" to "ready to build
+features step by step — with a spec complete enough that nothing important was
+forgotten."
 
-Your output is three filled files: `CLAUDE.md`, `PROJECT_PLAN.md`,
-`HUMAN_SETUP.md`, plus a working Flutter project scaffold.
+Your output is four filled files plus a scaffold:
+`PRODUCT_SPEC.md`, `CLAUDE.md`, `PROJECT_PLAN.md`, `HUMAN_SETUP.md`, and a working
+Flutter project.
 
 ## Operating rules
 
-- **Be opinionated.** Propose specific takes on flow, monetisation,
-  screen decisions, tech-stack overrides. Cite trade-offs.
-- **Ask one question at a time.** Long lists overwhelm.
-- **Always use AskUserQuestion for structured choices.**
-- **Verify file existence before editing.** Templates live in
-  `templates/`. Real project files start as copies.
+- **Completeness is the goal.** The deliverable is a spec so thorough that after
+  the plan steps finish, the only work left is the external/store setup in
+  `HUMAN_SETUP.md`. Use `docs/requirements-checklist.md` as the coverage engine.
+- **Be opinionated.** Propose specific takes on flows, monetisation, screens,
+  tech-stack overrides. Cite trade-offs. When the user has no opinion, propose a
+  default and record it as an **assumption** (don't stall).
+- **Ask one question at a time.** Long lists overwhelm. Use `AskUserQuestion`
+  for structured choices.
+- **No Firebase emulators.** This bundle verifies against **injected fakes** in a
+  **demo flavor** running on real simulators — never emulators. Do not add
+  emulator setup anywhere.
+- **Verify file existence before editing.** Templates live in `templates/`.
 
 ## Workflow
 
 ### Stage 1 — Idea capture
-
-Greet the human briefly. Ask them to describe their app in ~1
-paragraph: who's it for, what's the core loop, what would v1 look like.
-
-Then ask in this order (one question per turn):
-
-1. **Platforms.** iOS + Android? iOS only? Add web/desktop?
-2. **Backend.** Firebase (default) / Supabase / custom REST / none.
-3. **Monetisation intent.** Free, freemium, paid, ad-supported, not-decided.
-4. **Special integrations.** Maps, payments, push, OAuth providers,
-   HealthKit, video, real-time chat, ML, etc.
+Greet briefly. Ask the user to describe the app in ~1 paragraph: who it's for,
+the core loop, what v1 looks like.
 
 ### Stage 2 — Design intake
-
 Ask for the design source:
-
-- **"Claude Design URL"** — download with `curl -L <url> -o /tmp/design.tar.gz`,
-  extract to `docs/design/`. Read README.md and chat transcripts first.
-- **"Figma file"** — ask for screenshots in `docs/design/screens/`.
-- **"None"** — describe screens, suggest palette + type stack.
+- **Claude Design URL** — `curl -L <url> -o /tmp/design.tar.gz`, extract to
+  `docs/design/`, read README + transcripts first.
+- **Figma** — ask for screenshots in `docs/design/screens/`.
+- **None** — describe screens, propose palette + type stack.
 
 Summarise what you see in 5–10 bullets.
 
-### Stage 3 — Creative pass
+### Stage 3 — Requirements interview (the core of init)
+Walk **`docs/requirements-checklist.md`** category by category (1→29). For each:
+- Ask one focused question (`AskUserQuestion`) eliciting the user's decision.
+- If they have no opinion, state the category's **default**, record it as an
+  **assumption**, and move on — do not block.
+- Push back when a choice has a real downside; cite the "Why it bites" note.
 
-For each, give your read and push back if needed:
+You are mining for **every feature, every flow (happy + error + edge), and every
+screen's states**. Pay special attention to the items users forget: account
+deletion, denied-permission paths, restore purchases, offline/empty/error states
+on every screen, textScale/overflow, deep links, ATT/consent.
 
-1. **Screen flow.** Missing screens? Screens that should merge?
-2. **Monetisation specifics.** Concrete gates and upsell surfaces.
-3. **Tech-stack overrides.** Default is bloc + freezed + go_router +
-   drift + Firebase. Swap if the app type demands it.
-4. **Naming.** App name, tagline, bundle ID, Firebase project ID.
+### Stage 4 — Assumptions gate (mandatory)
+Before writing anything, present **every assumed default** from Stage 3 as a
+single confirm/override list (see the "Assumptions gate" section of the
+checklist). Require the user to confirm or change each one. **Init may not
+proceed until this list is cleared.** This is the "warn me about what I forgot"
+step — do not skip or soft-pedal it.
 
-When the human says "looks good, let's lock it in", move to Stage 4.
+### Stage 5 — Write the spec and derived files
+Copy templates to the project root:
+```bash
+cp templates/PRODUCT_SPEC.md.template PRODUCT_SPEC.md
+cp templates/CLAUDE.md.template CLAUDE.md
+cp templates/PROJECT_PLAN.md.template PROJECT_PLAN.md
+cp templates/HUMAN_SETUP.md.template HUMAN_SETUP.md
+```
+Then, in order:
+1. **`PRODUCT_SPEC.md`** — fill it completely from Stages 1–4: feature inventory,
+   every user flow with error/edge paths, every screen with all states,
+   monetization spec, permissions matrix, data model, non-functional reqs, and
+   the **Assumptions log** with each row marked Confirmed/Overridden.
+2. **`CLAUDE.md`** — replace every `<PLACEHOLDER>`. Reflect the chosen stack and
+   any overrides.
+3. **`PROJECT_PLAN.md`** — **derive the step ladder from `PRODUCT_SPEC.md`**:
+   every flow and screen in the spec maps to a step (or part of one). Each step
+   is sized for one Claude Code session and carries Acceptance criteria taken
+   from the spec's flows/states. Include a final responsive/accessibility pass
+   step and a release-prep step.
+4. **`HUMAN_SETUP.md`** — remove items that don't apply; add the project's
+   external/store items (RevenueCat dashboard + products, App Store Connect /
+   Play Console IAP products, signing, API keys, legal URLs). These are the
+   irreducibly-human tasks — make each one exact and copy-pasteable.
 
-### Stage 4 — Fill the templates
-
-1. Copy templates to project root:
-   ```bash
-   cp templates/CLAUDE.md.template CLAUDE.md
-   cp templates/PROJECT_PLAN.md.template PROJECT_PLAN.md
-   cp templates/HUMAN_SETUP.md.template HUMAN_SETUP.md
-   ```
-2. Fill CLAUDE.md — replace every `<PLACEHOLDER>`.
-3. Fill PROJECT_PLAN.md — build a step ladder for the feature set.
-   Steps should be sized for one Claude Code session each.
-4. Fill HUMAN_SETUP.md — remove items that don't apply, add
-   project-specific items.
-
-### Stage 5 — Create the Flutter project
-
-Run `flutter create` NOW, during init — not deferred to a plan step:
-
+### Stage 6 — Create the Flutter project
+Run `flutter create` NOW (not deferred), so setup items that need `ios/` and
+`android/` can be completed immediately:
 ```bash
 flutter create . --org <org> --project-name <name> --platforms ios,android
 ```
 
-This unblocks HUMAN_SETUP.md items that need `ios/` and `android/`
-directories (flutterfire configure, Xcode signing, key.properties).
-
-### Stage 6 — Walk through HUMAN_SETUP.md live
-
+### Stage 7 — Walk through HUMAN_SETUP.md live
 For each `- [ ]` item:
-- Tell the human exactly what to do (full commands, not vague instructions).
-- Wait for confirmation.
-- Flip `- [ ]` → `- [x]` on completion.
-- If the item produces a value, plug it into CLAUDE.md.
-- Items that can be deferred — say so explicitly.
+- Tell the user exactly what to do (full commands, not vague instructions).
+- Wait for confirmation; flip `- [ ]` → `- [x]`.
+- If the item produces a value, plug it into `CLAUDE.md`.
+- Items that can be deferred — say so explicitly, and note which plan step they
+  unblock.
 
-### Stage 7 — Smoke test
+Front-load anything that gates later work (Apple Developer enrollment,
+RevenueCat account, store IAP product creation) so the user starts them early.
 
+### Stage 8 — Smoke test
 ```bash
 flutter doctor
 flutter analyze
 flutter test
 ```
+Diagnose and fix any failures.
 
-If any fail, diagnose and fix.
-
-### Stage 8 — Handoff
-
+### Stage 9 — Handoff
 Print:
-
 ```
 ✅ Initialization complete.
 
 Files ready:
+- PRODUCT_SPEC.md  (full spec; assumptions all resolved)
 - CLAUDE.md
-- PROJECT_PLAN.md (<N> steps)
-- HUMAN_SETUP.md (all items resolved)
+- PROJECT_PLAN.md  (<N> steps, derived from the spec)
+- HUMAN_SETUP.md   (external/store items — the only human work left)
 
 Flutter project created and compiling.
 
-To start building, run:
+Each /step builds a slice of the spec, then verifies it on the iOS and Android
+simulators against fakes (no emulators), checking every flow + dependent flows
+for bugs, exceptions, and overflow on all screen sizes.
+
+To start building:
     /step
-
-Or implement a specific step:
     /step <step-id>
-
-Use /plan-status to see progress at any time.
+    /plan-status
 ```
 
 ## What you must NOT do
-
-- Don't write `pubspec.yaml` beyond what `flutter create` generates.
-  Step 0 (bootstrap) handles the full dependency setup.
-- Don't `git init` or `git commit`.
-- Don't edit `.claude/`, `docs/lessons-learned.md`.
-- Don't push to GitHub or any remote.
+- Don't add Firebase emulator setup anywhere (this bundle is fakes-only).
+- Don't write `pubspec.yaml` beyond what `flutter create` generates — Step 0
+  (bootstrap) handles the full dependency set.
+- Don't `git init`, `git commit`, or push.
+- Don't edit `.claude/`, `docs/lessons-learned.md`, or `docs/requirements-checklist.md`.
+- Don't finish init while any assumption is still unconfirmed.

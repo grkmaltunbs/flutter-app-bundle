@@ -1,0 +1,92 @@
+# <PROJECT_NAME> — product spec
+
+> Single source of truth for **what** the app is and **every flow it must
+> support**. Produced by `/init-app` from the requirements interview
+> (`docs/requirements-checklist.md`). `PROJECT_PLAN.md` steps are derived from
+> this document — if a flow isn't here, it won't get built or tested.
+
+## Summary
+<One paragraph: what the app does, who it's for, the core loop, current stage.>
+
+## Platforms & constraints
+- **Platforms:** <iOS, Android, …>
+- **Form factors:** <phone, tablet> · **Orientations:** <portrait, landscape>
+- **Min OS:** <iOS 14 / Android API 24>
+- **Tech stack:** see `CLAUDE.md` (flutter_bloc, get_it, drift, RevenueCat, …).
+
+## Feature inventory
+One row per feature. `Gate` = free or a paid entitlement. `Phase` = v1 or later.
+
+| ID | Feature | Description | Gate | Phase | Depends on |
+|----|---------|-------------|------|-------|-----------|
+| f-… | … | … | free / premium | v1 | — |
+
+## User flows
+For **every** flow: the happy path **and** the error/edge paths. Each flow names
+the screens it touches and becomes one or more integration tests.
+
+### flow-<id>: <name>
+- **Trigger:** <how the user enters this flow>
+- **Happy path:** 1. … 2. … 3. …
+- **Error / edge paths:**
+  - <network error → …>
+  - <validation error → …>
+  - <permission denied → …>
+  - <empty / no-results → …>
+  - <offline → …>
+- **Screens involved:** <screen ids>
+- **Entitlement:** <free / premium gate checked where?>
+
+## Screen catalog
+For **every** screen, define **all** states (no screen ships happy-path-only).
+
+### screen-<id>: <name>
+- **Purpose:** …
+- **States:** loading · empty · error (with retry) · success · offline
+- **Key widgets / layout:** …
+- **Responsive notes:** behavior at SE / Pro Max / tablet, textScale 2.0.
+
+## Monetization spec
+- **Model:** <freemium / subscription / …> via **RevenueCat**.
+- **Products / tiers:** <monthly, annual; entitlement name>
+- **Paywall surfaces:** <which gates trigger the paywall>
+- **Free-tier limits:** <what free users get / caps>
+- **Trial:** <length / terms>
+- **Required flows:** purchase · **restore** · upgrade/downgrade · cancellation ·
+  billing-retry/grace · entitlement check before every gate.
+- **Simulator testing:** iOS via `.storekit` config; Android + cross-platform via
+  `FakePurchaseRepository` in the demo flavor.
+
+## Permissions matrix
+| Permission | Why | Requested when | Denied path | Permanently-denied path |
+|-----------|-----|----------------|-------------|--------------------------|
+| … | … | in-context at … | … | rationale + Open Settings |
+
+## Data model
+- **Entities & relationships:** …
+- **Source of truth:** <server / local> · **Offline:** <offline-first / cache>
+- **Sync & conflict resolution:** …
+
+## Non-functional requirements
+- **Responsive size matrix:** iPhone SE, iPhone 16 Pro, iPhone 16 Pro Max, iPad;
+  small/Pixel/tablet Android; each at textScale 1.0 and 2.0. **Zero render
+  (overflow) errors on any.**
+- **Accessibility:** Semantics on interactive elements, WCAG AA, ≥48dp targets,
+  survives textScale 2.0, respects reduce-motion.
+- **Localization:** <languages> · all strings via ARB · RTL-safe.
+- **Performance:** lazy lists, off-isolate heavy work, cached/resized images.
+- **Security:** secure token storage, owner-scoped backend rules, no secrets in
+  repo.
+
+## Assumptions log
+Every default the user did **not** explicitly decide, with its final status.
+Init is not complete until every row is Confirmed or Overridden.
+
+| # | Area | Assumed default | Status |
+|---|------|-----------------|--------|
+| 3 | Auth | email + Google + Apple, verification on | Confirmed / Overridden |
+| 11 | Monetization | RevenueCat, monthly+annual, 7-day trial | … |
+| … | … | … | … |
+
+## Out of scope (v1)
+- <explicitly deferred features, so they don't silently become expectations>

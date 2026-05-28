@@ -1,7 +1,14 @@
 # <PROJECT_NAME> — project plan
 
-Each `## Step N` is one implementation session. Steps are worked through
-in order via `/step`. Mark `[x]` when complete.
+Steps are **derived from `PRODUCT_SPEC.md`** — every flow and screen in the spec
+maps to a step (or part of one). Each `## Step N` is one implementation session,
+worked through in order via `/step`. Mark `[x]` when complete.
+
+`/step` does not mark a step done until it has been **verified on the iOS and
+Android simulators** (demo flavor, fakes — no emulators): the new flow plus every
+dependent flow are exercised, with zero runtime errors/exceptions and zero render
+overflow across the responsive size matrix. Write Acceptance criteria as
+**verifiable flow/state outcomes taken from the spec**.
 
 Format per step:
 
@@ -10,12 +17,14 @@ Format per step:
 - [ ] <!-- checkbox, flipped to [x] when done -->
 - id: <kebab-slug>
 - depends_on: <comma-separated step ids, or none>
+- spec_refs: <flow/screen ids from PRODUCT_SPEC.md this step implements>
 
 ### Description
 ...what to build...
 
 ### Acceptance
-- bullet list of verifiable criteria
+- bullet list of verifiable criteria (happy path + error/edge paths + states
+  from the spec; responsive on the size matrix; entitlement-gated if paid)
 
 ### Touchpoints
 - expected files/dirs
@@ -44,22 +53,30 @@ Set up the Flutter project scaffolding. `/init-app` already ran
 ### Acceptance
 - `flutter analyze` exits 0.
 - `flutter test` exits 0.
-- `flutter run` boots to a blank Material screen.
 - `dart run build_runner build` succeeds.
+- App boots to a blank Material screen on an **iOS simulator** and an **Android
+  emulator** in the demo flavor (`--dart-define=APP_ENV=demo`) with fakes wired.
+- No runtime errors/exceptions in the Dart MCP error log on boot.
 
 ### Touchpoints
 - `pubspec.yaml`, `analysis_options.yaml`, `l10n.yaml`,
   `lib/main.dart`, `lib/app.dart`, `lib/bootstrap.dart`,
-  `lib/core/**`, `lib/features/_template/**`.
+  `lib/core/**`, `lib/features/_template/**`,
+  `lib/**/data/fakes/**` (demo-flavor fake repositories),
+  `ios/*.storekit` (StoreKit test config, if monetised).
 
 ---
 
 <!--
-/init-app populates additional steps based on the app idea.
+/init-app populates additional steps from PRODUCT_SPEC.md.
 Expected shape:
 
-  Step 1: Backend init (if Firebase/Supabase)
-  Steps 2..N: Features in dependency order
-  Step N+1: Polish
-  Step N+2: Release prep
+  Step 1: Backend + DI + fakes layer (demo flavor wires fakes; real backend
+          behind the same interfaces)
+  Steps 2..N: Features in dependency order (one per spec flow/screen group)
+  Step N+1: Responsive + accessibility pass (size matrix, textScale 2.0,
+            zero overflow on all screens)
+  Step N+2: Monetization wiring + entitlement gates (RevenueCat; .storekit +
+            FakePurchaseRepository for simulator testing)
+  Step N+3: Release prep
 -->
