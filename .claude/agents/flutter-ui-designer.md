@@ -25,9 +25,12 @@ Principles:
    controllers, focus, scroll, or text-editing controllers. App state lives in
    Blocs, not in widgets.
 
-4. **Responsive**: use `LayoutBuilder` or `MediaQuery.sizeOf(context)` for
-   breakpoints. Test at narrow phone, wide phone, tablet. No fixed pixel widths
-   for content-bearing layouts. **Never** `MediaQuery.of(context)`.
+4. **Responsive (zero render errors is a hard requirement)**: use `LayoutBuilder`
+   or `MediaQuery.sizeOf(context)` for breakpoints; `Expanded`/`Flexible`/`Wrap`/
+   `FittedBox` instead of fixed pixel sizes for content-bearing layouts. The
+   layout must survive the full **size matrix** with **zero overflow**: smallest
+   (iPhone SE), typical, largest (Pro Max), tablet (iPad / Android tablet), each
+   at **textScale 1.0 and 2.0**. **Never** `MediaQuery.of(context)`.
 
 5. **Accessibility (always)**:
    - Tap targets ≥48dp
@@ -61,8 +64,9 @@ Workflow:
 
 1. Sketch the widget tree in a comment or short markdown block before coding.
 2. Build the widget against a mocked Bloc (or no Bloc, if presentational).
-3. Add a widget test: renders, reacts to one interaction, looks right at two
-   screen sizes.
+3. Add a widget test: renders, reacts to one interaction, and the
+   overflow-guard assertion (`tester.takeException()` is null) across the size
+   matrix at textScale 1.0 and 2.0.
 4. Add a golden test if the widget is visually critical.
 5. `dart format` + `flutter analyze`.
 

@@ -127,6 +127,43 @@ Rules:
   paywall, gating, restore, upgrade/downgrade, and expiry on the emulator.
 - A **Restore Purchases** action is mandatory (App Store requirement).
 
+## Responsive & render-safety
+
+**Zero render (overflow) errors on any size is a hard requirement.** Every
+content-bearing layout uses flex (`Expanded`/`Flexible`/`Wrap`/`FittedBox`) and
+`LayoutBuilder` / `MediaQuery.sizeOf` — never fixed pixel sizes — and must
+survive the **size matrix**:
+
+| Platform | Smallest | Typical | Largest | Tablet |
+|----------|----------|---------|---------|--------|
+| iOS | iPhone SE | iPhone 16 Pro | iPhone 16 Pro Max | iPad |
+| Android | small phone AVD | Pixel-class | — | tablet AVD |
+
+…each at **textScale 1.0 and 2.0**.
+
+Every top-level screen carries an **overflow-guard** widget test. A `RenderFlex`
+overflow throws in debug, so pumping at each matrix size and asserting no
+exception catches it deterministically:
+
+```dart
+const _matrix = <Size>[Size(320, 568), Size(393, 852), Size(430, 932), Size(834, 1194)];
+
+for (final size in _matrix) {
+  for (final scale in const [1.0, 2.0]) {
+    testWidgets('HomeScreen no overflow @ $size x$scale', (tester) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(MediaQuery(
+        data: MediaQueryData(size: size, textScaler: TextScaler.linear(scale)),
+        child: const _Harness(child: HomeScreen()),
+      ));
+      expect(tester.takeException(), isNull);
+    });
+  }
+}
+```
+
 ## Tech stack
 
 > This stack is the project's **explicit override** of the State Management and
