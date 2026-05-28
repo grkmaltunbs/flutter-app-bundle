@@ -71,6 +71,11 @@ lib/
 
 ## Tech stack
 
+> This stack is the project's **explicit override** of the State Management and
+> Dependency Injection defaults in `docs/flutter-rules.md` (which otherwise
+> defaults to built-in state management + manual constructor DI). All other
+> rules in that document apply as written.
+
 - **State:** `flutter_bloc` + sealed states via `freezed`.
 - **Models:** `freezed` + `json_serializable`.
 - **Routing:** `go_router` (declarative; deep links).
@@ -124,9 +129,13 @@ After implementing a feature:
 
 ## Flutter & Dart rules
 
-Follow the official Flutter rules in `docs/flutter-rules.md`. These cover
-SOLID principles, code quality, Dart best practices, testing, theming,
-accessibility, layout, and code generation conventions.
+`docs/flutter-rules.md` is the **primary, authoritative rule set** — it wins
+over agents, commands, and skills wherever they conflict. It covers SOLID
+principles, code quality, Dart best practices, testing, theming, accessibility,
+layout, and code generation conventions. The only sanctioned deviations are the
+**State Management** and **Dependency Injection** choices in the Tech stack
+section above, which the rules doc's own "unless explicitly requested" clause
+permits.
 
 ## Working with Claude Code in this repo
 

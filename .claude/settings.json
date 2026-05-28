@@ -68,7 +68,7 @@
       "Bash(xcrun simctl screenshot *)",
       "Bash(xcrun simctl list *)",
       "Bash(pkill -f \"firebase emulators\")",
-      "Bash(lsof -nP -iTCP:* -sTCP:LISTEN)"
+      "Bash(lsof -nP -iTCP* -sTCP:LISTEN)"
     ],
     "deny": [
       "Bash(rm -rf /*)",

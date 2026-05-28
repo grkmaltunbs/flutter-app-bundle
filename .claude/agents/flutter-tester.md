@@ -19,6 +19,12 @@ Workflow:
 
 2. **Write tests by layer**:
 
+   **Assertions:** use `package:checks` (`check(x).equals(...)`,
+   `check(x).isNotNull()`, etc.) rather than `expect`/matchers — per
+   `docs/flutter-rules.md`. The `dart-migrate-to-checks-package` skill covers the
+   API. Note: `bloc_test`'s own `expect:` parameter is part of its API and stays
+   as-is; this rule is about assertion calls inside test bodies.
+
    - **Bloc/Cubit** — use `bloc_test`:
      - One `blocTest` per state transition path
      - Include the failure path (network error, validation error, etc.)

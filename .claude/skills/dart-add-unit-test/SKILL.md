@@ -27,10 +27,10 @@ Utilize `package:test` as the standard testing library for Dart applications.
 * Import `package:test/test.dart` (or `package:flutter_test/flutter_test.dart` for Flutter).
 * Group related tests using the `group()` function to provide shared context.
 * Define individual test cases using the `test()` function.
-* Validate outcomes using the `expect()` function alongside matchers (e.g., `equals()`, `isTrue`, `throwsA()`).
+* Validate outcomes using `package:checks` — e.g. `check(actual).equals(expected)`, `check(actual).isNotNull()`, `await check(future).throws<Exception>()` — rather than `expect`/matchers, per `docs/flutter-rules.md`. Import `package:checks/checks.dart`. The `dart-migrate-to-checks-package` skill covers the full API.
 * Write asynchronous tests using standard `async`/`await` syntax. The test runner automatically waits for the `Future` to complete.
 * Manage test setup and teardown using `setUp()` and `tearDown()` callbacks.
-* If testing code that relies on dependency injection, use `package:mockito` alongside `package:test` to generate mock objects, configure fixed scenarios, and verify interactions.
+* If testing code that relies on dependency injection, use `package:mocktail` alongside `package:test` to define mock objects (no code generation), configure fixed scenarios, and verify interactions. See the `dart-define-test-mocks` skill.
 
 ## Executing Tests
 Select the appropriate test runner based on the project type and test location.
@@ -59,6 +59,7 @@ Demonstrates grouping, setup, synchronous, and asynchronous testing.
 
 ```dart
 import 'package:test/test.dart';
+import 'package:checks/checks.dart';
 import 'package:my_package/calculator.dart';
 
 void main() {
@@ -70,31 +71,31 @@ void main() {
     });
 
     test('adds two numbers correctly', () {
-      expect(calc.add(2, 3), equals(5));
+      check(calc.add(2, 3)).equals(5);
     });
 
     test('handles asynchronous operations', () async {
       final result = await calc.fetchRemoteValue();
-      expect(result, isNotNull);
-      expect(result, greaterThan(0));
+      check(result).isNotNull();
+      check(result).isGreaterThan(0);
     });
   });
 }
 ```
 
-### Mocking with Mockito
-Demonstrates configuring a mock object for dependency injection testing.
+### Mocking with Mocktail
+Demonstrates configuring a mock object for dependency injection testing. No code
+generation is required — the mock is a hand-written class.
 
 ```dart
 import 'package:test/test.dart';
-import 'package:mockito/mockito.dart';
-import 'package:mockito/annotations.dart';
+import 'package:checks/checks.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:my_package/api_client.dart';
 import 'package:my_package/data_service.dart';
 
-// Generate the mock using build_runner: dart run build_runner build
-@GenerateNiceMocks([MockSpec<ApiClient>()])
-import 'data_service_test.mocks.dart';
+// Declare the mock by hand — no codegen.
+class MockApiClient extends Mock implements ApiClient {}
 
 void main() {
   group('DataService', () {
@@ -107,15 +108,15 @@ void main() {
     });
 
     test('returns parsed data on successful API call', () async {
-      // Configure the mock
-      when(mockApiClient.get('/data')).thenAnswer((_) async => '{"id": 1}');
+      // Configure the mock (note the closure: `when(() => ...)`).
+      when(() => mockApiClient.get('/data')).thenAnswer((_) async => '{"id": 1}');
 
       // Execute the system under test
       final result = await dataService.fetchData();
 
       // Verify outcomes and interactions
-      expect(result.id, equals(1));
-      verify(mockApiClient.get('/data')).called(1);
+      check(result.id).equals(1);
+      verify(() => mockApiClient.get('/data')).called(1);
     });
   });
 }
