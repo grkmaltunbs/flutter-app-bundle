@@ -22,6 +22,7 @@ See docs/autobuild.md for full setup.
 """
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import os
@@ -32,7 +33,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from claude_agent_sdk import ClaudeAgentOptions, HookMatcher, query
+# The Claude Agent SDK is imported lazily inside run_step() so that --help,
+# argument parsing, and plan inspection work before the SDK is installed.
 
 # --------------------------------------------------------------------------- #
 # Config (all overridable via environment variables)
@@ -226,6 +228,15 @@ def parse_marker(text: str) -> dict | None:
 
 
 async def run_step(step: dict) -> dict:
+    try:
+        from claude_agent_sdk import ClaudeAgentOptions, HookMatcher, query
+    except ImportError as exc:
+        raise SystemExit(
+            "claude-agent-sdk is not installed. Activate your venv and run:\n"
+            "    pip install -r runner/requirements.txt\n"
+            "(The Claude Code CLI must also be installed and authenticated.)"
+        ) from exc
+
     options = ClaudeAgentOptions(
         cwd=str(PROJECT_DIR),
         model=MODEL,
@@ -262,31 +273,47 @@ def git(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], cwd=PROJECT_DIR, capture_output=True, text=True)
 
 
-def commit_and_push(step: dict) -> None:
-    git("add", "-A")
-    msg = (
+def _commit_message(step: dict) -> str:
+    return (
         f"autobuild: step {step['id']} — {step['title']}\n\n"
         "Built and verified on iOS + Android simulators (demo flavor) by the "
         "autobuild runner.\n\n"
         "Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
     )
-    c = git("commit", "-m", msg)
+
+
+def commit_and_push(step: dict, push: str) -> None:
+    git("add", "-A")
+    c = git("commit", "-m", _commit_message(step))
     if c.returncode != 0:
         if "nothing to commit" in (c.stdout + c.stderr):
             log("…nothing to commit (step made no file changes?)")
             return
         log(f"⚠ commit failed: {c.stderr.strip()}")
         return
-    if PUSH == "off":
+    if push == "off":
+        log("…committed (push disabled)")
         return
-    if PUSH == "main":
+    if push == "main":
         p = git("push", "origin", "main")
-    elif PUSH.startswith("branch:"):
-        p = git("push", "origin", f"HEAD:{PUSH.split(':', 1)[1]}")
+    elif push.startswith("branch:"):
+        p = git("push", "origin", f"HEAD:{push.split(':', 1)[1]}")
     else:
-        log(f"⚠ unknown AUTOBUILD_PUSH={PUSH!r}; skipping push")
+        log(f"⚠ unknown push target {push!r}; committed but not pushed")
         return
-    log("…pushed" if p.returncode == 0 else f"⚠ push failed: {p.stderr.strip()}")
+    log("…committed + pushed" if p.returncode == 0 else f"⚠ push failed: {p.stderr.strip()}")
+
+
+def dry_run_report(step: dict, push: str) -> None:
+    """Show what a real run WOULD commit — without touching git."""
+    log("🧪 DRY RUN — not committing or pushing. Working-tree changes:")
+    status = git("status", "--short").stdout.rstrip()
+    print(status or "  (no file changes)")
+    stat = git("diff", "--stat").stdout.rstrip()
+    if stat:
+        print(stat)
+    log(f"Would commit as: {_commit_message(step).splitlines()[0]!r}")
+    log("Would push to: (disabled in dry-run)" if push == "off" else f"Would push to: {push}")
 
 
 def record_needs_human(step: dict, items: list[str]) -> None:
@@ -299,15 +326,35 @@ def record_needs_human(step: dict, items: list[str]) -> None:
 # --------------------------------------------------------------------------- #
 # Main loop
 # --------------------------------------------------------------------------- #
-async def main() -> None:
+def select_step(args) -> dict | None | str:
+    """Return the step to run, None if there's nothing to do, or 'missing'."""
+    steps = parse_plan(PLAN.read_text())
+    if args.step:
+        step = next((s for s in steps if s["id"] == args.step), None)
+        if step is None:
+            return "missing"
+        if step["done"]:
+            log(f"⚠ step {args.step} is already [x] — running it anyway (requested).")
+        unmet = [d for d in step["deps"] if not is_done(d)]
+        if unmet:
+            log(f"⚠ step {args.step} has unmet deps {unmet} — proceeding because --step was explicit.")
+        return step
+    return next_step(steps)
+
+
+async def main(args) -> None:
     if not PLAN.exists():
         log(f"✗ no PROJECT_PLAN.md at {PLAN}. Run /init-app first.")
         return
 
+    push = "off" if args.no_push else PUSH
+    single = args.once or args.dry_run or bool(args.step)
+    mode = "DRY RUN" if args.dry_run else ("single-step" if single else "full loop")
     start = time.time()
     spent = 0.0
     consec_failures = 0
-    log(f"autobuild starting — model={MODEL}, budget=${TOTAL_BUDGET_USD}, push={PUSH}")
+    log(f"autobuild starting — mode={mode}, model={MODEL}, budget=${TOTAL_BUDGET_USD}, "
+        f"push={'off (dry-run)' if args.dry_run else push}")
 
     while True:
         if KILL_FILE.exists():
@@ -320,7 +367,10 @@ async def main() -> None:
             notify(f"⏹ wall-clock cap ({WALLCLOCK_HOURS}h) — halting")
             break
 
-        step = next_step(parse_plan(PLAN.read_text()))
+        step = select_step(args)
+        if step == "missing":
+            log(f"✗ no step with id {args.step!r} in PROJECT_PLAN.md")
+            break
         if step is None:
             notify("✅ autobuild complete — all plan steps are [x]")
             break
@@ -331,11 +381,15 @@ async def main() -> None:
         marker = parse_marker(res["text"]) or {}
         status = marker.get("status")
         done = is_done(step["id"])
+        verified = status == "completed" and res["subtype"] == "success" and (done or args.dry_run)
 
-        if done and status == "completed" and res["subtype"] == "success":
-            commit_and_push(step)
+        if verified:
+            if args.dry_run:
+                dry_run_report(step, push)
+            else:
+                commit_and_push(step, push)
             consec_failures = 0
-            log(f"✓ {step['id']} done — step ${res['cost']:.2f}, total ${spent:.2f}")
+            log(f"✓ {step['id']} — step ${res['cost']:.2f}, total ${spent:.2f}")
         elif status == "blocked":
             record_needs_human(step, marker.get("needs_human", []))
             notify(f"⏸ blocked at {step['id']}: {marker.get('needs_human')} "
@@ -348,13 +402,35 @@ async def main() -> None:
             if consec_failures >= MAX_CONSEC_FAILURES:
                 notify(f"✗ halting after {consec_failures} consecutive failures at {step['id']}")
                 break
+            if single:
+                log("…single-step mode — not retrying.")
+                break
             log("…retrying the same step with a fresh session")
+            continue
+
+        if single:
+            break
 
     log(f"autobuild finished — total spend ${spent:.2f}")
 
 
+def parse_args():
+    p = argparse.ArgumentParser(
+        description="Autobuild — headless autonomous runner for the Flutter app bundle.")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Run ONE step but do not commit or push; print what it would commit. "
+                        "Leaves the implemented changes in the working tree for inspection.")
+    p.add_argument("--once", action="store_true",
+                   help="Process exactly one step (commit + push as configured), then exit.")
+    p.add_argument("--step", metavar="ID",
+                   help="Target a specific step id (implies single-step; runs even if deps are unmet).")
+    p.add_argument("--no-push", action="store_true",
+                   help="Commit but never push (overrides AUTOBUILD_PUSH).")
+    return p.parse_args()
+
+
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        asyncio.run(main(parse_args()))
     except KeyboardInterrupt:
         log("interrupted by user")

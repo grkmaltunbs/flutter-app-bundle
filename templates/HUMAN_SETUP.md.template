@@ -55,14 +55,41 @@ Items that don't apply should be struck through: `- [x] ~~item~~ _(not needed)_`
 - [ ] `android/key.properties` created.
 - [ ] SHA fingerprints added to Firebase project.
 
+## Autobuild runner (optional — unattended builds)
+
+Only needed if you want Claude to implement the whole plan on its own with
+`runner/autobuild.py` (instead of running `/step` yourself). See `docs/autobuild.md`.
+
+- [ ] Python 3.10+ available (`python3 --version`).
+- [ ] **Create & activate a virtual environment, then install the SDK:**
+  ```bash
+  python3 -m venv runner/.venv
+  source runner/.venv/bin/activate        # Windows: runner\.venv\Scripts\activate
+  pip install -r runner/requirements.txt  # installs claude-agent-sdk
+  ```
+- [ ] Claude Code CLI installed + authenticated (`claude login`) — the SDK spawns it.
+- [ ] An iOS simulator and an Android emulator can boot (the runner drives both).
+- [ ] (Only if a step configures real Firebase) service-account key exported:
+      `export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json`
+- [ ] Smoke-test the wiring before a real run (no commits, leaves changes in tree):
+  ```bash
+  python3 runner/autobuild.py --dry-run
+  ```
+
 ## Project-specific items
 
 <INIT_APP_WILL_ADD_MORE_HERE>
 
 ---
 
-When all items are `[x]`, you're ready to start building:
+When all items are `[x]`, you're ready to start building — either step by step:
 
 ```
 /step
+```
+
+…or hand the whole plan to the autonomous runner (each step gets a fresh context):
+
+```
+caffeinate -i runner/.venv/bin/python runner/autobuild.py
 ```

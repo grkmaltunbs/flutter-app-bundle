@@ -126,11 +126,20 @@ Each /step builds a slice of the spec, then verifies it on the iOS and Android
 simulators against fakes (no emulators), checking every flow + dependent flows
 for bugs, exceptions, and overflow on all screen sizes.
 
-To start building:
+To start building — step by step yourself:
     /step
     /step <step-id>
     /plan-status
+
+…or hand the whole plan to the autonomous runner (set up the venv per
+HUMAN_SETUP.md → "Autobuild runner", then):
+    python3 runner/autobuild.py --dry-run    # smoke-test the wiring first
+    caffeinate -i runner/.venv/bin/python runner/autobuild.py
 ```
+
+In Stage 7, when you reach the optional "Autobuild runner" section of
+HUMAN_SETUP.md, ask whether the user wants unattended builds; if yes, walk them
+through creating the virtual environment and installing the SDK then and there.
 
 ## What you must NOT do
 - Don't add Firebase emulator setup anywhere (this bundle is fakes-only).

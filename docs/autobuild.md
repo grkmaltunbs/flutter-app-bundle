@@ -24,7 +24,12 @@ the plan is solid and the simulators work; babysit the first run.
 
 - **Claude Code CLI** installed and authenticated (`claude login`) — the SDK
   spawns it. `ANTHROPIC_API_KEY` also works for API-key auth.
-- **Python 3.10+**: `pip install -r runner/requirements.txt`
+- **Python 3.10+** in a virtual environment with the SDK installed:
+  ```bash
+  python3 -m venv runner/.venv
+  source runner/.venv/bin/activate          # Windows: runner\.venv\Scripts\activate
+  pip install -r runner/requirements.txt    # installs claude-agent-sdk
+  ```
 - **Flutter toolchain** + a booted **iOS simulator** and **Android emulator**.
 - **Dart MCP** available (`dart mcp-server` — ships with the SDK).
 - A completed `/init-app` (so `PRODUCT_SPEC.md` + `PROJECT_PLAN.md` exist).
@@ -36,9 +41,15 @@ the plan is solid and the simulators work; babysit the first run.
 
 ## Run
 
+Always run via the venv's interpreter (or `source .../activate` first).
+`caffeinate` keeps the Mac awake so the simulators keep running:
+
 ```bash
-# caffeinate keeps the Mac awake so the simulators keep running:
-caffeinate -i python3 runner/autobuild.py
+# Smoke-test the wiring FIRST — runs one step, no commit/push, prints the diff:
+runner/.venv/bin/python runner/autobuild.py --dry-run
+
+# Then the full unattended loop:
+caffeinate -i runner/.venv/bin/python runner/autobuild.py
 ```
 
 Clean stop after the current step:
@@ -49,6 +60,18 @@ touch .autobuild-stop      # delete it to resume later
 
 Progress streams to the terminal and to `autobuild.log`. Blocked items are
 appended to `AUTOBUILD_NEEDS_HUMAN.md`.
+
+### Flags
+
+| Flag | Effect |
+|------|--------|
+| `--dry-run` | Run **one** step, **no commit/push**; print what it would commit. Leaves the implemented changes in the working tree (revert with `git checkout . && git clean -fd` to re-run). |
+| `--once` | Process exactly one step (commit + push as configured), then exit — step the plan manually. |
+| `--step ID` | Target a specific step id (single-step; runs even if deps are unmet). |
+| `--no-push` | Commit but never push, regardless of `AUTOBUILD_PUSH`. |
+
+No flags = the full loop: every pending step, each in a **fresh context**,
+committing and pushing as it goes.
 
 ## Configuration (environment variables)
 
