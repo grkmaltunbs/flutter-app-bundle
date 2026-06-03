@@ -12,9 +12,11 @@ workflow — you direct, Claude Code implements.
 ├── skills/         Official Dart + Flutter skills
 └── settings.json   Permissions (allow/ask/deny lists)
 templates/          CLAUDE.md, PRODUCT_SPEC, PROJECT_PLAN, HUMAN_SETUP templates
+runner/             autobuild.py — headless autonomous build loop (Agent SDK)
 docs/
 ├── requirements-checklist.md  29-category intake coverage engine
 ├── flutter-rules.md           Primary, authoritative Flutter/Dart rules
+├── autobuild.md               Unattended autonomous builds (setup + safety)
 └── lessons-learned.md         Known pitfalls and fixes
 ```
 
@@ -48,6 +50,15 @@ docs/
    /step auth      # implement a specific step by id
    /plan-status    # see progress
    ```
+
+5. **Or build the whole plan unattended** with the Agent SDK runner:
+   ```bash
+   pip install -r runner/requirements.txt
+   caffeinate -i python3 runner/autobuild.py   # touch .autobuild-stop to halt
+   ```
+   It runs `/step` end-to-end for every pending step — implement, test, verify on
+   the iOS + Android simulators, commit, push — stopping only when done, blocked
+   on a human-only task, or a guardrail/budget trips. See `docs/autobuild.md`.
 
 ## Commands
 

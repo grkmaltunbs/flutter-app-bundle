@@ -1,3 +1,10 @@
 .DS_Store
 *.swp
 *~
+
+# Autobuild runner — generated at runtime in the target project
+autobuild.log
+.autobuild-stop
+AUTOBUILD_NEEDS_HUMAN.md
+runner/__pycache__/
+runner/.venv/

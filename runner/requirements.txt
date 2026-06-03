@@ -1,0 +1,4 @@
+# Autobuild runner dependencies (Python 3.10+).
+# The Agent SDK spawns the Claude Code CLI under the hood, so the `claude`
+# binary must also be installed and authenticated (see docs/autobuild.md).
+claude-agent-sdk>=0.1.0
