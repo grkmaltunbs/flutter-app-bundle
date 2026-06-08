@@ -1,70 +1,206 @@
 {
   "@@locale": "en",
+
   "appTitle": "101 Okey Açar Mı",
   "@appTitle": {
-    "description": "The application title shown on the home screen and stores."
+    "description": "The application title shown on stores and the MaterialApp."
   },
-  "homeGreeting": "Açar mı? Find out at a glance.",
-  "@homeGreeting": {
-    "description": "Greeting line shown on the home stub screen."
-  },
-
-  "galleryThemeLabel": "Theme",
-  "@galleryThemeLabel": {
-    "description": "Label for the theme picker row in the design gallery."
-  },
-  "galleryThemeLight": "Light",
-  "galleryThemeDark": "Dark",
-  "galleryThemeSystem": "System",
-  "galleryThemeFelt": "Felt",
-
-  "galleryTileStyleLabel": "Tile style",
-  "@galleryTileStyleLabel": {
-    "description": "Label for the tile-style picker row in the design gallery."
-  },
-  "galleryTileStyleClassic": "Classic",
-  "galleryTileStyleFlat": "Flat",
-  "galleryTileStyleMinimal": "Minimal",
-  "galleryTileStyleBold": "Bold",
-
-  "galleryAccentLabel": "Accent",
-  "@galleryAccentLabel": {
-    "description": "Label for the accent picker row in the design gallery."
-  },
-  "galleryAccentSage": "Sage",
-  "galleryAccentCoral": "Coral",
-  "galleryAccentIndigo": "Indigo",
-  "galleryAccentAmber": "Amber",
-
-  "gallerySectionRack101": "Rack — 101 (21 tiles)",
-  "@gallerySectionRack101": {
-    "description": "Section header above the 21-tile rack sample."
-  },
-  "gallerySectionRackOkey": "Rack — Okey (14 tiles)",
-  "@gallerySectionRackOkey": {
-    "description": "Section header above the 14-tile rack sample."
-  },
-  "gallerySectionMelds": "Melds",
-  "@gallerySectionMelds": {
-    "description": "Section header above the meld samples."
-  },
-  "gallerySectionTileStyles": "Tile styles",
-  "@gallerySectionTileStyles": {
-    "description": "Section header above the four tile-style swatches."
-  },
-  "gallerySectionComponents": "Components",
-  "@gallerySectionComponents": {
-    "description": "Section header above pills and buttons."
+  "commonBack": "Back",
+  "@commonBack": {
+    "description": "Accessibility label for back buttons."
   },
 
-  "galleryMeldRunLabel": "Run · blue",
-  "galleryMeldSetLabel": "Set · 7s",
-  "galleryPillReady": "Ready",
-  "galleryPillOpens": "Opens",
-  "galleryPillCloses": "Closes",
-  "galleryButtonPrimary": "Solve",
-  "galleryButtonSecondary": "Retake",
-  "galleryButtonAccent": "Pick indicator",
+  "navHome": "Home",
+  "@navHome": {
+    "description": "Bottom navigation label for the Home tab."
+  },
+  "navHistory": "History",
+  "@navHistory": {
+    "description": "Bottom navigation label for the History tab."
+  },
+  "navSettings": "Settings",
+  "@navSettings": {
+    "description": "Bottom navigation label for the Settings tab."
+  },
+
+  "splashEyebrow": "101 OKEY · SCANNER",
+  "@splashEyebrow": {
+    "description": "Eyebrow above the splash wordmark."
+  },
+  "splashHeadline": "Açar mı?",
+  "@splashHeadline": {
+    "description": "The serif brand headline on the splash screen (kept in Turkish)."
+  },
+  "splashSubhead": "Find out at a glance.",
+  "@splashSubhead": {
+    "description": "The muted serif subhead under the splash headline."
+  },
+  "splashBody": "Snap your rack. We detect every tile and lay out your best play in seconds.",
+  "@splashBody": {
+    "description": "Supporting body copy on the splash screen."
+  },
+  "splashContinue": "Get started",
+  "@splashContinue": {
+    "description": "Primary CTA on splash that leads to the login screen."
+  },
+  "splashGuest": "Continue as guest",
+  "@splashGuest": {
+    "description": "Secondary CTA on splash that enters the app as a guest."
+  },
+
+  "homeEyebrow": "AÇAR MI?",
+  "@homeEyebrow": {
+    "description": "Eyebrow at the top of the Home screen (kept in Turkish)."
+  },
+  "homeGreetingLine1": "Hello,",
+  "@homeGreetingLine1": {
+    "description": "First line of the Home greeting."
+  },
+  "homeGreetingLine2": "shall we play?",
+  "@homeGreetingLine2": {
+    "description": "Second (muted) line of the Home greeting."
+  },
+  "homeHelpSemantics": "How it works",
+  "@homeHelpSemantics": {
+    "description": "Accessibility label for the Home help button (opens tutorial)."
+  },
+  "homeGameModeLabel": "GAME MODE",
+  "@homeGameModeLabel": {
+    "description": "Eyebrow above the game-mode chooser."
+  },
+  "gameMode101Title": "101 Okey",
+  "@gameMode101Title": {
+    "description": "Title of the 101 Okey game-mode option."
+  },
+  "gameMode101Sub": "Open with 101",
+  "@gameMode101Sub": {
+    "description": "Subtitle of the 101 Okey game-mode option."
+  },
+  "gameModeOkeyTitle": "Okey",
+  "@gameModeOkeyTitle": {
+    "description": "Title of the plain Okey game-mode option."
+  },
+  "gameModeOkeySub": "Classic",
+  "@gameModeOkeySub": {
+    "description": "Subtitle of the plain Okey game-mode option."
+  },
+  "homeScanEyebrow": "NEW SCAN",
+  "@homeScanEyebrow": {
+    "description": "Eyebrow inside the primary scan call-to-action card."
+  },
+  "homeScanTitle": "Snap the rack.",
+  "@homeScanTitle": {
+    "description": "Serif title inside the primary scan call-to-action card."
+  },
+  "homeScanBody": "Detect every tile — we'll find your best play.",
+  "@homeScanBody": {
+    "description": "Supporting copy inside the scan call-to-action card."
+  },
+  "homeScanSemantics": "Scan a new rack",
+  "@homeScanSemantics": {
+    "description": "Accessibility label for the scan call-to-action card."
+  },
+  "homeLastScanLabel": "LAST SCAN",
+  "@homeLastScanLabel": {
+    "description": "Eyebrow above the last-scan card on Home."
+  },
+  "homeSeeAll": "See all →",
+  "@homeSeeAll": {
+    "description": "Link that opens the History tab from Home."
+  },
+  "homeEmptyTitle": "No scans yet",
+  "@homeEmptyTitle": {
+    "description": "Empty-state title shown when there is no scan history."
+  },
+  "homeEmptyBody": "Scan your first rack to see your best opening.",
+  "@homeEmptyBody": {
+    "description": "Empty-state body shown when there is no scan history."
+  },
+
+  "tutorialEyebrow": "HOW IT WORKS",
+  "@tutorialEyebrow": {
+    "description": "Eyebrow at the top of the tutorial screen."
+  },
+  "tutorialTitle": "Three steps, the right move.",
+  "@tutorialTitle": {
+    "description": "Serif title of the tutorial screen."
+  },
+  "tutorialStep1Title": "Snap the rack",
+  "tutorialStep1Body": "Hold your phone above the rack so every tile is visible to the camera.",
+  "tutorialStep2Title": "AI does the rest",
+  "tutorialStep2Body": "Color and number are detected in seconds. Tap any tile to fix mistakes.",
+  "tutorialStep3Title": "Best arrangement",
+  "tutorialStep3Body": "Our solver finds sets and runs, and tells you if you can open with 101.",
+  "tutorialExampleEyebrow": "EXAMPLE",
+  "@tutorialExampleEyebrow": {
+    "description": "Eyebrow above the worked example on the tutorial screen."
+  },
+  "tutorialExampleIntro": "This rack opens with 101:",
+  "tutorialMeldSetLabel": "SET · 4 COLORS",
+  "tutorialMeldRunLabel": "RUN · 5 TILES",
+  "tutorialTotalLabel": "TOTAL",
+  "tutorialTotalValue": "83 + joker = 101 ✓",
+  "@tutorialTotalValue": {
+    "description": "The worked-example total line on the tutorial screen."
+  },
+  "tutorialDone": "Got it",
+  "@tutorialDone": {
+    "description": "Button that dismisses the tutorial."
+  },
+
+  "settingsEyebrow": "SETTINGS",
+  "settingsTitle": "Settings",
+  "settingsAppearanceLabel": "APPEARANCE",
+  "settingsThemeLabel": "Theme",
+  "settingsThemeLight": "Light",
+  "settingsThemeDark": "Dark",
+  "settingsThemeSystem": "System",
+  "settingsThemeFelt": "Felt",
+  "settingsTileStyleLabel": "Tile style",
+  "settingsTileStyleClassic": "Classic",
+  "settingsTileStyleFlat": "Flat",
+  "settingsTileStyleMinimal": "Minimal",
+  "settingsTileStyleBold": "Bold",
+  "settingsAccentLabel": "Accent",
+  "settingsAccentSage": "Sage",
+  "settingsAccentCoral": "Coral",
+  "settingsAccentIndigo": "Indigo",
+  "settingsAccentAmber": "Amber",
+  "settingsLanguageLabel": "Language",
+  "settingsLanguageSystem": "System",
+  "settingsLanguageTurkish": "Türkçe",
+  "settingsLanguageEnglish": "English",
+  "settingsGameLabel": "GAME",
+  "settingsDefaultModeLabel": "Default mode",
+  "settingsAccountLabel": "ACCOUNT",
+  "settingsAboutLabel": "ABOUT",
+  "settingsVersionLabel": "Version",
+  "settingsVersionValue": "1.0.0",
+  "settingsComingSoon": "Coming soon",
+  "@settingsComingSoon": {
+    "description": "Placeholder text for settings rows not yet implemented."
+  },
+
+  "historyEyebrow": "HISTORY",
+  "historyTitle": "Your scans",
+  "historyEmptyTitle": "No scans yet",
+  "historyEmptyBody": "Racks you scan will show up here.",
+  "historyEmptyCta": "Scan now",
+
+  "placeholderComingSoon": "Coming soon",
+  "@placeholderComingSoon": {
+    "description": "Headline on placeholder screens for features not yet built."
+  },
+  "placeholderBody": "This screen is on the way.",
+  "@placeholderBody": {
+    "description": "Body on placeholder screens for features not yet built."
+  },
+  "screenLoginTitle": "Sign in",
+  "screenCameraTitle": "Camera",
+  "screenAnalyzingTitle": "Analyzing",
+  "screenReviewTitle": "Review",
+  "screenResultTitle": "Result",
+  "screenPaywallTitle": "Premium",
 
   "tileSemantics": "{color} {number}",
   "@tileSemantics": {

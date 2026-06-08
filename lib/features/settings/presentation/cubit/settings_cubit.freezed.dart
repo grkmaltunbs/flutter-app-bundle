@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$SettingsState {
 
- ThemeChoice get themeChoice; TileStyle get tileStyle; AppAccent get accent;
+ ThemeChoice get themeChoice; TileStyle get tileStyle; AppAccent get accent; AppLanguage get language; GameMode get gameMode;
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $SettingsStateCopyWith<SettingsState> get copyWith => _$SettingsStateCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SettingsState&&(identical(other.themeChoice, themeChoice) || other.themeChoice == themeChoice)&&(identical(other.tileStyle, tileStyle) || other.tileStyle == tileStyle)&&(identical(other.accent, accent) || other.accent == accent));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SettingsState&&(identical(other.themeChoice, themeChoice) || other.themeChoice == themeChoice)&&(identical(other.tileStyle, tileStyle) || other.tileStyle == tileStyle)&&(identical(other.accent, accent) || other.accent == accent)&&(identical(other.language, language) || other.language == language)&&(identical(other.gameMode, gameMode) || other.gameMode == gameMode));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,themeChoice,tileStyle,accent);
+int get hashCode => Object.hash(runtimeType,themeChoice,tileStyle,accent,language,gameMode);
 
 @override
 String toString() {
-  return 'SettingsState(themeChoice: $themeChoice, tileStyle: $tileStyle, accent: $accent)';
+  return 'SettingsState(themeChoice: $themeChoice, tileStyle: $tileStyle, accent: $accent, language: $language, gameMode: $gameMode)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $SettingsStateCopyWith<$Res>  {
   factory $SettingsStateCopyWith(SettingsState value, $Res Function(SettingsState) _then) = _$SettingsStateCopyWithImpl;
 @useResult
 $Res call({
- ThemeChoice themeChoice, TileStyle tileStyle, AppAccent accent
+ ThemeChoice themeChoice, TileStyle tileStyle, AppAccent accent, AppLanguage language, GameMode gameMode
 });
 
 
@@ -62,12 +62,14 @@ class _$SettingsStateCopyWithImpl<$Res>
 
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? themeChoice = null,Object? tileStyle = null,Object? accent = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? themeChoice = null,Object? tileStyle = null,Object? accent = null,Object? language = null,Object? gameMode = null,}) {
   return _then(_self.copyWith(
 themeChoice: null == themeChoice ? _self.themeChoice : themeChoice // ignore: cast_nullable_to_non_nullable
 as ThemeChoice,tileStyle: null == tileStyle ? _self.tileStyle : tileStyle // ignore: cast_nullable_to_non_nullable
 as TileStyle,accent: null == accent ? _self.accent : accent // ignore: cast_nullable_to_non_nullable
-as AppAccent,
+as AppAccent,language: null == language ? _self.language : language // ignore: cast_nullable_to_non_nullable
+as AppLanguage,gameMode: null == gameMode ? _self.gameMode : gameMode // ignore: cast_nullable_to_non_nullable
+as GameMode,
   ));
 }
 
@@ -152,10 +154,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ThemeChoice themeChoice,  TileStyle tileStyle,  AppAccent accent)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ThemeChoice themeChoice,  TileStyle tileStyle,  AppAccent accent,  AppLanguage language,  GameMode gameMode)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SettingsState() when $default != null:
-return $default(_that.themeChoice,_that.tileStyle,_that.accent);case _:
+return $default(_that.themeChoice,_that.tileStyle,_that.accent,_that.language,_that.gameMode);case _:
   return orElse();
 
 }
@@ -173,10 +175,10 @@ return $default(_that.themeChoice,_that.tileStyle,_that.accent);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ThemeChoice themeChoice,  TileStyle tileStyle,  AppAccent accent)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ThemeChoice themeChoice,  TileStyle tileStyle,  AppAccent accent,  AppLanguage language,  GameMode gameMode)  $default,) {final _that = this;
 switch (_that) {
 case _SettingsState():
-return $default(_that.themeChoice,_that.tileStyle,_that.accent);case _:
+return $default(_that.themeChoice,_that.tileStyle,_that.accent,_that.language,_that.gameMode);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -193,10 +195,10 @@ return $default(_that.themeChoice,_that.tileStyle,_that.accent);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ThemeChoice themeChoice,  TileStyle tileStyle,  AppAccent accent)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ThemeChoice themeChoice,  TileStyle tileStyle,  AppAccent accent,  AppLanguage language,  GameMode gameMode)?  $default,) {final _that = this;
 switch (_that) {
 case _SettingsState() when $default != null:
-return $default(_that.themeChoice,_that.tileStyle,_that.accent);case _:
+return $default(_that.themeChoice,_that.tileStyle,_that.accent,_that.language,_that.gameMode);case _:
   return null;
 
 }
@@ -208,12 +210,14 @@ return $default(_that.themeChoice,_that.tileStyle,_that.accent);case _:
 
 
 class _SettingsState implements SettingsState {
-  const _SettingsState({required this.themeChoice, required this.tileStyle, required this.accent});
+  const _SettingsState({required this.themeChoice, required this.tileStyle, required this.accent, required this.language, required this.gameMode});
   
 
 @override final  ThemeChoice themeChoice;
 @override final  TileStyle tileStyle;
 @override final  AppAccent accent;
+@override final  AppLanguage language;
+@override final  GameMode gameMode;
 
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
@@ -225,16 +229,16 @@ _$SettingsStateCopyWith<_SettingsState> get copyWith => __$SettingsStateCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SettingsState&&(identical(other.themeChoice, themeChoice) || other.themeChoice == themeChoice)&&(identical(other.tileStyle, tileStyle) || other.tileStyle == tileStyle)&&(identical(other.accent, accent) || other.accent == accent));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SettingsState&&(identical(other.themeChoice, themeChoice) || other.themeChoice == themeChoice)&&(identical(other.tileStyle, tileStyle) || other.tileStyle == tileStyle)&&(identical(other.accent, accent) || other.accent == accent)&&(identical(other.language, language) || other.language == language)&&(identical(other.gameMode, gameMode) || other.gameMode == gameMode));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,themeChoice,tileStyle,accent);
+int get hashCode => Object.hash(runtimeType,themeChoice,tileStyle,accent,language,gameMode);
 
 @override
 String toString() {
-  return 'SettingsState(themeChoice: $themeChoice, tileStyle: $tileStyle, accent: $accent)';
+  return 'SettingsState(themeChoice: $themeChoice, tileStyle: $tileStyle, accent: $accent, language: $language, gameMode: $gameMode)';
 }
 
 
@@ -245,7 +249,7 @@ abstract mixin class _$SettingsStateCopyWith<$Res> implements $SettingsStateCopy
   factory _$SettingsStateCopyWith(_SettingsState value, $Res Function(_SettingsState) _then) = __$SettingsStateCopyWithImpl;
 @override @useResult
 $Res call({
- ThemeChoice themeChoice, TileStyle tileStyle, AppAccent accent
+ ThemeChoice themeChoice, TileStyle tileStyle, AppAccent accent, AppLanguage language, GameMode gameMode
 });
 
 
@@ -262,12 +266,14 @@ class __$SettingsStateCopyWithImpl<$Res>
 
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? themeChoice = null,Object? tileStyle = null,Object? accent = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? themeChoice = null,Object? tileStyle = null,Object? accent = null,Object? language = null,Object? gameMode = null,}) {
   return _then(_SettingsState(
 themeChoice: null == themeChoice ? _self.themeChoice : themeChoice // ignore: cast_nullable_to_non_nullable
 as ThemeChoice,tileStyle: null == tileStyle ? _self.tileStyle : tileStyle // ignore: cast_nullable_to_non_nullable
 as TileStyle,accent: null == accent ? _self.accent : accent // ignore: cast_nullable_to_non_nullable
-as AppAccent,
+as AppAccent,language: null == language ? _self.language : language // ignore: cast_nullable_to_non_nullable
+as AppLanguage,gameMode: null == gameMode ? _self.gameMode : gameMode // ignore: cast_nullable_to_non_nullable
+as GameMode,
   ));
 }
 

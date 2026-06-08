@@ -101,7 +101,7 @@ from them.
 ---
 
 ## Step 2 — App shell, routing, navigation & localization
-- [ ]
+- [x]
 - id: app-shell
 - depends_on: design-system
 - spec_refs: flow-onboard, screen-splash, screen-home (shell), screen-tutorial, Localization

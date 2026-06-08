@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:okey_acar_mi/app.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
+import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
 
 /// End-to-end boot smoke for the demo flavor.
 ///
@@ -21,12 +22,14 @@ void main() {
     setUp(() async => configureDependencies('demo'));
     tearDown(() async => getIt.reset());
 
-    testWidgets('launches to the home stub with no exceptions', (tester) async {
+    testWidgets('launches to the splash entry with no exceptions', (
+      tester,
+    ) async {
       await tester.pumpWidget(const App());
       await tester.pumpAndSettle();
 
       check(tester.takeException()).isNull();
-      check(find.text('101 Okey Açar Mı').evaluate()).length.equals(1);
+      check(find.byType(SplashPage).evaluate()).length.equals(1);
     });
   });
 }

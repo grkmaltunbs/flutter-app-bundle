@@ -15,7 +15,36 @@ enum ThemeChoice {
   felt,
 }
 
-/// Immutable settings state driving theming and the tile kit.
+/// The app language the user has selected, or follow the platform.
+enum AppLanguage {
+  /// Follow the device locale (resolved against the supported locales).
+  system,
+
+  /// Force Turkish.
+  turkish,
+
+  /// Force English.
+  english
+  ;
+
+  /// The [Locale] to force on `MaterialApp`, or null to follow the platform.
+  Locale? get locale => switch (this) {
+    AppLanguage.system => null,
+    AppLanguage.turkish => const Locale('tr'),
+    AppLanguage.english => const Locale('en'),
+  };
+}
+
+/// The game the scan loop targets; drives the solver and result presentation.
+enum GameMode {
+  /// 101 Okey — open by laying down sets/runs totaling ≥101 (or five pairs).
+  oneZeroOne,
+
+  /// Plain Okey — complete a winning hand; output tiles-to-win.
+  okey,
+}
+
+/// Immutable settings state driving theming, the tile kit, language, and mode.
 @freezed
 abstract class SettingsState with _$SettingsState {
   /// Creates a [SettingsState].
@@ -23,12 +52,17 @@ abstract class SettingsState with _$SettingsState {
     required ThemeChoice themeChoice,
     required TileStyle tileStyle,
     required AppAccent accent,
+    required AppLanguage language,
+    required GameMode gameMode,
   }) = _SettingsState;
 
-  /// The initial settings: follow the system theme, classic tiles, sage accent.
+  /// The initial settings: follow the system theme + language, classic tiles,
+  /// sage accent, 101 mode.
   factory SettingsState.initial() => const SettingsState(
     themeChoice: ThemeChoice.system,
     tileStyle: TileStyle.classic,
     accent: AppAccent.sage,
+    language: AppLanguage.system,
+    gameMode: GameMode.oneZeroOne,
   );
 }

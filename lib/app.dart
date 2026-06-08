@@ -31,6 +31,14 @@ class _AppView extends StatelessWidget {
   Widget build(BuildContext context) {
     final router = getIt<AppRouter>();
     return BlocBuilder<SettingsCubit, SettingsState>(
+      // gameMode affects neither theme nor locale; rebuilding (and recomputing
+      // every ThemeData) on a mode toggle is wasted work. Per the >3-field
+      // rule, scope rebuilds to the fields this builder actually reads.
+      buildWhen: (a, b) =>
+          a.themeChoice != b.themeChoice ||
+          a.tileStyle != b.tileStyle ||
+          a.accent != b.accent ||
+          a.language != b.language,
       builder: (context, settings) {
         final accent = settings.accent;
         final tileStyle = settings.tileStyle;
@@ -56,10 +64,13 @@ class _AppView extends StatelessWidget {
         }
 
         return MaterialApp.router(
-          title: '101 Okey Açar Mı',
+          onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
+          restorationScopeId: 'app',
           theme: theme,
           darkTheme: darkTheme,
           themeMode: themeMode,
+          // null ⇒ follow the platform locale (resolved vs supportedLocales).
+          locale: settings.language.locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: const [Locale('tr'), Locale('en')],
           routerConfig: router.config,

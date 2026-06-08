@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:okey_acar_mi/app.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/env/app_env.dart';
+import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
 
 void main() {
   group('AppEnv', () {
@@ -17,12 +18,13 @@ void main() {
     setUp(() async => configureDependencies('demo'));
     tearDown(() async => getIt.reset());
 
-    testWidgets('boots to the home stub showing the app title', (tester) async {
+    testWidgets('boots to the splash entry with no exceptions', (tester) async {
       await tester.pumpWidget(const App());
       await tester.pumpAndSettle();
 
       check(tester.takeException()).isNull();
-      check(find.text('101 Okey Açar Mı').evaluate()).length.equals(1);
+      // Boots to the splash brand entry (initialLocation) rather than crashing.
+      check(find.byType(SplashPage).evaluate()).length.equals(1);
     });
   });
 }
