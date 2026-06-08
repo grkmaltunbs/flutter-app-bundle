@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:okey_acar_mi/core/theme/app_palette.dart';
 import 'package:okey_acar_mi/l10n/app_localizations.dart';
 
 /// Ergonomic accessors on [BuildContext] for theme, localizations, and size.
 extension ContextExtensions on BuildContext {
   /// The active [ColorScheme].
   ColorScheme get colors => Theme.of(this).colorScheme;
+
+  /// The active design [AppPalette] (brand tokens + tile style).
+  ///
+  /// Non-null because [AppPalette] is always registered as a theme extension
+  /// by every `AppTheme` builder.
+  AppPalette get palette => Theme.of(this).extension<AppPalette>()!;
 
   /// The active [TextTheme].
   TextTheme get textTheme => Theme.of(this).textTheme;

@@ -1,5 +1,45 @@
 {
   "@@locale": "tr",
   "appTitle": "101 Okey Açar Mı",
-  "homeGreeting": "Açar mı? Bir bakışta öğren."
+  "homeGreeting": "Açar mı? Bir bakışta öğren.",
+
+  "galleryThemeLabel": "Tema",
+  "galleryThemeLight": "Açık",
+  "galleryThemeDark": "Koyu",
+  "galleryThemeSystem": "Sistem",
+  "galleryThemeFelt": "Masa",
+
+  "galleryTileStyleLabel": "Taş stili",
+  "galleryTileStyleClassic": "Klasik",
+  "galleryTileStyleFlat": "Düz",
+  "galleryTileStyleMinimal": "Sade",
+  "galleryTileStyleBold": "Kalın",
+
+  "galleryAccentLabel": "Vurgu",
+  "galleryAccentSage": "Adaçayı",
+  "galleryAccentCoral": "Mercan",
+  "galleryAccentIndigo": "Çivit",
+  "galleryAccentAmber": "Kehribar",
+
+  "gallerySectionRack101": "Istaka — 101 (21 taş)",
+  "gallerySectionRackOkey": "Istaka — Okey (14 taş)",
+  "gallerySectionMelds": "Perler",
+  "gallerySectionTileStyles": "Taş stilleri",
+  "gallerySectionComponents": "Bileşenler",
+
+  "galleryMeldRunLabel": "Seri · mavi",
+  "galleryMeldSetLabel": "Küp · 7'liler",
+  "galleryPillReady": "Hazır",
+  "galleryPillOpens": "Açar",
+  "galleryPillCloses": "Açmaz",
+  "galleryButtonPrimary": "Çöz",
+  "galleryButtonSecondary": "Tekrar çek",
+  "galleryButtonAccent": "Gösterge seç",
+
+  "tileSemantics": "{color} {number}",
+  "jokerSemantics": "Okey",
+  "tileColorRed": "Kırmızı",
+  "tileColorBlack": "Siyah",
+  "tileColorYellow": "Sarı",
+  "tileColorBlue": "Mavi"
 }

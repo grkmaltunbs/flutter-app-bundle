@@ -25,6 +25,8 @@ import 'package:okey_acar_mi/features/_template/domain/usecases/get_template_ite
     as _i1033;
 import 'package:okey_acar_mi/features/_template/presentation/blocs/template_bloc.dart'
     as _i60;
+import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart'
+    as _i997;
 
 const String _demo = 'demo';
 const String _prod = 'prod';
@@ -36,6 +38,7 @@ extension GetItInjectableX on _i174.GetIt {
     _i526.EnvironmentFilter? environmentFilter,
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
+    gh.factory<_i997.SettingsCubit>(() => _i997.SettingsCubit());
     gh.lazySingleton<_i856.AppLogger>(() => _i856.AppLogger());
     gh.lazySingleton<_i126.AppRouter>(() => _i126.AppRouter());
     gh.lazySingleton<_i92.Clock>(

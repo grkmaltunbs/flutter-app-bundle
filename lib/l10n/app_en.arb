@@ -7,5 +7,79 @@
   "homeGreeting": "Açar mı? Find out at a glance.",
   "@homeGreeting": {
     "description": "Greeting line shown on the home stub screen."
-  }
+  },
+
+  "galleryThemeLabel": "Theme",
+  "@galleryThemeLabel": {
+    "description": "Label for the theme picker row in the design gallery."
+  },
+  "galleryThemeLight": "Light",
+  "galleryThemeDark": "Dark",
+  "galleryThemeSystem": "System",
+  "galleryThemeFelt": "Felt",
+
+  "galleryTileStyleLabel": "Tile style",
+  "@galleryTileStyleLabel": {
+    "description": "Label for the tile-style picker row in the design gallery."
+  },
+  "galleryTileStyleClassic": "Classic",
+  "galleryTileStyleFlat": "Flat",
+  "galleryTileStyleMinimal": "Minimal",
+  "galleryTileStyleBold": "Bold",
+
+  "galleryAccentLabel": "Accent",
+  "@galleryAccentLabel": {
+    "description": "Label for the accent picker row in the design gallery."
+  },
+  "galleryAccentSage": "Sage",
+  "galleryAccentCoral": "Coral",
+  "galleryAccentIndigo": "Indigo",
+  "galleryAccentAmber": "Amber",
+
+  "gallerySectionRack101": "Rack — 101 (21 tiles)",
+  "@gallerySectionRack101": {
+    "description": "Section header above the 21-tile rack sample."
+  },
+  "gallerySectionRackOkey": "Rack — Okey (14 tiles)",
+  "@gallerySectionRackOkey": {
+    "description": "Section header above the 14-tile rack sample."
+  },
+  "gallerySectionMelds": "Melds",
+  "@gallerySectionMelds": {
+    "description": "Section header above the meld samples."
+  },
+  "gallerySectionTileStyles": "Tile styles",
+  "@gallerySectionTileStyles": {
+    "description": "Section header above the four tile-style swatches."
+  },
+  "gallerySectionComponents": "Components",
+  "@gallerySectionComponents": {
+    "description": "Section header above pills and buttons."
+  },
+
+  "galleryMeldRunLabel": "Run · blue",
+  "galleryMeldSetLabel": "Set · 7s",
+  "galleryPillReady": "Ready",
+  "galleryPillOpens": "Opens",
+  "galleryPillCloses": "Closes",
+  "galleryButtonPrimary": "Solve",
+  "galleryButtonSecondary": "Retake",
+  "galleryButtonAccent": "Pick indicator",
+
+  "tileSemantics": "{color} {number}",
+  "@tileSemantics": {
+    "description": "Accessibility label for a numbered tile.",
+    "placeholders": {
+      "color": { "type": "String", "example": "Red" },
+      "number": { "type": "int", "example": "7" }
+    }
+  },
+  "jokerSemantics": "Joker",
+  "@jokerSemantics": {
+    "description": "Accessibility label for the joker (okey) tile."
+  },
+  "tileColorRed": "Red",
+  "tileColorBlack": "Black",
+  "tileColorYellow": "Yellow",
+  "tileColorBlue": "Blue"
 }

@@ -72,7 +72,7 @@ Set up the Flutter project scaffolding. `/init-app` already ran
 ---
 
 ## Step 1 — Design system, theming & the Tile/Rack kit
-- [ ]
+- [x]
 - id: design-system
 - depends_on: bootstrap
 - spec_refs: NFR (responsive/a11y), Theming, Design reference

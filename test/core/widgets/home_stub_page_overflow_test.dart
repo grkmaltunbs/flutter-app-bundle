@@ -1,7 +1,12 @@
 import 'package:checks/checks.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:okey_acar_mi/core/theme/app_accent.dart';
+import 'package:okey_acar_mi/core/theme/app_theme.dart';
+import 'package:okey_acar_mi/core/theme/tile_style.dart';
 import 'package:okey_acar_mi/core/widgets/home_stub_page.dart';
+import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:okey_acar_mi/l10n/app_localizations.dart';
 
 /// Responsive size matrix from `CLAUDE.md`: smallest phone, typical phone,
@@ -17,23 +22,29 @@ const _matrix = <Size>[
 
 const _textScales = <double>[1, 2];
 
-/// Wraps the screen under test with the theme + localization ancestry it needs
-/// (`context.textTheme`, `context.l10n`) and the matrix [size]/[textScale],
-/// without a fixed-size `MaterialApp` view that could mask an overflow.
+/// Wraps the screen under test with the theme + localization + settings
+/// ancestry it needs (`context.textTheme`, `context.l10n`, `context.palette`,
+/// and a [SettingsCubit] for the live controls) and the matrix
+/// [size]/[textScale], without a fixed-size `MaterialApp` view that could mask
+/// an overflow.
 Widget _harness({
   required Size size,
   required double textScale,
   required Widget child,
 }) {
   return MaterialApp(
+    theme: AppTheme.light(AppAccent.sage, TileStyle.classic),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: const [Locale('tr'), Locale('en')],
-    home: MediaQuery(
-      data: MediaQueryData(
-        size: size,
-        textScaler: TextScaler.linear(textScale),
+    home: BlocProvider<SettingsCubit>(
+      create: (_) => SettingsCubit(),
+      child: MediaQuery(
+        data: MediaQueryData(
+          size: size,
+          textScaler: TextScaler.linear(textScale),
+        ),
+        child: child,
       ),
-      child: child,
     ),
   );
 }
