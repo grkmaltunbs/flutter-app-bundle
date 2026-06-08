@@ -1,0 +1,11 @@
+{
+  "@@locale": "en",
+  "appTitle": "101 Okey Açar Mı",
+  "@appTitle": {
+    "description": "The application title shown on the home screen and stores."
+  },
+  "homeGreeting": "Açar mı? Find out at a glance.",
+  "@homeGreeting": {
+    "description": "Greeting line shown on the home stub screen."
+  }
+}

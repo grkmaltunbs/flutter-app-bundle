@@ -1,0 +1,2884 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>101 Okey · Açar mı?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>/* ─────────────────────────────────────────────────────────────
+   101 Okey Açar Mı? — design tokens + base styles
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* surface */
+  --bg: oklch(0.98 0.005 80);
+  --surface: #ffffff;
+  --surface-2: oklch(0.96 0.005 80);
+  --surface-3: oklch(0.93 0.006 80);
+
+  /* ink */
+  --ink: oklch(0.18 0.01 80);
+  --ink-2: oklch(0.32 0.01 80);
+  --muted: oklch(0.55 0.01 80);
+  --faint: oklch(0.72 0.008 80);
+
+  /* line */
+  --line: oklch(0.92 0.005 80);
+  --line-2: oklch(0.88 0.006 80);
+
+  /* accent (tweakable) */
+  --accent: oklch(0.55 0.13 165);
+  --accent-soft: color-mix(in oklab, var(--accent) 14%, var(--bg));
+  --accent-ink: color-mix(in oklab, var(--accent) 80%, black 40%);
+
+  /* okey tile colors — official 4 + joker */
+  --tile-red: oklch(0.56 0.18 25);
+  --tile-black: oklch(0.22 0.01 240);
+  --tile-yellow: oklch(0.74 0.15 85);
+  --tile-blue: oklch(0.48 0.14 250);
+  --tile-face: oklch(0.96 0.014 80);
+  --tile-face-edge: oklch(0.88 0.018 80);
+
+  /* feedback */
+  --good: oklch(0.62 0.14 150);
+  --warn: oklch(0.7 0.15 60);
+  --bad: oklch(0.6 0.18 25);
+
+  /* shape */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+
+  /* fonts */
+  --sans: 'Geist', -apple-system, system-ui, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+  --serif: 'Instrument Serif', 'Times New Roman', serif;
+}
+
+/* dark */
+[data-theme="dark"] {
+  --bg: oklch(0.16 0.005 80);
+  --surface: oklch(0.20 0.006 80);
+  --surface-2: oklch(0.23 0.006 80);
+  --surface-3: oklch(0.27 0.006 80);
+  --ink: oklch(0.96 0.005 80);
+  --ink-2: oklch(0.85 0.006 80);
+  --muted: oklch(0.62 0.008 80);
+  --faint: oklch(0.45 0.008 80);
+  --line: oklch(0.28 0.006 80);
+  --line-2: oklch(0.34 0.008 80);
+  --tile-face: oklch(0.93 0.014 80);
+  --tile-face-edge: oklch(0.84 0.018 80);
+}
+
+/* felt (table) */
+[data-theme="felt"] {
+  --bg: oklch(0.32 0.06 165);
+  --surface: oklch(0.36 0.06 165);
+  --surface-2: oklch(0.40 0.06 165);
+  --surface-3: oklch(0.44 0.06 165);
+  --ink: oklch(0.97 0.01 80);
+  --ink-2: oklch(0.90 0.01 80);
+  --muted: oklch(0.78 0.03 165);
+  --faint: oklch(0.62 0.04 165);
+  --line: oklch(0.45 0.05 165);
+  --line-2: oklch(0.52 0.05 165);
+  --tile-face: oklch(0.94 0.018 80);
+  --tile-face-edge: oklch(0.84 0.022 80);
+  --accent-soft: oklch(0.52 0.10 165);
+}
+
+/* accent is set inline via JS using --accent CSS var directly;
+   accent-soft and accent-ink are derived via color-mix in :root */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  background: #ECECEC;
+  color: var(--ink);
+}
+
+/* ─── app shell ─── */
+.app {
+  background: var(--bg);
+  color: var(--ink);
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  font-family: var(--sans);
+}
+.scroll {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll::-webkit-scrollbar { display: none; }
+
+/* ─── typography ─── */
+.serif { font-family: var(--serif); font-weight: 400; letter-spacing: -0.01em; }
+.mono { font-family: var(--mono); letter-spacing: -0.02em; }
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ─── buttons ─── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 52px; padding: 0 22px;
+  font-family: var(--sans); font-size: 16px; font-weight: 500;
+  border: none; border-radius: 100px; cursor: pointer;
+  transition: transform 0.1s, background 0.15s;
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--ink); color: var(--bg); }
+.btn-primary:hover { background: var(--ink-2); }
+.btn-secondary { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
+.btn-ghost { background: transparent; color: var(--ink); }
+.btn-accent { background: var(--accent); color: white; }
+.btn-block { width: 100%; }
+.btn-sm { height: 38px; padding: 0 16px; font-size: 14px; }
+
+/* ─── inputs ─── */
+.input {
+  width: 100%; height: 52px; padding: 0 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font-family: var(--sans); font-size: 15px; color: var(--ink);
+  outline: none; transition: border 0.15s;
+}
+.input:focus { border-color: var(--ink); }
+.input::placeholder { color: var(--faint); }
+
+/* ─── card ─── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+/* ─── tile rack ─── */
+.rack {
+  background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+  border-radius: 10px;
+  padding: 14px 12px 10px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 1px 2px rgba(0,0,0,0.04);
+  border: 1px solid var(--line-2);
+}
+[data-theme="dark"] .rack {
+  background: linear-gradient(180deg, oklch(0.26 0.012 80), oklch(0.22 0.01 80));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 1px 2px rgba(0,0,0,0.4);
+}
+[data-theme="felt"] .rack {
+  background: linear-gradient(180deg, oklch(0.45 0.04 60), oklch(0.36 0.04 60));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 6px rgba(0,0,0,0.25);
+  border-color: oklch(0.28 0.03 60);
+}
+
+/* ─── divider ─── */
+.divider { height: 1px; background: var(--line); width: 100%; }
+
+/* ─── pill ─── */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 12px;
+  border-radius: 100px;
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  background: var(--surface-2); color: var(--muted);
+  border: 1px solid var(--line);
+}
+.pill-accent { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+.pill-good { background: color-mix(in oklab, var(--good) 14%, transparent); color: var(--good); border-color: transparent; }
+.pill-bad { background: color-mix(in oklab, var(--bad) 12%, transparent); color: var(--bad); border-color: transparent; }
+
+/* ─── icon stroke ─── */
+.icn { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.icn-sm { width: 18px; height: 18px; }
+.icn-lg { width: 28px; height: 28px; }
+
+/* ─── transitions ─── */
+.fade-in { animation: fadeIn 320ms ease both; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none; } }
+
+.scale-in { animation: scaleIn 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.92);} to { opacity: 1; transform: none; } }
+
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite;
+}
+@keyframes shimmer { from { background-position: -100% 0; } to { background-position: 200% 0; } }
+
+@keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+.pulse { animation: pulse 1.6s infinite; }
+
+/* ─── status text ─── */
+.t-good { color: var(--good); }
+.t-bad { color: var(--bad); }
+.t-warn { color: var(--warn); }
+.t-muted { color: var(--muted); }
+.t-faint { color: var(--faint); }
+.t-accent { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script type="text/babel" data-presets="react">
+// ===== ios-frame.jsx =====
+
+// iOS.jsx — Simplified iOS 26 (Liquid Glass) device frame
+// Based on the iOS 26 UI Kit + Figma status bar spec. No assets, no deps.
+// Exports: IOSDevice, IOSStatusBar, IOSNavBar, IOSGlassPill, IOSList, IOSListRow, IOSKeyboard
+
+// ─────────────────────────────────────────────────────────────
+// Status bar
+// ─────────────────────────────────────────────────────────────
+function IOSStatusBar({ dark = false, time = '9:41' }) {
+  const c = dark ? '#fff' : '#000';
+  return (
+    <div style={{
+      display: 'flex', gap: 154, alignItems: 'center', justifyContent: 'center',
+      padding: '21px 24px 19px', boxSizing: 'border-box',
+      position: 'relative', zIndex: 20, width: '100%',
+    }}>
+      <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 1.5 }}>
+        <span style={{
+          fontFamily: '-apple-system, "SF Pro", system-ui', fontWeight: 590,
+          fontSize: 17, lineHeight: '22px', color: c,
+        }}>{time}</span>
+      </div>
+      <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, paddingTop: 1, paddingRight: 1 }}>
+        <svg width="19" height="12" viewBox="0 0 19 12">
+          <rect x="0" y="7.5" width="3.2" height="4.5" rx="0.7" fill={c}/>
+          <rect x="4.8" y="5" width="3.2" height="7" rx="0.7" fill={c}/>
+          <rect x="9.6" y="2.5" width="3.2" height="9.5" rx="0.7" fill={c}/>
+          <rect x="14.4" y="0" width="3.2" height="12" rx="0.7" fill={c}/>
+        </svg>
+        <svg width="17" height="12" viewBox="0 0 17 12">
+          <path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z" fill={c}/>
+          <path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z" fill={c}/>
+          <circle cx="8.5" cy="10.5" r="1.5" fill={c}/>
+        </svg>
+        <svg width="27" height="13" viewBox="0 0 27 13">
+          <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke={c} strokeOpacity="0.35" fill="none"/>
+          <rect x="2" y="2" width="20" height="9" rx="2" fill={c}/>
+          <path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill={c} fillOpacity="0.4"/>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Liquid glass pill — blur + tint + shine
+// ─────────────────────────────────────────────────────────────
+function IOSGlassPill({ children, dark = false, style = {} }) {
+  return (
+    <div style={{
+      height: 44, minWidth: 44, borderRadius: 9999,
+      position: 'relative', overflow: 'hidden',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: dark
+        ? '0 2px 6px rgba(0,0,0,0.35), 0 6px 16px rgba(0,0,0,0.2)'
+        : '0 1px 3px rgba(0,0,0,0.07), 0 3px 10px rgba(0,0,0,0.06)',
+      ...style,
+    }}>
+      {/* blur + tint */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 9999,
+        backdropFilter: 'blur(12px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+        background: dark ? 'rgba(120,120,128,0.28)' : 'rgba(255,255,255,0.5)',
+      }} />
+      {/* shine */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 9999,
+        boxShadow: dark
+          ? 'inset 1.5px 1.5px 1px rgba(255,255,255,0.15), inset -1px -1px 1px rgba(255,255,255,0.08)'
+          : 'inset 1.5px 1.5px 1px rgba(255,255,255,0.7), inset -1px -1px 1px rgba(255,255,255,0.4)',
+        border: dark ? '0.5px solid rgba(255,255,255,0.15)' : '0.5px solid rgba(0,0,0,0.06)',
+      }} />
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Navigation bar — glass pills + large title
+// ─────────────────────────────────────────────────────────────
+function IOSNavBar({ title = 'Title', dark = false, trailingIcon = true }) {
+  const muted = dark ? 'rgba(255,255,255,0.6)' : '#404040';
+  const text = dark ? '#fff' : '#000';
+  const pillIcon = (content) => (
+    <IOSGlassPill dark={dark}>
+      <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {content}
+      </div>
+    </IOSGlassPill>
+  );
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: 10,
+      paddingTop: 62, paddingBottom: 10, position: 'relative', zIndex: 5,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 16px',
+      }}>
+        {/* back chevron */}
+        {pillIcon(
+          <svg width="12" height="20" viewBox="0 0 12 20" fill="none" style={{ marginLeft: -1 }}>
+            <path d="M10 2L2 10l8 8" stroke={muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+        {/* trailing ellipsis */}
+        {trailingIcon && pillIcon(
+          <svg width="22" height="6" viewBox="0 0 22 6">
+            <circle cx="3" cy="3" r="2.5" fill={muted}/>
+            <circle cx="11" cy="3" r="2.5" fill={muted}/>
+            <circle cx="19" cy="3" r="2.5" fill={muted}/>
+          </svg>
+        )}
+      </div>
+      {/* large title */}
+      <div style={{
+        padding: '0 16px',
+        fontFamily: '-apple-system, system-ui',
+        fontSize: 34, fontWeight: 700, lineHeight: '41px',
+        color: text, letterSpacing: 0.4,
+      }}>{title}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Grouped list (inset card, r:26) + row (52px)
+// ─────────────────────────────────────────────────────────────
+function IOSListRow({ title, detail, icon, chevron = true, isLast = false, dark = false }) {
+  const text = dark ? '#fff' : '#000';
+  const sec = dark ? 'rgba(235,235,245,0.6)' : 'rgba(60,60,67,0.6)';
+  const ter = dark ? 'rgba(235,235,245,0.3)' : 'rgba(60,60,67,0.3)';
+  const sep = dark ? 'rgba(84,84,88,0.65)' : 'rgba(60,60,67,0.12)';
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', minHeight: 52,
+      padding: '0 16px', position: 'relative',
+      fontFamily: '-apple-system, system-ui', fontSize: 17,
+      letterSpacing: -0.43,
+    }}>
+      {icon && (
+        <div style={{
+          width: 30, height: 30, borderRadius: 7, background: icon,
+          marginRight: 12, flexShrink: 0,
+        }} />
+      )}
+      <div style={{ flex: 1, color: text }}>{title}</div>
+      {detail && <span style={{ color: sec, marginRight: 6 }}>{detail}</span>}
+      {chevron && (
+        <svg width="8" height="14" viewBox="0 0 8 14" style={{ flexShrink: 0 }}>
+          <path d="M1 1l6 6-6 6" stroke={ter} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
+      {!isLast && (
+        <div style={{
+          position: 'absolute', bottom: 0, right: 0,
+          left: icon ? 58 : 16, height: 0.5, background: sep,
+        }} />
+      )}
+    </div>
+  );
+}
+
+function IOSList({ header, children, dark = false }) {
+  const hc = dark ? 'rgba(235,235,245,0.6)' : 'rgba(60,60,67,0.6)';
+  const bg = dark ? '#1C1C1E' : '#fff';
+  return (
+    <div>
+      {header && (
+        <div style={{
+          fontFamily: '-apple-system, system-ui', fontSize: 13,
+          color: hc, textTransform: 'uppercase',
+          padding: '8px 36px 6px', letterSpacing: -0.08,
+        }}>{header}</div>
+      )}
+      <div style={{
+        background: bg, borderRadius: 26,
+        margin: '0 16px', overflow: 'hidden',
+      }}>{children}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Device frame
+// ─────────────────────────────────────────────────────────────
+function IOSDevice({
+  children, width = 402, height = 874, dark = false,
+  title, keyboard = false,
+}) {
+  return (
+    <div style={{
+      width, height, borderRadius: 48, overflow: 'hidden',
+      position: 'relative', background: dark ? '#000' : '#F2F2F7',
+      boxShadow: '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)',
+      fontFamily: '-apple-system, system-ui, sans-serif',
+      WebkitFontSmoothing: 'antialiased',
+    }}>
+      {/* dynamic island */}
+      <div style={{
+        position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)',
+        width: 126, height: 37, borderRadius: 24, background: '#000', zIndex: 50,
+      }} />
+      {/* status bar (absolute) */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+        <IOSStatusBar dark={dark} />
+      </div>
+      {/* nav + content */}
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {title !== undefined && <IOSNavBar title={title} dark={dark} />}
+        <div style={{ flex: 1, overflow: 'auto' }}>{children}</div>
+        {keyboard && <IOSKeyboard dark={dark} />}
+      </div>
+      {/* home indicator — always on top */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 60,
+        height: 34, display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+        paddingBottom: 8, pointerEvents: 'none',
+      }}>
+        <div style={{
+          width: 139, height: 5, borderRadius: 100,
+          background: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.25)',
+        }} />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Keyboard — iOS 26 liquid glass
+// ─────────────────────────────────────────────────────────────
+function IOSKeyboard({ dark = false }) {
+  const glyph = dark ? 'rgba(255,255,255,0.7)' : '#595959';
+  const sugg = dark ? 'rgba(255,255,255,0.6)' : '#333';
+  const keyBg = dark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.85)';
+
+  // special-key icons
+  const icons = {
+    shift: <svg width="19" height="17" viewBox="0 0 19 17"><path d="M9.5 1L1 9.5h4.5V16h8V9.5H18L9.5 1z" fill={glyph}/></svg>,
+    del: <svg width="23" height="17" viewBox="0 0 23 17"><path d="M7 1h13a2 2 0 012 2v11a2 2 0 01-2 2H7l-6-7.5L7 1z" fill="none" stroke={glyph} strokeWidth="1.6" strokeLinejoin="round"/><path d="M10 5l7 7M17 5l-7 7" stroke={glyph} strokeWidth="1.6" strokeLinecap="round"/></svg>,
+    ret: <svg width="20" height="14" viewBox="0 0 20 14"><path d="M18 1v6H4m0 0l4-4M4 7l4 4" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  };
+
+  const key = (content, { w, flex, ret, fs = 25, k } = {}) => (
+    <div key={k} style={{
+      height: 42, borderRadius: 8.5,
+      flex: flex ? 1 : undefined, width: w, minWidth: 0,
+      background: ret ? '#08f' : keyBg,
+      boxShadow: '0 1px 0 rgba(0,0,0,0.075)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: '-apple-system, "SF Compact", system-ui',
+      fontSize: fs, fontWeight: 458, color: ret ? '#fff' : glyph,
+    }}>{content}</div>
+  );
+
+  const row = (keys, pad = 0) => (
+    <div style={{ display: 'flex', gap: 6.5, justifyContent: 'center', padding: `0 ${pad}px` }}>
+      {keys.map(l => key(l, { flex: true, k: l }))}
+    </div>
+  );
+
+  return (
+    <div style={{
+      position: 'relative', zIndex: 15, borderRadius: 27, overflow: 'hidden',
+      padding: '11px 0 2px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      boxShadow: dark
+        ? '0 -2px 20px rgba(0,0,0,0.09)'
+        : '0 -1px 6px rgba(0,0,0,0.018), 0 -3px 20px rgba(0,0,0,0.012)',
+    }}>
+      {/* liquid glass bg — same recipe as nav pills */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 27,
+        backdropFilter: 'blur(12px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+        background: dark ? 'rgba(120,120,128,0.14)' : 'rgba(255,255,255,0.25)',
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 27,
+        boxShadow: dark
+          ? 'inset 1.5px 1.5px 1px rgba(255,255,255,0.15)'
+          : 'inset 1.5px 1.5px 1px rgba(255,255,255,0.7), inset -1px -1px 1px rgba(255,255,255,0.4)',
+        border: dark ? '0.5px solid rgba(255,255,255,0.15)' : '0.5px solid rgba(0,0,0,0.06)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* autocorrect bar */}
+      <div style={{
+        display: 'flex', gap: 20, alignItems: 'center',
+        padding: '8px 22px 13px', width: '100%', boxSizing: 'border-box',
+        position: 'relative',
+      }}>
+        {['"The"', 'the', 'to'].map((w, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <div style={{ width: 1, height: 25, background: '#ccc', opacity: 0.3 }} />}
+            <div style={{
+              flex: 1, textAlign: 'center',
+              fontFamily: '-apple-system, system-ui', fontSize: 17,
+              color: sugg, letterSpacing: -0.43, lineHeight: '22px',
+            }}>{w}</div>
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* key layout */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 13,
+        padding: '0 6.5px', width: '100%', boxSizing: 'border-box',
+        position: 'relative',
+      }}>
+        {row(['q','w','e','r','t','y','u','i','o','p'])}
+        {row(['a','s','d','f','g','h','j','k','l'], 20)}
+        <div style={{ display: 'flex', gap: 14.25, alignItems: 'center' }}>
+          {key(icons.shift, { w: 45, k: 'shift' })}
+          <div style={{ display: 'flex', gap: 6.5, flex: 1 }}>
+            {['z','x','c','v','b','n','m'].map(l => key(l, { flex: true, k: l }))}
+          </div>
+          {key(icons.del, { w: 45, k: 'del' })}
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {key('ABC', { w: 92.25, fs: 18, k: 'abc' })}
+          {key('', { flex: true, k: 'space' })}
+          {key(icons.ret, { w: 92.25, ret: true, k: 'ret' })}
+        </div>
+      </div>
+
+      {/* bottom spacer (emoji+mic area, icons omitted) */}
+      <div style={{ height: 56, width: '100%', position: 'relative' }} />
+    </div>
+  );
+}
+
+Object.assign(window, {
+  IOSDevice, IOSStatusBar, IOSNavBar, IOSGlassPill, IOSList, IOSListRow, IOSKeyboard,
+});
+
+
+// ===== tweaks-panel.jsx =====
+
+// tweaks-panel.jsx
+// Reusable Tweaks shell + form-control helpers.
+//
+// Owns the host protocol (listens for __activate_edit_mode / __deactivate_edit_mode,
+// posts __edit_mode_available / __edit_mode_set_keys / __edit_mode_dismissed) so
+// individual prototypes don't re-roll it. Ships a consistent set of controls so you
+// don't hand-draw <input type="range">, segmented radios, steppers, etc.
+//
+// Usage (in an HTML file that loads React + Babel):
+//
+//   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+//     "primaryColor": "#D97757",
+//     "palette": ["#D97757", "#29261b", "#f6f4ef"],
+//     "fontSize": 16,
+//     "density": "regular",
+//     "dark": false
+//   }/*EDITMODE-END*/;
+//
+//   function App() {
+//     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+//     return (
+//       <div style={{ fontSize: t.fontSize, color: t.primaryColor }}>
+//         Hello
+//         <TweaksPanel>
+//           <TweakSection label="Typography" />
+//           <TweakSlider label="Font size" value={t.fontSize} min={10} max={32} unit="px"
+//                        onChange={(v) => setTweak('fontSize', v)} />
+//           <TweakRadio  label="Density" value={t.density}
+//                        options={['compact', 'regular', 'comfy']}
+//                        onChange={(v) => setTweak('density', v)} />
+//           <TweakSection label="Theme" />
+//           <TweakColor  label="Primary" value={t.primaryColor}
+//                        options={['#D97757', '#2A6FDB', '#1F8A5B', '#7A5AE0']}
+//                        onChange={(v) => setTweak('primaryColor', v)} />
+//           <TweakColor  label="Palette" value={t.palette}
+//                        options={[['#D97757', '#29261b', '#f6f4ef'],
+//                                  ['#475569', '#0f172a', '#f1f5f9']]}
+//                        onChange={(v) => setTweak('palette', v)} />
+//           <TweakToggle label="Dark mode" value={t.dark}
+//                        onChange={(v) => setTweak('dark', v)} />
+//         </TweaksPanel>
+//       </div>
+//     );
+//   }
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+const __TWEAKS_STYLE = `
+  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
+    max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+    transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
+    background:rgba(250,249,247,.78);color:#29261b;
+    -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+  .twk-hd{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 8px 10px 14px;cursor:move;user-select:none}
+  .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+    width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
+  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+  .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
+    overflow-y:auto;overflow-x:hidden;min-height:0;
+    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+  .twk-body::-webkit-scrollbar{width:8px}
+  .twk-body::-webkit-scrollbar-track{background:transparent;margin:2px}
+  .twk-body::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:4px;
+    border:2px solid transparent;background-clip:content-box}
+  .twk-body::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.25);
+    border:2px solid transparent;background-clip:content-box}
+  .twk-row{display:flex;flex-direction:column;gap:5px}
+  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+  .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
+    color:rgba(41,38,27,.72)}
+  .twk-lbl>span:first-child{font-weight:500}
+  .twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
+
+  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    color:rgba(41,38,27,.45);padding:10px 0 0}
+  .twk-sect:first-child{padding-top:0}
+
+  .twk-field{appearance:none;box-sizing:border-box;width:100%;min-width:0;height:26px;padding:0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;
+    background:rgba(255,255,255,.6);color:inherit;font:inherit;outline:none}
+  .twk-field:focus{border-color:rgba(0,0,0,.25);background:rgba(255,255,255,.85)}
+  select.twk-field{padding-right:22px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(0,0,0,.5)' d='M0 0h10L5 6z'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center}
+
+  .twk-slider{appearance:none;-webkit-appearance:none;width:100%;height:4px;margin:6px 0;
+    border-radius:999px;background:rgba(0,0,0,.12);outline:none}
+  .twk-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+  .twk-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+    background:#fff;border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+
+  .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
+    background:rgba(0,0,0,.06);user-select:none}
+  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+    background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
+    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+  .twk-seg.dragging .twk-seg-thumb{transition:none}
+  .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
+    background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
+    border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;
+    overflow-wrap:anywhere}
+
+  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
+    background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
+  .twk-toggle[data-on="1"]{background:#34c759}
+  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
+
+  .twk-num{display:flex;align-items:center;box-sizing:border-box;min-width:0;height:26px;padding:0 0 0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;background:rgba(255,255,255,.6)}
+  .twk-num-lbl{font-weight:500;color:rgba(41,38,27,.6);cursor:ew-resize;
+    user-select:none;padding-right:8px}
+  .twk-num input{flex:1;min-width:0;height:100%;border:0;background:transparent;
+    font:inherit;font-variant-numeric:tabular-nums;text-align:right;padding:0 8px 0 0;
+    outline:none;color:inherit;-moz-appearance:textfield}
+  .twk-num input::-webkit-inner-spin-button,.twk-num input::-webkit-outer-spin-button{
+    -webkit-appearance:none;margin:0}
+  .twk-num-unit{padding-right:8px;color:rgba(41,38,27,.45)}
+
+  .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
+    background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:default}
+  .twk-btn:hover{background:rgba(0,0,0,.88)}
+  .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
+  .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
+
+  .twk-swatch{appearance:none;-webkit-appearance:none;width:56px;height:22px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:6px;padding:0;cursor:default;
+    background:transparent;flex-shrink:0}
+  .twk-swatch::-webkit-color-swatch-wrapper{padding:0}
+  .twk-swatch::-webkit-color-swatch{border:0;border-radius:5.5px}
+  .twk-swatch::-moz-color-swatch{border:0;border-radius:5.5px}
+
+  .twk-chips{display:flex;gap:6px}
+  .twk-chip{position:relative;appearance:none;flex:1;min-width:0;height:46px;
+    padding:0;border:0;border-radius:6px;overflow:hidden;cursor:default;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.06);
+    transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .12s}
+  .twk-chip:hover{transform:translateY(-1px);
+    box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12)}
+  .twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px rgba(0,0,0,.85),
+    0 2px 6px rgba(0,0,0,.15)}
+  .twk-chip>span{position:absolute;top:0;bottom:0;right:0;width:34%;
+    display:flex;flex-direction:column;box-shadow:-1px 0 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i{flex:1;box-shadow:0 -1px 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i:first-child{box-shadow:none}
+  .twk-chip svg{position:absolute;top:6px;left:6px;width:13px;height:13px;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+`;
+
+// ── useTweaks ───────────────────────────────────────────────────────────────
+// Single source of truth for tweak values. setTweak persists via the host
+// (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
+function useTweaks(defaults) {
+  const [values, setValues] = React.useState(defaults);
+  // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
+  // useState-style call doesn't write a "[object Object]" key into the persisted
+  // JSON block.
+  const setTweak = React.useCallback((keyOrEdits, val) => {
+    const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
+      ? keyOrEdits : { [keyOrEdits]: val };
+    setValues((prev) => ({ ...prev, ...edits }));
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
+    // Same-window signal so in-page listeners (deck-stage rail thumbnails)
+    // can react — the parent message only reaches the host, not peers.
+    window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
+  }, []);
+  return [values, setTweak];
+}
+
+// ── TweaksPanel ─────────────────────────────────────────────────────────────
+// Floating shell. Registers the protocol listener BEFORE announcing
+// availability — if the announce ran first, the host's activate could land
+// before our handler exists and the toolbar toggle would silently no-op.
+// The close button posts __edit_mode_dismissed so the host's toolbar toggle
+// flips off in lockstep; the host echoes __deactivate_edit_mode back which
+// is what actually hides the panel.
+function TweaksPanel({ title = 'Tweaks', children }) {
+  const [open, setOpen] = React.useState(false);
+  const dragRef = React.useRef(null);
+  const offsetRef = React.useRef({ x: 16, y: 16 });
+  const PAD = 16;
+
+  const clampToViewport = React.useCallback(() => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const maxRight = Math.max(PAD, window.innerWidth - w - PAD);
+    const maxBottom = Math.max(PAD, window.innerHeight - h - PAD);
+    offsetRef.current = {
+      x: Math.min(maxRight, Math.max(PAD, offsetRef.current.x)),
+      y: Math.min(maxBottom, Math.max(PAD, offsetRef.current.y)),
+    };
+    panel.style.right = offsetRef.current.x + 'px';
+    panel.style.bottom = offsetRef.current.y + 'px';
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    clampToViewport();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', clampToViewport);
+      return () => window.removeEventListener('resize', clampToViewport);
+    }
+    const ro = new ResizeObserver(clampToViewport);
+    ro.observe(document.documentElement);
+    return () => ro.disconnect();
+  }, [open, clampToViewport]);
+
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      const t = e?.data?.type;
+      if (t === '__activate_edit_mode') setOpen(true);
+      else if (t === '__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const dismiss = () => {
+    setOpen(false);
+    window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
+  };
+
+  const onDragStart = (e) => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();
+    const sx = e.clientX, sy = e.clientY;
+    const startRight = window.innerWidth - r.right;
+    const startBottom = window.innerHeight - r.bottom;
+    const move = (ev) => {
+      offsetRef.current = {
+        x: startRight - (ev.clientX - sx),
+        y: startBottom - (ev.clientY - sy),
+      };
+      clampToViewport();
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  if (!open) return null;
+  return (
+    <>
+      <style>{__TWEAKS_STYLE}</style>
+      <div ref={dragRef} className="twk-panel" data-omelette-chrome=""
+           style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
+        <div className="twk-hd" onMouseDown={onDragStart}>
+          <b>{title}</b>
+          <button className="twk-x" aria-label="Close tweaks"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={dismiss}>✕</button>
+        </div>
+        <div className="twk-body">
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Layout helpers ──────────────────────────────────────────────────────────
+
+function TweakSection({ label, children }) {
+  return (
+    <>
+      <div className="twk-sect">{label}</div>
+      {children}
+    </>
+  );
+}
+
+function TweakRow({ label, value, children, inline = false }) {
+  return (
+    <div className={inline ? 'twk-row twk-row-h' : 'twk-row'}>
+      <div className="twk-lbl">
+        <span>{label}</span>
+        {value != null && <span className="twk-val">{value}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ── Controls ────────────────────────────────────────────────────────────────
+
+function TweakSlider({ label, value, min = 0, max = 100, step = 1, unit = '', onChange }) {
+  return (
+    <TweakRow label={label} value={`${value}${unit}`}>
+      <input type="range" className="twk-slider" min={min} max={max} step={step}
+             value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    </TweakRow>
+  );
+}
+
+function TweakToggle({ label, value, onChange }) {
+  return (
+    <div className="twk-row twk-row-h">
+      <div className="twk-lbl"><span>{label}</span></div>
+      <button type="button" className="twk-toggle" data-on={value ? '1' : '0'}
+              role="switch" aria-checked={!!value}
+              onClick={() => onChange(!value)}><i /></button>
+    </div>
+  );
+}
+
+function TweakRadio({ label, value, options, onChange }) {
+  const trackRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+  // The active value is read by pointer-move handlers attached for the lifetime
+  // of a drag — ref it so a stale closure doesn't fire onChange for every move.
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
+
+  // Segments wrap mid-word once per-segment width runs out. The track is
+  // ~248px (280 panel − 28 body pad − 4 seg pad), each button loses 12px
+  // to its own padding, and 11.5px system-ui averages ~6.3px/char — so 2
+  // options fit ~16 chars each, 3 fit ~10. Past that (or >3 options), fall
+  // back to a dropdown rather than wrap.
+  const labelLen = (o) => String(typeof o === 'object' ? o.label : o).length;
+  const maxLen = options.reduce((m, o) => Math.max(m, labelLen(o)), 0);
+  const fitsAsSegments = maxLen <= ({ 2: 16, 3: 10 }[options.length] ?? 0);
+  if (!fitsAsSegments) {
+    // <select> emits strings — map back to the original option value so the
+    // fallback stays type-preserving (numbers, booleans) like the segment path.
+    const resolve = (s) => {
+      const m = options.find((o) => String(typeof o === 'object' ? o.value : o) === s);
+      return m === undefined ? s : typeof m === 'object' ? m.value : m;
+    };
+    return <TweakSelect label={label} value={value} options={options}
+                        onChange={(s) => onChange(resolve(s))} />;
+  }
+  const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+  const idx = Math.max(0, opts.findIndex((o) => o.value === value));
+  const n = opts.length;
+
+  const segAt = (clientX) => {
+    const r = trackRef.current.getBoundingClientRect();
+    const inner = r.width - 4;
+    const i = Math.floor(((clientX - r.left - 2) / inner) * n);
+    return opts[Math.max(0, Math.min(n - 1, i))].value;
+  };
+
+  const onPointerDown = (e) => {
+    setDragging(true);
+    const v0 = segAt(e.clientX);
+    if (v0 !== valueRef.current) onChange(v0);
+    const move = (ev) => {
+      if (!trackRef.current) return;
+      const v = segAt(ev.clientX);
+      if (v !== valueRef.current) onChange(v);
+    };
+    const up = () => {
+      setDragging(false);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  return (
+    <TweakRow label={label}>
+      <div ref={trackRef} role="radiogroup" onPointerDown={onPointerDown}
+           className={dragging ? 'twk-seg dragging' : 'twk-seg'}>
+        <div className="twk-seg-thumb"
+             style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
+                      width: `calc((100% - 4px) / ${n})` }} />
+        {opts.map((o) => (
+          <button key={o.value} type="button" role="radio" aria-checked={o.value === value}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakSelect({ label, value, options, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <select className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => {
+          const v = typeof o === 'object' ? o.value : o;
+          const l = typeof o === 'object' ? o.label : o;
+          return <option key={v} value={v}>{l}</option>;
+        })}
+      </select>
+    </TweakRow>
+  );
+}
+
+function TweakText({ label, value, placeholder, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <input className="twk-field" type="text" value={value} placeholder={placeholder}
+             onChange={(e) => onChange(e.target.value)} />
+    </TweakRow>
+  );
+}
+
+function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) {
+  const clamp = (n) => {
+    if (min != null && n < min) return min;
+    if (max != null && n > max) return max;
+    return n;
+  };
+  const startRef = React.useRef({ x: 0, val: 0 });
+  const onScrubStart = (e) => {
+    e.preventDefault();
+    startRef.current = { x: e.clientX, val: value };
+    const decimals = (String(step).split('.')[1] || '').length;
+    const move = (ev) => {
+      const dx = ev.clientX - startRef.current.x;
+      const raw = startRef.current.val + dx * step;
+      const snapped = Math.round(raw / step) * step;
+      onChange(clamp(Number(snapped.toFixed(decimals))));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  return (
+    <div className="twk-num">
+      <span className="twk-num-lbl" onPointerDown={onScrubStart}>{label}</span>
+      <input type="number" value={value} min={min} max={max} step={step}
+             onChange={(e) => onChange(clamp(Number(e.target.value)))} />
+      {unit && <span className="twk-num-unit">{unit}</span>}
+    </div>
+  );
+}
+
+// Relative-luminance contrast pick — checkmarks drawn over a swatch need to
+// read on both #111 and #fafafa without per-option configuration. Hex input
+// only (#rgb / #rrggbb); named or rgb()/hsl() colors fall through to "light".
+function __twkIsLight(hex) {
+  const h = String(hex).replace('#', '');
+  const x = h.length === 3 ? h.replace(/./g, (c) => c + c) : h.padEnd(6, '0');
+  const n = parseInt(x.slice(0, 6), 16);
+  if (Number.isNaN(n)) return true;
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return r * 299 + g * 587 + b * 114 > 148000;
+}
+
+const __TwkCheck = ({ light }) => (
+  <svg viewBox="0 0 14 14" aria-hidden="true">
+    <path d="M3 7.2 5.8 10 11 4.2" fill="none" strokeWidth="2.2"
+          strokeLinecap="round" strokeLinejoin="round"
+          stroke={light ? 'rgba(0,0,0,.78)' : '#fff'} />
+  </svg>
+);
+
+// TweakColor — curated color/palette picker. Each option is either a single
+// hex string or an array of 1-5 hex strings; the card adapts — a lone color
+// renders solid, a palette renders colors[0] as the hero (left ~2/3) with the
+// rest stacked in a sharp column on the right. onChange emits the
+// option in the shape it was passed (string stays string, array stays array).
+// Without options it falls back to the native color input for back-compat.
+function TweakColor({ label, value, options, onChange }) {
+  if (!options || !options.length) {
+    return (
+      <div className="twk-row twk-row-h">
+        <div className="twk-lbl"><span>{label}</span></div>
+        <input type="color" className="twk-swatch" value={value}
+               onChange={(e) => onChange(e.target.value)} />
+      </div>
+    );
+  }
+  // Native <input type=color> emits lowercase hex per the HTML spec, so
+  // compare case-insensitively. String() guards JSON.stringify(undefined),
+  // which returns the primitive undefined (no .toLowerCase).
+  const key = (o) => String(JSON.stringify(o)).toLowerCase();
+  const cur = key(value);
+  return (
+    <TweakRow label={label}>
+      <div className="twk-chips" role="radiogroup">
+        {options.map((o, i) => {
+          const colors = Array.isArray(o) ? o : [o];
+          const [hero, ...rest] = colors;
+          const sup = rest.slice(0, 4);
+          const on = key(o) === cur;
+          return (
+            <button key={i} type="button" className="twk-chip" role="radio"
+                    aria-checked={on} data-on={on ? '1' : '0'}
+                    aria-label={colors.join(', ')} title={colors.join(' · ')}
+                    style={{ background: hero }}
+                    onClick={() => onChange(o)}>
+              {sup.length > 0 && (
+                <span>
+                  {sup.map((c, j) => <i key={j} style={{ background: c }} />)}
+                </span>
+              )}
+              {on && <__TwkCheck light={__twkIsLight(hero)} />}
+            </button>
+          );
+        })}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakButton({ label, onClick, secondary = false }) {
+  return (
+    <button type="button" className={secondary ? 'twk-btn secondary' : 'twk-btn'}
+            onClick={onClick}>{label}</button>
+  );
+}
+
+Object.assign(window, {
+  useTweaks, TweaksPanel, TweakSection, TweakRow,
+  TweakSlider, TweakToggle, TweakRadio, TweakSelect,
+  TweakText, TweakNumber, TweakColor, TweakButton,
+});
+
+
+// ===== icons.jsx =====
+// icons.jsx — minimal line icons used throughout the app
+function Icon({ name, size = 22, stroke = 1.6, style = {} }) {
+  const p = {
+    width: size, height: size, viewBox: '0 0 24 24', fill: 'none',
+    stroke: 'currentColor', strokeWidth: stroke, strokeLinecap: 'round', strokeLinejoin: 'round',
+    style,
+  };
+  switch (name) {
+    case 'camera': return (
+      <svg {...p}><path d="M3 7h3l2-3h8l2 3h3v13H3z"/><circle cx="12" cy="13" r="4"/></svg>
+    );
+    case 'video': return (
+      <svg {...p}><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg>
+    );
+    case 'flash': return (
+      <svg {...p}><path d="M13 2L4 14h7l-2 8 10-13h-7z"/></svg>
+    );
+    case 'history': return (
+      <svg {...p}><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 8v5l3 2"/></svg>
+    );
+    case 'home': return (
+      <svg {...p}><path d="M3 11l9-7 9 7v10H3z"/><path d="M10 21v-6h4v6"/></svg>
+    );
+    case 'settings': return (
+      <svg {...p}><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.14-1.4l2-1.55-2-3.46-2.36.94a7 7 0 0 0-2.42-1.4L13.7 2.6h-3.4l-.38 2.53a7 7 0 0 0-2.42 1.4L5.14 5.6l-2 3.46 2 1.55A7 7 0 0 0 5 12a7 7 0 0 0 .14 1.4l-2 1.55 2 3.46 2.36-.94a7 7 0 0 0 2.42 1.4l.38 2.53h3.4l.38-2.53a7 7 0 0 0 2.42-1.4l2.36.94 2-3.46-2-1.55A7 7 0 0 0 19 12z"/></svg>
+    );
+    case 'user': return (
+      <svg {...p}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>
+    );
+    case 'arrow-right': return (
+      <svg {...p}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    );
+    case 'arrow-left': return (
+      <svg {...p}><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+    );
+    case 'chevron-right': return (
+      <svg {...p}><path d="M9 6l6 6-6 6"/></svg>
+    );
+    case 'plus': return (
+      <svg {...p}><path d="M12 5v14M5 12h14"/></svg>
+    );
+    case 'check': return (
+      <svg {...p}><path d="M4 12l5 5L20 6"/></svg>
+    );
+    case 'x': return (
+      <svg {...p}><path d="M6 6l12 12M18 6L6 18"/></svg>
+    );
+    case 'edit': return (
+      <svg {...p}><path d="M4 20h4l11-11-4-4L4 16zM14 5l4 4"/></svg>
+    );
+    case 'sparkle': return (
+      <svg {...p}><path d="M12 3v6M12 15v6M3 12h6M15 12h6M6 6l4 4M14 14l4 4M18 6l-4 4M10 14l-4 4"/></svg>
+    );
+    case 'rotate': return (
+      <svg {...p}><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+    );
+    case 'help': return (
+      <svg {...p}><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><circle cx="12" cy="17.5" r="0.6" fill="currentColor"/></svg>
+    );
+    case 'logout': return (
+      <svg {...p}><path d="M10 4H4v16h6"/><path d="M16 8l4 4-4 4M20 12H9"/></svg>
+    );
+    case 'apple': return (
+      <svg {...p} fill="currentColor" stroke="none"><path d="M17.5 12.5c0-2.6 2-3.8 2-3.8-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.8-3.5.8-.7 0-1.9-.8-3.1-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.7 2.5 3 2.4 1.2 0 1.6-.8 3.1-.8 1.4 0 1.8.8 3.1.8 1.3 0 2.1-1.2 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.1 0-2.7-1-2.7-3.8zM15.3 5.3c.7-.8 1.1-1.9 1-3-.9 0-2.1.6-2.7 1.4-.6.7-1.2 1.8-1 2.9 1 .1 2 -.5 2.7-1.3z"/></svg>
+    );
+    case 'google': return (
+      <svg {...p} stroke="none" fill="none"><path d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4c-.2 1.2-.9 2.3-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3z" fill="#4285F4"/><path d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.7-5.6-4.1H3.1v2.6C4.7 19.7 8.1 22 12 22z" fill="#34A853"/><path d="M6.4 14c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V7.4H3.1C2.4 8.8 2 10.4 2 12s.4 3.2 1.1 4.6l3.3-2.6z" fill="#FBBC05"/><path d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.8-2.8C16.9 3 14.7 2 12 2 8.1 2 4.7 4.3 3.1 7.4l3.3 2.6C7.2 7.6 9.4 5.9 12 5.9z" fill="#EA4335"/></svg>
+    );
+    case 'mail': return (
+      <svg {...p}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+    );
+    case 'eye': return (
+      <svg {...p}><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+    );
+    case 'eye-off': return (
+      <svg {...p}><path d="M3 3l18 18M10.6 6.1A10 10 0 0 1 12 6c6 0 10 6 10 6a17 17 0 0 1-3.4 3.9M6.6 6.6A17 17 0 0 0 2 12s4 6 10 6a10 10 0 0 0 3.6-.7"/><path d="M9.9 9.9a3 3 0 1 0 4.2 4.2"/></svg>
+    );
+    case 'grid': return (
+      <svg {...p}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    );
+    case 'list': return (
+      <svg {...p}><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+    );
+    case 'trophy': return (
+      <svg {...p}><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M16 5h3v2a3 3 0 0 1-3 3M8 5H5v2a3 3 0 0 0 3 3"/><path d="M12 13v3M9 20h6M10 16h4l1 4H9z"/></svg>
+    );
+    case 'globe': return (
+      <svg {...p}><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+    );
+    case 'bell': return (
+      <svg {...p}><path d="M6 9a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7zM10 20a2 2 0 0 0 4 0"/></svg>
+    );
+    case 'lock': return (
+      <svg {...p}><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    );
+    case 'gallery': return (
+      <svg {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M3 18l5-5 4 4 3-3 6 6"/></svg>
+    );
+    case 'sun': return (
+      <svg {...p}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg>
+    );
+    default: return null;
+  }
+}
+
+Object.assign(window, { Icon });
+
+
+// ===== tiles.jsx =====
+// tiles.jsx — Okey tile primitives
+// Tile colors: 'red' | 'black' | 'yellow' | 'blue' | 'joker'
+// Styles: 'classic' | 'flat' | 'minimal' | 'bold'
+
+const TILE_COLOR_VAR = {
+  red: 'var(--tile-red)',
+  black: 'var(--tile-black)',
+  yellow: 'var(--tile-yellow)',
+  blue: 'var(--tile-blue)',
+};
+
+function Tile({ n, color = 'red', size = 'md', style = 'classic', selected, ghost, faded, onClick }) {
+  // size presets
+  const sizes = {
+    xs: { w: 22, h: 30, fs: 13, fs2: 11, r: 3 },
+    sm: { w: 30, h: 42, fs: 18, fs2: 12, r: 4 },
+    md: { w: 38, h: 54, fs: 22, fs2: 14, r: 5 },
+    lg: { w: 46, h: 66, fs: 28, fs2: 16, r: 6 },
+    xl: { w: 60, h: 84, fs: 36, fs2: 20, r: 8 },
+  };
+  const s = sizes[size] || sizes.md;
+  const isJoker = color === 'joker';
+  const c = isJoker ? 'var(--tile-black)' : TILE_COLOR_VAR[color];
+
+  // shared wrapper
+  const wrap = {
+    width: s.w, height: s.h, borderRadius: s.r,
+    position: 'relative', flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: onClick ? 'pointer' : 'default',
+    opacity: faded ? 0.3 : 1,
+    transition: 'transform 0.15s, opacity 0.2s, box-shadow 0.2s',
+    transform: selected ? 'translateY(-4px)' : 'none',
+  };
+
+  // CLASSIC — cream face, thin top edge, soft inner bevel
+  if (style === 'classic') {
+    return (
+      <div onClick={onClick} style={{
+        ...wrap,
+        background: 'linear-gradient(180deg, var(--tile-face) 0%, var(--tile-face-edge) 100%)',
+        boxShadow: selected
+          ? '0 4px 10px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.7), 0 0 0 1.5px var(--accent)'
+          : '0 1px 2px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(0,0,0,0.05)',
+      }}>
+        {isJoker ? <JokerGlyph c={c} size={s.fs} /> : (
+          <div style={{
+            fontFamily: 'var(--serif)', fontSize: s.fs * 1.05, lineHeight: 1,
+            color: c, fontWeight: 400, fontVariantNumeric: 'lining-nums',
+            transform: 'translateY(1px)',
+          }}>{n}</div>
+        )}
+        {/* horizontal seam */}
+        <div style={{
+          position: 'absolute', left: 3, right: 3, top: '52%',
+          height: 1, background: 'rgba(0,0,0,0.05)',
+        }} />
+      </div>
+    );
+  }
+
+  // FLAT — colored face matches number color, white digit
+  if (style === 'flat') {
+    return (
+      <div onClick={onClick} style={{
+        ...wrap,
+        background: isJoker ? 'var(--ink)' : c,
+        boxShadow: selected ? `0 4px 12px rgba(0,0,0,0.2), 0 0 0 2px var(--accent)` : '0 1px 2px rgba(0,0,0,0.08)',
+      }}>
+        {isJoker ? <JokerGlyph c="#fff" size={s.fs} /> : (
+          <div style={{
+            fontFamily: 'var(--mono)', fontSize: s.fs, lineHeight: 1,
+            color: '#fff', fontWeight: 500,
+          }}>{n}</div>
+        )}
+      </div>
+    );
+  }
+
+  // MINIMAL — white card, colored dot + number stacked
+  if (style === 'minimal') {
+    return (
+      <div onClick={onClick} style={{
+        ...wrap,
+        background: 'var(--surface)',
+        border: '1px solid var(--line)',
+        flexDirection: 'column', gap: 3,
+        boxShadow: selected ? `0 0 0 2px var(--accent), 0 4px 10px rgba(0,0,0,0.1)` : 'none',
+      }}>
+        {isJoker ? <JokerGlyph c={c} size={s.fs * 0.7} /> : (
+          <>
+            <div style={{ width: s.fs * 0.32, height: s.fs * 0.32, borderRadius: '50%', background: c }} />
+            <div style={{
+              fontFamily: 'var(--mono)', fontSize: s.fs * 0.85, lineHeight: 1,
+              color: 'var(--ink)', fontWeight: 500,
+            }}>{n}</div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // BOLD — chunky cream tile, oversized serif numeral
+  if (style === 'bold') {
+    return (
+      <div onClick={onClick} style={{
+        ...wrap,
+        background: 'var(--tile-face)',
+        borderRadius: s.r + 2,
+        boxShadow: selected
+          ? '0 6px 14px rgba(0,0,0,0.2), inset 0 2px 0 rgba(255,255,255,0.7), 0 0 0 2px var(--accent)'
+          : '0 2px 4px rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,0.7), inset 0 -2px 0 rgba(0,0,0,0.06)',
+      }}>
+        {isJoker ? <JokerGlyph c={c} size={s.fs} /> : (
+          <div style={{
+            fontFamily: 'var(--serif)', fontSize: s.fs * 1.35, lineHeight: 1,
+            color: c, fontWeight: 400, fontStyle: 'italic',
+            transform: 'translateY(2px)',
+          }}>{n}</div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function JokerGlyph({ c, size = 22 }) {
+  // a simple star/asterisk-like mark to represent the okey/joker
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M12 3v18M5 8l14 8M5 16l14-8M3 12h18"
+            stroke={c} strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="2" fill={c} />
+    </svg>
+  );
+}
+
+// Ghost slot for empty positions
+function TileSlot({ size = 'md' }) {
+  const sizes = { xs:[22,30,3], sm:[30,42,4], md:[38,54,5], lg:[46,66,6], xl:[60,84,8] };
+  const [w, h, r] = sizes[size];
+  return (
+    <div style={{
+      width: w, height: h, borderRadius: r, flexShrink: 0,
+      border: '1.5px dashed var(--line-2)',
+      background: 'transparent',
+    }} />
+  );
+}
+
+// Group — labels a row/column of tiles as a meld
+function Meld({ tiles, label, score, tileStyle, size = 'md' }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div className="eyebrow" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+        {score !== undefined && (
+          <div className="mono" style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 500 }}>
+            +{score}
+          </div>
+        )}
+      </div>
+      <div style={{
+        display: 'flex', gap: 3, padding: '6px 8px',
+        background: 'var(--accent-soft)',
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+      }}>
+        {tiles.map((t, i) => (
+          <Tile key={i} n={t.n} color={t.color} size={size} style={tileStyle} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Rack — physical-looking rack with rows of tiles
+function Rack({ tiles, tileStyle, size = 'sm', highlights = {} }) {
+  // split into two rows of 7
+  const row1 = tiles.slice(0, 7);
+  const row2 = tiles.slice(7, 14);
+  return (
+    <div className="rack" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {[row1, row2].map((row, ri) => (
+        <div key={ri} style={{ display: 'flex', gap: 3, justifyContent: 'flex-start' }}>
+          {row.map((t, i) => {
+            const idx = ri * 7 + i;
+            const hl = highlights[idx];
+            return (
+              <div key={i} style={{ position: 'relative' }}>
+                <Tile n={t.n} color={t.color} size={size} style={tileStyle} />
+                {hl && (
+                  <div style={{
+                    position: 'absolute', inset: -2, borderRadius: 7,
+                    border: `1.5px solid ${hl}`,
+                    pointerEvents: 'none',
+                  }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+Object.assign(window, { Tile, TileSlot, Meld, Rack, JokerGlyph });
+
+
+// ===== auth_screens.jsx =====
+// auth_screens.jsx — splash, login, tutorial
+
+// ─────────────────────────────────────────────────────────────
+// SPLASH — brand entry
+// ─────────────────────────────────────────────────────────────
+function SplashScreen({ onContinue, onGuest, t, tile }) {
+  return (
+    <div className="scroll" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '76px 28px 36px' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18 }}>
+        <div className="eyebrow" style={{ marginBottom: 4 }}>
+          {t === 'tr' ? '101 OKEY · TARAYICI' : '101 OKEY · SCANNER'}
+        </div>
+
+        {/* Logo / wordmark — a small rack of letters as tiles */}
+        <div className="scale-in" style={{ display: 'flex', gap: 3, marginBottom: 22 }}>
+          <LetterTile ch="1" color="red" />
+          <LetterTile ch="0" color="black" />
+          <LetterTile ch="1" color="blue" />
+        </div>
+
+        <div>
+          <div className="serif" style={{
+            fontSize: 64, lineHeight: 0.95, color: 'var(--ink)',
+            letterSpacing: '-0.025em', fontStyle: 'italic',
+          }}>
+            Açar mı?
+          </div>
+          <div className="serif" style={{
+            fontSize: 44, lineHeight: 1, color: 'var(--muted)',
+            letterSpacing: '-0.02em', marginTop: 6,
+          }}>
+            {t === 'tr' ? 'Bir bakışta öğren.' : 'Find out at a glance.'}
+          </div>
+        </div>
+
+        <div className="t-muted" style={{ fontSize: 15, lineHeight: 1.5, marginTop: 14, maxWidth: 320 }}>
+          {t === 'tr'
+            ? 'Istakanı çek, taşları taratıver. En iyi sıralamayı saniyeler içinde gör.'
+            : 'Snap your rack. We detect every tile and lay out your best play in seconds.'}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <button className="btn btn-primary btn-block" onClick={onContinue}>
+          {t === 'tr' ? 'Devam et' : 'Get started'}
+          <Icon name="arrow-right" size={18} />
+        </button>
+        <button className="btn btn-ghost btn-block" onClick={onGuest} style={{ color: 'var(--muted)' }}>
+          {t === 'tr' ? 'Misafir olarak gir' : 'Continue as guest'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LetterTile({ ch, color }) {
+  const c = {
+    red: 'var(--tile-red)', black: 'var(--tile-black)',
+    yellow: 'var(--tile-yellow)', blue: 'var(--tile-blue)',
+  }[color];
+  return (
+    <div style={{
+      width: 44, height: 60, borderRadius: 6,
+      background: 'linear-gradient(180deg, var(--tile-face), var(--tile-face-edge))',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.7), inset 0 -1px 0 rgba(0,0,0,0.05)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      position: 'relative',
+    }}>
+      <span style={{ fontFamily: 'var(--serif)', fontSize: 32, color: c, lineHeight: 1, transform: 'translateY(1px)' }}>{ch}</span>
+      <div style={{ position: 'absolute', left: 4, right: 4, top: '52%', height: 1, background: 'rgba(0,0,0,0.05)' }} />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// LOGIN
+// ─────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin, onGuest, onBack, t }) {
+  const [mode, setMode] = React.useState('signin'); // signin | signup
+  const [showPw, setShowPw] = React.useState(false);
+  const tr = t === 'tr';
+
+  return (
+    <div className="scroll" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ padding: '60px 16px 0' }}>
+        <button onClick={onBack} style={{
+          width: 40, height: 40, background: 'var(--surface-2)', border: '1px solid var(--line)',
+          borderRadius: 100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'var(--ink)', cursor: 'pointer',
+        }}>
+          <Icon name="arrow-left" size={18} />
+        </button>
+      </div>
+
+      <div style={{ padding: '24px 28px 24px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div>
+          <div className="eyebrow">{tr ? 'HOŞ GELDİN' : 'WELCOME'}</div>
+          <div className="serif" style={{ fontSize: 42, lineHeight: 1, marginTop: 10, letterSpacing: '-0.02em' }}>
+            {mode === 'signin'
+              ? (tr ? 'Tekrar hoş\u00a0geldin.' : 'Welcome back.')
+              : (tr ? 'Hesap aç.' : 'Make an account.')}
+          </div>
+          <div className="t-muted" style={{ fontSize: 14, marginTop: 8 }}>
+            {tr ? 'E-postanla devam et, ya da bağlan.' : 'Continue with email, or connect.'}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 26, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input className="input" placeholder={tr ? 'E-posta adresi' : 'Email address'} defaultValue="" />
+          <div style={{ position: 'relative' }}>
+            <input className="input" type={showPw ? 'text' : 'password'} placeholder={tr ? 'Şifre' : 'Password'} style={{ paddingRight: 50 }} />
+            <button onClick={() => setShowPw(s => !s)} style={{
+              position: 'absolute', right: 12, top: 0, bottom: 0, width: 36,
+              background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Icon name={showPw ? 'eye-off' : 'eye'} size={18} />
+            </button>
+          </div>
+
+          {mode === 'signin' && (
+            <div style={{ textAlign: 'right' }}>
+              <button style={{ background:'none', border:'none', cursor:'pointer', color: 'var(--muted)', fontSize: 13, fontFamily:'var(--sans)' }}>
+                {tr ? 'Şifremi unuttum' : 'Forgot password'}
+              </button>
+            </div>
+          )}
+
+          <button className="btn btn-primary btn-block" onClick={onLogin} style={{ marginTop: 6 }}>
+            {mode === 'signin' ? (tr ? 'Giriş yap' : 'Sign in') : (tr ? 'Hesap oluştur' : 'Create account')}
+          </button>
+        </div>
+
+        <div style={{ margin: '24px 0 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="divider" style={{ flex: 1 }} />
+          <div className="eyebrow" style={{ fontSize: 10 }}>{tr ? 'YA DA' : 'OR'}</div>
+          <div className="divider" style={{ flex: 1 }} />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button className="btn btn-secondary btn-block" onClick={onLogin}>
+            <Icon name="google" size={18} stroke={0} />
+            {tr ? 'Google ile devam et' : 'Continue with Google'}
+          </button>
+          <button className="btn btn-secondary btn-block" onClick={onLogin}>
+            <Icon name="apple" size={18} stroke={0} />
+            {tr ? 'Apple ile devam et' : 'Continue with Apple'}
+          </button>
+          <button className="btn btn-ghost btn-block" onClick={onGuest} style={{ color: 'var(--muted)' }}>
+            {tr ? 'Misafir olarak devam et' : 'Continue as guest'} →
+          </button>
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        <div style={{ textAlign: 'center', marginTop: 24, fontSize: 13, color: 'var(--muted)' }}>
+          {mode === 'signin' ? (tr ? 'Hesabın yok mu?' : 'No account yet?') : (tr ? 'Zaten bir hesabın var mı?' : 'Already have an account?')}
+          {' '}
+          <button onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
+                  style={{ background:'none', border:'none', color: 'var(--ink)', cursor:'pointer', fontFamily:'var(--sans)', fontSize:13, fontWeight:500, padding:0, textDecoration:'underline' }}>
+            {mode === 'signin' ? (tr ? 'Hesap oluştur' : 'Sign up') : (tr ? 'Giriş yap' : 'Sign in')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// TUTORIAL — how to use the app
+// ─────────────────────────────────────────────────────────────
+function TutorialScreen({ onBack, t, tile }) {
+  const tr = t === 'tr';
+  const steps = tr ? [
+    { n: '01', title: 'Istakanı çek', body: 'Telefonu istakanın üstünde tut. Tüm taşların görünür olduğundan emin ol.' },
+    { n: '02', title: 'Yapay zekâ tara­sın', body: 'Taşların rengi ve sayısı saniyeler içinde tanınır. Hatalıysa elle düzelt.' },
+    { n: '03', title: 'En iyi diziliş', body: 'Algoritma seriler ve eserleri arar. Açacaksan kaç puanla açacağını söyler.' },
+  ] : [
+    { n: '01', title: 'Snap the rack', body: 'Hold your phone above the rack. Make sure every tile is visible from the camera.' },
+    { n: '02', title: 'AI does the rest', body: 'Color and number are detected in seconds. Tap any tile to correct mistakes.' },
+    { n: '03', title: 'Best arrangement', body: 'Our solver finds groups and runs, and tells you if you can open with 101.' },
+  ];
+
+  return (
+    <div className="scroll" style={{ padding: '60px 0 40px' }}>
+      <div style={{ padding: '0 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <button onClick={onBack} style={{
+          width: 40, height: 40, background: 'var(--surface-2)', border: '1px solid var(--line)',
+          borderRadius: 100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'var(--ink)', cursor: 'pointer',
+        }}>
+          <Icon name="arrow-left" size={18} />
+        </button>
+        <span className="eyebrow">{tr ? 'NASIL ÇALIŞIR' : 'HOW IT WORKS'}</span>
+        <div style={{ width: 40 }} />
+      </div>
+
+      <div style={{ padding: '20px 28px 8px' }}>
+        <div className="serif" style={{ fontSize: 40, lineHeight: 1, letterSpacing: '-0.02em' }}>
+          {tr ? 'Üç adım, doğru hamle.' : 'Three steps, the right move.'}
+        </div>
+      </div>
+
+      <div style={{ padding: '24px 20px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {steps.map((s, i) => (
+          <div key={i} className="card" style={{ padding: 20, display: 'flex', gap: 16 }}>
+            <div className="mono" style={{
+              fontSize: 13, color: 'var(--accent)', minWidth: 28, paddingTop: 2, letterSpacing: '0.02em',
+            }}>{s.n}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 4 }}>{s.title}</div>
+              <div className="t-muted" style={{ fontSize: 14, lineHeight: 1.5 }}>{s.body}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* example detection visualization */}
+      <div style={{ padding: '28px 20px 0' }}>
+        <div className="eyebrow" style={{ marginBottom: 12 }}>{tr ? 'ÖRNEK' : 'EXAMPLE'}</div>
+        <div className="card" style={{ padding: 18 }}>
+          <div className="t-muted" style={{ fontSize: 13, marginBottom: 10 }}>
+            {tr ? 'Bu kombinasyon 101 ile açar:' : 'This rack opens with 101:'}
+          </div>
+          <Meld
+            tiles={[{n:7,color:'red'},{n:7,color:'black'},{n:7,color:'yellow'},{n:7,color:'blue'}]}
+            label={tr ? 'AYNI SAYI · 4 RENK' : 'SET · 4 COLORS'} score={28} tileStyle={tile} size="sm" />
+          <div style={{ height: 12 }} />
+          <Meld
+            tiles={[{n:9,color:'blue'},{n:10,color:'blue'},{n:11,color:'blue'},{n:12,color:'blue'},{n:13,color:'blue'}]}
+            label={tr ? 'SERİ · 5 TAŞ' : 'RUN · 5 TILES'} score={55} tileStyle={tile} size="sm" />
+          <div style={{ height: 14 }} />
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid var(--line)', paddingTop:12 }}>
+            <span className="eyebrow">{tr ? 'TOPLAM' : 'TOTAL'}</span>
+            <span className="mono" style={{ fontSize: 18, color: 'var(--good)', fontWeight: 500 }}>83 + okey = 101 ✓</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: '24px 20px 0' }}>
+        <button className="btn btn-primary btn-block" onClick={onBack}>
+          {tr ? 'Anladım' : 'Got it'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { SplashScreen, LoginScreen, TutorialScreen, LetterTile });
+
+
+// ===== main_screens.jsx =====
+// main_screens.jsx — home, camera, analyze, review, result, history, settings
+
+// ─── shared bottom nav ───
+function BottomNav({ active, onNav, t }) {
+  const tr = t === 'tr';
+  const items = [
+    { k: 'home', label: tr ? 'Ana' : 'Home', icon: 'home' },
+    { k: 'history', label: tr ? 'Geçmiş' : 'History', icon: 'history' },
+    { k: 'settings', label: tr ? 'Ayar' : 'Settings', icon: 'settings' },
+  ];
+  return (
+    <div style={{
+      position: 'absolute', left: 0, right: 0, bottom: 0,
+      paddingBottom: 30, paddingTop: 10, paddingLeft: 12, paddingRight: 12,
+      background: 'color-mix(in oklab, var(--bg) 88%, transparent)',
+      borderTop: '1px solid var(--line)',
+      backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+      display: 'flex', justifyContent: 'space-around', zIndex: 30,
+    }}>
+      {items.map(it => {
+        const on = active === it.k;
+        return (
+          <button key={it.k} onClick={() => onNav(it.k)} style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '6px 12px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            color: on ? 'var(--ink)' : 'var(--muted)', fontFamily: 'var(--sans)',
+          }}>
+            <Icon name={it.icon} size={22} stroke={on ? 1.8 : 1.5} />
+            <span style={{ fontSize: 10, fontWeight: on ? 500 : 400, letterSpacing: '0.02em' }}>{it.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// HOME
+// ─────────────────────────────────────────────────────────────
+function HomeScreen({ onScan, onHistory, onTutorial, t, gameMode, setGameMode, recentRack, tile, layout = 'cards' }) {
+  const tr = t === 'tr';
+  return (
+    <div className="scroll" style={{ paddingBottom: 110 }}>
+      {/* top bar */}
+      <div style={{ padding: '60px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="eyebrow" style={{ whiteSpace: 'nowrap' }}>{tr ? 'AÇAR MI?' : 'AÇAR MI?'}</div>
+        <button onClick={onTutorial} style={{
+          width: 40, height: 40, background: 'var(--surface-2)', border: '1px solid var(--line)',
+          borderRadius: 100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'var(--ink)', cursor: 'pointer',
+        }}>
+          <Icon name="help" size={18} />
+        </button>
+      </div>
+
+      {/* greeting */}
+      <div style={{ padding: '8px 24px 14px' }}>
+        <div className="serif" style={{ fontSize: 36, lineHeight: 1.05, letterSpacing: '-0.02em' }}>
+          {tr ? 'Selam,' : 'Hello,'}<br/>
+          <span style={{ color: 'var(--muted)' }}>{tr ? 'oyuna başlayalım.' : 'shall we play?'}</span>
+        </div>
+      </div>
+
+      {/* game mode chooser */}
+      <div style={{ padding: '6px 20px 16px' }}>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{tr ? 'OYUN MODU' : 'GAME MODE'}</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[
+            { k: '101', label: '101 Okey', sub: tr ? 'Puanla aç' : 'Open with 101' },
+            { k: 'okey', label: 'Okey', sub: tr ? 'Klasik' : 'Classic' },
+          ].map(m => {
+            const on = gameMode === m.k;
+            return (
+              <button key={m.k} onClick={() => setGameMode(m.k)} style={{
+                flex: 1, textAlign: 'left', padding: '14px 14px',
+                borderRadius: 'var(--r-md)', cursor: 'pointer',
+                background: on ? 'var(--ink)' : 'var(--surface)',
+                border: '1px solid ' + (on ? 'var(--ink)' : 'var(--line)'),
+                color: on ? 'var(--bg)' : 'var(--ink)',
+                fontFamily: 'var(--sans)',
+                transition: 'background 0.15s, color 0.15s',
+              }}>
+                <div style={{ fontSize: 15, fontWeight: 500 }}>{m.label}</div>
+                <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>{m.sub}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* PRIMARY: scan CTA */}
+      <div style={{ padding: '4px 20px 18px' }}>
+        <button onClick={onScan} style={{
+          width: '100%', minHeight: layout === 'hero' ? 220 : 180, borderRadius: 'var(--r-xl)',
+          border: 'none', cursor: 'pointer', position: 'relative', overflow: 'hidden',
+          background: 'var(--ink)', color: 'var(--bg)',
+          padding: '22px 22px', textAlign: 'left', fontFamily: 'var(--sans)',
+        }}>
+          {/* faint tile illustration */}
+          <div style={{
+            position: 'absolute', right: -10, bottom: -20,
+            display: 'flex', gap: 4, opacity: 0.16, transform: 'rotate(-8deg)',
+          }}>
+            {[{n:7,c:'red'},{n:8,c:'red'},{n:9,c:'red'}].map((x,i)=>(
+              <div key={i} style={{
+                width: 60, height: 84, borderRadius: 8,
+                background: 'rgba(255,255,255,0.9)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'var(--serif)', fontSize: 44, color: 'var(--ink)',
+              }}>{x.n}</div>
+            ))}
+          </div>
+
+          <div className="eyebrow" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            {tr ? 'YENİ TARAMA' : 'NEW SCAN'}
+          </div>
+          <div className="serif" style={{ fontSize: 36, lineHeight: 1, marginTop: 8, letterSpacing: '-0.02em' }}>
+            {tr ? 'Istakanı çek.' : 'Snap the rack.'}
+          </div>
+          <div style={{
+            fontSize: 13, opacity: 0.65, marginTop: 8, maxWidth: 220, lineHeight: 1.4,
+          }}>
+            {tr ? '14 taşını taratıver — en iyi açılışı sana söyleyelim.' : 'Detect all 14 — we\u2019ll find your best play.'}
+          </div>
+          <div style={{
+            position: 'absolute', right: 16, bottom: 16,
+            width: 56, height: 56, borderRadius: 100,
+            background: 'var(--bg)', color: 'var(--ink)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 6px 16px rgba(0,0,0,0.3)',
+          }}>
+            <Icon name="camera" size={26} stroke={1.5} />
+          </div>
+        </button>
+      </div>
+
+      {/* recent scan */}
+      <div style={{ padding: '8px 20px 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <span className="eyebrow">{tr ? 'SON TARAMA' : 'LAST SCAN'}</span>
+          <button onClick={onHistory} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, fontFamily: 'var(--sans)', cursor: 'pointer' }}>
+            {tr ? 'Tümü →' : 'See all →'}
+          </button>
+        </div>
+
+        <div className="card" style={{ padding: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
+              {tr ? 'Bugün · 21:48' : 'Today · 21:48'}
+            </span>
+            <span className="pill pill-good">
+              <Icon name="check" size={11} stroke={2.4} /> {tr ? 'Açtı' : 'Opened'} · 104
+            </span>
+          </div>
+          <Rack tiles={recentRack} tileStyle={tile} size="xs" />
+        </div>
+      </div>
+
+      {/* stats */}
+      <div style={{ padding: '20px 20px 0', display: 'flex', gap: 10 }}>
+        <StatCard label={tr ? 'TOPLAM TARAMA' : 'TOTAL SCANS'} value="47" />
+        <StatCard label={tr ? 'AÇILIŞ ORANI' : 'OPEN RATE'} value="68%" accent />
+        <StatCard label={tr ? 'EN İYİ' : 'BEST'} value="142" />
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, accent }) {
+  return (
+    <div className="card" style={{ flex: 1, padding: 14 }}>
+      <div className="eyebrow" style={{ fontSize: 9.5, marginBottom: 6 }}>{label}</div>
+      <div className="mono" style={{
+        fontSize: 22, fontWeight: 500, color: accent ? 'var(--accent)' : 'var(--ink)', letterSpacing: '-0.02em',
+      }}>{value}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// CAMERA
+// ─────────────────────────────────────────────────────────────
+function CameraScreen({ onCapture, onBack, t, captureMode, setCaptureMode, tile }) {
+  const tr = t === 'tr';
+  const [flash, setFlash] = React.useState(false);
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: '#0a0a0a', color: '#fff',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      {/* faux camera viewfinder background */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'radial-gradient(ellipse at center, oklch(0.32 0.04 60) 0%, oklch(0.18 0.03 60) 60%, #000 100%)',
+      }} />
+
+      {/* simulated rack on the table */}
+      <div style={{
+        position: 'absolute', left: '50%', top: '50%',
+        transform: 'translate(-50%, -50%) perspective(900px) rotateX(18deg)',
+        opacity: 0.85,
+      }}>
+        <div style={{
+          background: 'linear-gradient(180deg, #5a3a1c, #3b240f)',
+          padding: '14px 12px 26px', borderRadius: 4,
+          boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
+        }}>
+          <div style={{ display: 'flex', gap: 3, marginBottom: 6 }}>
+            {[{n:5,c:'red'},{n:6,c:'red'},{n:7,c:'red'},{n:11,c:'blue'},{n:11,c:'yellow'},{n:11,c:'black'},{n:1,c:'yellow'}].map((x,i)=>(
+              <Tile key={i} n={x.n} color={x.c} size="sm" style={tile} />
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 3 }}>
+            {[{n:9,c:'blue'},{n:10,c:'blue'},{n:12,c:'red'},{n:3,c:'black'},{n:7,c:'yellow'},{n:13,c:'yellow'},{n:'',c:'joker'}].map((x,i)=>(
+              <Tile key={i} n={x.n} color={x.c} size="sm" style={tile} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* viewfinder reticle */}
+      <ViewfinderReticle />
+
+      {/* top controls */}
+      <div style={{
+        position: 'absolute', top: 60, left: 0, right: 0, zIndex: 10,
+        padding: '0 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <GlassBtn onClick={onBack}><Icon name="arrow-left" size={20} /></GlassBtn>
+        <div style={{
+          padding: '8px 14px', background: 'rgba(0,0,0,0.35)', borderRadius: 100,
+          fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '0.08em', color: '#fff',
+          backdropFilter: 'blur(20px)', whiteSpace: 'nowrap',
+        }}>
+          {tr ? 'ISTAKAYI ÇERÇEVELE' : 'FRAME THE RACK'}
+        </div>
+        <GlassBtn onClick={() => setFlash(f => !f)}>
+          <Icon name="flash" size={20} style={{ fill: flash ? 'var(--accent)' : 'none', color: flash ? 'var(--accent)' : '#fff' }} />
+        </GlassBtn>
+      </div>
+
+      {/* bottom controls */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
+        padding: '0 20px 50px', display: 'flex', flexDirection: 'column', gap: 22,
+      }}>
+        {/* mode toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
+          {[
+            { k: 'photo', label: tr ? 'Fotoğraf' : 'Photo', icon: 'camera' },
+            { k: 'video', label: tr ? 'Video' : 'Video', icon: 'video' },
+            { k: 'gallery', label: tr ? 'Galeri' : 'Gallery', icon: 'gallery' },
+          ].map(m => {
+            const on = captureMode === m.k;
+            return (
+              <button key={m.k} onClick={() => setCaptureMode(m.k)} style={{
+                padding: '8px 14px', borderRadius: 100, cursor: 'pointer',
+                background: on ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.12)',
+                color: on ? '#000' : '#fff', border: 'none',
+                fontSize: 12, fontFamily: 'var(--sans)', fontWeight: 500,
+                display: 'flex', alignItems: 'center', gap: 6,
+                backdropFilter: 'blur(20px)',
+              }}>
+                <Icon name={m.icon} size={14} /> {m.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* shutter row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ width: 50, height: 50, borderRadius: 12, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="gallery" size={20} />
+          </div>
+          <button onClick={onCapture} style={{
+            width: 78, height: 78, borderRadius: '50%', cursor: 'pointer',
+            background: 'transparent', border: '3px solid #fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 0,
+          }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: captureMode === 'video' ? '#e53935' : '#fff',
+            }} />
+          </button>
+          <button style={{ width: 50, height: 50, borderRadius: 12, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+            <Icon name="rotate" size={22} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ViewfinderReticle() {
+  // animated corner brackets framing the tile rack
+  const c = '#fff';
+  return (
+    <div style={{
+      position: 'absolute', left: '50%', top: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: 330, height: 220, pointerEvents: 'none',
+    }}>
+      {[[0,0],[1,0],[0,1],[1,1]].map(([x, y], i) => (
+        <div key={i} style={{
+          position: 'absolute',
+          [x ? 'right' : 'left']: -2,
+          [y ? 'bottom' : 'top']: -2,
+          width: 26, height: 26,
+          borderTop: y ? 'none' : `2px solid ${c}`,
+          borderBottom: y ? `2px solid ${c}` : 'none',
+          borderLeft: x ? 'none' : `2px solid ${c}`,
+          borderRight: x ? `2px solid ${c}` : 'none',
+          borderTopLeftRadius: !x && !y ? 4 : 0,
+          borderTopRightRadius: x && !y ? 4 : 0,
+          borderBottomLeftRadius: !x && y ? 4 : 0,
+          borderBottomRightRadius: x && y ? 4 : 0,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+function GlassBtn({ children, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      width: 44, height: 44, borderRadius: 100, cursor: 'pointer',
+      background: 'rgba(0,0,0,0.35)', border: 'none', color: '#fff',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+    }}>{children}</button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ANALYZING (loading)
+// ─────────────────────────────────────────────────────────────
+function AnalyzingScreen({ onDone, t, tile, rack }) {
+  const tr = t === 'tr';
+  const [step, setStep] = React.useState(0);
+  const steps = tr
+    ? ['Görüntü işleniyor…', 'Taşlar tanınıyor…', 'Renk + sayı eşleniyor…', 'En iyi diziliş hesaplanıyor…']
+    : ['Processing image…', 'Detecting tiles…', 'Matching color + number…', 'Computing best arrangement…'];
+
+  React.useEffect(() => {
+    const t1 = setTimeout(() => setStep(1), 600);
+    const t2 = setTimeout(() => setStep(2), 1300);
+    const t3 = setTimeout(() => setStep(3), 2000);
+    const t4 = setTimeout(() => onDone(), 2900);
+    return () => [t1,t2,t3,t4].forEach(clearTimeout);
+  }, []);
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: '#0a0a0a', color: '#fff', display:'flex', flexDirection:'column' }}>
+      {/* faux scanning visualization */}
+      <div style={{ flex: 1, position: 'relative', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+        <div style={{
+          background: 'rgba(255,255,255,0.05)', padding: 14, borderRadius: 6,
+          border: '1px solid rgba(255,255,255,0.1)',
+        }}>
+          <div style={{ display:'flex', gap: 3, marginBottom: 4 }}>
+            {rack.slice(0,7).map((x, i) => (
+              <DetectedTile key={i} x={x} delay={i*120} tile={tile} />
+            ))}
+          </div>
+          <div style={{ display:'flex', gap: 3 }}>
+            {rack.slice(7,14).map((x, i) => (
+              <DetectedTile key={i} x={x} delay={(i+7)*120} tile={tile} />
+            ))}
+          </div>
+        </div>
+        {/* scan line */}
+        <div style={{
+          position:'absolute', left:0, right:0, height: 2,
+          background: 'linear-gradient(90deg, transparent, var(--accent), transparent)',
+          boxShadow: '0 0 18px var(--accent)',
+          animation: 'scanLine 1.8s ease-in-out infinite',
+        }} />
+        <style>{`@keyframes scanLine { 0%, 100% { top: 15%; } 50% { top: 80%; } }`}</style>
+      </div>
+
+      {/* bottom */}
+      <div style={{ padding: '0 24px 60px' }}>
+        <div className="eyebrow" style={{ color: 'var(--accent)', marginBottom: 8 }}>
+          <Icon name="sparkle" size={11} stroke={2} style={{ display:'inline', marginRight: 4, verticalAlign:'middle' }} />
+          {tr ? 'YAPAY ZEKÂ ÇALIŞIYOR' : 'AI WORKING'}
+        </div>
+        <div className="serif" style={{ fontSize: 28, lineHeight: 1.1 }}>
+          {steps[step]}
+        </div>
+        {/* progress */}
+        <div style={{ marginTop: 20, height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 100, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', background: 'var(--accent)',
+            width: `${((step+1)/steps.length)*100}%`,
+            transition: 'width 0.5s ease',
+          }} />
+        </div>
+        <div className="mono" style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 10, display:'flex', justifyContent:'space-between' }}>
+          <span>{step+1}/{steps.length}</span>
+          <span>{rack.length} {tr ? 'taş bulundu' : 'tiles found'}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetectedTile({ x, delay, tile }) {
+  const [shown, setShown] = React.useState(false);
+  React.useEffect(() => { const t = setTimeout(() => setShown(true), delay); return () => clearTimeout(t); }, [delay]);
+  return (
+    <div style={{ position: 'relative' }}>
+      <Tile n={x.n} color={x.color} size="sm" style={tile} faded={!shown} />
+      {shown && (
+        <div style={{
+          position: 'absolute', inset: -3, border: '1.5px solid var(--accent)',
+          borderRadius: 6, animation: 'fadeIn 0.3s ease both', pointerEvents: 'none',
+        }} />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// REVIEW / EDIT detected tiles
+// ─────────────────────────────────────────────────────────────
+function ReviewScreen({ rack, setRack, onConfirm, onBack, t, tile }) {
+  const tr = t === 'tr';
+  const [editing, setEditing] = React.useState(null); // index of tile being edited
+
+  const updateTile = (idx, patch) => {
+    setRack(r => r.map((x, i) => i === idx ? { ...x, ...patch } : x));
+  };
+
+  return (
+    <div className="scroll" style={{ paddingBottom: 100 }}>
+      <div style={{ padding: '60px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button onClick={onBack} style={{
+          width: 40, height: 40, background: 'var(--surface-2)', border: '1px solid var(--line)',
+          borderRadius: 100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'var(--ink)', cursor: 'pointer',
+        }}>
+          <Icon name="arrow-left" size={18} />
+        </button>
+        <span className="eyebrow" style={{ whiteSpace: 'nowrap' }}>{tr ? '2/3 · ONAYLA' : '2/3 · REVIEW'}</span>
+        <div style={{ width: 40 }} />
+      </div>
+
+      <div style={{ padding: '16px 24px 8px' }}>
+        <div className="serif" style={{ fontSize: 32, lineHeight: 1.05, letterSpacing: '-0.02em' }}>
+          {tr ? 'Doğru tanındı mı?' : 'Did we get it right?'}
+        </div>
+        <div className="t-muted" style={{ fontSize: 14, marginTop: 6 }}>
+          {tr ? 'Yanlış bir taş varsa üstüne dokun, değiştir.' : 'Tap any wrong tile to fix it.'}
+        </div>
+      </div>
+
+      {/* tiles grid — 2 rows of 7 */}
+      <div style={{ padding: '14px 20px 0' }}>
+        <div className="rack" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[rack.slice(0,7), rack.slice(7,14)].map((row, ri) => (
+            <div key={ri} style={{ display: 'flex', gap: 4, justifyContent: 'flex-start' }}>
+              {row.map((tl, i) => {
+                const idx = ri*7 + i;
+                return (
+                  <div key={idx} onClick={() => setEditing(idx)} style={{ position: 'relative' }}>
+                    <Tile n={tl.n} color={tl.color} size="md" style={tile} selected={editing === idx} />
+                    {tl.lowConfidence && (
+                      <div style={{
+                        position: 'absolute', top: -4, right: -4, width: 14, height: 14, borderRadius: '50%',
+                        background: 'var(--warn)', border: '2px solid var(--bg)',
+                      }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 12, color: 'var(--muted)' }}>
+          <div style={{ width: 9, height: 9, borderRadius:'50%', background: 'var(--warn)' }} />
+          <span>{tr ? 'Düşük güven · gözden geçir' : 'Low confidence · please review'}</span>
+        </div>
+      </div>
+
+      {/* edit panel */}
+      {editing !== null && (
+        <div className="fade-in" style={{ padding: '24px 20px 0' }}>
+          <div className="card" style={{ padding: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <span className="eyebrow">{tr ? 'TAŞI DÜZENLE' : 'EDIT TILE'} · #{editing + 1}</span>
+              <button onClick={() => setEditing(null)} style={{ background:'none', border:'none', color: 'var(--muted)', cursor:'pointer' }}>
+                <Icon name="x" size={18} />
+              </button>
+            </div>
+
+            <div className="eyebrow" style={{ marginBottom: 8 }}>{tr ? 'RENK' : 'COLOR'}</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {['red','black','yellow','blue','joker'].map(c => {
+                const on = rack[editing].color === c;
+                return (
+                  <button key={c} onClick={() => updateTile(editing, { color: c, lowConfidence: false })} style={{
+                    width: 44, height: 44, borderRadius: 100, cursor: 'pointer',
+                    border: '2px solid ' + (on ? 'var(--ink)' : 'transparent'),
+                    background: c === 'joker' ? 'var(--surface-2)' : `var(--tile-${c})`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {c === 'joker' && <JokerGlyph c="var(--ink)" size={20} />}
+                  </button>
+                );
+              })}
+            </div>
+
+            {rack[editing].color !== 'joker' && (
+              <>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>{tr ? 'SAYI' : 'NUMBER'}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+                  {Array.from({length:13}, (_,i) => i+1).map(n => {
+                    const on = rack[editing].n === n;
+                    return (
+                      <button key={n} onClick={() => updateTile(editing, { n, lowConfidence: false })} style={{
+                        height: 38, borderRadius: 8, cursor: 'pointer',
+                        border: '1px solid ' + (on ? 'var(--ink)' : 'var(--line)'),
+                        background: on ? 'var(--ink)' : 'var(--surface)',
+                        color: on ? 'var(--bg)' : 'var(--ink)',
+                        fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500,
+                      }}>{n}</button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* footer CTA */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0,
+        padding: '16px 20px 40px',
+        background: 'color-mix(in oklab, var(--bg) 90%, transparent)',
+        backdropFilter: 'blur(20px)', borderTop: '1px solid var(--line)',
+      }}>
+        <button className="btn btn-primary btn-block" onClick={onConfirm}>
+          {tr ? 'Hesapla' : 'Calculate'} <Icon name="arrow-right" size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { HomeScreen, CameraScreen, AnalyzingScreen, ReviewScreen, BottomNav });
+
+
+// ===== result_screens.jsx =====
+// result_screens.jsx — result, history, settings
+
+// ─────────────────────────────────────────────────────────────
+// RESULT — visual rack with optimal arrangement + verdict
+// ─────────────────────────────────────────────────────────────
+function ResultScreen({ result, onAgain, onHome, t, tile, resultLayout = 'rack' }) {
+  const tr = t === 'tr';
+  const opens = result.total >= 101;
+
+  return (
+    <div className="scroll" style={{ paddingBottom: 110 }}>
+      {/* top bar */}
+      <div style={{ padding: '60px 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <button onClick={onHome} style={{
+          width: 40, height: 40, background: 'var(--surface-2)', border: '1px solid var(--line)',
+          borderRadius: 100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'var(--ink)', cursor: 'pointer',
+        }}>
+          <Icon name="x" size={18} />
+        </button>
+        <span className="eyebrow" style={{ whiteSpace: 'nowrap' }}>{tr ? '3/3 · SONUÇ' : '3/3 · RESULT'}</span>
+        <div style={{ width: 40 }} />
+      </div>
+
+      {/* VERDICT — the bold moment */}
+      <div className="scale-in" style={{ padding: '24px 24px 16px', textAlign: 'left' }}>
+        <div className="eyebrow" style={{ color: opens ? 'var(--good)' : 'var(--warn)', marginBottom: 6 }}>
+          {opens ? (tr ? 'AÇABİLİRSİN' : 'YOU CAN OPEN') : (tr ? 'HENÜZ AÇMIYOR' : 'NOT YET')}
+        </div>
+        <div className="serif" style={{
+          fontSize: 88, lineHeight: 0.9, letterSpacing: '-0.04em',
+          fontStyle: 'italic',
+          color: opens ? 'var(--ink)' : 'var(--muted)',
+        }}>
+          {opens ? (tr ? 'Açar.' : 'Opens.') : (tr ? 'Açmaz.' : 'No open.')}
+        </div>
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'baseline', gap: 14 }}>
+          <span className="mono" style={{ fontSize: 14, color: 'var(--muted)', letterSpacing: '0.02em' }}>
+            {tr ? 'PUAN' : 'SCORE'}
+          </span>
+          <span className="mono" style={{ fontSize: 32, fontWeight: 500, color: opens ? 'var(--good)' : 'var(--bad)', letterSpacing: '-0.02em' }}>
+            {result.total}
+          </span>
+          <span className="mono" style={{ fontSize: 14, color: 'var(--faint)' }}>/ 101</span>
+        </div>
+        {!opens && (
+          <div className="t-muted" style={{ fontSize: 14, marginTop: 8 }}>
+            {tr ? `${101 - result.total} puan eksik. En iyi olası diziliş:` : `${101 - result.total} short. Best possible play:`}
+          </div>
+        )}
+      </div>
+
+      {/* RACK or LIST */}
+      {resultLayout === 'rack' && <RackLayout result={result} tile={tile} tr={tr} />}
+      {resultLayout === 'list' && <ListLayout result={result} tile={tile} tr={tr} />}
+      {resultLayout === 'detailed' && <DetailedLayout result={result} tile={tile} tr={tr} />}
+
+      {/* CTA */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0,
+        padding: '14px 20px 40px',
+        background: 'color-mix(in oklab, var(--bg) 92%, transparent)',
+        backdropFilter: 'blur(20px)', borderTop: '1px solid var(--line)',
+        display: 'flex', gap: 10,
+      }}>
+        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={onAgain}>
+          <Icon name="rotate" size={16} /> {tr ? 'Tekrar' : 'Again'}
+        </button>
+        <button className="btn btn-primary" style={{ flex: 1.4 }} onClick={onHome}>
+          {tr ? 'Bitir' : 'Done'} <Icon name="check" size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Rack layout — visual rack with bracket indicators ───
+function RackLayout({ result, tile, tr }) {
+  // build a 14-tile array with group highlights
+  const all = [];
+  const colors = ['var(--accent)', 'var(--tile-blue)', 'var(--tile-red)', 'var(--warn)'];
+  result.melds.forEach((m, mi) => {
+    m.tiles.forEach(t => all.push({ ...t, hl: colors[mi % colors.length], mi }));
+  });
+  result.leftover.forEach(t => all.push({ ...t, hl: null, mi: -1 }));
+
+  return (
+    <div style={{ padding: '8px 20px 0' }}>
+      <div className="eyebrow" style={{ marginBottom: 10 }}>{tr ? 'EN İYİ DİZİLİŞ' : 'BEST ARRANGEMENT'}</div>
+      <div className="rack" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {[all.slice(0,7), all.slice(7,14)].map((row, ri) => (
+          <div key={ri} style={{ display: 'flex', gap: 3, position: 'relative' }}>
+            {row.map((t, i) => (
+              <div key={i} style={{ position: 'relative' }}>
+                <Tile n={t.n} color={t.color} size="md" style={tile} faded={t.mi === -1} />
+                {t.hl && (
+                  <div style={{
+                    position: 'absolute', inset: -3, borderRadius: 7,
+                    border: `1.5px solid ${t.hl}`, pointerEvents: 'none',
+                  }} />
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* legend */}
+      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {result.melds.map((m, mi) => (
+          <div key={mi} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 14, height: 14, borderRadius: 4,
+              border: `1.5px solid ${colors[mi % colors.length]}`,
+            }} />
+            <div style={{ flex: 1 }}>
+              <span style={{ fontSize: 14, fontWeight: 500 }}>{m.label[tr ? 'tr' : 'en']}</span>
+              <span className="t-muted" style={{ fontSize: 13, marginLeft: 6 }}>
+                · {m.tiles.length} {tr ? 'taş' : 'tiles'}
+              </span>
+            </div>
+            <span className="mono" style={{ fontSize: 14, fontWeight: 500, color: 'var(--accent)' }}>+{m.score}</span>
+          </div>
+        ))}
+        {result.leftover.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+            <div style={{ width: 14, height: 14, borderRadius: 4, border: '1.5px dashed var(--faint)' }} />
+            <div style={{ flex: 1, fontSize: 14, color: 'var(--muted)' }}>
+              {tr ? 'Kalan taşlar' : 'Leftover'} · {result.leftover.length}
+            </div>
+            <span className="mono" style={{ fontSize: 14, color: 'var(--muted)' }}>—</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── List layout — each meld as a separate row ───
+function ListLayout({ result, tile, tr }) {
+  return (
+    <div style={{ padding: '8px 20px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="eyebrow">{tr ? 'GRUPLAR' : 'GROUPS'}</div>
+      {result.melds.map((m, mi) => (
+        <div key={mi} className="card" style={{ padding: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <span className="eyebrow">{m.label[tr ? 'tr' : 'en']}</span>
+            <span className="pill pill-accent">+{m.score}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 3 }}>
+            {m.tiles.map((t, i) => (
+              <Tile key={i} n={t.n} color={t.color} size="sm" style={tile} />
+            ))}
+          </div>
+        </div>
+      ))}
+      {result.leftover.length > 0 && (
+        <div className="card" style={{ padding: 14, borderStyle: 'dashed' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <span className="eyebrow t-muted">{tr ? 'KALAN' : 'LEFTOVER'}</span>
+            <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>—</span>
+          </div>
+          <div style={{ display: 'flex', gap: 3 }}>
+            {result.leftover.map((t, i) => (
+              <Tile key={i} n={t.n} color={t.color} size="sm" style={tile} faded />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Detailed — rack + step-by-step explanation ───
+function DetailedLayout({ result, tile, tr }) {
+  return (
+    <>
+      <RackLayout result={result} tile={tile} tr={tr} />
+      <div style={{ padding: '20px 20px 0' }}>
+        <div className="eyebrow" style={{ marginBottom: 10 }}>{tr ? 'NEDEN BÖYLE?' : 'WHY THIS?'}</div>
+        <div className="card" style={{ padding: 16 }}>
+          {result.reasoning[tr ? 'tr' : 'en'].map((r, i) => (
+            <div key={i} style={{ display:'flex', gap: 12, padding: '8px 0', borderBottom: i < 2 ? '1px solid var(--line)' : 'none' }}>
+              <span className="mono" style={{ fontSize: 11, color: 'var(--accent)', minWidth: 18 }}>{String(i+1).padStart(2,'0')}</span>
+              <span style={{ fontSize: 13, lineHeight: 1.5, flex: 1 }}>{r}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// HISTORY
+// ─────────────────────────────────────────────────────────────
+function HistoryScreen({ items, onOpen, t, tile }) {
+  const tr = t === 'tr';
+  return (
+    <div className="scroll" style={{ paddingBottom: 110 }}>
+      <div style={{ padding: '60px 24px 0' }}>
+        <div className="eyebrow">{tr ? 'GEÇMİŞ' : 'HISTORY'}</div>
+        <div className="serif" style={{ fontSize: 36, lineHeight: 1.05, letterSpacing: '-0.02em', marginTop: 6 }}>
+          {tr ? 'Önceki ellerin.' : 'Your past hands.'}
+        </div>
+      </div>
+
+      {/* filter chips */}
+      <div style={{ padding: '16px 20px 0', display: 'flex', gap: 8 }}>
+        {[
+          { k: 'all', label: tr ? 'Tümü' : 'All', n: items.length },
+          { k: 'open', label: tr ? 'Açanlar' : 'Opened', n: items.filter(i=>i.opens).length },
+          { k: 'no', label: tr ? 'Açmayanlar' : 'Closed', n: items.filter(i=>!i.opens).length },
+        ].map((f, i) => (
+          <button key={f.k} style={{
+            padding: '8px 12px', borderRadius: 100,
+            background: i === 0 ? 'var(--ink)' : 'var(--surface)',
+            color: i === 0 ? 'var(--bg)' : 'var(--ink)',
+            border: '1px solid ' + (i === 0 ? 'var(--ink)' : 'var(--line)'),
+            fontSize: 12, fontFamily: 'var(--sans)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            {f.label} <span className="mono" style={{ fontSize: 10, opacity: 0.7 }}>{f.n}</span>
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding: '14px 20px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {items.map((it, i) => (
+          <button key={i} onClick={() => onOpen(it)} style={{
+            textAlign: 'left', padding: 14, borderRadius: 'var(--r-lg)',
+            background: 'var(--surface)', border: '1px solid var(--line)',
+            cursor: 'pointer', fontFamily: 'var(--sans)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div>
+                <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>{it.when}</span>
+                <span className="mono" style={{ fontSize: 11, color: 'var(--faint)', marginLeft: 8 }}>· {it.mode}</span>
+              </div>
+              <span className={`pill ${it.opens ? 'pill-good' : 'pill-bad'}`}>
+                {it.opens ? <Icon name="check" size={11} stroke={2.4} /> : <Icon name="x" size={11} stroke={2.4} />}
+                {it.opens ? (tr ? 'Açtı' : 'Open') : (tr ? 'Açmadı' : 'No')} · {it.score}
+              </span>
+            </div>
+            <Rack tiles={it.rack} tileStyle={tile} size="xs" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// SETTINGS
+// ─────────────────────────────────────────────────────────────
+function SettingsScreen({ t, setLang, onLogout, isGuest }) {
+  const tr = t === 'tr';
+
+  const Section = ({ children, label }) => (
+    <div style={{ marginTop: 18 }}>
+      <div className="eyebrow" style={{ padding: '0 24px 8px' }}>{label}</div>
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--line)',
+        borderRadius: 'var(--r-lg)', overflow: 'hidden', margin: '0 16px',
+      }}>{children}</div>
+    </div>
+  );
+  const Row = ({ label, value, onClick, last }) => (
+    <div onClick={onClick} style={{
+      padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      borderBottom: last ? 'none' : '1px solid var(--line)', cursor: onClick ? 'pointer' : 'default',
+    }}>
+      <span style={{ fontSize: 15 }}>{label}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
+        {value} {onClick && <Icon name="chevron-right" size={16} />}
+      </span>
+    </div>
+  );
+
+  return (
+    <div className="scroll" style={{ paddingBottom: 110 }}>
+      <div style={{ padding: '60px 24px 0' }}>
+        <div className="eyebrow">{tr ? 'PROFİL' : 'PROFILE'}</div>
+        <div className="serif" style={{ fontSize: 36, lineHeight: 1.05, letterSpacing: '-0.02em', marginTop: 6 }}>
+          {isGuest ? (tr ? 'Misafir oyuncu.' : 'Guest player.') : (tr ? 'Selam, Mehmet.' : 'Hi, Mehmet.')}
+        </div>
+      </div>
+
+      {/* profile card */}
+      <div style={{ padding: '18px 16px 0' }}>
+        <div className="card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: 100,
+            background: isGuest ? 'var(--surface-2)' : 'var(--accent-soft)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: isGuest ? 'var(--muted)' : 'var(--accent-ink)',
+          }}>
+            <Icon name="user" size={24} stroke={1.5} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 500 }}>
+              {isGuest ? (tr ? 'Misafir hesap' : 'Guest account') : 'mehmet@example.com'}
+            </div>
+            <div className="t-muted" style={{ fontSize: 12, marginTop: 2 }}>
+              {isGuest
+                ? (tr ? 'Geçmişin cihazda kalır' : 'History stays on device')
+                : (tr ? 'Üye · 4 ay' : 'Member · 4mo')}
+            </div>
+          </div>
+          {isGuest && (
+            <button className="btn btn-sm btn-secondary">
+              {tr ? 'Üye ol' : 'Sign up'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <Section label={tr ? 'GENEL' : 'GENERAL'}>
+        <Row label={tr ? 'Dil' : 'Language'} value={tr ? 'Türkçe' : 'English'} onClick={() => setLang(tr ? 'en' : 'tr')} />
+        <Row label={tr ? 'Bildirimler' : 'Notifications'} value={tr ? 'Açık' : 'On'} onClick={() => {}} />
+        <Row label={tr ? 'Hesap güvenliği' : 'Security'} value="" onClick={() => {}} last />
+      </Section>
+
+      <Section label={tr ? 'GÖRÜNÜM' : 'APPEARANCE'}>
+        <Row label={tr ? 'Görünüm' : 'Theme'} value={tr ? 'Tweaks panelinden' : 'Via Tweaks panel'} />
+        <Row label={tr ? 'Taş tipi' : 'Tile style'} value={tr ? 'Tweaks panelinden' : 'Via Tweaks panel'} last />
+      </Section>
+
+      <Section label={tr ? 'OYUN' : 'GAME'}>
+        <Row label={tr ? 'Varsayılan mod' : 'Default mode'} value="101 Okey" onClick={() => {}} />
+        <Row label={tr ? 'Sıralama kuralları' : 'Sort rules'} value={tr ? 'Klasik' : 'Classic'} onClick={() => {}} last />
+      </Section>
+
+      <Section label={tr ? 'HAKKINDA' : 'ABOUT'}>
+        <Row label={tr ? 'Kullanım koşulları' : 'Terms'} onClick={() => {}} />
+        <Row label={tr ? 'Gizlilik' : 'Privacy'} onClick={() => {}} />
+        <Row label={tr ? 'Sürüm' : 'Version'} value="1.0.0" last />
+      </Section>
+
+      <div style={{ padding: '20px 16px 0' }}>
+        <button onClick={onLogout} style={{
+          width: '100%', padding: 14, borderRadius: 'var(--r-lg)',
+          background: 'transparent', border: '1px solid var(--line)',
+          color: 'var(--bad)', fontSize: 14, fontFamily: 'var(--sans)', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <Icon name="logout" size={16} /> {tr ? 'Çıkış yap' : 'Sign out'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { ResultScreen, HistoryScreen, SettingsScreen });
+
+
+// ===== app.jsx =====
+// app.jsx — main app shell: routing, state, tweaks
+
+// ──────────────────────────────────────────────────────────
+// FIXTURE DATA
+// ──────────────────────────────────────────────────────────
+
+const RACK_OPENS = [
+  { n: 7, color: 'red' }, { n: 7, color: 'black' }, { n: 7, color: 'yellow' }, { n: 7, color: 'blue' },
+  { n: 9, color: 'blue' }, { n: 10, color: 'blue' }, { n: 11, color: 'blue' },
+  { n: 12, color: 'blue' }, { n: 13, color: 'blue' },
+  { n: 3, color: 'red', lowConfidence: true }, { n: 5, color: 'yellow' },
+  { n: 2, color: 'black' }, { n: 11, color: 'red' }, { n: '', color: 'joker' },
+];
+
+const RESULT_OPENS = {
+  total: 104,
+  melds: [
+    { label: { tr: 'Aynı sayı · 4 renk', en: 'Set · 4 colors' }, score: 28,
+      tiles: [{n:7,color:'red'},{n:7,color:'black'},{n:7,color:'yellow'},{n:7,color:'blue'}] },
+    { label: { tr: 'Mavi seri · 5', en: 'Blue run · 5' }, score: 55,
+      tiles: [{n:9,color:'blue'},{n:10,color:'blue'},{n:11,color:'blue'},{n:12,color:'blue'},{n:13,color:'blue'}] },
+    { label: { tr: 'On birli · okey ile', en: 'Elevens · with joker' }, score: 21,
+      tiles: [{n:11,color:'red'},{n:'',color:'joker'},{n:11,color:'yellow'}] },
+  ],
+  leftover: [{n:3,color:'red'},{n:5,color:'yellow'},{n:2,color:'black'}],
+  reasoning: {
+    tr: [
+      'Dört renkten yedi\u2019liler tek seçenek; 28 puan kesin.',
+      'Mavi 9\u201313 beş taşlık seri, 55 puan kazandırır.',
+      'Okey on bir\u2019liler grubuna katılınca 21 puan daha gelir; toplam 104.',
+    ],
+    en: [
+      'Sevens-in-four-colors is the only set; locks in 28 points.',
+      'Blue 9\u201313 is your best run \u2014 worth 55 points.',
+      'Okey completes the 11\u2019s for 21 more, totalling 104.',
+    ],
+  },
+};
+
+const RACK_CLOSE = [
+  { n: 7, color: 'red' }, { n: 7, color: 'black' }, { n: 7, color: 'yellow' },
+  { n: 3, color: 'blue' }, { n: 4, color: 'blue' }, { n: 5, color: 'blue' },
+  { n: 9, color: 'red' }, { n: 11, color: 'yellow' }, { n: 13, color: 'black' },
+  { n: 1, color: 'red' }, { n: 2, color: 'red' }, { n: 6, color: 'yellow' },
+  { n: 8, color: 'black' }, { n: 12, color: 'blue' },
+];
+
+const HISTORY = [
+  { when: '21:48', mode: '101 Okey', opens: true, score: 104, rack: RACK_OPENS },
+  { when: 'Dün · 19:30', mode: '101 Okey', opens: false, score: 87, rack: RACK_CLOSE },
+  { when: 'Dün · 18:12', mode: 'Okey', opens: true, score: 142, rack: RACK_OPENS },
+  { when: '21 May', mode: '101 Okey', opens: false, score: 76, rack: RACK_CLOSE },
+  { when: '20 May', mode: '101 Okey', opens: true, score: 118, rack: RACK_OPENS },
+];
+
+// ──────────────────────────────────────────────────────────
+// APP — receives tweaks + setter as props (single source of truth)
+// ──────────────────────────────────────────────────────────
+function App({ tweaks, setTweak }) {
+  const [route, setRoute] = React.useState('splash');
+  const [isGuest, setIsGuest] = React.useState(false);
+  const [rack, setRack] = React.useState(RACK_OPENS);
+  const [result, setResult] = React.useState(RESULT_OPENS);
+
+  const appRef = React.useRef(null);
+  React.useEffect(() => {
+    const el = appRef.current;
+    if (!el) return;
+    el.setAttribute('data-theme', tweaks.theme);
+    el.style.setProperty('--accent', tweaks.accent);
+  }, [tweaks.theme, tweaks.accent]);
+
+  const go = (r) => setRoute(r);
+
+  let content;
+  if (route === 'splash') {
+    content = <SplashScreen
+      t={tweaks.language} tile={tweaks.tileStyle}
+      onContinue={() => go('login')}
+      onGuest={() => { setIsGuest(true); go('home'); }}
+    />;
+  } else if (route === 'login') {
+    content = <LoginScreen
+      t={tweaks.language}
+      onLogin={() => { setIsGuest(false); go('home'); }}
+      onGuest={() => { setIsGuest(true); go('home'); }}
+      onBack={() => go('splash')}
+    />;
+  } else if (route === 'home') {
+    content = <>
+      <HomeScreen
+        t={tweaks.language} tile={tweaks.tileStyle} layout={tweaks.homeLayout}
+        gameMode={tweaks.gameMode} setGameMode={(v) => setTweak('gameMode', v)}
+        recentRack={RACK_OPENS}
+        onScan={() => go('camera')}
+        onHistory={() => go('history')}
+        onTutorial={() => go('tutorial')}
+      />
+      <BottomNav t={tweaks.language} active="home" onNav={(k) => go(k)} />
+    </>;
+  } else if (route === 'history') {
+    content = <>
+      <HistoryScreen t={tweaks.language} tile={tweaks.tileStyle} items={HISTORY}
+                     onOpen={() => { setResult(RESULT_OPENS); go('result'); }} />
+      <BottomNav t={tweaks.language} active="history" onNav={(k) => go(k)} />
+    </>;
+  } else if (route === 'settings') {
+    content = <>
+      <SettingsScreen
+        t={tweaks.language} isGuest={isGuest}
+        setLang={(v) => setTweak('language', v)}
+        onLogout={() => { setIsGuest(false); go('splash'); }}
+      />
+      <BottomNav t={tweaks.language} active="settings" onNav={(k) => go(k)} />
+    </>;
+  } else if (route === 'tutorial') {
+    content = <TutorialScreen t={tweaks.language} tile={tweaks.tileStyle} onBack={() => go('home')} />;
+  } else if (route === 'camera') {
+    content = <CameraScreen
+      t={tweaks.language} tile={tweaks.tileStyle}
+      captureMode={tweaks.captureMode}
+      setCaptureMode={(v) => setTweak('captureMode', v)}
+      onCapture={() => { setRack(RACK_OPENS); go('analyzing'); }}
+      onBack={() => go('home')}
+    />;
+  } else if (route === 'analyzing') {
+    content = <AnalyzingScreen
+      t={tweaks.language} tile={tweaks.tileStyle} rack={rack}
+      onDone={() => go('review')}
+    />;
+  } else if (route === 'review') {
+    content = <ReviewScreen
+      t={tweaks.language} tile={tweaks.tileStyle}
+      rack={rack} setRack={setRack}
+      onConfirm={() => { setResult(RESULT_OPENS); go('result'); }}
+      onBack={() => go('camera')}
+    />;
+  } else if (route === 'result') {
+    content = <ResultScreen
+      t={tweaks.language} tile={tweaks.tileStyle}
+      resultLayout={tweaks.resultLayout}
+      result={result}
+      onAgain={() => go('camera')}
+      onHome={() => go('home')}
+    />;
+  }
+
+  return <div ref={appRef} className="app">{content}</div>;
+}
+
+// ──────────────────────────────────────────────────────────
+// ROOT — owns tweaks state, wraps App in device frame, mounts panel
+// ──────────────────────────────────────────────────────────
+function Root() {
+  const defaults = /*EDITMODE-BEGIN*/{
+    "theme": "light",
+    "tileStyle": "classic",
+    "accent": "oklch(0.55 0.13 165)",
+    "gameMode": "101",
+    "resultLayout": "rack",
+    "homeLayout": "cards",
+    "captureMode": "photo",
+    "language": "tr"
+  }/*EDITMODE-END*/;
+  const [tweaks, setTweak] = useTweaks(defaults);
+
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24, background: '#ECECEC',
+    }}>
+      <IOSDevice width={402} height={874} dark={tweaks.theme === 'dark' || tweaks.theme === 'felt'}>
+        <App tweaks={tweaks} setTweak={setTweak} />
+      </IOSDevice>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Görünüm · Theme">
+          <TweakRadio
+            label="Mode"
+            value={tweaks.theme}
+            onChange={(v) => setTweak('theme', v)}
+            options={[
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' },
+              { value: 'felt', label: 'Felt' },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection label="Accent color">
+          <TweakColor
+            label="Accent"
+            value={tweaks.accent}
+            onChange={(v) => setTweak('accent', v)}
+            options={[
+              'oklch(0.55 0.13 165)',
+              'oklch(0.62 0.17 25)',
+              'oklch(0.48 0.16 270)',
+              'oklch(0.66 0.15 70)',
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection label="Tile style">
+          <TweakSelect
+            label="Style"
+            value={tweaks.tileStyle}
+            onChange={(v) => setTweak('tileStyle', v)}
+            options={[
+              { value: 'classic', label: 'Classic (cream + serif)' },
+              { value: 'flat',    label: 'Flat (color block)' },
+              { value: 'minimal', label: 'Minimal (dot + mono)' },
+              { value: 'bold',    label: 'Bold (italic serif)' },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection label="Game mode">
+          <TweakRadio
+            label="Mode"
+            value={tweaks.gameMode}
+            onChange={(v) => setTweak('gameMode', v)}
+            options={[
+              { value: '101', label: '101 Okey' },
+              { value: 'okey', label: 'Plain Okey' },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection label="Result layout">
+          <TweakSelect
+            label="Layout"
+            value={tweaks.resultLayout}
+            onChange={(v) => setTweak('resultLayout', v)}
+            options={[
+              { value: 'rack',     label: 'Visual rack' },
+              { value: 'list',     label: 'List of melds' },
+              { value: 'detailed', label: 'Rack + reasoning' },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection label="Capture mode">
+          <TweakRadio
+            label="Mode"
+            value={tweaks.captureMode}
+            onChange={(v) => setTweak('captureMode', v)}
+            options={[
+              { value: 'photo', label: 'Photo' },
+              { value: 'video', label: 'Video' },
+              { value: 'gallery', label: 'Gallery' },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection label="Language">
+          <TweakRadio
+            label="Lang"
+            value={tweaks.language}
+            onChange={(v) => setTweak('language', v)}
+            options={[
+              { value: 'tr', label: 'Türkçe' },
+              { value: 'en', label: 'English' },
+            ]}
+          />
+        </TweakSection>
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+
+
+
+  </script>
+</body>
+</html>

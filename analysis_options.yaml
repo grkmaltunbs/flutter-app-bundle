@@ -1,0 +1,13 @@
+include: package:very_good_analysis/analysis_options.yaml
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "lib/l10n/**"
+linter:
+  rules:
+    public_member_api_docs: false
+    # The project mandates single-method abstractions as DI/test seams:
+    # `Clock` (core/time) and every repository interface (CLAUDE.md hard rules).
+    # `one_member_abstracts` is incompatible with that architecture.
+    one_member_abstracts: false
