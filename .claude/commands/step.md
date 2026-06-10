@@ -47,9 +47,8 @@ own and dependent ones) exercised and zero runtime errors or overflow.
 8. **Mark complete.** Only after flutter-qa returns PASS, flip the step's
    checkbox `- [ ]` → `- [x]` in `PROJECT_PLAN.md`.
 
-9. **Report.** What was built, files touched, test-count delta, the **flutter-qa
-   verdict** (platforms run, flows exercised), and the saved screenshots (show
-   the smallest + largest via Read).
+9. **Report.** What was built, files touched, test-count delta, and the
+   **flutter-qa verdict** (platforms run, flows exercised).
 
 ## Rules
 - Do NOT skip ahead to other steps.

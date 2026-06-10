@@ -12,9 +12,6 @@ import 'package:okey_acar_mi/l10n/app_localizations.dart';
 /// (and overflow-safe) before the owning feature exists. Each value maps to a
 /// localized screen title; the body is a friendly "coming soon" placeholder.
 enum PlaceholderScreen {
-  /// Login / sign-up (Step 3).
-  login,
-
   /// Camera capture (Step 4).
   camera,
 
@@ -40,7 +37,6 @@ class PlaceholderPage extends StatelessWidget {
   final PlaceholderScreen screen;
 
   String _title(AppLocalizations l10n) => switch (screen) {
-    PlaceholderScreen.login => l10n.screenLoginTitle,
     PlaceholderScreen.camera => l10n.screenCameraTitle,
     PlaceholderScreen.analyzing => l10n.screenAnalyzingTitle,
     PlaceholderScreen.review => l10n.screenReviewTitle,

@@ -25,6 +25,30 @@ import 'package:okey_acar_mi/features/_template/domain/usecases/get_template_ite
     as _i1033;
 import 'package:okey_acar_mi/features/_template/presentation/blocs/template_bloc.dart'
     as _i60;
+import 'package:okey_acar_mi/features/auth/data/fakes/fake_auth_repository.dart'
+    as _i861;
+import 'package:okey_acar_mi/features/auth/data/repositories/firebase_auth_repository.dart'
+    as _i338;
+import 'package:okey_acar_mi/features/auth/data/services/noop_guest_data_migrator.dart'
+    as _i219;
+import 'package:okey_acar_mi/features/auth/domain/repositories/auth_repository.dart'
+    as _i611;
+import 'package:okey_acar_mi/features/auth/domain/services/guest_data_migrator.dart'
+    as _i574;
+import 'package:okey_acar_mi/features/auth/domain/usecases/sign_in_with_apple.dart'
+    as _i1041;
+import 'package:okey_acar_mi/features/auth/domain/usecases/sign_in_with_email.dart'
+    as _i457;
+import 'package:okey_acar_mi/features/auth/domain/usecases/sign_in_with_google.dart'
+    as _i1047;
+import 'package:okey_acar_mi/features/auth/domain/usecases/sign_up_with_email.dart'
+    as _i186;
+import 'package:okey_acar_mi/features/auth/presentation/blocs/auth_bloc.dart'
+    as _i614;
+import 'package:okey_acar_mi/features/auth/presentation/blocs/delete_account_cubit.dart'
+    as _i131;
+import 'package:okey_acar_mi/features/auth/presentation/blocs/login_bloc.dart'
+    as _i790;
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart'
     as _i997;
 
@@ -40,7 +64,9 @@ extension GetItInjectableX on _i174.GetIt {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     gh.factory<_i997.SettingsCubit>(() => _i997.SettingsCubit());
     gh.lazySingleton<_i856.AppLogger>(() => _i856.AppLogger());
-    gh.lazySingleton<_i126.AppRouter>(() => _i126.AppRouter());
+    gh.lazySingleton<_i574.GuestDataMigrator>(
+      () => const _i219.NoopGuestDataMigrator(),
+    );
     gh.lazySingleton<_i92.Clock>(
       () => const _i92.FakeClock(),
       registerFor: {_demo},
@@ -48,6 +74,11 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i434.TemplateRepository>(
       () => _i766.FakeTemplateRepository(),
       registerFor: {_demo},
+    );
+    gh.lazySingleton<_i611.AuthRepository>(
+      () => _i861.FakeAuthRepository(),
+      registerFor: {_demo},
+      dispose: _i861.disposeFakeAuthRepository,
     );
     gh.lazySingleton<_i854.ConnectivityService>(
       () => const _i854.FakeConnectivityService(),
@@ -61,15 +92,62 @@ extension GetItInjectableX on _i174.GetIt {
       () => const _i92.SystemClock(),
       registerFor: {_prod},
     );
+    gh.lazySingleton<_i611.AuthRepository>(
+      () => _i338.FirebaseAuthRepository(),
+      registerFor: {_prod},
+    );
     gh.lazySingleton<_i854.ConnectivityService>(
       () => _i854.ConnectivityServiceImpl(),
       registerFor: {_prod},
+    );
+    gh.factory<_i1041.SignInWithApple>(
+      () => _i1041.SignInWithApple(
+        gh<_i611.AuthRepository>(),
+        gh<_i574.GuestDataMigrator>(),
+      ),
+    );
+    gh.factory<_i457.SignInWithEmail>(
+      () => _i457.SignInWithEmail(
+        gh<_i611.AuthRepository>(),
+        gh<_i574.GuestDataMigrator>(),
+      ),
+    );
+    gh.factory<_i1047.SignInWithGoogle>(
+      () => _i1047.SignInWithGoogle(
+        gh<_i611.AuthRepository>(),
+        gh<_i574.GuestDataMigrator>(),
+      ),
+    );
+    gh.factory<_i186.SignUpWithEmail>(
+      () => _i186.SignUpWithEmail(
+        gh<_i611.AuthRepository>(),
+        gh<_i574.GuestDataMigrator>(),
+      ),
     );
     gh.factory<_i1033.GetTemplateItems>(
       () => _i1033.GetTemplateItems(gh<_i434.TemplateRepository>()),
     );
     gh.factory<_i60.TemplateBloc>(
       () => _i60.TemplateBloc(gh<_i1033.GetTemplateItems>()),
+    );
+    gh.factory<_i790.LoginBloc>(
+      () => _i790.LoginBloc(
+        gh<_i457.SignInWithEmail>(),
+        gh<_i186.SignUpWithEmail>(),
+        gh<_i1047.SignInWithGoogle>(),
+        gh<_i1041.SignInWithApple>(),
+        gh<_i611.AuthRepository>(),
+      ),
+    );
+    gh.lazySingleton<_i614.AuthBloc>(
+      () => _i614.AuthBloc(gh<_i611.AuthRepository>()),
+    );
+    gh.factory<_i131.DeleteAccountCubit>(
+      () => _i131.DeleteAccountCubit(gh<_i611.AuthRepository>()),
+    );
+    gh.lazySingleton<_i126.AppRouter>(
+      () => _i126.AppRouter(gh<_i614.AuthBloc>()),
+      dispose: (i) => i.dispose(),
     );
     return this;
   }

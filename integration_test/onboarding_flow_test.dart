@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:okey_acar_mi/app.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
-import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
+import 'package:okey_acar_mi/features/auth/presentation/pages/login_page.dart';
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
@@ -67,17 +67,20 @@ void main() {
       check(tester.takeException()).isNull();
     });
 
-    testWidgets('continue → Login route (placeholder), back to splash', (
-      tester,
-    ) async {
+    testWidgets('continue → Login screen, back to splash', (tester) async {
       await tester.pumpWidget(const App());
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('splash-continue')));
       await tester.pumpAndSettle();
 
-      // The login route renders the placeholder (real screen lands in Step 3).
-      check(find.byType(PlaceholderPage).evaluate()).length.equals(1);
+      // The login route renders the real login screen.
+      check(find.byType(LoginPage).evaluate()).length.equals(1);
+
+      // Its back button pops to the splash beneath it.
+      await tester.tap(find.byKey(const ValueKey('login-back')));
+      await tester.pumpAndSettle();
+      check(find.byType(SplashPage).evaluate()).length.equals(1);
       check(tester.takeException()).isNull();
     });
   });

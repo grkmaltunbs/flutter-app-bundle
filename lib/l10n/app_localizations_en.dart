@@ -15,6 +15,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonBack => 'Back';
 
   @override
+  String get commonGoStart => 'Back to start';
+
+  @override
   String get navHome => 'Home';
 
   @override
@@ -250,9 +253,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get placeholderBody => 'This screen is on the way.';
 
   @override
-  String get screenLoginTitle => 'Sign in';
-
-  @override
   String get screenCameraTitle => 'Camera';
 
   @override
@@ -266,6 +266,189 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get screenPaywallTitle => 'Premium';
+
+  @override
+  String get loginEyebrow => 'WELCOME';
+
+  @override
+  String get loginTitleSignIn => 'Welcome back.';
+
+  @override
+  String get loginTitleSignUp => 'Make an account.';
+
+  @override
+  String get loginSubtitle => 'Continue with email, or connect.';
+
+  @override
+  String get loginEmailHint => 'Email address';
+
+  @override
+  String get loginPasswordHint => 'Password';
+
+  @override
+  String get loginForgot => 'Forgot password';
+
+  @override
+  String get loginSubmitSignIn => 'Sign in';
+
+  @override
+  String get loginSubmitSignUp => 'Create account';
+
+  @override
+  String get loginDividerOr => 'OR';
+
+  @override
+  String get loginGoogle => 'Continue with Google';
+
+  @override
+  String get loginApple => 'Continue with Apple';
+
+  @override
+  String get loginGuest => 'Continue as guest';
+
+  @override
+  String get loginNoAccount => 'No account yet?';
+
+  @override
+  String get loginHaveAccount => 'Already have an account?';
+
+  @override
+  String get loginModeToggleToSignUp => 'Sign up';
+
+  @override
+  String get loginModeToggleToSignIn => 'Sign in';
+
+  @override
+  String get textFieldShowPassword => 'Show password';
+
+  @override
+  String get textFieldHidePassword => 'Hide password';
+
+  @override
+  String get authErrorEmailEmpty => 'Email address is required.';
+
+  @override
+  String get authErrorEmailInvalid => 'Enter a valid email address.';
+
+  @override
+  String get authErrorEmailInUse =>
+      'This email is already registered. Try signing in.';
+
+  @override
+  String get authErrorPasswordEmpty => 'Password is required.';
+
+  @override
+  String get authErrorPasswordTooShort =>
+      'Password must be at least 6 characters.';
+
+  @override
+  String get authErrorInvalidCredentials => 'Incorrect email or password.';
+
+  @override
+  String get authErrorNetwork => 'Connection error. Try again.';
+
+  @override
+  String get authErrorTooManyRequests =>
+      'Too many attempts. Wait a moment and try again.';
+
+  @override
+  String get authErrorUnexpected => 'Something went wrong. Try again.';
+
+  @override
+  String get authErrorRequiresRecentLogin =>
+      'This action needs a recent sign-in. Verify your identity again.';
+
+  @override
+  String get authErrorSessionExpired => 'Your session expired. Sign in again.';
+
+  @override
+  String get forgotTitle => 'Reset your password';
+
+  @override
+  String get forgotBody => 'We will send a reset link to your email address.';
+
+  @override
+  String get forgotSubmit => 'Send link';
+
+  @override
+  String get forgotSentTitle => 'Link sent';
+
+  @override
+  String get forgotSentBody => 'Check your inbox. It may take a few minutes.';
+
+  @override
+  String get forgotClose => 'Close';
+
+  @override
+  String get settingsAccountGuestLabel => 'You are using the app as a guest';
+
+  @override
+  String get settingsAccountSignUpCta => 'Sign up';
+
+  @override
+  String get settingsAccountUnverifiedPill => 'EMAIL NOT VERIFIED';
+
+  @override
+  String get settingsAccountResendVerification => 'Resend';
+
+  @override
+  String get settingsAccountVerificationSent => 'Sent';
+
+  @override
+  String get settingsSignOut => 'Sign out';
+
+  @override
+  String get settingsDeleteAccount => 'Delete account';
+
+  @override
+  String get deleteTitle => 'You are about to delete your account';
+
+  @override
+  String get deleteWarning =>
+      'This cannot be undone. Your account and data will be permanently deleted.';
+
+  @override
+  String get deleteCancel => 'Cancel';
+
+  @override
+  String get deleteConfirmCta => 'Delete account';
+
+  @override
+  String get deleteReauthTitle => 'Verify your identity to continue';
+
+  @override
+  String get deleteReauthPasswordHint => 'Your password';
+
+  @override
+  String get deleteReauthSubmit => 'Verify and delete';
+
+  @override
+  String get deleteReauthGoogle => 'Verify with Google';
+
+  @override
+  String get deleteReauthApple => 'Verify with Apple';
+
+  @override
+  String get deleteInProgress => 'Deleting your account…';
+
+  @override
+  String get deleteDoneTitle => 'Account deleted';
+
+  @override
+  String get deleteDoneBody => 'You can keep using the app as a guest.';
+
+  @override
+  String get deleteDoneCta => 'Done';
+
+  @override
+  String get sessionExpiredBanner =>
+      'Your session expired — please sign in again.';
+
+  @override
+  String get sessionExpiredSignIn => 'Sign in';
+
+  @override
+  String get sessionExpiredDismiss => 'Dismiss';
 
   @override
   String tileSemantics(String color, int number) {

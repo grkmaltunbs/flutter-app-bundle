@@ -3,13 +3,14 @@ import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
 import 'package:okey_acar_mi/core/theme/app_palette.dart';
 
 /// Visual variants for the button family, ported from `.btn*` in the design
-/// bundle's `styles.css`.
-enum _ButtonVariant { primary, secondary, ghost, accent }
+/// bundle's `styles.css` (plus the destructive variant).
+enum _ButtonVariant { primary, secondary, ghost, accent, danger }
 
-/// Shared base for the four button styles (52pt tall, fully rounded).
+/// Shared base for the button styles (min 52pt tall, fully rounded).
 ///
-/// Disabled (and visually dimmed) when [onPressed] is null. Guarantees a
-/// >=48dp tap target.
+/// Disabled (and visually dimmed) when [onPressed] is null. When [loading]
+/// is true a spinner replaces the icon slot and taps are ignored — without
+/// the disabled dimming. Guarantees a >=48dp tap target.
 class _AppButton extends StatelessWidget {
   const _AppButton({
     required this.label,
@@ -17,6 +18,8 @@ class _AppButton extends StatelessWidget {
     this.onPressed,
     this.icon,
     this.fullWidth = false,
+    this.loading = false,
+    this.foregroundColor,
   });
 
   final String label;
@@ -24,24 +27,36 @@ class _AppButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final IconData? icon;
   final bool fullWidth;
+  final bool loading;
+  final Color? foregroundColor;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final enabled = onPressed != null;
-    final (bg, fg, border) = _colors(palette);
+    final dimmed = !loading && onPressed == null;
+    final (bg, defaultFg, border) = _colors(palette);
+    final fg = foregroundColor ?? defaultFg;
 
     final content = Row(
       mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (icon != null) ...[
+        if (loading) ...[
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: fg),
+          ),
+          const SizedBox(width: 8),
+        ] else if (icon != null) ...[
           Icon(icon, size: 18, color: fg),
           const SizedBox(width: 8),
         ],
         Flexible(
           child: Text(
             label,
+            maxLines: 2,
+            textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
             style: context.textTheme.labelLarge?.copyWith(
               color: fg,
@@ -54,16 +69,17 @@ class _AppButton extends StatelessWidget {
     );
 
     return Opacity(
-      opacity: enabled ? 1 : 0.45,
+      opacity: dimmed ? 0.45 : 1,
       child: Material(
         color: bg,
         borderRadius: BorderRadius.circular(100),
         child: InkWell(
-          onTap: onPressed,
+          onTap: loading ? null : onPressed,
           borderRadius: BorderRadius.circular(100),
           child: Container(
-            height: 52,
-            constraints: const BoxConstraints(minHeight: 48),
+            // Min (not fixed) height: the label may wrap to two lines at
+            // textScale 2.0 on narrow screens, growing the button.
+            constraints: const BoxConstraints(minHeight: 52),
             padding: const EdgeInsets.symmetric(horizontal: 22),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(100),
@@ -87,6 +103,8 @@ class _AppButton extends StatelessWidget {
         return (Colors.transparent, palette.ink, null);
       case _ButtonVariant.accent:
         return (palette.accent, Colors.white, null);
+      case _ButtonVariant.danger:
+        return (palette.badStrong, Colors.white, null);
     }
   }
 }
@@ -99,6 +117,7 @@ class PrimaryButton extends StatelessWidget {
     this.onPressed,
     this.icon,
     this.fullWidth = false,
+    this.loading = false,
     super.key,
   });
 
@@ -114,6 +133,9 @@ class PrimaryButton extends StatelessWidget {
   /// Whether the button stretches to its parent's width.
   final bool fullWidth;
 
+  /// Whether a spinner replaces the icon slot (taps ignored, not dimmed).
+  final bool loading;
+
   @override
   Widget build(BuildContext context) => _AppButton(
     label: label,
@@ -121,6 +143,7 @@ class PrimaryButton extends StatelessWidget {
     onPressed: onPressed,
     icon: icon,
     fullWidth: fullWidth,
+    loading: loading,
   );
 }
 
@@ -132,6 +155,7 @@ class SecondaryButton extends StatelessWidget {
     this.onPressed,
     this.icon,
     this.fullWidth = false,
+    this.loading = false,
     super.key,
   });
 
@@ -147,6 +171,9 @@ class SecondaryButton extends StatelessWidget {
   /// Whether the button stretches to its parent's width.
   final bool fullWidth;
 
+  /// Whether a spinner replaces the icon slot (taps ignored, not dimmed).
+  final bool loading;
+
   @override
   Widget build(BuildContext context) => _AppButton(
     label: label,
@@ -154,6 +181,7 @@ class SecondaryButton extends StatelessWidget {
     onPressed: onPressed,
     icon: icon,
     fullWidth: fullWidth,
+    loading: loading,
   );
 }
 
@@ -165,6 +193,8 @@ class GhostButton extends StatelessWidget {
     this.onPressed,
     this.icon,
     this.fullWidth = false,
+    this.loading = false,
+    this.foregroundColor,
     super.key,
   });
 
@@ -180,6 +210,12 @@ class GhostButton extends StatelessWidget {
   /// Whether the button stretches to its parent's width.
   final bool fullWidth;
 
+  /// Whether a spinner replaces the icon slot (taps ignored, not dimmed).
+  final bool loading;
+
+  /// Optional ink override (e.g. `palette.bad` for destructive actions).
+  final Color? foregroundColor;
+
   @override
   Widget build(BuildContext context) => _AppButton(
     label: label,
@@ -187,6 +223,8 @@ class GhostButton extends StatelessWidget {
     onPressed: onPressed,
     icon: icon,
     fullWidth: fullWidth,
+    loading: loading,
+    foregroundColor: foregroundColor,
   );
 }
 
@@ -198,6 +236,7 @@ class AccentButton extends StatelessWidget {
     this.onPressed,
     this.icon,
     this.fullWidth = false,
+    this.loading = false,
     super.key,
   });
 
@@ -213,6 +252,9 @@ class AccentButton extends StatelessWidget {
   /// Whether the button stretches to its parent's width.
   final bool fullWidth;
 
+  /// Whether a spinner replaces the icon slot (taps ignored, not dimmed).
+  final bool loading;
+
   @override
   Widget build(BuildContext context) => _AppButton(
     label: label,
@@ -220,5 +262,44 @@ class AccentButton extends StatelessWidget {
     onPressed: onPressed,
     icon: icon,
     fullWidth: fullWidth,
+    loading: loading,
+  );
+}
+
+/// A destructive action button (bad-strong background, white foreground).
+class DangerButton extends StatelessWidget {
+  /// Creates a [DangerButton].
+  const DangerButton({
+    required this.label,
+    this.onPressed,
+    this.icon,
+    this.fullWidth = false,
+    this.loading = false,
+    super.key,
+  });
+
+  /// The button label.
+  final String label;
+
+  /// Tap handler; null disables the button.
+  final VoidCallback? onPressed;
+
+  /// Optional leading icon.
+  final IconData? icon;
+
+  /// Whether the button stretches to its parent's width.
+  final bool fullWidth;
+
+  /// Whether a spinner replaces the icon slot (taps ignored, not dimmed).
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) => _AppButton(
+    label: label,
+    variant: _ButtonVariant.danger,
+    onPressed: onPressed,
+    icon: icon,
+    fullWidth: fullWidth,
+    loading: loading,
   );
 }

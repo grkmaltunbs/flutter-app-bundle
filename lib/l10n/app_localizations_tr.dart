@@ -15,6 +15,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get commonBack => 'Geri';
 
   @override
+  String get commonGoStart => 'Başlangıca dön';
+
+  @override
   String get navHome => 'Ana';
 
   @override
@@ -251,9 +254,6 @@ class AppLocalizationsTr extends AppLocalizations {
   String get placeholderBody => 'Bu ekran yolda.';
 
   @override
-  String get screenLoginTitle => 'Giriş';
-
-  @override
   String get screenCameraTitle => 'Kamera';
 
   @override
@@ -267,6 +267,191 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get screenPaywallTitle => 'Premium';
+
+  @override
+  String get loginEyebrow => 'HOŞ GELDİN';
+
+  @override
+  String get loginTitleSignIn => 'Tekrar hoş geldin.';
+
+  @override
+  String get loginTitleSignUp => 'Hesap aç.';
+
+  @override
+  String get loginSubtitle => 'E-postanla devam et, ya da bağlan.';
+
+  @override
+  String get loginEmailHint => 'E-posta adresi';
+
+  @override
+  String get loginPasswordHint => 'Şifre';
+
+  @override
+  String get loginForgot => 'Şifremi unuttum';
+
+  @override
+  String get loginSubmitSignIn => 'Giriş yap';
+
+  @override
+  String get loginSubmitSignUp => 'Hesap oluştur';
+
+  @override
+  String get loginDividerOr => 'YA DA';
+
+  @override
+  String get loginGoogle => 'Google ile devam et';
+
+  @override
+  String get loginApple => 'Apple ile devam et';
+
+  @override
+  String get loginGuest => 'Misafir olarak devam et';
+
+  @override
+  String get loginNoAccount => 'Hesabın yok mu?';
+
+  @override
+  String get loginHaveAccount => 'Zaten bir hesabın var mı?';
+
+  @override
+  String get loginModeToggleToSignUp => 'Hesap oluştur';
+
+  @override
+  String get loginModeToggleToSignIn => 'Giriş yap';
+
+  @override
+  String get textFieldShowPassword => 'Şifreyi göster';
+
+  @override
+  String get textFieldHidePassword => 'Şifreyi gizle';
+
+  @override
+  String get authErrorEmailEmpty => 'E-posta adresi gerekli.';
+
+  @override
+  String get authErrorEmailInvalid => 'Geçerli bir e-posta adresi gir.';
+
+  @override
+  String get authErrorEmailInUse =>
+      'Bu e-posta zaten kayıtlı. Giriş yapmayı dene.';
+
+  @override
+  String get authErrorPasswordEmpty => 'Şifre gerekli.';
+
+  @override
+  String get authErrorPasswordTooShort => 'Şifre en az 6 karakter olmalı.';
+
+  @override
+  String get authErrorInvalidCredentials => 'E-posta veya şifre hatalı.';
+
+  @override
+  String get authErrorNetwork => 'Bağlantı hatası. Tekrar dene.';
+
+  @override
+  String get authErrorTooManyRequests =>
+      'Çok fazla deneme yapıldı. Biraz bekleyip tekrar dene.';
+
+  @override
+  String get authErrorUnexpected => 'Bir şeyler ters gitti. Tekrar dene.';
+
+  @override
+  String get authErrorRequiresRecentLogin =>
+      'Bu işlem için yakın zamanda giriş yapmış olman gerekiyor. Kimliğini tekrar doğrula.';
+
+  @override
+  String get authErrorSessionExpired =>
+      'Oturumun süresi doldu. Tekrar giriş yap.';
+
+  @override
+  String get forgotTitle => 'Şifreni sıfırla';
+
+  @override
+  String get forgotBody =>
+      'E-posta adresine bir sıfırlama bağlantısı gönderelim.';
+
+  @override
+  String get forgotSubmit => 'Bağlantı gönder';
+
+  @override
+  String get forgotSentTitle => 'Bağlantı gönderildi';
+
+  @override
+  String get forgotSentBody =>
+      'Gelen kutunu kontrol et. Birkaç dakika sürebilir.';
+
+  @override
+  String get forgotClose => 'Kapat';
+
+  @override
+  String get settingsAccountGuestLabel => 'Misafir olarak kullanıyorsun';
+
+  @override
+  String get settingsAccountSignUpCta => 'Üye ol';
+
+  @override
+  String get settingsAccountUnverifiedPill => 'E-POSTA DOĞRULANMADI';
+
+  @override
+  String get settingsAccountResendVerification => 'Tekrar gönder';
+
+  @override
+  String get settingsAccountVerificationSent => 'Gönderildi';
+
+  @override
+  String get settingsSignOut => 'Çıkış yap';
+
+  @override
+  String get settingsDeleteAccount => 'Hesabı sil';
+
+  @override
+  String get deleteTitle => 'Hesabını silmek üzeresin';
+
+  @override
+  String get deleteWarning =>
+      'Bu işlem geri alınamaz. Hesabın ve verilerin kalıcı olarak silinir.';
+
+  @override
+  String get deleteCancel => 'Vazgeç';
+
+  @override
+  String get deleteConfirmCta => 'Hesabı sil';
+
+  @override
+  String get deleteReauthTitle => 'Devam etmek için kimliğini doğrula';
+
+  @override
+  String get deleteReauthPasswordHint => 'Şifren';
+
+  @override
+  String get deleteReauthSubmit => 'Doğrula ve sil';
+
+  @override
+  String get deleteReauthGoogle => 'Google ile doğrula';
+
+  @override
+  String get deleteReauthApple => 'Apple ile doğrula';
+
+  @override
+  String get deleteInProgress => 'Hesabın siliniyor…';
+
+  @override
+  String get deleteDoneTitle => 'Hesabın silindi';
+
+  @override
+  String get deleteDoneBody =>
+      'Uygulamayı misafir olarak kullanmaya devam edebilirsin.';
+
+  @override
+  String get deleteDoneCta => 'Tamam';
+
+  @override
+  String get sessionExpiredBanner => 'Oturum süresi doldu, tekrar giriş yap.';
+
+  @override
+  String get sessionExpiredSignIn => 'Giriş yap';
+
+  @override
+  String get sessionExpiredDismiss => 'Kapat';
 
   @override
   String tileSemantics(String color, int number) {

@@ -110,6 +110,12 @@ abstract class AppLocalizations {
   /// **'Back'**
   String get commonBack;
 
+  /// Accessibility label for the header button when there is no back stack and it navigates to the start screen instead.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to start'**
+  String get commonGoStart;
+
   /// Bottom navigation label for the Home tab.
   ///
   /// In en, this message translates to:
@@ -572,12 +578,6 @@ abstract class AppLocalizations {
   /// **'This screen is on the way.'**
   String get placeholderBody;
 
-  /// No description provided for @screenLoginTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign in'**
-  String get screenLoginTitle;
-
   /// No description provided for @screenCameraTitle.
   ///
   /// In en, this message translates to:
@@ -607,6 +607,360 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Premium'**
   String get screenPaywallTitle;
+
+  /// Eyebrow at the top of the login screen.
+  ///
+  /// In en, this message translates to:
+  /// **'WELCOME'**
+  String get loginEyebrow;
+
+  /// Serif title of the login screen in sign-in mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome back.'**
+  String get loginTitleSignIn;
+
+  /// Serif title of the login screen in sign-up mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Make an account.'**
+  String get loginTitleSignUp;
+
+  /// Muted subtitle under the login title.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with email, or connect.'**
+  String get loginSubtitle;
+
+  /// Hint for the email field on login and password reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Email address'**
+  String get loginEmailHint;
+
+  /// Hint for the password field on the login screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get loginPasswordHint;
+
+  /// Link that opens the password-reset sheet (sign-in mode).
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password'**
+  String get loginForgot;
+
+  /// Submit button label in sign-in mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get loginSubmitSignIn;
+
+  /// Submit button label in sign-up mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get loginSubmitSignUp;
+
+  /// Divider label between the email form and provider buttons.
+  ///
+  /// In en, this message translates to:
+  /// **'OR'**
+  String get loginDividerOr;
+
+  /// Google sign-in button label.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Google'**
+  String get loginGoogle;
+
+  /// Apple sign-in button label (iOS only).
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Apple'**
+  String get loginApple;
+
+  /// Guest escape button on the login screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue as guest'**
+  String get loginGuest;
+
+  /// Footer text before the sign-up toggle (sign-in mode).
+  ///
+  /// In en, this message translates to:
+  /// **'No account yet?'**
+  String get loginNoAccount;
+
+  /// Footer text before the sign-in toggle (sign-up mode).
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account?'**
+  String get loginHaveAccount;
+
+  /// Footer link that switches the form to sign-up mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up'**
+  String get loginModeToggleToSignUp;
+
+  /// Footer link that switches the form to sign-in mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get loginModeToggleToSignIn;
+
+  /// Accessibility label for the eye toggle when the password is hidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get textFieldShowPassword;
+
+  /// Accessibility label for the eye toggle when the password is visible.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get textFieldHidePassword;
+
+  /// Inline error when the email field is empty on submit.
+  ///
+  /// In en, this message translates to:
+  /// **'Email address is required.'**
+  String get authErrorEmailEmpty;
+
+  /// Inline error when the email does not look like an address.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid email address.'**
+  String get authErrorEmailInvalid;
+
+  /// Inline error when signing up with a registered email.
+  ///
+  /// In en, this message translates to:
+  /// **'This email is already registered. Try signing in.'**
+  String get authErrorEmailInUse;
+
+  /// Inline error when the password field is empty on submit.
+  ///
+  /// In en, this message translates to:
+  /// **'Password is required.'**
+  String get authErrorPasswordEmpty;
+
+  /// Inline error when the sign-up password is too short.
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 6 characters.'**
+  String get authErrorPasswordTooShort;
+
+  /// Banner error for wrong credentials (never reveals which).
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect email or password.'**
+  String get authErrorInvalidCredentials;
+
+  /// Banner error for connectivity failures during auth.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection error. Try again.'**
+  String get authErrorNetwork;
+
+  /// Banner error when the backend throttles sign-in attempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Wait a moment and try again.'**
+  String get authErrorTooManyRequests;
+
+  /// Banner error for any unclassified auth failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Try again.'**
+  String get authErrorUnexpected;
+
+  /// Banner error when a sensitive action (e.g. account deletion) requires a recent re-authentication.
+  ///
+  /// In en, this message translates to:
+  /// **'This action needs a recent sign-in. Verify your identity again.'**
+  String get authErrorRequiresRecentLogin;
+
+  /// Banner error when the stored session is no longer valid.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session expired. Sign in again.'**
+  String get authErrorSessionExpired;
+
+  /// Title of the password-reset sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset your password'**
+  String get forgotTitle;
+
+  /// Body of the password-reset sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'We will send a reset link to your email address.'**
+  String get forgotBody;
+
+  /// Submit button of the password-reset sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Send link'**
+  String get forgotSubmit;
+
+  /// Success title after the reset email is sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Link sent'**
+  String get forgotSentTitle;
+
+  /// Success body after the reset email is sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your inbox. It may take a few minutes.'**
+  String get forgotSentBody;
+
+  /// Button that closes the password-reset sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get forgotClose;
+
+  /// Account section label when signed out.
+  ///
+  /// In en, this message translates to:
+  /// **'You are using the app as a guest'**
+  String get settingsAccountGuestLabel;
+
+  /// Account section CTA that opens the login screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up'**
+  String get settingsAccountSignUpCta;
+
+  /// Pill shown when the account email is not verified.
+  ///
+  /// In en, this message translates to:
+  /// **'EMAIL NOT VERIFIED'**
+  String get settingsAccountUnverifiedPill;
+
+  /// Link that re-sends the verification email.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend'**
+  String get settingsAccountResendVerification;
+
+  /// Receipt label after the verification email was re-sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent'**
+  String get settingsAccountVerificationSent;
+
+  /// Sign-out button in the account section.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get settingsSignOut;
+
+  /// Destructive entry that opens the account-deletion sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account'**
+  String get settingsDeleteAccount;
+
+  /// Title of the deletion confirm step.
+  ///
+  /// In en, this message translates to:
+  /// **'You are about to delete your account'**
+  String get deleteTitle;
+
+  /// Irreversibility warning on the deletion confirm step.
+  ///
+  /// In en, this message translates to:
+  /// **'This cannot be undone. Your account and data will be permanently deleted.'**
+  String get deleteWarning;
+
+  /// Button that abandons the deletion flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get deleteCancel;
+
+  /// Destructive button that confirms the deletion intent.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account'**
+  String get deleteConfirmCta;
+
+  /// Title of the re-authentication step before deletion.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify your identity to continue'**
+  String get deleteReauthTitle;
+
+  /// Hint for the password field in the re-auth step.
+  ///
+  /// In en, this message translates to:
+  /// **'Your password'**
+  String get deleteReauthPasswordHint;
+
+  /// Destructive button that re-authenticates and deletes.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify and delete'**
+  String get deleteReauthSubmit;
+
+  /// Re-auth button for Google-linked accounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify with Google'**
+  String get deleteReauthGoogle;
+
+  /// Re-auth button for Apple-linked accounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify with Apple'**
+  String get deleteReauthApple;
+
+  /// Progress label while the account is being deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting your account…'**
+  String get deleteInProgress;
+
+  /// Title after the account was deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Account deleted'**
+  String get deleteDoneTitle;
+
+  /// Body after the account was deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'You can keep using the app as a guest.'**
+  String get deleteDoneBody;
+
+  /// Button that closes the deletion sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get deleteDoneCta;
+
+  /// Banner text when the persisted session failed to restore.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session expired — please sign in again.'**
+  String get sessionExpiredBanner;
+
+  /// Banner action that opens the login screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get sessionExpiredSignIn;
+
+  /// Accessibility label for the banner dismiss button.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get sessionExpiredDismiss;
 
   /// Accessibility label for a numbered tile.
   ///

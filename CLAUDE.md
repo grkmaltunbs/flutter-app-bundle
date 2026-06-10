@@ -288,7 +288,7 @@ After implementing a feature, `/step` (via the `flutter-qa` agent) gates on:
 4. **Zero runtime errors/exceptions** in the Dart MCP error log during the runs.
 5. **Zero render (overflow) errors** across the responsive size matrix (see
    `PRODUCT_SPEC.md` → Non-functional) at textScale 1.0 and 2.0.
-6. Successful flows captured as permanent integration tests; screenshots saved.
+6. Successful flows captured as permanent integration tests.
 
 ## Platform support
 

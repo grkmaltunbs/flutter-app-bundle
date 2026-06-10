@@ -31,6 +31,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.good,
     required this.warn,
     required this.bad,
+    required this.badStrong,
     required this.accent,
     required this.accentSoft,
     required this.accentInk,
@@ -62,6 +63,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       rackTop: const Color(0xFFEBE9E6),
       rackBottom: const Color(0xFFF4F3F1),
       rackBorder: const Color(0xFFDCD9D5),
+      // 6.13:1 against white (WCAG AA for normal text needs >= 4.5:1).
+      badStrong: const Color(0xFFB5302E),
     );
   }
 
@@ -87,6 +90,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       rackTop: const Color(0xFF34322E),
       rackBottom: const Color(0xFF2B2926),
       rackBorder: const Color(0xFF423E39),
+      // 5.38:1 against white (slightly brighter to read on dark surfaces).
+      badStrong: const Color(0xFFC03A38),
     );
   }
 
@@ -113,6 +118,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       rackTop: const Color(0xFF2F6453),
       rackBottom: const Color(0xFF234E41),
       rackBorder: const Color(0xFF356957),
+      // 5.72:1 against white over the dark-green felt surfaces.
+      badStrong: const Color(0xFFBB3533),
     );
   }
 
@@ -136,6 +143,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required Color rackTop,
     required Color rackBottom,
     required Color rackBorder,
+    required Color badStrong,
   }) {
     final accentColor = accent.seed;
     return AppPalette(
@@ -157,6 +165,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       good: _good,
       warn: _warn,
       bad: _bad,
+      badStrong: badStrong,
       accent: accentColor,
       accentSoft: Color.lerp(bg, accentColor, 0.14)!,
       accentInk: Color.lerp(accentColor, Colors.black, 0.32)!,
@@ -242,6 +251,11 @@ class AppPalette extends ThemeExtension<AppPalette> {
   /// Negative / error feedback (`--bad`).
   final Color bad;
 
+  /// Stronger negative feedback for filled surfaces with white foregrounds
+  /// (e.g. `DangerButton` backgrounds): per theme, >= 4.5:1 WCAG contrast
+  /// against white.
+  final Color badStrong;
+
   /// The active accent color (`--accent`).
   final Color accent;
 
@@ -283,6 +297,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? good,
     Color? warn,
     Color? bad,
+    Color? badStrong,
     Color? accent,
     Color? accentSoft,
     Color? accentInk,
@@ -310,6 +325,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       good: good ?? this.good,
       warn: warn ?? this.warn,
       bad: bad ?? this.bad,
+      badStrong: badStrong ?? this.badStrong,
       accent: accent ?? this.accent,
       accentSoft: accentSoft ?? this.accentSoft,
       accentInk: accentInk ?? this.accentInk,
@@ -342,6 +358,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       good: Color.lerp(good, other.good, t)!,
       warn: Color.lerp(warn, other.warn, t)!,
       bad: Color.lerp(bad, other.bad, t)!,
+      badStrong: Color.lerp(badStrong, other.badStrong, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
       accentSoft: Color.lerp(accentSoft, other.accentSoft, t)!,
       accentInk: Color.lerp(accentInk, other.accentInk, t)!,

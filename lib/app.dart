@@ -3,22 +3,31 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
+import 'package:okey_acar_mi/features/auth/presentation/blocs/auth_bloc.dart';
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:okey_acar_mi/l10n/app_localizations.dart';
 
 /// The application root.
 ///
 /// Wires routing, theming, and localization. The active theme (light / dark /
-/// system / felt), tile style, and accent are driven by [SettingsCubit], which
-/// is provided above [MaterialApp.router].
+/// system / felt), tile style, and accent are driven by [SettingsCubit]; the
+/// session is driven by the app-scoped [AuthBloc] (eagerly created so the
+/// session restore starts immediately). Both are provided above
+/// [MaterialApp.router].
 class App extends StatelessWidget {
   /// Creates an [App].
   const App({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<SettingsCubit>(
-      create: (_) => getIt<SettingsCubit>(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<SettingsCubit>(create: (_) => getIt<SettingsCubit>()),
+        BlocProvider<AuthBloc>(
+          lazy: false,
+          create: (_) => getIt<AuthBloc>()..add(const AuthEvent.started()),
+        ),
+      ],
       child: const _AppView(),
     );
   }

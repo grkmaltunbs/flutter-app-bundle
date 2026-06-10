@@ -2,12 +2,14 @@ import 'package:checks/checks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:okey_acar_mi/app.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/widgets/circle_icon_button.dart';
 import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
+import 'package:okey_acar_mi/features/auth/data/fakes/fake_auth_repository.dart';
+import 'package:okey_acar_mi/features/auth/domain/repositories/auth_repository.dart';
+import 'package:okey_acar_mi/features/auth/presentation/pages/login_page.dart';
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
@@ -61,7 +63,7 @@ void main() {
       check(tester.takeException()).isNull();
     });
 
-    testWidgets('continue → Login route, then pop returns to splash', (
+    testWidgets('continue → Login route, then back returns to splash', (
       tester,
     ) async {
       await tester.pumpWidget(const App());
@@ -69,12 +71,27 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('splash-continue')));
       await tester.pumpAndSettle();
-      check(find.byType(PlaceholderPage).evaluate()).length.equals(1);
+      check(find.byType(LoginPage).evaluate()).length.equals(1);
 
-      // Popping the pushed login returns to the splash beneath it.
-      tester.element(find.byType(PlaceholderPage)).pop();
+      // The login back button pops to the splash beneath it.
+      await tester.tap(find.byKey(const ValueKey('login-back')));
       await tester.pumpAndSettle();
       check(find.byType(SplashPage).evaluate()).length.equals(1);
+      check(tester.takeException()).isNull();
+    });
+
+    testWidgets('seededSignedIn → splash redirects straight to Home', (
+      tester,
+    ) async {
+      (getIt<AuthRepository>() as FakeAuthRepository).mode =
+          FakeAuthMode.seededSignedIn;
+
+      await tester.pumpWidget(const App());
+      await tester.pumpAndSettle();
+
+      // The restored session triggers the auth redirect away from splash.
+      check(find.byType(HomePage).evaluate()).length.equals(1);
+      check(find.byType(SplashPage).evaluate()).isEmpty();
       check(tester.takeException()).isNull();
     });
 

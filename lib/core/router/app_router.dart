@@ -1,7 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:injectable/injectable.dart';
+import 'package:okey_acar_mi/core/router/go_router_refresh_stream.dart';
 import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
+import 'package:okey_acar_mi/features/auth/presentation/blocs/auth_bloc.dart';
+import 'package:okey_acar_mi/features/auth/presentation/pages/login_page.dart';
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
@@ -15,7 +18,7 @@ abstract final class AppRoutes {
   /// Splash / brand entry (the initial location).
   static const String splash = '/splash';
 
-  /// Login / sign-up (placeholder until Step 3).
+  /// Login / sign-up.
   static const String login = '/login';
 
   /// How-it-works tutorial.
@@ -51,25 +54,55 @@ abstract final class AppRoutes {
 /// A splash entry plus standalone routes (login, tutorial, capture→result,
 /// paywall) sit alongside a [StatefulShellRoute.indexedStack] that hosts the
 /// three persistent tabs (Home / History / Settings) under a shared
-/// [AppShell]. State restoration is enabled so a cold start can rebuild a deep
-/// location without crashing.
+/// [AppShell]. The router listens to [AuthBloc] and redirects authenticated
+/// users away from splash/login (guard v1, D8); nothing else is guarded.
+/// State restoration is enabled so a cold start can rebuild a deep location
+/// without crashing.
 @lazySingleton
 class AppRouter {
   /// Creates the singleton [AppRouter] and builds its [config].
-  AppRouter() : config = _build();
+  AppRouter(AuthBloc authBloc)
+    : _authBloc = authBloc,
+      _refresh = GoRouterRefreshStream(authBloc.stream) {
+    config = _build();
+  }
+
+  final AuthBloc _authBloc;
+  final GoRouterRefreshStream _refresh;
 
   /// The [GoRouter] configuration consumed by `MaterialApp.router`.
-  final GoRouter config;
+  late final GoRouter config;
 
   static final GlobalKey<NavigatorState> _rootKey = GlobalKey<NavigatorState>(
     debugLabel: 'root',
   );
 
-  static GoRouter _build() {
+  /// Tears down the auth listener and the router when the container resets.
+  @disposeMethod
+  void dispose() {
+    _refresh.dispose();
+    config.dispose();
+  }
+
+  /// Guard v1 (D8): authenticated users never see splash or login. Login
+  /// screens never navigate on success — this redirect does.
+  String? _redirect(BuildContext context, GoRouterState state) {
+    final authenticated = _authBloc.state is AuthAuthenticated;
+    final location = state.matchedLocation;
+    if (authenticated &&
+        (location == AppRoutes.splash || location == AppRoutes.login)) {
+      return AppRoutes.home;
+    }
+    return null;
+  }
+
+  GoRouter _build() {
     return GoRouter(
       initialLocation: AppRoutes.splash,
       navigatorKey: _rootKey,
       restorationScopeId: 'router',
+      refreshListenable: _refresh,
+      redirect: _redirect,
       routes: <RouteBase>[
         GoRoute(
           path: AppRoutes.splash,
@@ -77,8 +110,7 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.login,
-          builder: (context, state) =>
-              const PlaceholderPage(screen: PlaceholderScreen.login),
+          builder: (context, state) => const LoginPage(),
         ),
         GoRoute(
           path: AppRoutes.tutorial,

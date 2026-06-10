@@ -4,12 +4,13 @@ import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
 import 'package:okey_acar_mi/core/widgets/eyebrow.dart';
+import 'package:okey_acar_mi/features/auth/presentation/widgets/account_section.dart';
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:okey_acar_mi/l10n/app_localizations.dart';
 
 /// Settings tab — appearance (theme / tile style / accent), language, and the
-/// default game mode, all bound live to [SettingsCubit]. Account and About
-/// sections are placeholders filled in Steps 3 / 10 / 13.
+/// default game mode, all bound live to [SettingsCubit], plus the account
+/// section (auth feature). The About section grows in Steps 10 / 13.
 class SettingsPage extends StatelessWidget {
   /// Creates a [SettingsPage].
   const SettingsPage({super.key});
@@ -103,7 +104,7 @@ class SettingsPage extends StatelessWidget {
 
                 _SettingsSection(
                   title: l10n.settingsAccountLabel,
-                  children: [_ComingSoonRow(label: l10n.settingsComingSoon)],
+                  children: const [AccountSection()],
                 ),
 
                 _SettingsSection(
@@ -275,30 +276,6 @@ class _AccentSwatch extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ComingSoonRow extends StatelessWidget {
-  const _ComingSoonRow({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(Icons.lock_outline, size: 18, color: palette.faint),
-          const SizedBox(width: 10),
-          Text(
-            label,
-            style: context.textTheme.bodyMedium?.copyWith(color: palette.muted),
-          ),
-        ],
       ),
     );
   }

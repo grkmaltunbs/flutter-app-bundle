@@ -3,10 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
 import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
+import 'package:okey_acar_mi/features/auth/data/fakes/fake_auth_repository.dart';
+import 'package:okey_acar_mi/features/auth/domain/repositories/auth_repository.dart';
+import 'package:okey_acar_mi/features/auth/presentation/blocs/auth_bloc.dart';
+import 'package:okey_acar_mi/features/auth/presentation/blocs/delete_account_cubit.dart';
+import 'package:okey_acar_mi/features/auth/presentation/blocs/login_bloc.dart';
+import 'package:okey_acar_mi/features/auth/presentation/pages/login_page.dart';
+import 'package:okey_acar_mi/features/auth/presentation/widgets/delete_account_sheet.dart';
+import 'package:okey_acar_mi/features/auth/presentation/widgets/forgot_password_sheet.dart';
+import 'package:okey_acar_mi/features/auth/presentation/widgets/session_expired_banner.dart';
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
@@ -33,9 +43,21 @@ const _textScales = <double>[1, 2];
 /// the longer TR labels must also be asserted overflow-free.
 const _locales = <Locale>[Locale('tr'), Locale('en')];
 
-/// Wraps [child] with the theme + localization + a [SettingsCubit] and the
-/// matrix [size]/[textScale]/[locale], without a fixed-size `MaterialApp` view
-/// that could mask an overflow.
+/// The blocs every screen may read: [SettingsCubit] plus the app-scoped
+/// [AuthBloc] (Settings' account section, the shell banner).
+MultiBlocProvider _withProviders(Widget child) => MultiBlocProvider(
+  providers: [
+    BlocProvider<SettingsCubit>(create: (_) => SettingsCubit()),
+    BlocProvider<AuthBloc>(
+      create: (_) => getIt<AuthBloc>()..add(const AuthEvent.started()),
+    ),
+  ],
+  child: child,
+);
+
+/// Wraps [child] with the theme + localization + the bloc providers and the
+/// matrix [size]/[textScale]/[locale], without a fixed-size `MaterialApp`
+/// view that could mask an overflow.
 Widget _harness({
   required Size size,
   required double textScale,
@@ -47,9 +69,8 @@ Widget _harness({
     locale: locale,
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: const [Locale('tr'), Locale('en')],
-    home: BlocProvider<SettingsCubit>(
-      create: (_) => SettingsCubit(),
-      child: MediaQuery(
+    home: _withProviders(
+      MediaQuery(
         data: MediaQueryData(
           size: size,
           textScaler: TextScaler.linear(textScale),
@@ -61,7 +82,7 @@ Widget _harness({
 }
 
 /// A router-backed harness for screens that read go_router at build time
-/// (e.g. [PlaceholderPage.build] calls `context.canPop()`).
+/// (e.g. [PlaceholderPage.build] and `LoginPage` call `context.canPop()`).
 Widget _routerHarness({
   required Size size,
   required double textScale,
@@ -78,12 +99,14 @@ Widget _routerHarness({
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: const [Locale('tr'), Locale('en')],
     routerConfig: router,
-    builder: (context, child) => MediaQuery(
-      data: MediaQueryData(
-        size: size,
-        textScaler: TextScaler.linear(textScale),
+    builder: (context, child) => _withProviders(
+      MediaQuery(
+        data: MediaQueryData(
+          size: size,
+          textScaler: TextScaler.linear(textScale),
+        ),
+        child: child!,
       ),
-      child: child!,
     ),
   );
 }
@@ -92,6 +115,7 @@ void _matrixTest(
   String name,
   Widget Function() build, {
   bool router = false,
+  void Function()? prepare,
 }) {
   group('$name overflow guard', () {
     for (final locale in _locales) {
@@ -100,6 +124,7 @@ void _matrixTest(
           testWidgets(
             '$name no overflow @ ${locale.languageCode} $size x$textScale',
             (tester) async {
+              prepare?.call();
               tester.view.physicalSize = size;
               tester.view.devicePixelRatio = 1.0;
               addTearDown(tester.view.resetPhysicalSize);
@@ -132,13 +157,56 @@ void _matrixTest(
 }
 
 void main() {
+  setUp(() async => configureDependencies('demo'));
+  tearDown(() async => getIt.reset());
+
   _matrixTest('SplashPage', () => const SplashPage());
   _matrixTest('HomePage', () => const HomePage());
   _matrixTest('TutorialPage', () => const TutorialPage());
   _matrixTest('HistoryPage', () => const HistoryPage());
   _matrixTest('SettingsPage', () => const SettingsPage());
+  _matrixTest(
+    'SettingsPage (signed-in)',
+    () => const SettingsPage(),
+    prepare: () => _fakeAuth().mode = FakeAuthMode.seededSignedIn,
+  );
+  _matrixTest(
+    'SettingsPage (unverified)',
+    () => const SettingsPage(),
+    prepare: () => _fakeAuth().mode = FakeAuthMode.seededUnverified,
+  );
+  _matrixTest('LoginPage', () => const LoginPage(), router: true);
 
-  // Placeholder routes (login/camera/.../paywall) must also be overflow-safe.
+  // The session-expired banner above the tab content (the AppShell layout).
+  _matrixTest(
+    'SessionExpiredBanner shell',
+    _sessionExpiredSample,
+    prepare: () => _fakeAuth().mode = FakeAuthMode.sessionExpired,
+  );
+
+  // Bottom-sheet bodies, pumped inside a plain Scaffold.
+  _matrixTest(
+    'DeleteAccountSheet (confirm)',
+    () => _deleteSheetSample(const DeleteAccountState.confirm()),
+    prepare: () => _fakeAuth().mode = FakeAuthMode.seededSignedIn,
+  );
+  _matrixTest(
+    'DeleteAccountSheet (reauth, wrong password)',
+    () => _deleteSheetSample(
+      const DeleteAccountState.reauth(wrongPassword: true),
+    ),
+    prepare: () => _fakeAuth().mode = FakeAuthMode.seededSignedIn,
+  );
+  _matrixTest(
+    'ForgotPasswordSheet (form)',
+    () => _forgotSheetSample(const LoginState()),
+  );
+  _matrixTest(
+    'ForgotPasswordSheet (sent)',
+    () => _forgotSheetSample(const LoginState(resetEmailSent: true)),
+  );
+
+  // Placeholder routes (camera/.../paywall) must also be overflow-safe.
   for (final screen in PlaceholderScreen.values) {
     _matrixTest(
       'PlaceholderPage(${screen.name})',
@@ -149,6 +217,38 @@ void main() {
 
   // The bottom nav must survive textScale 2.0 (custom bar, no fixed height).
   _matrixTest('AppBottomNav', _bottomNavSample);
+}
+
+FakeAuthRepository _fakeAuth() => getIt<AuthRepository>() as FakeAuthRepository;
+
+/// The AppShell body layout when the session-expired banner is visible.
+Widget _sessionExpiredSample() {
+  return const Scaffold(
+    body: Column(
+      children: [
+        SessionExpiredBanner(),
+        Expanded(child: SizedBox.shrink()),
+      ],
+    ),
+  );
+}
+
+/// The delete-account sheet body in [state], inside a plain Scaffold.
+Widget _deleteSheetSample(DeleteAccountState state) {
+  return BlocProvider<DeleteAccountCubit>(
+    create: (_) => getIt<DeleteAccountCubit>()..emit(state),
+    child: const Scaffold(body: DeleteAccountSheet()),
+  );
+}
+
+/// The forgot-password sheet body driven by [state], inside a plain Scaffold.
+Widget _forgotSheetSample(LoginState state) {
+  return BlocProvider<LoginBloc>(
+    create: (_) => getIt<LoginBloc>()..emit(state),
+    child: const Scaffold(
+      body: ForgotPasswordSheet(initialEmail: 'oyuncu@demo.app'),
+    ),
+  );
 }
 
 Widget _bottomNavSample() {

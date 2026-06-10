@@ -59,8 +59,9 @@ class AppPill extends StatelessWidget {
     };
 
     return Container(
-      height: 28,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      // Height comes from padding (~28 at scale 1.0) so the pill grows with
+      // text scale instead of clipping its label.
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(100),

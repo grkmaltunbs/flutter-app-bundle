@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:okey_acar_mi/app.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/env/app_env.dart';
 import 'package:okey_acar_mi/core/logging/app_logger.dart';
+import 'package:okey_acar_mi/firebase_options.dart';
 
 /// Performs all pre-`runApp` initialization and starts the app.
 ///
@@ -22,14 +26,29 @@ Future<void> bootstrap() async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
+      // All three families ship as assets (assets/google_fonts/), so font
+      // fetching is forbidden outright: rendering must be identical offline.
+      GoogleFonts.config.allowRuntimeFetching = false;
+      LicenseRegistry.addLicense(() async* {
+        for (final family in ['Geist', 'GeistMono', 'InstrumentSerif']) {
+          final license = await rootBundle.loadString(
+            'assets/google_fonts/OFL-$family.txt',
+          );
+          yield LicenseEntryWithLineBreaks(['google_fonts'], license);
+        }
+      });
+
       final env = AppEnv.current;
 
       // Demo never touches Firebase: no config exists for it. Only prod
-      // attempts initialization, guarded so a missing/invalid config can't
-      // crash boot.
+      // attempts initialization. The guard keeps boot itself alive, but the
+      // failure is not silent: AuthBloc is created eagerly at startup, so a
+      // failed init surfaces as soon as auth is first resolved.
       if (env == AppEnv.prod) {
         try {
-          await Firebase.initializeApp();
+          await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform,
+          );
         } on Object catch (error, stackTrace) {
           debugPrint('Firebase.initializeApp failed: $error\n$stackTrace');
         }

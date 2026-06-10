@@ -9,6 +9,10 @@
   "@commonBack": {
     "description": "Accessibility label for back buttons."
   },
+  "commonGoStart": "Back to start",
+  "@commonGoStart": {
+    "description": "Accessibility label for the header button when there is no back stack and it navigates to the start screen instead."
+  },
 
   "navHome": "Home",
   "@navHome": {
@@ -195,12 +199,248 @@
   "@placeholderBody": {
     "description": "Body on placeholder screens for features not yet built."
   },
-  "screenLoginTitle": "Sign in",
   "screenCameraTitle": "Camera",
   "screenAnalyzingTitle": "Analyzing",
   "screenReviewTitle": "Review",
   "screenResultTitle": "Result",
   "screenPaywallTitle": "Premium",
+
+  "loginEyebrow": "WELCOME",
+  "@loginEyebrow": {
+    "description": "Eyebrow at the top of the login screen."
+  },
+  "loginTitleSignIn": "Welcome back.",
+  "@loginTitleSignIn": {
+    "description": "Serif title of the login screen in sign-in mode."
+  },
+  "loginTitleSignUp": "Make an account.",
+  "@loginTitleSignUp": {
+    "description": "Serif title of the login screen in sign-up mode."
+  },
+  "loginSubtitle": "Continue with email, or connect.",
+  "@loginSubtitle": {
+    "description": "Muted subtitle under the login title."
+  },
+  "loginEmailHint": "Email address",
+  "@loginEmailHint": {
+    "description": "Hint for the email field on login and password reset."
+  },
+  "loginPasswordHint": "Password",
+  "@loginPasswordHint": {
+    "description": "Hint for the password field on the login screen."
+  },
+  "loginForgot": "Forgot password",
+  "@loginForgot": {
+    "description": "Link that opens the password-reset sheet (sign-in mode)."
+  },
+  "loginSubmitSignIn": "Sign in",
+  "@loginSubmitSignIn": {
+    "description": "Submit button label in sign-in mode."
+  },
+  "loginSubmitSignUp": "Create account",
+  "@loginSubmitSignUp": {
+    "description": "Submit button label in sign-up mode."
+  },
+  "loginDividerOr": "OR",
+  "@loginDividerOr": {
+    "description": "Divider label between the email form and provider buttons."
+  },
+  "loginGoogle": "Continue with Google",
+  "@loginGoogle": {
+    "description": "Google sign-in button label."
+  },
+  "loginApple": "Continue with Apple",
+  "@loginApple": {
+    "description": "Apple sign-in button label (iOS only)."
+  },
+  "loginGuest": "Continue as guest",
+  "@loginGuest": {
+    "description": "Guest escape button on the login screen."
+  },
+  "loginNoAccount": "No account yet?",
+  "@loginNoAccount": {
+    "description": "Footer text before the sign-up toggle (sign-in mode)."
+  },
+  "loginHaveAccount": "Already have an account?",
+  "@loginHaveAccount": {
+    "description": "Footer text before the sign-in toggle (sign-up mode)."
+  },
+  "loginModeToggleToSignUp": "Sign up",
+  "@loginModeToggleToSignUp": {
+    "description": "Footer link that switches the form to sign-up mode."
+  },
+  "loginModeToggleToSignIn": "Sign in",
+  "@loginModeToggleToSignIn": {
+    "description": "Footer link that switches the form to sign-in mode."
+  },
+  "textFieldShowPassword": "Show password",
+  "@textFieldShowPassword": {
+    "description": "Accessibility label for the eye toggle when the password is hidden."
+  },
+  "textFieldHidePassword": "Hide password",
+  "@textFieldHidePassword": {
+    "description": "Accessibility label for the eye toggle when the password is visible."
+  },
+  "authErrorEmailEmpty": "Email address is required.",
+  "@authErrorEmailEmpty": {
+    "description": "Inline error when the email field is empty on submit."
+  },
+  "authErrorEmailInvalid": "Enter a valid email address.",
+  "@authErrorEmailInvalid": {
+    "description": "Inline error when the email does not look like an address."
+  },
+  "authErrorEmailInUse": "This email is already registered. Try signing in.",
+  "@authErrorEmailInUse": {
+    "description": "Inline error when signing up with a registered email."
+  },
+  "authErrorPasswordEmpty": "Password is required.",
+  "@authErrorPasswordEmpty": {
+    "description": "Inline error when the password field is empty on submit."
+  },
+  "authErrorPasswordTooShort": "Password must be at least 6 characters.",
+  "@authErrorPasswordTooShort": {
+    "description": "Inline error when the sign-up password is too short."
+  },
+  "authErrorInvalidCredentials": "Incorrect email or password.",
+  "@authErrorInvalidCredentials": {
+    "description": "Banner error for wrong credentials (never reveals which)."
+  },
+  "authErrorNetwork": "Connection error. Try again.",
+  "@authErrorNetwork": {
+    "description": "Banner error for connectivity failures during auth."
+  },
+  "authErrorTooManyRequests": "Too many attempts. Wait a moment and try again.",
+  "@authErrorTooManyRequests": {
+    "description": "Banner error when the backend throttles sign-in attempts."
+  },
+  "authErrorUnexpected": "Something went wrong. Try again.",
+  "@authErrorUnexpected": {
+    "description": "Banner error for any unclassified auth failure."
+  },
+  "authErrorRequiresRecentLogin": "This action needs a recent sign-in. Verify your identity again.",
+  "@authErrorRequiresRecentLogin": {
+    "description": "Banner error when a sensitive action (e.g. account deletion) requires a recent re-authentication."
+  },
+  "authErrorSessionExpired": "Your session expired. Sign in again.",
+  "@authErrorSessionExpired": {
+    "description": "Banner error when the stored session is no longer valid."
+  },
+  "forgotTitle": "Reset your password",
+  "@forgotTitle": {
+    "description": "Title of the password-reset sheet."
+  },
+  "forgotBody": "We will send a reset link to your email address.",
+  "@forgotBody": {
+    "description": "Body of the password-reset sheet."
+  },
+  "forgotSubmit": "Send link",
+  "@forgotSubmit": {
+    "description": "Submit button of the password-reset sheet."
+  },
+  "forgotSentTitle": "Link sent",
+  "@forgotSentTitle": {
+    "description": "Success title after the reset email is sent."
+  },
+  "forgotSentBody": "Check your inbox. It may take a few minutes.",
+  "@forgotSentBody": {
+    "description": "Success body after the reset email is sent."
+  },
+  "forgotClose": "Close",
+  "@forgotClose": {
+    "description": "Button that closes the password-reset sheet."
+  },
+  "settingsAccountGuestLabel": "You are using the app as a guest",
+  "@settingsAccountGuestLabel": {
+    "description": "Account section label when signed out."
+  },
+  "settingsAccountSignUpCta": "Sign up",
+  "@settingsAccountSignUpCta": {
+    "description": "Account section CTA that opens the login screen."
+  },
+  "settingsAccountUnverifiedPill": "EMAIL NOT VERIFIED",
+  "@settingsAccountUnverifiedPill": {
+    "description": "Pill shown when the account email is not verified."
+  },
+  "settingsAccountResendVerification": "Resend",
+  "@settingsAccountResendVerification": {
+    "description": "Link that re-sends the verification email."
+  },
+  "settingsAccountVerificationSent": "Sent",
+  "@settingsAccountVerificationSent": {
+    "description": "Receipt label after the verification email was re-sent."
+  },
+  "settingsSignOut": "Sign out",
+  "@settingsSignOut": {
+    "description": "Sign-out button in the account section."
+  },
+  "settingsDeleteAccount": "Delete account",
+  "@settingsDeleteAccount": {
+    "description": "Destructive entry that opens the account-deletion sheet."
+  },
+  "deleteTitle": "You are about to delete your account",
+  "@deleteTitle": {
+    "description": "Title of the deletion confirm step."
+  },
+  "deleteWarning": "This cannot be undone. Your account and data will be permanently deleted.",
+  "@deleteWarning": {
+    "description": "Irreversibility warning on the deletion confirm step."
+  },
+  "deleteCancel": "Cancel",
+  "@deleteCancel": {
+    "description": "Button that abandons the deletion flow."
+  },
+  "deleteConfirmCta": "Delete account",
+  "@deleteConfirmCta": {
+    "description": "Destructive button that confirms the deletion intent."
+  },
+  "deleteReauthTitle": "Verify your identity to continue",
+  "@deleteReauthTitle": {
+    "description": "Title of the re-authentication step before deletion."
+  },
+  "deleteReauthPasswordHint": "Your password",
+  "@deleteReauthPasswordHint": {
+    "description": "Hint for the password field in the re-auth step."
+  },
+  "deleteReauthSubmit": "Verify and delete",
+  "@deleteReauthSubmit": {
+    "description": "Destructive button that re-authenticates and deletes."
+  },
+  "deleteReauthGoogle": "Verify with Google",
+  "@deleteReauthGoogle": {
+    "description": "Re-auth button for Google-linked accounts."
+  },
+  "deleteReauthApple": "Verify with Apple",
+  "@deleteReauthApple": {
+    "description": "Re-auth button for Apple-linked accounts."
+  },
+  "deleteInProgress": "Deleting your account…",
+  "@deleteInProgress": {
+    "description": "Progress label while the account is being deleted."
+  },
+  "deleteDoneTitle": "Account deleted",
+  "@deleteDoneTitle": {
+    "description": "Title after the account was deleted."
+  },
+  "deleteDoneBody": "You can keep using the app as a guest.",
+  "@deleteDoneBody": {
+    "description": "Body after the account was deleted."
+  },
+  "deleteDoneCta": "Done",
+  "@deleteDoneCta": {
+    "description": "Button that closes the deletion sheet."
+  },
+  "sessionExpiredBanner": "Your session expired — please sign in again.",
+  "@sessionExpiredBanner": {
+    "description": "Banner text when the persisted session failed to restore."
+  },
+  "sessionExpiredSignIn": "Sign in",
+  "@sessionExpiredSignIn": {
+    "description": "Banner action that opens the login screen."
+  },
+  "sessionExpiredDismiss": "Dismiss",
+  "@sessionExpiredDismiss": {
+    "description": "Accessibility label for the banner dismiss button."
+  },
 
   "tileSemantics": "{color} {number}",
   "@tileSemantics": {

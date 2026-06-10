@@ -127,7 +127,7 @@ from them.
 ---
 
 ## Step 3 — Auth & account lifecycle (guest + email/Google/Apple)
-- [ ]
+- [x]
 - id: auth
 - depends_on: app-shell
 - spec_refs: flow-auth-signin, flow-account-delete, screen-login, screen-settings (account)
