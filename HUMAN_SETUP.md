@@ -15,21 +15,26 @@ Items that don't apply should be struck through: `- [x] ~~item~~ _(not needed)_`
 
 - [x] Flutter SDK installed (`flutter doctor` green). _(verified: Flutter 3.41.6, Xcode 16.1, Android SDK 35, devices available)_
 - [x] `claude` CLI installed and `claude login` done. _(in use)_
-- [ ] Dart MCP registered: `claude mcp add dart -- dart mcp-server`  ← **not yet registered; needed for `/step` runtime verification**
-- [ ] Claude Code restarted; `claude mcp list` shows dart Connected.
+- [x] Dart MCP registered: `claude mcp add dart -- dart mcp-server`  ← **not yet registered; needed for `/step` runtime verification**
+- [x] Claude Code restarted; `claude mcp list` shows dart Connected.
 
 ## Firebase (if using Firebase)
 
-- [ ] Firebase project created. Project ID: ___________________
-- [ ] `firebase login` done.
-- [ ] `flutterfire configure --project=<id>` run; `firebase_options.dart` generated.
-- [ ] Sign-in providers enabled: **Email/Password, Google, and Apple** (all three
+- [x] Firebase project created. Project ID: okeyacarmi-dcb8c
+- [x] `firebase login` done.
+- [x] `flutterfire configure --project=<id>` run; `firebase_options.dart` generated.
+- [x] Sign-in providers enabled: **Email/Password, Google, and Apple** (all three
       — Apple Sign-In is mandatory because Google is offered).
-- [ ] Google sign-in: OAuth client + (Android) **SHA-1/SHA-256** added; (iOS)
+- [x] Google sign-in: OAuth client + (Android) **SHA-1/SHA-256** added; (iOS)
       reversed-client-ID URL scheme added to `Info.plist`.
-- [ ] Apple sign-in: **"Sign in with Apple"** capability added to the Runner target
+- [ ] The `_googleServerClientId` constant in
+      `lib/features/auth/data/repositories/firebase_auth_repository.dart` must
+      equal the `client_type: 3` (web) OAuth client in
+      `android/app/google-services.json` — re-check after any
+      `flutterfire configure` re-run.
+- [x] Apple sign-in: **"Sign in with Apple"** capability added to the Runner target
       in Xcode; Service ID configured in the Apple Developer portal.
-- [ ] Firestore security rules scoped to the owner
+- [x] Firestore security rules scoped to the owner
       (`allow read, write: if request.auth.uid == resource.data.ownerId`); published.
 
 > No emulator setup — this bundle verifies against fakes (`demo` flavor). The

@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "187450447184",
+    "project_id": "okeyacarmi-dcb8c",
+    "storage_bucket": "okeyacarmi-dcb8c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:187450447184:android:f955ed6ac73c9ed2cf0855",
+        "android_client_info": {
+          "package_name": "com.okeyacarmi.okey_acar_mi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "187450447184-1pqoj5ldjkogdvroie22q5k32bo1elus.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.okeyacarmi.okey_acar_mi",
+            "certificate_hash": "aa65170ad96c2cf6ffc45dae0279a953d4a88f7f"
+          }
+        },
+        {
+          "client_id": "187450447184-0qvu82i768r88jouqomlj3dqoasla3pv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxMUA6ZKpEL25ZhFmhOM8oWSofWDWXrkI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "187450447184-0qvu82i768r88jouqomlj3dqoasla3pv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "187450447184-t96rvic1nbodir8ce7u7vmbp77mn0clu.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.okeyacarmi.okeyAcarMi"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
