@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:okey_acar_mi/core/camera/viewfinder_service.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
@@ -17,6 +18,9 @@ import 'package:okey_acar_mi/features/auth/presentation/pages/login_page.dart';
 import 'package:okey_acar_mi/features/auth/presentation/widgets/delete_account_sheet.dart';
 import 'package:okey_acar_mi/features/auth/presentation/widgets/forgot_password_sheet.dart';
 import 'package:okey_acar_mi/features/auth/presentation/widgets/session_expired_banner.dart';
+import 'package:okey_acar_mi/features/capture/data/fakes/fake_capture_service.dart';
+import 'package:okey_acar_mi/features/capture/presentation/blocs/camera_bloc.dart';
+import 'package:okey_acar_mi/features/capture/presentation/pages/camera_page.dart';
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
@@ -206,7 +210,33 @@ void main() {
     () => _forgotSheetSample(const LoginState(resetEmailSent: true)),
   );
 
-  // Placeholder routes (camera/.../paywall) must also be overflow-safe.
+  // The capture screen, across its blocked/live states. The real demo-DI
+  // CameraPage is driven through the FakeCaptureService mode (the page's own
+  // started event lands each state); the recording frame is pinned directly
+  // on the bloc because the fake's instant burst never rests there.
+  _matrixTest('CameraPage (ready)', () => const CameraPage(), router: true);
+  _matrixTest(
+    'CameraPage (camera denied)',
+    () => const CameraPage(),
+    router: true,
+    prepare: () => _fakeCapture().mode = FakeCaptureMode.cameraDenied,
+  );
+  _matrixTest(
+    'CameraPage (camera permanently denied)',
+    () => const CameraPage(),
+    router: true,
+    prepare: () =>
+        _fakeCapture().mode = FakeCaptureMode.cameraPermanentlyDenied,
+  );
+  _matrixTest(
+    'CameraPage (unavailable)',
+    () => const CameraPage(),
+    router: true,
+    prepare: () => _fakeCapture().mode = FakeCaptureMode.noCamera,
+  );
+  _matrixTest('CameraView (recording)', _cameraRecordingSample, router: true);
+
+  // Placeholder routes (analyzing/.../paywall) must also be overflow-safe.
   for (final screen in PlaceholderScreen.values) {
     _matrixTest(
       'PlaceholderPage(${screen.name})',
@@ -220,6 +250,18 @@ void main() {
 }
 
 FakeAuthRepository _fakeAuth() => getIt<AuthRepository>() as FakeAuthRepository;
+
+FakeCaptureService _fakeCapture() => getIt<FakeCaptureService>();
+
+/// The capture screen pinned mid-burst (frame 2 of 5) — the longest top-bar
+/// pill content.
+Widget _cameraRecordingSample() {
+  return BlocProvider<CameraBloc>(
+    create: (_) => getIt<CameraBloc>()
+      ..emit(const CameraState.recording(framesCaptured: 2, frameTarget: 5)),
+    child: CameraView(viewfinder: getIt<ViewfinderService>()),
+  );
+}
 
 /// The AppShell body layout when the session-expired banner is visible.
 Widget _sessionExpiredSample() {

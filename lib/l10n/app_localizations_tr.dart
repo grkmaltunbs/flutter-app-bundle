@@ -269,6 +269,81 @@ class AppLocalizationsTr extends AppLocalizations {
   String get screenPaywallTitle => 'Premium';
 
   @override
+  String get cameraFrameHint => 'ISTAKAYI ÇERÇEVELE';
+
+  @override
+  String get cameraModePhoto => 'Fotoğraf';
+
+  @override
+  String get cameraModeVideo => 'Video';
+
+  @override
+  String get cameraModeGallery => 'Galeri';
+
+  @override
+  String get cameraShutterSemantics => 'Çek';
+
+  @override
+  String get cameraStopRecordingSemantics => 'Kaydı durdur';
+
+  @override
+  String cameraRecordingProgress(int captured, int total) {
+    return 'Kare $captured/$total';
+  }
+
+  @override
+  String get cameraFlashOnSemantics => 'Flaşı kapat';
+
+  @override
+  String get cameraFlashOffSemantics => 'Flaşı aç';
+
+  @override
+  String get cameraFlipSemantics => 'Kamerayı döndür';
+
+  @override
+  String get cameraGallerySemantics => 'Galeriden seç';
+
+  @override
+  String get cameraDeniedTitle => 'Kamera izni gerekli';
+
+  @override
+  String get cameraDeniedBody => 'Taşları okuyabilmek için kameraya izin ver.';
+
+  @override
+  String get cameraDeniedRetry => 'Tekrar dene';
+
+  @override
+  String get cameraPermanentlyDeniedBody =>
+      'Kamera izni kapalı. Ayarlar\'dan açabilirsin.';
+
+  @override
+  String get cameraOpenSettings => 'Ayarları aç';
+
+  @override
+  String get cameraGalleryFallback => 'Galeriden içe aktar';
+
+  @override
+  String get cameraNoCameraTitle => 'Kamera bulunamadı';
+
+  @override
+  String get cameraNoCameraBody =>
+      'Bu cihazda kamera yok — galeriden bir fotoğraf seç.';
+
+  @override
+  String get cameraGalleryDeniedTitle => 'Galeri izni gerekli';
+
+  @override
+  String get cameraGalleryDeniedBody =>
+      'Fotoğraf seçebilmek için galeri erişimine izin ver.';
+
+  @override
+  String get cameraGalleryPermanentlyDeniedBody =>
+      'Galeri erişimi kapalı. Ayarlar\'dan açabilirsin.';
+
+  @override
+  String get cameraCaptureFailed => 'Çekim başarısız oldu. Tekrar dene.';
+
+  @override
   String get loginEyebrow => 'HOŞ GELDİN';
 
   @override

@@ -30,6 +30,7 @@ environment:
 dependencies:
   app_tracking_transparency: ^2.0.7
   bloc: ^9.2.1
+  bloc_concurrency: ^0.3.0
   camera: ^0.12.0+1
   cloud_firestore: ^6.5.0
   connectivity_plus: ^7.1.1
@@ -86,6 +87,10 @@ dev_dependencies:
     sdk: flutter
   json_serializable: ^6.14.0
   mocktail: ^1.0.5
+  # Test-only: lets FakeCaptureService tests redirect getTemporaryDirectory()
+  # to a host temp dir (no platform channel in `flutter test`).
+  path_provider_platform_interface: ^2.1.2
+  plugin_platform_interface: ^2.1.8
   very_good_analysis: ^10.2.0
 
 # For information on the generic Dart part of this file, see the
@@ -108,6 +113,9 @@ flutter:
   # the app renders identically offline (offline-first NFR).
   assets:
     - assets/google_fonts/
+    # Seeded capture-fixture scenes for the demo flavor's FakeCaptureService
+    # (cosmetic stand-ins for the live viewfinder + captured files).
+    - assets/fixtures/capture/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

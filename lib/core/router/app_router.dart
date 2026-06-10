@@ -5,6 +5,7 @@ import 'package:okey_acar_mi/core/router/go_router_refresh_stream.dart';
 import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
 import 'package:okey_acar_mi/features/auth/presentation/blocs/auth_bloc.dart';
 import 'package:okey_acar_mi/features/auth/presentation/pages/login_page.dart';
+import 'package:okey_acar_mi/features/capture/presentation/pages/camera_page.dart';
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
@@ -33,7 +34,7 @@ abstract final class AppRoutes {
   /// Settings tab.
   static const String settings = '/settings';
 
-  /// Camera capture (placeholder until Step 4).
+  /// Camera capture.
   static const String camera = '/camera';
 
   /// Detection in progress (placeholder until Step 5).
@@ -118,8 +119,7 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.camera,
-          builder: (context, state) =>
-              const PlaceholderPage(screen: PlaceholderScreen.camera),
+          builder: (context, state) => const CameraPage(),
         ),
         GoRoute(
           path: AppRoutes.analyzing,

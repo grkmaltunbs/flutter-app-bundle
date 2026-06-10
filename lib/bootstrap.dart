@@ -26,6 +26,12 @@ Future<void> bootstrap() async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
+      // Portrait-locked app-wide (D6): the capture flow's viewfinder, the
+      // 2-row rack layouts, and every screen in the spec assume portrait.
+      await SystemChrome.setPreferredOrientations(
+        [DeviceOrientation.portraitUp],
+      );
+
       // All three families ship as assets (assets/google_fonts/), so font
       // fetching is forbidden outright: rendering must be identical offline.
       GoogleFonts.config.allowRuntimeFetching = false;

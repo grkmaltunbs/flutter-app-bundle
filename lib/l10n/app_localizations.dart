@@ -608,6 +608,144 @@ abstract class AppLocalizations {
   /// **'Premium'**
   String get screenPaywallTitle;
 
+  /// Mono pill at the top of the camera screen guiding the user to frame the rack.
+  ///
+  /// In en, this message translates to:
+  /// **'FRAME THE RACK'**
+  String get cameraFrameHint;
+
+  /// Capture-mode pill: single still photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo'**
+  String get cameraModePhoto;
+
+  /// Capture-mode pill: timed still-burst presented as recording.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get cameraModeVideo;
+
+  /// Capture-mode pill: import from the photo library.
+  ///
+  /// In en, this message translates to:
+  /// **'Gallery'**
+  String get cameraModeGallery;
+
+  /// Accessibility label for the shutter button.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture'**
+  String get cameraShutterSemantics;
+
+  /// Accessibility label for the shutter while the burst is recording (tapping stops it early).
+  ///
+  /// In en, this message translates to:
+  /// **'Stop capturing'**
+  String get cameraStopRecordingSemantics;
+
+  /// Progress pill while the video burst captures frames.
+  ///
+  /// In en, this message translates to:
+  /// **'Frame {captured}/{total}'**
+  String cameraRecordingProgress(int captured, int total);
+
+  /// Accessibility label for the flash toggle while the torch is on.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn flash off'**
+  String get cameraFlashOnSemantics;
+
+  /// Accessibility label for the flash toggle while the torch is off.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn flash on'**
+  String get cameraFlashOffSemantics;
+
+  /// Accessibility label for the front/back camera flip button.
+  ///
+  /// In en, this message translates to:
+  /// **'Flip camera'**
+  String get cameraFlipSemantics;
+
+  /// Accessibility label for the gallery button in the shutter row.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick from gallery'**
+  String get cameraGallerySemantics;
+
+  /// Title of the camera-permission-denied view.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera permission needed'**
+  String get cameraDeniedTitle;
+
+  /// Body of the camera-permission-denied view (re-promptable).
+  ///
+  /// In en, this message translates to:
+  /// **'Allow camera access so we can read your tiles.'**
+  String get cameraDeniedBody;
+
+  /// Retry button on the permission-denied views.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get cameraDeniedRetry;
+
+  /// Body of the camera-permission view when the denial is permanent.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is off. You can enable it in Settings.'**
+  String get cameraPermanentlyDeniedBody;
+
+  /// Button that opens the system settings for this app.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get cameraOpenSettings;
+
+  /// Gallery-import escape offered on the camera-blocked views.
+  ///
+  /// In en, this message translates to:
+  /// **'Import from gallery'**
+  String get cameraGalleryFallback;
+
+  /// Title of the no-camera-hardware view.
+  ///
+  /// In en, this message translates to:
+  /// **'No camera found'**
+  String get cameraNoCameraTitle;
+
+  /// Body of the no-camera-hardware view.
+  ///
+  /// In en, this message translates to:
+  /// **'This device has no camera — pick a photo from your gallery.'**
+  String get cameraNoCameraBody;
+
+  /// Title of the photo-library-access-denied view.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo access needed'**
+  String get cameraGalleryDeniedTitle;
+
+  /// Body of the photo-library-access-denied view (re-promptable).
+  ///
+  /// In en, this message translates to:
+  /// **'Allow photo access to import a rack photo.'**
+  String get cameraGalleryDeniedBody;
+
+  /// Body of the photo-library view when the denial is permanent.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo access is off. You can enable it in Settings.'**
+  String get cameraGalleryPermanentlyDeniedBody;
+
+  /// SnackBar message when a capture or camera command fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture failed. Try again.'**
+  String get cameraCaptureFailed;
+
   /// Eyebrow at the top of the login screen.
   ///
   /// In en, this message translates to:

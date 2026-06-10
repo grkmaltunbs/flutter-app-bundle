@@ -37,4 +37,16 @@ sealed class Failure with _$Failure implements Exception {
 
   /// The backend throttled the operation after too many attempts.
   const factory Failure.tooManyRequests() = TooManyRequestsFailure;
+
+  /// The device has no camera at all (capture must fall back to gallery).
+  const factory Failure.noCamera() = NoCameraFailure;
+
+  /// A camera capture or camera-control command failed; [message] carries the
+  /// diagnostic platform code.
+  const factory Failure.captureFailed(String message) = CaptureFailedFailure;
+
+  /// Photo-library access is blocked. [permanent] is true when only the
+  /// system Settings app can restore it.
+  const factory Failure.photoAccessDenied({required bool permanent}) =
+      PhotoAccessDeniedFailure;
 }

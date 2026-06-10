@@ -205,6 +205,103 @@
   "screenResultTitle": "Result",
   "screenPaywallTitle": "Premium",
 
+  "cameraFrameHint": "FRAME THE RACK",
+  "@cameraFrameHint": {
+    "description": "Mono pill at the top of the camera screen guiding the user to frame the rack."
+  },
+  "cameraModePhoto": "Photo",
+  "@cameraModePhoto": {
+    "description": "Capture-mode pill: single still photo."
+  },
+  "cameraModeVideo": "Video",
+  "@cameraModeVideo": {
+    "description": "Capture-mode pill: timed still-burst presented as recording."
+  },
+  "cameraModeGallery": "Gallery",
+  "@cameraModeGallery": {
+    "description": "Capture-mode pill: import from the photo library."
+  },
+  "cameraShutterSemantics": "Capture",
+  "@cameraShutterSemantics": {
+    "description": "Accessibility label for the shutter button."
+  },
+  "cameraStopRecordingSemantics": "Stop capturing",
+  "@cameraStopRecordingSemantics": {
+    "description": "Accessibility label for the shutter while the burst is recording (tapping stops it early)."
+  },
+  "cameraRecordingProgress": "Frame {captured}/{total}",
+  "@cameraRecordingProgress": {
+    "description": "Progress pill while the video burst captures frames.",
+    "placeholders": {
+      "captured": { "type": "int", "example": "2" },
+      "total": { "type": "int", "example": "5" }
+    }
+  },
+  "cameraFlashOnSemantics": "Turn flash off",
+  "@cameraFlashOnSemantics": {
+    "description": "Accessibility label for the flash toggle while the torch is on."
+  },
+  "cameraFlashOffSemantics": "Turn flash on",
+  "@cameraFlashOffSemantics": {
+    "description": "Accessibility label for the flash toggle while the torch is off."
+  },
+  "cameraFlipSemantics": "Flip camera",
+  "@cameraFlipSemantics": {
+    "description": "Accessibility label for the front/back camera flip button."
+  },
+  "cameraGallerySemantics": "Pick from gallery",
+  "@cameraGallerySemantics": {
+    "description": "Accessibility label for the gallery button in the shutter row."
+  },
+  "cameraDeniedTitle": "Camera permission needed",
+  "@cameraDeniedTitle": {
+    "description": "Title of the camera-permission-denied view."
+  },
+  "cameraDeniedBody": "Allow camera access so we can read your tiles.",
+  "@cameraDeniedBody": {
+    "description": "Body of the camera-permission-denied view (re-promptable)."
+  },
+  "cameraDeniedRetry": "Try again",
+  "@cameraDeniedRetry": {
+    "description": "Retry button on the permission-denied views."
+  },
+  "cameraPermanentlyDeniedBody": "Camera access is off. You can enable it in Settings.",
+  "@cameraPermanentlyDeniedBody": {
+    "description": "Body of the camera-permission view when the denial is permanent."
+  },
+  "cameraOpenSettings": "Open Settings",
+  "@cameraOpenSettings": {
+    "description": "Button that opens the system settings for this app."
+  },
+  "cameraGalleryFallback": "Import from gallery",
+  "@cameraGalleryFallback": {
+    "description": "Gallery-import escape offered on the camera-blocked views."
+  },
+  "cameraNoCameraTitle": "No camera found",
+  "@cameraNoCameraTitle": {
+    "description": "Title of the no-camera-hardware view."
+  },
+  "cameraNoCameraBody": "This device has no camera — pick a photo from your gallery.",
+  "@cameraNoCameraBody": {
+    "description": "Body of the no-camera-hardware view."
+  },
+  "cameraGalleryDeniedTitle": "Photo access needed",
+  "@cameraGalleryDeniedTitle": {
+    "description": "Title of the photo-library-access-denied view."
+  },
+  "cameraGalleryDeniedBody": "Allow photo access to import a rack photo.",
+  "@cameraGalleryDeniedBody": {
+    "description": "Body of the photo-library-access-denied view (re-promptable)."
+  },
+  "cameraGalleryPermanentlyDeniedBody": "Photo access is off. You can enable it in Settings.",
+  "@cameraGalleryPermanentlyDeniedBody": {
+    "description": "Body of the photo-library view when the denial is permanent."
+  },
+  "cameraCaptureFailed": "Capture failed. Try again.",
+  "@cameraCaptureFailed": {
+    "description": "SnackBar message when a capture or camera command fails."
+  },
+
   "loginEyebrow": "WELCOME",
   "@loginEyebrow": {
     "description": "Eyebrow at the top of the login screen."

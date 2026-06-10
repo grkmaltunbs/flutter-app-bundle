@@ -154,7 +154,7 @@ from them.
 ---
 
 ## Step 4 — Camera capture (photo / video / gallery)
-- [ ]
+- [x]
 - id: capture
 - depends_on: app-shell
 - spec_refs: flow-scan (capture portion), screen-camera, Permissions matrix

@@ -268,6 +268,82 @@ class AppLocalizationsEn extends AppLocalizations {
   String get screenPaywallTitle => 'Premium';
 
   @override
+  String get cameraFrameHint => 'FRAME THE RACK';
+
+  @override
+  String get cameraModePhoto => 'Photo';
+
+  @override
+  String get cameraModeVideo => 'Video';
+
+  @override
+  String get cameraModeGallery => 'Gallery';
+
+  @override
+  String get cameraShutterSemantics => 'Capture';
+
+  @override
+  String get cameraStopRecordingSemantics => 'Stop capturing';
+
+  @override
+  String cameraRecordingProgress(int captured, int total) {
+    return 'Frame $captured/$total';
+  }
+
+  @override
+  String get cameraFlashOnSemantics => 'Turn flash off';
+
+  @override
+  String get cameraFlashOffSemantics => 'Turn flash on';
+
+  @override
+  String get cameraFlipSemantics => 'Flip camera';
+
+  @override
+  String get cameraGallerySemantics => 'Pick from gallery';
+
+  @override
+  String get cameraDeniedTitle => 'Camera permission needed';
+
+  @override
+  String get cameraDeniedBody =>
+      'Allow camera access so we can read your tiles.';
+
+  @override
+  String get cameraDeniedRetry => 'Try again';
+
+  @override
+  String get cameraPermanentlyDeniedBody =>
+      'Camera access is off. You can enable it in Settings.';
+
+  @override
+  String get cameraOpenSettings => 'Open Settings';
+
+  @override
+  String get cameraGalleryFallback => 'Import from gallery';
+
+  @override
+  String get cameraNoCameraTitle => 'No camera found';
+
+  @override
+  String get cameraNoCameraBody =>
+      'This device has no camera — pick a photo from your gallery.';
+
+  @override
+  String get cameraGalleryDeniedTitle => 'Photo access needed';
+
+  @override
+  String get cameraGalleryDeniedBody =>
+      'Allow photo access to import a rack photo.';
+
+  @override
+  String get cameraGalleryPermanentlyDeniedBody =>
+      'Photo access is off. You can enable it in Settings.';
+
+  @override
+  String get cameraCaptureFailed => 'Capture failed. Try again.';
+
+  @override
   String get loginEyebrow => 'WELCOME';
 
   @override
