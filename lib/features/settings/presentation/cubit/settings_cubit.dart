@@ -2,8 +2,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:injectable/injectable.dart';
+import 'package:okey_acar_mi/core/game/game_mode.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
+
+// `GameMode` moved to core/game so pure-Dart layers (review/solver domains)
+// can use it without importing the settings feature; re-exported here so
+// every existing `settings_cubit.dart` call site keeps compiling unchanged.
+export 'package:okey_acar_mi/core/game/game_mode.dart';
 
 part 'settings_cubit.freezed.dart';
 part 'settings_state.dart';

@@ -387,6 +387,114 @@ class AppLocalizationsEn extends AppLocalizations {
   String get analyzingRetry => 'Try again';
 
   @override
+  String get reviewStepEyebrow => '2/3 · REVIEW';
+
+  @override
+  String get reviewHeadline => 'Did we get it right?';
+
+  @override
+  String get reviewSubtitle => 'Tap any wrong tile to fix it.';
+
+  @override
+  String get reviewLowConfidenceLegend => 'Low confidence · please review';
+
+  @override
+  String get reviewLowOverallBanner =>
+      'The image isn\'t very sharp. Retake it, or fix tiles by hand.';
+
+  @override
+  String get reviewRetakeCta => 'Retake';
+
+  @override
+  String reviewCount(int count, int min, int max) {
+    return '$count / $min–$max tiles';
+  }
+
+  @override
+  String reviewWrongCountFew(int expectedMin) {
+    return 'Tiles missing — at least $expectedMin required. Add a tile.';
+  }
+
+  @override
+  String reviewWrongCountMany(int expectedMax) {
+    return 'Too many tiles — at most $expectedMax allowed. Remove one.';
+  }
+
+  @override
+  String get reviewAddTile => 'Add tile';
+
+  @override
+  String reviewEditTileTitle(int index) {
+    return 'EDIT TILE · #$index';
+  }
+
+  @override
+  String get reviewEditColorLabel => 'COLOR';
+
+  @override
+  String get reviewEditNumberLabel => 'NUMBER';
+
+  @override
+  String get reviewRemoveTile => 'Remove tile';
+
+  @override
+  String get reviewIndicatorTitle => 'INDICATOR';
+
+  @override
+  String get reviewIndicatorPick => 'Pick indicator';
+
+  @override
+  String get reviewIndicatorChange => 'Change';
+
+  @override
+  String reviewOkeyLabel(String color, int number) {
+    return 'Okey: $color $number';
+  }
+
+  @override
+  String reviewFalseJokerNote(String color, int number) {
+    return 'False jokers stand in for $color $number';
+  }
+
+  @override
+  String get reviewBlockerCount => 'Fix the tile count first';
+
+  @override
+  String get reviewBlockerIncomplete => 'Define the unfinished tiles';
+
+  @override
+  String get reviewBlockerIndicator => 'Pick the indicator to calculate';
+
+  @override
+  String get reviewCalculateCta => 'Calculate';
+
+  @override
+  String reviewTileSemantics(String label, int index, int count) {
+    return '$label, tile $index of $count, tap to edit';
+  }
+
+  @override
+  String get reviewUndefinedTileSemantics => 'Undefined tile, tap to define';
+
+  @override
+  String get reviewEditCloseSemantics => 'Close editing';
+
+  @override
+  String reviewFalseJokerTileSemantics(String color, int number) {
+    return 'False joker, counts as $color $number';
+  }
+
+  @override
+  String indicatorColorSemantics(String color) {
+    return 'Indicator color $color';
+  }
+
+  @override
+  String indicatorNumberSemantics(int number) {
+    return 'Indicator number $number';
+  }
+
+  @override
   String get loginEyebrow => 'WELCOME';
 
   @override

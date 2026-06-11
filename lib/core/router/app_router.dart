@@ -7,10 +7,12 @@ import 'package:okey_acar_mi/features/auth/presentation/blocs/auth_bloc.dart';
 import 'package:okey_acar_mi/features/auth/presentation/pages/login_page.dart';
 import 'package:okey_acar_mi/features/capture/domain/entities/capture_payload.dart';
 import 'package:okey_acar_mi/features/capture/presentation/pages/camera_page.dart';
+import 'package:okey_acar_mi/features/detection/domain/entities/detection_result.dart';
 import 'package:okey_acar_mi/features/detection/presentation/pages/analyzing_page.dart';
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
+import 'package:okey_acar_mi/features/review/presentation/pages/review_page.dart';
 import 'package:okey_acar_mi/features/settings/presentation/pages/settings_page.dart';
 import 'package:okey_acar_mi/features/shell/presentation/pages/app_shell.dart';
 import 'package:okey_acar_mi/features/tutorial/presentation/pages/tutorial_page.dart';
@@ -42,10 +44,11 @@ abstract final class AppRoutes {
   /// Detection in progress (`extra` must be a `CapturePayload`).
   static const String analyzing = '/analyzing';
 
-  /// Review & correct + indicator (placeholder until Step 6).
+  /// Review & correct + indicator (`extra` must be a `DetectionResult`).
   static const String review = '/review';
 
-  /// Result / verdict (placeholder until Step 8).
+  /// Result / verdict (`extra` is a `ReviewOutcome`; Step 8 consumes it —
+  /// placeholder until then).
   static const String result = '/result';
 
   /// Remove-ads paywall (placeholder until Step 11).
@@ -135,10 +138,13 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.review,
-          // `extra` is the `DetectionResult` handed off by the analyzing
-          // screen; the review feature (Step 6) consumes it.
+          // The screen is meaningless without a detection result: anything
+          // that lands here without one (deep link, cold-start restoration —
+          // `extra` is not restored) bounces to the camera.
+          redirect: (context, state) =>
+              state.extra is DetectionResult ? null : AppRoutes.camera,
           builder: (context, state) =>
-              const PlaceholderPage(screen: PlaceholderScreen.review),
+              ReviewPage(result: state.extra! as DetectionResult),
         ),
         GoRoute(
           path: AppRoutes.result,

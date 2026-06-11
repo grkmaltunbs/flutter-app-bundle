@@ -208,7 +208,7 @@ from them.
 ---
 
 ## Step 6 — Review & correct + indicator (gösterge) picker
-- [ ]
+- [x]
 - id: review-indicator
 - depends_on: detection
 - spec_refs: flow-scan (review portion), screen-review, Domain rules (joker)

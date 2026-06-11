@@ -13,6 +13,7 @@ import 'package:okey_acar_mi/features/detection/data/fakes/fake_tile_detector.da
 import 'package:okey_acar_mi/features/detection/domain/entities/detected_tile.dart';
 import 'package:okey_acar_mi/features/detection/presentation/pages/analyzing_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
+import 'package:okey_acar_mi/features/review/presentation/pages/review_page.dart';
 
 // ---------------------------------------------------------------------------
 // Robot helpers
@@ -92,15 +93,14 @@ void expectCameraReady(WidgetTester tester) {
   ).isNotEmpty();
 }
 
-/// Detection finished and auto-advanced: the review placeholder sits on top
+/// Detection finished and auto-advanced: the real review screen sits on top
 /// while the analyzing page stays alive beneath it (its auto-pop fires only
 /// when review pops, keeping the camera's push-future pending).
 void expectLandedOnReview(WidgetTester tester) {
   check(
     find.byType(AnalyzingPage, skipOffstage: false).evaluate(),
   ).length.equals(1);
-  final page = tester.widget<PlaceholderPage>(find.byType(PlaceholderPage));
-  check(page.screen).equals(PlaceholderScreen.review);
+  check(find.byType(ReviewPage).evaluate()).length.equals(1);
 }
 
 /// The analyzing failure view is on screen with the given escape keys.
@@ -319,19 +319,13 @@ void main() {
 
       // Popping review unwinds analyzing too; the camera's push-future
       // completes and its returnedFromCapture re-acquisition fires.
-      await tester.tap(
-        find.descendant(
-          of: find.byType(PlaceholderPage),
-          matching: find.byIcon(Icons.arrow_back),
-        ),
-      );
-      await tester.pumpAndSettle();
+      await tapKey(tester, 'review-back');
 
       expectCameraReady(tester);
       check(
         find.byType(AnalyzingPage, skipOffstage: false).evaluate(),
       ).isEmpty();
-      check(find.byType(PlaceholderPage).evaluate()).isEmpty();
+      check(find.byType(ReviewPage).evaluate()).isEmpty();
       check(fakeCapture().isInitialized).isTrue();
       check(tester.takeException()).isNull();
     });

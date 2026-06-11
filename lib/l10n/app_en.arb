@@ -359,6 +359,160 @@
     "description": "Action that re-runs detection after a failure."
   },
 
+  "reviewStepEyebrow": "2/3 · REVIEW",
+  "@reviewStepEyebrow": {
+    "description": "Eyebrow step indicator at the top of the review screen."
+  },
+  "reviewHeadline": "Did we get it right?",
+  "@reviewHeadline": {
+    "description": "Serif headline of the review screen."
+  },
+  "reviewSubtitle": "Tap any wrong tile to fix it.",
+  "@reviewSubtitle": {
+    "description": "Muted subtitle under the review headline."
+  },
+  "reviewLowConfidenceLegend": "Low confidence · please review",
+  "@reviewLowConfidenceLegend": {
+    "description": "Legend under the rack explaining the warn dot on low-confidence tiles."
+  },
+  "reviewLowOverallBanner": "The image isn't very sharp. Retake it, or fix tiles by hand.",
+  "@reviewLowOverallBanner": {
+    "description": "Warn banner shown when the overall detection confidence is low."
+  },
+  "reviewRetakeCta": "Retake",
+  "@reviewRetakeCta": {
+    "description": "Action on the low-confidence banner that returns to the camera."
+  },
+  "reviewCount": "{count} / {min}–{max} tiles",
+  "@reviewCount": {
+    "description": "Mono tile counter vs the mode's legal range.",
+    "placeholders": {
+      "count": { "type": "int", "example": "20" },
+      "min": { "type": "int", "example": "20" },
+      "max": { "type": "int", "example": "21" }
+    }
+  },
+  "reviewWrongCountFew": "Tiles missing — at least {expectedMin} required. Add a tile.",
+  "@reviewWrongCountFew": {
+    "description": "Warning banner when the rack has fewer tiles than the mode's minimum.",
+    "placeholders": {
+      "expectedMin": { "type": "int", "example": "20" }
+    }
+  },
+  "reviewWrongCountMany": "Too many tiles — at most {expectedMax} allowed. Remove one.",
+  "@reviewWrongCountMany": {
+    "description": "Warning banner when the rack has more tiles than the mode's maximum.",
+    "placeholders": {
+      "expectedMax": { "type": "int", "example": "21" }
+    }
+  },
+  "reviewAddTile": "Add tile",
+  "@reviewAddTile": {
+    "description": "Button that appends an undefined tile placeholder."
+  },
+  "reviewEditTileTitle": "EDIT TILE · #{index}",
+  "@reviewEditTileTitle": {
+    "description": "Eyebrow title of the tile edit panel (1-based tile index).",
+    "placeholders": {
+      "index": { "type": "int", "example": "3" }
+    }
+  },
+  "reviewEditColorLabel": "COLOR",
+  "@reviewEditColorLabel": {
+    "description": "Eyebrow above the color choices in the edit panel."
+  },
+  "reviewEditNumberLabel": "NUMBER",
+  "@reviewEditNumberLabel": {
+    "description": "Eyebrow above the numeral choices in the edit panel."
+  },
+  "reviewRemoveTile": "Remove tile",
+  "@reviewRemoveTile": {
+    "description": "Destructive action in the edit panel that removes the tile."
+  },
+  "reviewIndicatorTitle": "INDICATOR",
+  "@reviewIndicatorTitle": {
+    "description": "Eyebrow title of the indicator (gösterge) section and picker."
+  },
+  "reviewIndicatorPick": "Pick indicator",
+  "@reviewIndicatorPick": {
+    "description": "CTA that opens the indicator picker while unset."
+  },
+  "reviewIndicatorChange": "Change",
+  "@reviewIndicatorChange": {
+    "description": "Action that re-opens the indicator picker once set."
+  },
+  "reviewOkeyLabel": "Okey: {color} {number}",
+  "@reviewOkeyLabel": {
+    "description": "The okey derived from the picked indicator.",
+    "placeholders": {
+      "color": { "type": "String", "example": "Blue" },
+      "number": { "type": "int", "example": "4" }
+    }
+  },
+  "reviewFalseJokerNote": "False jokers stand in for {color} {number}",
+  "@reviewFalseJokerNote": {
+    "description": "Note explaining what false jokers substitute for this round.",
+    "placeholders": {
+      "color": { "type": "String", "example": "Blue" },
+      "number": { "type": "int", "example": "4" }
+    }
+  },
+  "reviewBlockerCount": "Fix the tile count first",
+  "@reviewBlockerCount": {
+    "description": "Footer helper line while the tile count is out of range."
+  },
+  "reviewBlockerIncomplete": "Define the unfinished tiles",
+  "@reviewBlockerIncomplete": {
+    "description": "Footer helper line while undefined/partial tiles remain."
+  },
+  "reviewBlockerIndicator": "Pick the indicator to calculate",
+  "@reviewBlockerIndicator": {
+    "description": "Footer helper line while the indicator is unset."
+  },
+  "reviewCalculateCta": "Calculate",
+  "@reviewCalculateCta": {
+    "description": "Primary footer CTA that hands off to the solver/result."
+  },
+  "reviewTileSemantics": "{label}, tile {index} of {count}, tap to edit",
+  "@reviewTileSemantics": {
+    "description": "Accessibility label for an editable rack tile.",
+    "placeholders": {
+      "label": { "type": "String", "example": "Red 7" },
+      "index": { "type": "int", "example": "3" },
+      "count": { "type": "int", "example": "21" }
+    }
+  },
+  "reviewUndefinedTileSemantics": "Undefined tile, tap to define",
+  "@reviewUndefinedTileSemantics": {
+    "description": "Accessibility label for an undefined placeholder tile."
+  },
+  "reviewEditCloseSemantics": "Close editing",
+  "@reviewEditCloseSemantics": {
+    "description": "Accessibility label for the edit panel's close button."
+  },
+  "reviewFalseJokerTileSemantics": "False joker, counts as {color} {number}",
+  "@reviewFalseJokerTileSemantics": {
+    "description": "Accessibility label for a false joker once the indicator is set.",
+    "placeholders": {
+      "color": { "type": "String", "example": "Blue" },
+      "number": { "type": "int", "example": "4" }
+    }
+  },
+  "indicatorColorSemantics": "Indicator color {color}",
+  "@indicatorColorSemantics": {
+    "description": "Accessibility label for a color choice in the indicator picker.",
+    "placeholders": {
+      "color": { "type": "String", "example": "Blue" }
+    }
+  },
+  "indicatorNumberSemantics": "Indicator number {number}",
+  "@indicatorNumberSemantics": {
+    "description": "Accessibility label for a numeral choice in the indicator picker.",
+    "placeholders": {
+      "number": { "type": "int", "example": "3" }
+    }
+  },
+
   "loginEyebrow": "WELCOME",
   "@loginEyebrow": {
     "description": "Eyebrow at the top of the login screen."

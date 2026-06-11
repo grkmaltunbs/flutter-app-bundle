@@ -12,6 +12,7 @@
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:okey_acar_mi/core/camera/viewfinder_service.dart' as _i381;
+import 'package:okey_acar_mi/core/game/game_mode.dart' as _i970;
 import 'package:okey_acar_mi/core/logging/app_logger.dart' as _i856;
 import 'package:okey_acar_mi/core/network/connectivity_service.dart' as _i854;
 import 'package:okey_acar_mi/core/router/app_router.dart' as _i126;
@@ -74,12 +75,16 @@ import 'package:okey_acar_mi/features/detection/data/fakes/fake_tile_detector.da
     as _i965;
 import 'package:okey_acar_mi/features/detection/data/services/pipeline_tile_detector.dart'
     as _i457;
+import 'package:okey_acar_mi/features/detection/domain/entities/detection_result.dart'
+    as _i728;
 import 'package:okey_acar_mi/features/detection/domain/services/tile_detector.dart'
     as _i58;
 import 'package:okey_acar_mi/features/detection/domain/usecases/detect_tiles.dart'
     as _i437;
 import 'package:okey_acar_mi/features/detection/presentation/blocs/detection_bloc.dart'
     as _i105;
+import 'package:okey_acar_mi/features/review/presentation/blocs/review_bloc.dart'
+    as _i739;
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart'
     as _i997;
 
@@ -130,6 +135,9 @@ extension GetItInjectableX on _i174.GetIt {
       () =>
           captureBindings.demoViewfinderService(gh<_i510.FakeCaptureService>()),
       registerFor: {_demo},
+    );
+    gh.factoryParam<_i739.ReviewBloc, _i728.DetectionResult, _i970.GameMode>(
+      (result, gameMode) => _i739.ReviewBloc(result, gameMode),
     );
     gh.lazySingleton<_i804.DeviceCaptureService>(
       () => captureBindings.deviceCaptureService,

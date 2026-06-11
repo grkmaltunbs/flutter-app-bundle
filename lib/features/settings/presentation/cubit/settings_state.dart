@@ -35,15 +35,6 @@ enum AppLanguage {
   };
 }
 
-/// The game the scan loop targets; drives the solver and result presentation.
-enum GameMode {
-  /// 101 Okey — open by laying down sets/runs totaling ≥101 (or five pairs).
-  oneZeroOne,
-
-  /// Plain Okey — complete a winning hand; output tiles-to-win.
-  okey,
-}
-
 /// Immutable settings state driving theming, the tile kit, language, and mode.
 @freezed
 abstract class SettingsState with _$SettingsState {

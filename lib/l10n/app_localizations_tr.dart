@@ -387,6 +387,114 @@ class AppLocalizationsTr extends AppLocalizations {
   String get analyzingRetry => 'Tekrar dene';
 
   @override
+  String get reviewStepEyebrow => '2/3 · ONAYLA';
+
+  @override
+  String get reviewHeadline => 'Doğru tanındı mı?';
+
+  @override
+  String get reviewSubtitle => 'Yanlış bir taş varsa üstüne dokun, değiştir.';
+
+  @override
+  String get reviewLowConfidenceLegend => 'Düşük güven · gözden geçir';
+
+  @override
+  String get reviewLowOverallBanner =>
+      'Görüntü çok net değil. İstersen tekrar çek, ya da taşları elle düzelt.';
+
+  @override
+  String get reviewRetakeCta => 'Tekrar çek';
+
+  @override
+  String reviewCount(int count, int min, int max) {
+    return '$count / $min–$max taş';
+  }
+
+  @override
+  String reviewWrongCountFew(int expectedMin) {
+    return 'Eksik taş var — en az $expectedMin taş gerekli. Taş ekle.';
+  }
+
+  @override
+  String reviewWrongCountMany(int expectedMax) {
+    return 'Fazla taş var — en çok $expectedMax taş olmalı. Taş sil.';
+  }
+
+  @override
+  String get reviewAddTile => 'Taş ekle';
+
+  @override
+  String reviewEditTileTitle(int index) {
+    return 'TAŞI DÜZENLE · #$index';
+  }
+
+  @override
+  String get reviewEditColorLabel => 'RENK';
+
+  @override
+  String get reviewEditNumberLabel => 'SAYI';
+
+  @override
+  String get reviewRemoveTile => 'Taşı sil';
+
+  @override
+  String get reviewIndicatorTitle => 'GÖSTERGE';
+
+  @override
+  String get reviewIndicatorPick => 'Gösterge seç';
+
+  @override
+  String get reviewIndicatorChange => 'Değiştir';
+
+  @override
+  String reviewOkeyLabel(String color, int number) {
+    return 'Okey: $color $number';
+  }
+
+  @override
+  String reviewFalseJokerNote(String color, int number) {
+    return 'Sahte okeyler $color $number yerine geçer';
+  }
+
+  @override
+  String get reviewBlockerCount => 'Önce taş sayısını düzelt';
+
+  @override
+  String get reviewBlockerIncomplete => 'Tanımsız taşları tamamla';
+
+  @override
+  String get reviewBlockerIndicator => 'Hesaplamak için göstergeyi seç';
+
+  @override
+  String get reviewCalculateCta => 'Hesapla';
+
+  @override
+  String reviewTileSemantics(String label, int index, int count) {
+    return '$label, taş $index/$count, düzenlemek için dokun';
+  }
+
+  @override
+  String get reviewUndefinedTileSemantics => 'Tanımsız taş, dokunup tanımla';
+
+  @override
+  String get reviewEditCloseSemantics => 'Düzenlemeyi kapat';
+
+  @override
+  String reviewFalseJokerTileSemantics(String color, int number) {
+    return 'Sahte okey, $color $number sayılır';
+  }
+
+  @override
+  String indicatorColorSemantics(String color) {
+    return 'Gösterge rengi $color';
+  }
+
+  @override
+  String indicatorNumberSemantics(int number) {
+    return 'Gösterge sayısı $number';
+  }
+
+  @override
   String get loginEyebrow => 'HOŞ GELDİN';
 
   @override

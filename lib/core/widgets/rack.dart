@@ -6,6 +6,57 @@ import 'package:okey_acar_mi/core/theme/tile_style.dart';
 import 'package:okey_acar_mi/core/widgets/tile.dart';
 import 'package:okey_acar_mi/core/widgets/tile_data.dart';
 
+/// The istaka chrome: the rack's gradient surface, hairline border, and
+/// radius, without any tile layout.
+///
+/// Extracted from [Rack] so other rack-like surfaces (e.g. the editable
+/// review rack) share the exact same physical look.
+class RackFrame extends StatelessWidget {
+  /// Creates a [RackFrame] wrapping [child].
+  const RackFrame({
+    required this.child,
+    this.padding = const EdgeInsets.fromLTRB(12, 14, 12, 10),
+    super.key,
+  });
+
+  /// Width of the frame's decoration border (`Border.all`), per side. A
+  /// `BoxDecoration` border insets the Container's child by this on every
+  /// side, so any width math against the frame's interior must subtract it
+  /// from both horizontal edges.
+  static const double borderWidth = 1;
+
+  /// The frame contents.
+  final Widget child;
+
+  /// Inner padding; defaults to the design bundle's `14/12/10`.
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [palette.rackTop, palette.rackBottom],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: palette.rackBorder,
+          // The decoration border and dependent width math must reference the
+          // same value, so `width` is stated explicitly even though
+          // `borderWidth` equals Border.all's default.
+          // ignore: avoid_redundant_argument_values, the const link is intentional
+          width: borderWidth,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 /// A physical-looking rack (istaka) holding 14–21 tiles across two rows.
 ///
 /// Tile width is derived entirely from the incoming [BoxConstraints]: the
@@ -37,14 +88,8 @@ class Rack extends StatelessWidget {
   /// Horizontal gap between tiles, in logical pixels.
   static const double _gap = 3;
 
-  /// Width of the rack's decoration border (`Border.all`), per side. A
-  /// `BoxDecoration` border insets the Container's child by this on every side,
-  /// so the available-width math must subtract it from both horizontal edges.
-  static const double _borderWidth = 1;
-
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     final pad = padding ?? const EdgeInsets.fromLTRB(12, 14, 12, 10);
 
     final splitAt = (tiles.length / 2).ceil();
@@ -57,9 +102,9 @@ class Rack extends StatelessWidget {
         final available =
             constraints.maxWidth -
             pad.horizontal -
-            // The decoration border (below) insets the child by `_borderWidth`
+            // The frame's decoration border insets the child by `borderWidth`
             // on each side; account for both edges or tiles are sized 2px wide.
-            _borderWidth * 2 -
+            RackFrame.borderWidth * 2 -
             math.max(0, perRow - 1) * _gap;
         // Width per tile, never wider than `sm`, never narrower than 14.
         // Floor to whole pixels so `perRow * tileWidth + gaps` can never exceed
@@ -73,24 +118,8 @@ class Rack extends StatelessWidget {
           TileSize.sm.width,
         );
 
-        return Container(
+        return RackFrame(
           padding: pad,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [palette.rackTop, palette.rackBottom],
-            ),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: palette.rackBorder,
-              // The decoration border and the available-width math must
-              // reference the same value, so `width` is stated explicitly even
-              // though `_borderWidth` equals Border.all's default.
-              // ignore: avoid_redundant_argument_values, the const link is intentional
-              width: _borderWidth,
-            ),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,

@@ -824,6 +824,180 @@ abstract class AppLocalizations {
   /// **'Try again'**
   String get analyzingRetry;
 
+  /// Eyebrow step indicator at the top of the review screen.
+  ///
+  /// In en, this message translates to:
+  /// **'2/3 · REVIEW'**
+  String get reviewStepEyebrow;
+
+  /// Serif headline of the review screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Did we get it right?'**
+  String get reviewHeadline;
+
+  /// Muted subtitle under the review headline.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap any wrong tile to fix it.'**
+  String get reviewSubtitle;
+
+  /// Legend under the rack explaining the warn dot on low-confidence tiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Low confidence · please review'**
+  String get reviewLowConfidenceLegend;
+
+  /// Warn banner shown when the overall detection confidence is low.
+  ///
+  /// In en, this message translates to:
+  /// **'The image isn\'t very sharp. Retake it, or fix tiles by hand.'**
+  String get reviewLowOverallBanner;
+
+  /// Action on the low-confidence banner that returns to the camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Retake'**
+  String get reviewRetakeCta;
+
+  /// Mono tile counter vs the mode's legal range.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} / {min}–{max} tiles'**
+  String reviewCount(int count, int min, int max);
+
+  /// Warning banner when the rack has fewer tiles than the mode's minimum.
+  ///
+  /// In en, this message translates to:
+  /// **'Tiles missing — at least {expectedMin} required. Add a tile.'**
+  String reviewWrongCountFew(int expectedMin);
+
+  /// Warning banner when the rack has more tiles than the mode's maximum.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many tiles — at most {expectedMax} allowed. Remove one.'**
+  String reviewWrongCountMany(int expectedMax);
+
+  /// Button that appends an undefined tile placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Add tile'**
+  String get reviewAddTile;
+
+  /// Eyebrow title of the tile edit panel (1-based tile index).
+  ///
+  /// In en, this message translates to:
+  /// **'EDIT TILE · #{index}'**
+  String reviewEditTileTitle(int index);
+
+  /// Eyebrow above the color choices in the edit panel.
+  ///
+  /// In en, this message translates to:
+  /// **'COLOR'**
+  String get reviewEditColorLabel;
+
+  /// Eyebrow above the numeral choices in the edit panel.
+  ///
+  /// In en, this message translates to:
+  /// **'NUMBER'**
+  String get reviewEditNumberLabel;
+
+  /// Destructive action in the edit panel that removes the tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove tile'**
+  String get reviewRemoveTile;
+
+  /// Eyebrow title of the indicator (gösterge) section and picker.
+  ///
+  /// In en, this message translates to:
+  /// **'INDICATOR'**
+  String get reviewIndicatorTitle;
+
+  /// CTA that opens the indicator picker while unset.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick indicator'**
+  String get reviewIndicatorPick;
+
+  /// Action that re-opens the indicator picker once set.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get reviewIndicatorChange;
+
+  /// The okey derived from the picked indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Okey: {color} {number}'**
+  String reviewOkeyLabel(String color, int number);
+
+  /// Note explaining what false jokers substitute for this round.
+  ///
+  /// In en, this message translates to:
+  /// **'False jokers stand in for {color} {number}'**
+  String reviewFalseJokerNote(String color, int number);
+
+  /// Footer helper line while the tile count is out of range.
+  ///
+  /// In en, this message translates to:
+  /// **'Fix the tile count first'**
+  String get reviewBlockerCount;
+
+  /// Footer helper line while undefined/partial tiles remain.
+  ///
+  /// In en, this message translates to:
+  /// **'Define the unfinished tiles'**
+  String get reviewBlockerIncomplete;
+
+  /// Footer helper line while the indicator is unset.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick the indicator to calculate'**
+  String get reviewBlockerIndicator;
+
+  /// Primary footer CTA that hands off to the solver/result.
+  ///
+  /// In en, this message translates to:
+  /// **'Calculate'**
+  String get reviewCalculateCta;
+
+  /// Accessibility label for an editable rack tile.
+  ///
+  /// In en, this message translates to:
+  /// **'{label}, tile {index} of {count}, tap to edit'**
+  String reviewTileSemantics(String label, int index, int count);
+
+  /// Accessibility label for an undefined placeholder tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Undefined tile, tap to define'**
+  String get reviewUndefinedTileSemantics;
+
+  /// Accessibility label for the edit panel's close button.
+  ///
+  /// In en, this message translates to:
+  /// **'Close editing'**
+  String get reviewEditCloseSemantics;
+
+  /// Accessibility label for a false joker once the indicator is set.
+  ///
+  /// In en, this message translates to:
+  /// **'False joker, counts as {color} {number}'**
+  String reviewFalseJokerTileSemantics(String color, int number);
+
+  /// Accessibility label for a color choice in the indicator picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Indicator color {color}'**
+  String indicatorColorSemantics(String color);
+
+  /// Accessibility label for a numeral choice in the indicator picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Indicator number {number}'**
+  String indicatorNumberSemantics(int number);
+
   /// Eyebrow at the top of the login screen.
   ///
   /// In en, this message translates to:
