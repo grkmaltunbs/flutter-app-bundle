@@ -13,6 +13,7 @@ import 'package:okey_acar_mi/features/detection/data/processing/frame_aggregator
 import 'package:okey_acar_mi/features/detection/data/processing/hsv_classifier.dart';
 import 'package:okey_acar_mi/features/detection/data/processing/numeral_parser.dart';
 import 'package:okey_acar_mi/features/detection/data/processing/rack_geometry.dart';
+import 'package:okey_acar_mi/features/detection/data/services/opencv_rack_segmenter.dart';
 import 'package:okey_acar_mi/features/detection/data/services/rack_segmenter.dart';
 import 'package:okey_acar_mi/features/detection/domain/entities/detected_tile.dart';
 import 'package:okey_acar_mi/features/detection/domain/entities/detection_result.dart';
@@ -81,9 +82,19 @@ Future<void> detectionWorkerMain(DetectionWorkerRequest request) async {
   }
 }
 
-/// Builds the worker's segmentation strategy. Constructed inside the worker
-/// isolate — segmenters never cross the boundary.
-RackSegmenter _buildSegmenter() => const LumaProjectionSegmenter();
+/// Builds the worker's segmentation strategy: OpenCV primary, pure-Dart luma
+/// fallback when OpenCV **throws** (never when it merely finds nothing).
+/// Constructed inside the worker isolate — segmenters never cross the
+/// boundary — with primary failures forwarded as [DetectionWorkerLog]s.
+RackSegmenter _buildSegmenter(SendPort send) => FallbackRackSegmenter(
+  primary: const OpenCvRackSegmenter(),
+  fallback: const LumaProjectionSegmenter(),
+  onPrimaryError: (description) => send.send(
+    DetectionWorkerLog(
+      'opencv-segmenter-failed; fell back to luma projection: $description',
+    ),
+  ),
+);
 
 Future<void> _runPipeline(
   SendPort send,
@@ -97,7 +108,7 @@ Future<void> _runPipeline(
     FramesCapture(:final framePaths) => framePaths,
   };
 
-  final segmenter = _buildSegmenter();
+  final segmenter = _buildSegmenter(send);
   final frames = <List<DetectedTile>>[];
   var announced = false;
   for (final path in paths) {

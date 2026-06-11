@@ -60,12 +60,15 @@ dependencies:
   injectable: ^3.0.0
   intl: any
   json_annotation: ^4.12.0
-  # opencv_dart: intentionally NOT used. Its iOS `DartCvIOS` xcframework fails
-  # to link on the simulator, so Step 5 ships the pure-Dart
-  # LumaProjectionSegmenter (package:image) behind the RackSegmenter interface
-  # (lib/features/detection/data/services/rack_segmenter.dart), explicitly
-  # designed so a native OpenCV binding can be swapped in behind the same
-  # interface later.
+  # OpenCV bindings — the 2.x native-assets/hooks line, which builds and runs
+  # on iOS simulators, Android (all ABIs), and host `flutter test` (the old
+  # 1.x DartCvIOS CocoaPods line did NOT link on simulators). Never downgrade
+  # below 2.2.1+1 (iOS CMake bug). The first build per target compiles OpenCV
+  # from source — slow once, then cached in .dart_tool/hooks_runner; export
+  # the dartcv cache env var (see HUMAN_SETUP.md) so `flutter clean` does not
+  # retrigger it. Pulls transitive downgrades of hooks/native_toolchain_c —
+  # known-fine. Used only by OpenCvRackSegmenter (prod detection pipeline).
+  opencv_dart: ^2.2.1
   path: ^1.9.1
   path_provider: ^2.1.5
   permission_handler: ^12.0.3

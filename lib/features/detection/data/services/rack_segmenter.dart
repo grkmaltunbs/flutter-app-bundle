@@ -5,14 +5,49 @@ import 'package:okey_acar_mi/features/detection/domain/entities/detected_tile.da
 
 /// Segments a captured rack photo into per-tile boxes.
 ///
-/// An interface seam so the pure-Dart v1 below can later be swapped for a
-/// native OpenCV binding without touching the pipeline (opencv_dart itself
-/// is excluded — its iOS xcframework breaks simulator linking).
+/// The interface seam between the detection pipeline and the segmentation
+/// strategy. The prod worker runs `OpenCvRackSegmenter` (opencv_dart 2.x)
+/// as primary with the pure-Dart [LumaProjectionSegmenter] below as the
+/// throw-fallback, composed via [FallbackRackSegmenter].
 // Single-method DI seam (one_member_abstracts is disabled project-wide).
 abstract interface class RackSegmenter {
   /// Finds tile boxes in [image], normalized to the image dimensions.
   /// Returns an empty list when no tile-like regions are found.
   List<NormalizedRect> segment(img.Image image);
+}
+
+/// Decorates a [primary] segmenter with a [fallback] used **only when the
+/// primary throws** (e.g. the native OpenCV library failed to load or
+/// crashed mid-call). An empty result is NOT a fallback trigger — empty
+/// means "no tiles here", a legitimate answer the pipeline maps to
+/// `Failure.noTilesDetected`.
+class FallbackRackSegmenter implements RackSegmenter {
+  /// Creates a [FallbackRackSegmenter].
+  const FallbackRackSegmenter({
+    required this.primary,
+    required this.fallback,
+    this.onPrimaryError,
+  });
+
+  /// Tried first on every call.
+  final RackSegmenter primary;
+
+  /// Used for a run only when [primary] throws on that run.
+  final RackSegmenter fallback;
+
+  /// Invoked with a description of what [primary] threw, before falling
+  /// back (the worker forwards it to the main isolate's logger).
+  final void Function(String description)? onPrimaryError;
+
+  @override
+  List<NormalizedRect> segment(img.Image image) {
+    try {
+      return primary.segment(image);
+    } on Object catch (error) {
+      onPrimaryError?.call('$error');
+      return fallback.segment(image);
+    }
+  }
 }
 
 /// v1 pure-Dart segmenter using brightness (luma) projections.

@@ -112,10 +112,16 @@ Only needed if you want Claude to implement the whole plan on its own with
 
 ## On-device detection (ML Kit + OpenCV)
 
-- [ ] iOS: run `pod install` in `ios/` after adding the ML Kit / OpenCV pods; bump
-      the iOS deployment target to **15.0** if a pod requires it.
+- [ ] iOS: run `pod install` in `ios/` after adding the ML Kit pods; bump
+      the iOS deployment target to **15.0** if a pod requires it. (OpenCV is
+      NOT a pod — `opencv_dart` 2.x builds via Dart native assets/hooks.)
 - [ ] Android: confirm `minSdkVersion 26` and (if needed) NDK/ABI filters for the
       OpenCV binding build.
+- [ ] Export the OpenCV build cache dir in your shell profile so
+      `flutter clean` doesn't retrigger the long first OpenCV build per target
+      (the default cache lives under `.dart_tool/hooks_runner`, which clean
+      wipes):
+      `export DARTCV_CACHE_DIR="$HOME/.cache/dartcv"`
 - [ ] No API key needed — Google ML Kit on-device models ship with the app.
 
 ## Permission usage strings (store-required)
