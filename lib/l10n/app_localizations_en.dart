@@ -344,6 +344,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cameraCaptureFailed => 'Capture failed. Try again.';
 
   @override
+  String get analyzingStagePreparing => 'Processing image…';
+
+  @override
+  String get analyzingStageLocatingRack => 'Locating the rack…';
+
+  @override
+  String get analyzingStageReadingTiles => 'Reading tiles…';
+
+  @override
+  String get analyzingStageAggregatingFrames => 'Combining frames…';
+
+  @override
+  String get analyzingStageFinalizing => 'Finishing up…';
+
+  @override
+  String analyzingTileProgress(int revealed, int total) {
+    return '$revealed/$total';
+  }
+
+  @override
+  String get analyzingCancelSemantics => 'Cancel analysis';
+
+  @override
+  String get analyzingNoTilesTitle => 'No tiles found';
+
+  @override
+  String get analyzingNoTilesBody =>
+      'Make sure the rack fills the frame, both rows are visible, and the light is even — then try again.';
+
+  @override
+  String get analyzingRetake => 'Retake';
+
+  @override
+  String get analyzingErrorTitle => 'Something went wrong';
+
+  @override
+  String get analyzingErrorBody =>
+      'The tiles could not be analyzed. Please try again.';
+
+  @override
+  String get analyzingRetry => 'Try again';
+
+  @override
   String get loginEyebrow => 'WELCOME';
 
   @override

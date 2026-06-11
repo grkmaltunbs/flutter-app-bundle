@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:okey_acar_mi/core/camera/viewfinder_service.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
+import 'package:okey_acar_mi/core/error/failure.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
@@ -19,8 +20,13 @@ import 'package:okey_acar_mi/features/auth/presentation/widgets/delete_account_s
 import 'package:okey_acar_mi/features/auth/presentation/widgets/forgot_password_sheet.dart';
 import 'package:okey_acar_mi/features/auth/presentation/widgets/session_expired_banner.dart';
 import 'package:okey_acar_mi/features/capture/data/fakes/fake_capture_service.dart';
+import 'package:okey_acar_mi/features/capture/domain/entities/capture_payload.dart';
 import 'package:okey_acar_mi/features/capture/presentation/blocs/camera_bloc.dart';
 import 'package:okey_acar_mi/features/capture/presentation/pages/camera_page.dart';
+import 'package:okey_acar_mi/features/detection/data/fakes/seeded_detections.dart';
+import 'package:okey_acar_mi/features/detection/domain/entities/detection_stage.dart';
+import 'package:okey_acar_mi/features/detection/presentation/blocs/detection_bloc.dart';
+import 'package:okey_acar_mi/features/detection/presentation/pages/analyzing_page.dart';
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
@@ -236,6 +242,37 @@ void main() {
   );
   _matrixTest('CameraView (recording)', _cameraRecordingSample, router: true);
 
+  // The analyzing screen across its heaviest states: a full 21-tile reveal
+  // mid-processing plus both failure escapes. Reduce-motion is pinned inside
+  // the sample so the scan line is static and `pumpAndSettle` terminates.
+  _matrixTest(
+    'AnalyzingView (processing, 21 revealed)',
+    () => _analyzingSample(
+      DetectionState.processing(
+        stage: DetectionStage.readingTiles,
+        revealed: SeededDetections.rack101(),
+        totalTiles: 21,
+      ),
+    ),
+    router: true,
+  );
+  _matrixTest(
+    'AnalyzingView (no tiles found)',
+    () => _analyzingSample(
+      const DetectionState.failure(failure: Failure.noTilesDetected()),
+    ),
+    router: true,
+  );
+  _matrixTest(
+    'AnalyzingView (detection error)',
+    () => _analyzingSample(
+      const DetectionState.failure(
+        failure: Failure.detectionFailed('overflow-guard'),
+      ),
+    ),
+    router: true,
+  );
+
   // Placeholder routes (analyzing/.../paywall) must also be overflow-safe.
   for (final screen in PlaceholderScreen.values) {
     _matrixTest(
@@ -252,6 +289,29 @@ void main() {
 FakeAuthRepository _fakeAuth() => getIt<AuthRepository>() as FakeAuthRepository;
 
 FakeCaptureService _fakeCapture() => getIt<FakeCaptureService>();
+
+/// The capture behind the analyzing samples. The path stays unreadable on
+/// purpose: the overlay's `errorBuilder` frame is the worst case for layout.
+final CapturePayload _analyzingPayload = CapturePayload.still(
+  imagePath: '/nonexistent/rack_101_21.png',
+  source: CaptureSource.photo,
+  capturedAt: DateTime.utc(2026, 6, 11),
+);
+
+/// The real `AnalyzingView` pinned in [state] under reduce-motion (a static
+/// scan line keeps the matrix's `pumpAndSettle` deterministic).
+Widget _analyzingSample(DetectionState state) {
+  return Builder(
+    builder: (context) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(disableAnimations: true),
+      child: BlocProvider<DetectionBloc>(
+        create: (_) =>
+            getIt<DetectionBloc>(param1: _analyzingPayload)..emit(state),
+        child: AnalyzingView(payload: _analyzingPayload),
+      ),
+    ),
+  );
+}
 
 /// The capture screen pinned mid-burst (frame 2 of 5) — the longest top-bar
 /// pill content.

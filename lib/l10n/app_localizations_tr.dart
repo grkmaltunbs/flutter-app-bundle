@@ -344,6 +344,49 @@ class AppLocalizationsTr extends AppLocalizations {
   String get cameraCaptureFailed => 'Çekim başarısız oldu. Tekrar dene.';
 
   @override
+  String get analyzingStagePreparing => 'Görüntü işleniyor…';
+
+  @override
+  String get analyzingStageLocatingRack => 'Istaka aranıyor…';
+
+  @override
+  String get analyzingStageReadingTiles => 'Taşlar okunuyor…';
+
+  @override
+  String get analyzingStageAggregatingFrames => 'Kareler birleştiriliyor…';
+
+  @override
+  String get analyzingStageFinalizing => 'Tamamlanıyor…';
+
+  @override
+  String analyzingTileProgress(int revealed, int total) {
+    return '$revealed/$total';
+  }
+
+  @override
+  String get analyzingCancelSemantics => 'Analizi iptal et';
+
+  @override
+  String get analyzingNoTilesTitle => 'Taş bulunamadı';
+
+  @override
+  String get analyzingNoTilesBody =>
+      'Istaka kadrajı doldursun, iki sıra da görünsün ve ışık dengeli olsun — sonra tekrar dene.';
+
+  @override
+  String get analyzingRetake => 'Yeniden çek';
+
+  @override
+  String get analyzingErrorTitle => 'Bir şeyler ters gitti';
+
+  @override
+  String get analyzingErrorBody =>
+      'Taşlar analiz edilemedi. Lütfen tekrar dene.';
+
+  @override
+  String get analyzingRetry => 'Tekrar dene';
+
+  @override
   String get loginEyebrow => 'HOŞ GELDİN';
 
   @override

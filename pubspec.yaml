@@ -53,14 +53,19 @@ dependencies:
   google_mlkit_text_recognition: ^0.15.1
   google_mobile_ads: ^8.0.0
   google_sign_in: ^7.2.0
+  # Pure-Dart image decoding + pixel access for the v1 rack segmenter
+  # (LumaProjectionSegmenter). Replaces opencv_dart for Step 5 — see below.
+  image: ^4.5.4
   image_picker: ^1.2.2
   injectable: ^3.0.0
   intl: any
   json_annotation: ^4.12.0
-  # opencv_dart: DEFERRED to Step 5 (detection). Its iOS `DartCvIOS` xcframework
-  # fails to link on the simulator and it is unused before detection lands.
-  # Re-add and wire the native binding (opencv_dart or an FFI/platform-channel
-  # alternative, per CLAUDE.md) when implementing on-device tile detection.
+  # opencv_dart: intentionally NOT used. Its iOS `DartCvIOS` xcframework fails
+  # to link on the simulator, so Step 5 ships the pure-Dart
+  # LumaProjectionSegmenter (package:image) behind the RackSegmenter interface
+  # (lib/features/detection/data/services/rack_segmenter.dart), explicitly
+  # designed so a native OpenCV binding can be swapped in behind the same
+  # interface later.
   path: ^1.9.1
   path_provider: ^2.1.5
   permission_handler: ^12.0.3

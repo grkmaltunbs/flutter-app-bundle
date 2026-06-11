@@ -746,6 +746,84 @@ abstract class AppLocalizations {
   /// **'Capture failed. Try again.'**
   String get cameraCaptureFailed;
 
+  /// Stage label while the detection worker decodes the capture.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing image…'**
+  String get analyzingStagePreparing;
+
+  /// Stage label while the 2-row rack is being segmented.
+  ///
+  /// In en, this message translates to:
+  /// **'Locating the rack…'**
+  String get analyzingStageLocatingRack;
+
+  /// Stage label while tile numerals and colors are read.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading tiles…'**
+  String get analyzingStageReadingTiles;
+
+  /// Stage label while video-burst frames are aggregated.
+  ///
+  /// In en, this message translates to:
+  /// **'Combining frames…'**
+  String get analyzingStageAggregatingFrames;
+
+  /// Stage label while the detection result is assembled.
+  ///
+  /// In en, this message translates to:
+  /// **'Finishing up…'**
+  String get analyzingStageFinalizing;
+
+  /// Mono counter of revealed tiles vs the located total.
+  ///
+  /// In en, this message translates to:
+  /// **'{revealed}/{total}'**
+  String analyzingTileProgress(int revealed, int total);
+
+  /// Accessibility label of the analyzing screen's back/cancel button.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel analysis'**
+  String get analyzingCancelSemantics;
+
+  /// Title of the no-tiles-detected failure view.
+  ///
+  /// In en, this message translates to:
+  /// **'No tiles found'**
+  String get analyzingNoTilesTitle;
+
+  /// Lighting/framing tips on the no-tiles-detected failure view.
+  ///
+  /// In en, this message translates to:
+  /// **'Make sure the rack fills the frame, both rows are visible, and the light is even — then try again.'**
+  String get analyzingNoTilesBody;
+
+  /// Primary action on the no-tiles view: back to the camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Retake'**
+  String get analyzingRetake;
+
+  /// Title of the detection-error failure view.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong'**
+  String get analyzingErrorTitle;
+
+  /// Body of the detection-error failure view.
+  ///
+  /// In en, this message translates to:
+  /// **'The tiles could not be analyzed. Please try again.'**
+  String get analyzingErrorBody;
+
+  /// Action that re-runs detection after a failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get analyzingRetry;
+
   /// Eyebrow at the top of the login screen.
   ///
   /// In en, this message translates to:

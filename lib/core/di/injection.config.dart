@@ -56,6 +56,8 @@ import 'package:okey_acar_mi/features/capture/data/fakes/fake_capture_service.da
     as _i510;
 import 'package:okey_acar_mi/features/capture/data/services/device_capture_service.dart'
     as _i804;
+import 'package:okey_acar_mi/features/capture/domain/entities/capture_payload.dart'
+    as _i983;
 import 'package:okey_acar_mi/features/capture/domain/repositories/capture_repository.dart'
     as _i910;
 import 'package:okey_acar_mi/features/capture/domain/usecases/capture_photo.dart'
@@ -66,6 +68,18 @@ import 'package:okey_acar_mi/features/capture/domain/usecases/pick_from_gallery.
     as _i729;
 import 'package:okey_acar_mi/features/capture/presentation/blocs/camera_bloc.dart'
     as _i437;
+import 'package:okey_acar_mi/features/detection/data/detection_bindings.dart'
+    as _i386;
+import 'package:okey_acar_mi/features/detection/data/fakes/fake_tile_detector.dart'
+    as _i965;
+import 'package:okey_acar_mi/features/detection/data/services/pipeline_tile_detector.dart'
+    as _i457;
+import 'package:okey_acar_mi/features/detection/domain/services/tile_detector.dart'
+    as _i58;
+import 'package:okey_acar_mi/features/detection/domain/usecases/detect_tiles.dart'
+    as _i437;
+import 'package:okey_acar_mi/features/detection/presentation/blocs/detection_bloc.dart'
+    as _i105;
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart'
     as _i997;
 
@@ -80,6 +94,7 @@ extension GetItInjectableX on _i174.GetIt {
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final captureBindings = _$CaptureBindings();
+    final detectionBindings = _$DetectionBindings();
     gh.factory<_i997.SettingsCubit>(() => _i997.SettingsCubit());
     gh.lazySingleton<_i856.AppLogger>(() => _i856.AppLogger());
     gh.lazySingleton<_i574.GuestDataMigrator>(
@@ -129,6 +144,10 @@ extension GetItInjectableX on _i174.GetIt {
       () => const _i92.SystemClock(),
       registerFor: {_prod},
     );
+    gh.lazySingleton<_i965.FakeTileDetector>(
+      () => detectionBindings.fakeTileDetector(gh<_i92.Clock>()),
+      registerFor: {_demo},
+    );
     gh.lazySingleton<_i611.AuthRepository>(
       () => _i338.FirebaseAuthRepository(),
       registerFor: {_prod},
@@ -148,6 +167,10 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i854.ConnectivityService>(
       () => _i854.ConnectivityServiceImpl(),
       registerFor: {_prod},
+    );
+    gh.lazySingleton<_i58.TileDetector>(
+      () => detectionBindings.demoTileDetector(gh<_i965.FakeTileDetector>()),
+      registerFor: {_demo},
     );
     gh.factory<_i1041.SignInWithApple>(
       () => _i1041.SignInWithApple(
@@ -188,6 +211,14 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i611.AuthRepository>(),
       ),
     );
+    gh.lazySingleton<_i457.PipelineTileDetector>(
+      () => detectionBindings.pipelineTileDetector(
+        gh<_i92.Clock>(),
+        gh<_i856.AppLogger>(),
+      ),
+      registerFor: {_prod},
+      dispose: _i386.disposePipelineTileDetector,
+    );
     gh.lazySingleton<_i614.AuthBloc>(
       () => _i614.AuthBloc(gh<_i611.AuthRepository>()),
     );
@@ -213,6 +244,11 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i126.AppRouter(gh<_i614.AuthBloc>()),
       dispose: (i) => i.dispose(),
     );
+    gh.lazySingleton<_i58.TileDetector>(
+      () =>
+          detectionBindings.prodTileDetector(gh<_i457.PipelineTileDetector>()),
+      registerFor: {_prod},
+    );
     gh.factory<_i437.CameraBloc>(
       () => _i437.CameraBloc(
         gh<_i910.CaptureRepository>(),
@@ -221,8 +257,20 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i729.PickFromGallery>(),
       ),
     );
+    gh.factory<_i437.DetectTiles>(
+      () => _i437.DetectTiles(gh<_i58.TileDetector>()),
+    );
+    gh.factoryParam<_i105.DetectionBloc, _i983.CapturePayload, dynamic>(
+      (payload, _) => _i105.DetectionBloc(
+        gh<_i437.DetectTiles>(),
+        gh<_i856.AppLogger>(),
+        payload,
+      ),
+    );
     return this;
   }
 }
 
 class _$CaptureBindings extends _i144.CaptureBindings {}
+
+class _$DetectionBindings extends _i386.DetectionBindings {}

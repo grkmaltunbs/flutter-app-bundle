@@ -55,7 +55,7 @@ extension FailurePatterns on Failure {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( NetworkFailure value)?  network,TResult Function( UnexpectedFailure value)?  unexpected,TResult Function( NotFoundFailure value)?  notFound,TResult Function( InvalidCredentialsFailure value)?  invalidCredentials,TResult Function( EmailAlreadyInUseFailure value)?  emailAlreadyInUse,TResult Function( WeakPasswordFailure value)?  weakPassword,TResult Function( RequiresRecentLoginFailure value)?  requiresRecentLogin,TResult Function( SessionExpiredFailure value)?  sessionExpired,TResult Function( TooManyRequestsFailure value)?  tooManyRequests,TResult Function( NoCameraFailure value)?  noCamera,TResult Function( CaptureFailedFailure value)?  captureFailed,TResult Function( PhotoAccessDeniedFailure value)?  photoAccessDenied,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( NetworkFailure value)?  network,TResult Function( UnexpectedFailure value)?  unexpected,TResult Function( NotFoundFailure value)?  notFound,TResult Function( InvalidCredentialsFailure value)?  invalidCredentials,TResult Function( EmailAlreadyInUseFailure value)?  emailAlreadyInUse,TResult Function( WeakPasswordFailure value)?  weakPassword,TResult Function( RequiresRecentLoginFailure value)?  requiresRecentLogin,TResult Function( SessionExpiredFailure value)?  sessionExpired,TResult Function( TooManyRequestsFailure value)?  tooManyRequests,TResult Function( NoCameraFailure value)?  noCamera,TResult Function( CaptureFailedFailure value)?  captureFailed,TResult Function( PhotoAccessDeniedFailure value)?  photoAccessDenied,TResult Function( NoTilesDetectedFailure value)?  noTilesDetected,TResult Function( DetectionFailedFailure value)?  detectionFailed,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case NetworkFailure() when network != null:
@@ -70,7 +70,9 @@ return sessionExpired(_that);case TooManyRequestsFailure() when tooManyRequests 
 return tooManyRequests(_that);case NoCameraFailure() when noCamera != null:
 return noCamera(_that);case CaptureFailedFailure() when captureFailed != null:
 return captureFailed(_that);case PhotoAccessDeniedFailure() when photoAccessDenied != null:
-return photoAccessDenied(_that);case _:
+return photoAccessDenied(_that);case NoTilesDetectedFailure() when noTilesDetected != null:
+return noTilesDetected(_that);case DetectionFailedFailure() when detectionFailed != null:
+return detectionFailed(_that);case _:
   return orElse();
 
 }
@@ -88,7 +90,7 @@ return photoAccessDenied(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( NetworkFailure value)  network,required TResult Function( UnexpectedFailure value)  unexpected,required TResult Function( NotFoundFailure value)  notFound,required TResult Function( InvalidCredentialsFailure value)  invalidCredentials,required TResult Function( EmailAlreadyInUseFailure value)  emailAlreadyInUse,required TResult Function( WeakPasswordFailure value)  weakPassword,required TResult Function( RequiresRecentLoginFailure value)  requiresRecentLogin,required TResult Function( SessionExpiredFailure value)  sessionExpired,required TResult Function( TooManyRequestsFailure value)  tooManyRequests,required TResult Function( NoCameraFailure value)  noCamera,required TResult Function( CaptureFailedFailure value)  captureFailed,required TResult Function( PhotoAccessDeniedFailure value)  photoAccessDenied,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( NetworkFailure value)  network,required TResult Function( UnexpectedFailure value)  unexpected,required TResult Function( NotFoundFailure value)  notFound,required TResult Function( InvalidCredentialsFailure value)  invalidCredentials,required TResult Function( EmailAlreadyInUseFailure value)  emailAlreadyInUse,required TResult Function( WeakPasswordFailure value)  weakPassword,required TResult Function( RequiresRecentLoginFailure value)  requiresRecentLogin,required TResult Function( SessionExpiredFailure value)  sessionExpired,required TResult Function( TooManyRequestsFailure value)  tooManyRequests,required TResult Function( NoCameraFailure value)  noCamera,required TResult Function( CaptureFailedFailure value)  captureFailed,required TResult Function( PhotoAccessDeniedFailure value)  photoAccessDenied,required TResult Function( NoTilesDetectedFailure value)  noTilesDetected,required TResult Function( DetectionFailedFailure value)  detectionFailed,}){
 final _that = this;
 switch (_that) {
 case NetworkFailure():
@@ -103,7 +105,9 @@ return sessionExpired(_that);case TooManyRequestsFailure():
 return tooManyRequests(_that);case NoCameraFailure():
 return noCamera(_that);case CaptureFailedFailure():
 return captureFailed(_that);case PhotoAccessDeniedFailure():
-return photoAccessDenied(_that);}
+return photoAccessDenied(_that);case NoTilesDetectedFailure():
+return noTilesDetected(_that);case DetectionFailedFailure():
+return detectionFailed(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
 ///
@@ -117,7 +121,7 @@ return photoAccessDenied(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( NetworkFailure value)?  network,TResult? Function( UnexpectedFailure value)?  unexpected,TResult? Function( NotFoundFailure value)?  notFound,TResult? Function( InvalidCredentialsFailure value)?  invalidCredentials,TResult? Function( EmailAlreadyInUseFailure value)?  emailAlreadyInUse,TResult? Function( WeakPasswordFailure value)?  weakPassword,TResult? Function( RequiresRecentLoginFailure value)?  requiresRecentLogin,TResult? Function( SessionExpiredFailure value)?  sessionExpired,TResult? Function( TooManyRequestsFailure value)?  tooManyRequests,TResult? Function( NoCameraFailure value)?  noCamera,TResult? Function( CaptureFailedFailure value)?  captureFailed,TResult? Function( PhotoAccessDeniedFailure value)?  photoAccessDenied,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( NetworkFailure value)?  network,TResult? Function( UnexpectedFailure value)?  unexpected,TResult? Function( NotFoundFailure value)?  notFound,TResult? Function( InvalidCredentialsFailure value)?  invalidCredentials,TResult? Function( EmailAlreadyInUseFailure value)?  emailAlreadyInUse,TResult? Function( WeakPasswordFailure value)?  weakPassword,TResult? Function( RequiresRecentLoginFailure value)?  requiresRecentLogin,TResult? Function( SessionExpiredFailure value)?  sessionExpired,TResult? Function( TooManyRequestsFailure value)?  tooManyRequests,TResult? Function( NoCameraFailure value)?  noCamera,TResult? Function( CaptureFailedFailure value)?  captureFailed,TResult? Function( PhotoAccessDeniedFailure value)?  photoAccessDenied,TResult? Function( NoTilesDetectedFailure value)?  noTilesDetected,TResult? Function( DetectionFailedFailure value)?  detectionFailed,}){
 final _that = this;
 switch (_that) {
 case NetworkFailure() when network != null:
@@ -132,7 +136,9 @@ return sessionExpired(_that);case TooManyRequestsFailure() when tooManyRequests 
 return tooManyRequests(_that);case NoCameraFailure() when noCamera != null:
 return noCamera(_that);case CaptureFailedFailure() when captureFailed != null:
 return captureFailed(_that);case PhotoAccessDeniedFailure() when photoAccessDenied != null:
-return photoAccessDenied(_that);case _:
+return photoAccessDenied(_that);case NoTilesDetectedFailure() when noTilesDetected != null:
+return noTilesDetected(_that);case DetectionFailedFailure() when detectionFailed != null:
+return detectionFailed(_that);case _:
   return null;
 
 }
@@ -149,7 +155,7 @@ return photoAccessDenied(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  network,TResult Function( String message)?  unexpected,TResult Function()?  notFound,TResult Function()?  invalidCredentials,TResult Function()?  emailAlreadyInUse,TResult Function()?  weakPassword,TResult Function()?  requiresRecentLogin,TResult Function()?  sessionExpired,TResult Function()?  tooManyRequests,TResult Function()?  noCamera,TResult Function( String message)?  captureFailed,TResult Function( bool permanent)?  photoAccessDenied,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  network,TResult Function( String message)?  unexpected,TResult Function()?  notFound,TResult Function()?  invalidCredentials,TResult Function()?  emailAlreadyInUse,TResult Function()?  weakPassword,TResult Function()?  requiresRecentLogin,TResult Function()?  sessionExpired,TResult Function()?  tooManyRequests,TResult Function()?  noCamera,TResult Function( String message)?  captureFailed,TResult Function( bool permanent)?  photoAccessDenied,TResult Function()?  noTilesDetected,TResult Function( String message)?  detectionFailed,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case NetworkFailure() when network != null:
 return network();case UnexpectedFailure() when unexpected != null:
@@ -163,7 +169,9 @@ return sessionExpired();case TooManyRequestsFailure() when tooManyRequests != nu
 return tooManyRequests();case NoCameraFailure() when noCamera != null:
 return noCamera();case CaptureFailedFailure() when captureFailed != null:
 return captureFailed(_that.message);case PhotoAccessDeniedFailure() when photoAccessDenied != null:
-return photoAccessDenied(_that.permanent);case _:
+return photoAccessDenied(_that.permanent);case NoTilesDetectedFailure() when noTilesDetected != null:
+return noTilesDetected();case DetectionFailedFailure() when detectionFailed != null:
+return detectionFailed(_that.message);case _:
   return orElse();
 
 }
@@ -181,7 +189,7 @@ return photoAccessDenied(_that.permanent);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  network,required TResult Function( String message)  unexpected,required TResult Function()  notFound,required TResult Function()  invalidCredentials,required TResult Function()  emailAlreadyInUse,required TResult Function()  weakPassword,required TResult Function()  requiresRecentLogin,required TResult Function()  sessionExpired,required TResult Function()  tooManyRequests,required TResult Function()  noCamera,required TResult Function( String message)  captureFailed,required TResult Function( bool permanent)  photoAccessDenied,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  network,required TResult Function( String message)  unexpected,required TResult Function()  notFound,required TResult Function()  invalidCredentials,required TResult Function()  emailAlreadyInUse,required TResult Function()  weakPassword,required TResult Function()  requiresRecentLogin,required TResult Function()  sessionExpired,required TResult Function()  tooManyRequests,required TResult Function()  noCamera,required TResult Function( String message)  captureFailed,required TResult Function( bool permanent)  photoAccessDenied,required TResult Function()  noTilesDetected,required TResult Function( String message)  detectionFailed,}) {final _that = this;
 switch (_that) {
 case NetworkFailure():
 return network();case UnexpectedFailure():
@@ -195,7 +203,9 @@ return sessionExpired();case TooManyRequestsFailure():
 return tooManyRequests();case NoCameraFailure():
 return noCamera();case CaptureFailedFailure():
 return captureFailed(_that.message);case PhotoAccessDeniedFailure():
-return photoAccessDenied(_that.permanent);}
+return photoAccessDenied(_that.permanent);case NoTilesDetectedFailure():
+return noTilesDetected();case DetectionFailedFailure():
+return detectionFailed(_that.message);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -209,7 +219,7 @@ return photoAccessDenied(_that.permanent);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  network,TResult? Function( String message)?  unexpected,TResult? Function()?  notFound,TResult? Function()?  invalidCredentials,TResult? Function()?  emailAlreadyInUse,TResult? Function()?  weakPassword,TResult? Function()?  requiresRecentLogin,TResult? Function()?  sessionExpired,TResult? Function()?  tooManyRequests,TResult? Function()?  noCamera,TResult? Function( String message)?  captureFailed,TResult? Function( bool permanent)?  photoAccessDenied,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  network,TResult? Function( String message)?  unexpected,TResult? Function()?  notFound,TResult? Function()?  invalidCredentials,TResult? Function()?  emailAlreadyInUse,TResult? Function()?  weakPassword,TResult? Function()?  requiresRecentLogin,TResult? Function()?  sessionExpired,TResult? Function()?  tooManyRequests,TResult? Function()?  noCamera,TResult? Function( String message)?  captureFailed,TResult? Function( bool permanent)?  photoAccessDenied,TResult? Function()?  noTilesDetected,TResult? Function( String message)?  detectionFailed,}) {final _that = this;
 switch (_that) {
 case NetworkFailure() when network != null:
 return network();case UnexpectedFailure() when unexpected != null:
@@ -223,7 +233,9 @@ return sessionExpired();case TooManyRequestsFailure() when tooManyRequests != nu
 return tooManyRequests();case NoCameraFailure() when noCamera != null:
 return noCamera();case CaptureFailedFailure() when captureFailed != null:
 return captureFailed(_that.message);case PhotoAccessDeniedFailure() when photoAccessDenied != null:
-return photoAccessDenied(_that.permanent);case _:
+return photoAccessDenied(_that.permanent);case NoTilesDetectedFailure() when noTilesDetected != null:
+return noTilesDetected();case DetectionFailedFailure() when detectionFailed != null:
+return detectionFailed(_that.message);case _:
   return null;
 
 }
@@ -711,6 +723,104 @@ class _$PhotoAccessDeniedFailureCopyWithImpl<$Res>
   return _then(PhotoAccessDeniedFailure(
 permanent: null == permanent ? _self.permanent : permanent // ignore: cast_nullable_to_non_nullable
 as bool,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class NoTilesDetectedFailure implements Failure {
+  const NoTilesDetectedFailure();
+  
+
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is NoTilesDetectedFailure);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+  return 'Failure.noTilesDetected()';
+}
+
+
+}
+
+
+
+
+/// @nodoc
+
+
+class DetectionFailedFailure implements Failure {
+  const DetectionFailedFailure(this.message);
+  
+
+ final  String message;
+
+/// Create a copy of Failure
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$DetectionFailedFailureCopyWith<DetectionFailedFailure> get copyWith => _$DetectionFailedFailureCopyWithImpl<DetectionFailedFailure>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DetectionFailedFailure&&(identical(other.message, message) || other.message == message));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,message);
+
+@override
+String toString() {
+  return 'Failure.detectionFailed(message: $message)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $DetectionFailedFailureCopyWith<$Res> implements $FailureCopyWith<$Res> {
+  factory $DetectionFailedFailureCopyWith(DetectionFailedFailure value, $Res Function(DetectionFailedFailure) _then) = _$DetectionFailedFailureCopyWithImpl;
+@useResult
+$Res call({
+ String message
+});
+
+
+
+
+}
+/// @nodoc
+class _$DetectionFailedFailureCopyWithImpl<$Res>
+    implements $DetectionFailedFailureCopyWith<$Res> {
+  _$DetectionFailedFailureCopyWithImpl(this._self, this._then);
+
+  final DetectionFailedFailure _self;
+  final $Res Function(DetectionFailedFailure) _then;
+
+/// Create a copy of Failure
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? message = null,}) {
+  return _then(DetectionFailedFailure(
+null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 

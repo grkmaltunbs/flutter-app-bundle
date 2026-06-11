@@ -180,7 +180,7 @@ from them.
 ---
 
 ## Step 5 — On-device tile detection (OpenCV + ML Kit)
-- [ ]
+- [x]
 - id: detection
 - depends_on: capture, design-system
 - spec_refs: flow-scan (detect portion), screen-analyzing, Domain rules

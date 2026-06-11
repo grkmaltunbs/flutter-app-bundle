@@ -302,6 +302,63 @@
     "description": "SnackBar message when a capture or camera command fails."
   },
 
+  "analyzingStagePreparing": "Processing image…",
+  "@analyzingStagePreparing": {
+    "description": "Stage label while the detection worker decodes the capture."
+  },
+  "analyzingStageLocatingRack": "Locating the rack…",
+  "@analyzingStageLocatingRack": {
+    "description": "Stage label while the 2-row rack is being segmented."
+  },
+  "analyzingStageReadingTiles": "Reading tiles…",
+  "@analyzingStageReadingTiles": {
+    "description": "Stage label while tile numerals and colors are read."
+  },
+  "analyzingStageAggregatingFrames": "Combining frames…",
+  "@analyzingStageAggregatingFrames": {
+    "description": "Stage label while video-burst frames are aggregated."
+  },
+  "analyzingStageFinalizing": "Finishing up…",
+  "@analyzingStageFinalizing": {
+    "description": "Stage label while the detection result is assembled."
+  },
+  "analyzingTileProgress": "{revealed}/{total}",
+  "@analyzingTileProgress": {
+    "description": "Mono counter of revealed tiles vs the located total.",
+    "placeholders": {
+      "revealed": { "type": "int", "example": "7" },
+      "total": { "type": "int", "example": "21" }
+    }
+  },
+  "analyzingCancelSemantics": "Cancel analysis",
+  "@analyzingCancelSemantics": {
+    "description": "Accessibility label of the analyzing screen's back/cancel button."
+  },
+  "analyzingNoTilesTitle": "No tiles found",
+  "@analyzingNoTilesTitle": {
+    "description": "Title of the no-tiles-detected failure view."
+  },
+  "analyzingNoTilesBody": "Make sure the rack fills the frame, both rows are visible, and the light is even — then try again.",
+  "@analyzingNoTilesBody": {
+    "description": "Lighting/framing tips on the no-tiles-detected failure view."
+  },
+  "analyzingRetake": "Retake",
+  "@analyzingRetake": {
+    "description": "Primary action on the no-tiles view: back to the camera."
+  },
+  "analyzingErrorTitle": "Something went wrong",
+  "@analyzingErrorTitle": {
+    "description": "Title of the detection-error failure view."
+  },
+  "analyzingErrorBody": "The tiles could not be analyzed. Please try again.",
+  "@analyzingErrorBody": {
+    "description": "Body of the detection-error failure view."
+  },
+  "analyzingRetry": "Try again",
+  "@analyzingRetry": {
+    "description": "Action that re-runs detection after a failure."
+  },
+
   "loginEyebrow": "WELCOME",
   "@loginEyebrow": {
     "description": "Eyebrow at the top of the login screen."

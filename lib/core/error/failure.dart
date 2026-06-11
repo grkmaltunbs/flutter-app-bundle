@@ -49,4 +49,14 @@ sealed class Failure with _$Failure implements Exception {
   /// system Settings app can restore it.
   const factory Failure.photoAccessDenied({required bool permanent}) =
       PhotoAccessDeniedFailure;
+
+  /// Tile detection found no tiles (or no 2-row rack) in the capture.
+  const factory Failure.noTilesDetected() = NoTilesDetectedFailure;
+
+  /// The detection pipeline itself failed; [message] carries the diagnostic.
+  ///
+  /// User cancellation is NOT a failure — cancelling detection tears the
+  /// worker down silently without ever surfacing this variant.
+  const factory Failure.detectionFailed(String message) =
+      DetectionFailedFailure;
 }

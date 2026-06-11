@@ -5,7 +5,9 @@ import 'package:okey_acar_mi/core/router/go_router_refresh_stream.dart';
 import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
 import 'package:okey_acar_mi/features/auth/presentation/blocs/auth_bloc.dart';
 import 'package:okey_acar_mi/features/auth/presentation/pages/login_page.dart';
+import 'package:okey_acar_mi/features/capture/domain/entities/capture_payload.dart';
 import 'package:okey_acar_mi/features/capture/presentation/pages/camera_page.dart';
+import 'package:okey_acar_mi/features/detection/presentation/pages/analyzing_page.dart';
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
@@ -37,7 +39,7 @@ abstract final class AppRoutes {
   /// Camera capture.
   static const String camera = '/camera';
 
-  /// Detection in progress (placeholder until Step 5).
+  /// Detection in progress (`extra` must be a `CapturePayload`).
   static const String analyzing = '/analyzing';
 
   /// Review & correct + indicator (placeholder until Step 6).
@@ -123,11 +125,18 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.analyzing,
+          // The screen is meaningless without a capture: anything that lands
+          // here without one (deep link, cold-start restoration — `extra` is
+          // not restored) bounces to the camera.
+          redirect: (context, state) =>
+              state.extra is CapturePayload ? null : AppRoutes.camera,
           builder: (context, state) =>
-              const PlaceholderPage(screen: PlaceholderScreen.analyzing),
+              AnalyzingPage(payload: state.extra! as CapturePayload),
         ),
         GoRoute(
           path: AppRoutes.review,
+          // `extra` is the `DetectionResult` handed off by the analyzing
+          // screen; the review feature (Step 6) consumes it.
           builder: (context, state) =>
               const PlaceholderPage(screen: PlaceholderScreen.review),
         ),

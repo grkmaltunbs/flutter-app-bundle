@@ -1,27 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
+import 'package:okey_acar_mi/core/game/tile_color.dart';
 import 'package:okey_acar_mi/core/theme/app_palette.dart';
 import 'package:okey_acar_mi/core/theme/app_typography.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
 
-/// The color of an Okey tile, or [joker] for the wild tile (rendered as a
-/// glyph rather than a numeral).
-enum TileColor {
-  /// Red tile.
-  red,
-
-  /// Black tile.
-  black,
-
-  /// Yellow tile.
-  yellow,
-
-  /// Blue tile.
-  blue,
-
-  /// The wild joker / okey (drawn as a glyph).
-  joker,
-}
+// `TileColor` moved to core/game so pure-Dart layers (detection/solver
+// domains) can use it without a Flutter import; re-exported here so every
+// existing `tile.dart` call site keeps compiling unchanged.
+export 'package:okey_acar_mi/core/game/tile_color.dart';
 
 /// The preset render size of a [Tile].
 ///

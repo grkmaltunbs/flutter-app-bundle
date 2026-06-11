@@ -10,6 +10,7 @@ import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
 import 'package:okey_acar_mi/features/capture/data/fakes/fake_capture_service.dart';
 import 'package:okey_acar_mi/features/capture/presentation/blocs/camera_bloc.dart';
 import 'package:okey_acar_mi/features/capture/presentation/pages/camera_page.dart';
+import 'package:okey_acar_mi/features/detection/presentation/pages/analyzing_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 
 // ---------------------------------------------------------------------------
@@ -79,10 +80,19 @@ void expectCameraReady(WidgetTester tester) {
   ).isNotEmpty();
 }
 
-/// The downstream hand-off target (the analyzing placeholder until Step 5).
+/// The downstream hand-off: the capture landed on the real [AnalyzingPage].
+///
+/// The demo detector auto-completes and auto-advances, so by the time
+/// `pumpAndSettle` rests, analyzing has already pushed the review placeholder
+/// on top of itself (it pops itself only when review pops — that keeps the
+/// camera's push-future pending). Assert both halves of that contract: the
+/// AnalyzingPage is alive beneath (offstage) and review is on top.
 void expectOnAnalyzing(WidgetTester tester) {
+  check(
+    find.byType(AnalyzingPage, skipOffstage: false).evaluate(),
+  ).length.equals(1);
   final page = tester.widget<PlaceholderPage>(find.byType(PlaceholderPage));
-  check(page.screen).equals(PlaceholderScreen.analyzing);
+  check(page.screen).equals(PlaceholderScreen.review);
 }
 
 // ---------------------------------------------------------------------------
@@ -117,7 +127,8 @@ void main() {
       await tapKey(tester, 'camera-shutter');
       expectOnAnalyzing(tester);
 
-      // Back from analyzing re-acquires the camera into ready.
+      // Back from review unwinds analyzing too (its auto-pop completes the
+      // camera's push-future) and re-acquires the camera into ready.
       await tester.tap(
         find.descendant(
           of: find.byType(PlaceholderPage),
