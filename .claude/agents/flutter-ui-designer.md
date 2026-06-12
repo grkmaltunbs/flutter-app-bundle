@@ -1,6 +1,6 @@
 ---
 name: flutter-ui-designer
-description: Use for building or polishing UI — new screens, design-system components, animations, responsive layouts, theming, accessibility passes. Pairs with flutter-developer for Bloc wiring.
+description: Use for screen/widget construction and visual polish — new screens, design-system components, animations, responsive layouts, theming, accessibility passes. /step and /feature route UI build-out here; flutter-developer owns the Bloc/data wiring.
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 

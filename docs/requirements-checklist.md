@@ -116,8 +116,14 @@ undecided · **Why it bites** = the failure mode if skipped.
   toggles, account section (incl. delete), legal links, version string.
 
 ## 13. Profile & user content
-- **Ask:** Editable profile? Avatar upload? Privacy/visibility controls?
-- **Default:** Editable display name + avatar, private by default.
+- **Ask:** Editable profile? Avatar upload? Privacy/visibility controls? Can
+  users post/share content or interact with each other (UGC)? If so: content
+  reporting? User blocking? Moderation plan? EULA/terms acceptance?
+- **Default:** Editable display name + avatar, private by default. If the app
+  has UGC or user interaction: in-app content reporting, user blocking, a
+  written moderation plan, and EULA/terms acceptance before posting.
+- **Why it bites:** UGC apps without reporting, blocking, and moderation are
+  routinely rejected under App Store Guideline 1.2.
 
 ## 14. Search, filter, sort, pagination
 - **Ask:** Which lists need search/filter/sort? Page size? Infinite scroll vs
@@ -214,7 +220,8 @@ undecided · **Why it bites** = the failure mode if skipped.
 
 ## 29. Non-functional requirements
 - **Ask:** Minimum OS versions? Supported device matrix? Responsive size matrix?
-- **Default:** iOS 14+, Android API 24+. Responsive size matrix (used by QA):
+- **Default:** iOS 15+ (Firebase Apple SDK 12+ floor), Android API 24+.
+  Responsive size matrix (used by QA):
   - **iOS:** iPhone SE (smallest), iPhone 16 Pro (typical), iPhone 16 Pro Max
     (large), iPad (tablet).
   - **Android:** a small phone, a Pixel-class phone, a tablet AVD.

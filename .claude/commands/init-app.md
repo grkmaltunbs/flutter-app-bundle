@@ -1,3 +1,8 @@
+---
+description: Take a new app from idea to spec, plan, and working Flutter scaffold
+disable-model-invocation: true
+---
+
 # /init-app — Project initialization
 
 You are running the initialization flow for a new Flutter app. Your job is to
@@ -20,8 +25,8 @@ Flutter project.
 - **Ask one question at a time.** Long lists overwhelm. Use `AskUserQuestion`
   for structured choices.
 - **No Firebase emulators.** This bundle verifies against **injected fakes** in a
-  **demo flavor** running on real simulators — never emulators. Do not add
-  emulator setup anywhere.
+  **demo flavor** running on real simulators — never Firebase emulators. Do not
+  add Firebase emulator setup anywhere.
 - **Verify file existence before editing.** Templates live in `templates/`.
 
 ## Workflow
@@ -82,6 +87,11 @@ Then, in order:
    external/store items (RevenueCat dashboard + products, App Store Connect /
    Play Console IAP products, signing, API keys, legal URLs). These are the
    irreducibly-human tasks — make each one exact and copy-pasteable.
+5. **CI workflow** —
+   `mkdir -p .github/workflows && cp templates/ci.yml.template .github/workflows/ci.yml`
+   (CI runs analyze + test; simulator verification stays local).
+6. **Build journal** — create `docs/BUILD_NOTES.md` with the one-line header:
+   `Per-project build journal — appended by /step and /qa; read at the start of every step.`
 
 ### Stage 6 — Create the Flutter project
 Run `flutter create` NOW (not deferred), so setup items that need `ios/` and
@@ -89,6 +99,17 @@ Run `flutter create` NOW (not deferred), so setup items that need `ios/` and
 ```bash
 flutter create . --org <org> --project-name <name> --platforms ios,android
 ```
+Note: `flutter create` does NOT overwrite the existing `.gitignore` or
+`README.md` — the bundle ships a full Flutter `.gitignore`. In this stage,
+replace the bundle `README.md` with a short app-specific one.
+
+### Stage 6.5 — Make the repo yours
+The cloned bundle's `.git` history and `origin` remote still point at
+`flutter-app-bundle`. Walk the user through one of:
+- **Fresh history (recommended):** `rm -rf .git && git init`
+- **Keep history:** `git remote set-url origin <their-repo-url>`
+
+Note: autobuild refuses to push while `origin` points at the bundle repo.
 
 ### Stage 7 — Walk through HUMAN_SETUP.md live
 For each `- [ ]` item:
@@ -123,7 +144,7 @@ Files ready:
 Flutter project created and compiling.
 
 Each /step builds a slice of the spec, then verifies it on the iOS and Android
-simulators against fakes (no emulators), checking every flow + dependent flows
+simulators against fakes (no Firebase emulators), checking every flow + dependent flows
 for bugs, exceptions, and overflow on all screen sizes.
 
 To start building — step by step yourself:
@@ -133,7 +154,7 @@ To start building — step by step yourself:
 
 …or hand the whole plan to the autonomous runner (set up the venv per
 HUMAN_SETUP.md → "Autobuild runner", then):
-    python3 runner/autobuild.py --dry-run    # smoke-test the wiring first
+    runner/.venv/bin/python runner/autobuild.py --dry-run    # smoke-test the wiring first
     caffeinate -i runner/.venv/bin/python runner/autobuild.py
 ```
 
@@ -145,6 +166,7 @@ through creating the virtual environment and installing the SDK then and there.
 - Don't add Firebase emulator setup anywhere (this bundle is fakes-only).
 - Don't write `pubspec.yaml` beyond what `flutter create` generates — Step 0
   (bootstrap) handles the full dependency set.
-- Don't `git init`, `git commit`, or push.
+- Don't commit or push; the repo re-point/re-init in the "Make the repo yours"
+  stage is expected.
 - Don't edit `.claude/`, `docs/lessons-learned.md`, or `docs/requirements-checklist.md`.
 - Don't finish init while any assumption is still unconfirmed.

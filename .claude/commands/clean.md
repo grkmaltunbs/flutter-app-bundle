@@ -1,3 +1,7 @@
+---
+description: Clean build artifacts and rebuild the project from scratch
+---
+
 Clean and rebuild the project.
 
 Steps:

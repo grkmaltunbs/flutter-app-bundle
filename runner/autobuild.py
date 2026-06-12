@@ -2,7 +2,8 @@
 """Autobuild — headless autonomous runner for the Flutter app bundle.
 
 Marches through PROJECT_PLAN.md unattended: for each pending step it spins up a
-fresh Claude Agent SDK `query()` that follows `.claude/commands/step.md`
+fresh Claude Agent SDK `query()` that invokes the project's `/step` slash command
+natively — setting_sources=["project"] loads `.claude/commands/step.md` —
 (implement → test → verify on iOS+Android simulators against fakes), then this
 driver commits the verified step and pushes to main.
 
@@ -13,10 +14,12 @@ the budget, and the stop conditions.
 Safety: the runner is deliberately STRICTER than an interactive session, because
 nobody is watching. It runs `bypassPermissions` (so it never blocks on a prompt)
 but a PreToolUse guardrail hook + a deny list still block destructive commands,
-and the *agent* is forbidden from pushing — the driver does that deterministically.
+and the *agent* is forbidden from committing or pushing — the driver does both
+deterministically.
 
-Run:    caffeinate -i python3 runner/autobuild.py
+Run:    caffeinate -i runner/.venv/bin/python runner/autobuild.py
 Stop:   touch .autobuild-stop     (clean halt after the current step)
+        Ctrl-C / `kill <pid>` (SIGTERM) also halt cleanly.
 
 See docs/autobuild.md for full setup.
 """
@@ -28,8 +31,10 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import time
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -50,6 +55,7 @@ MAX_TURNS = int(os.environ.get("AUTOBUILD_MAX_TURNS", "60"))
 TOTAL_BUDGET_USD = float(os.environ.get("AUTOBUILD_BUDGET_USD", "50"))
 MAX_CONSEC_FAILURES = int(os.environ.get("AUTOBUILD_MAX_FAILURES", "2"))
 WALLCLOCK_HOURS = float(os.environ.get("AUTOBUILD_WALLCLOCK_HOURS", "8"))
+STEP_TIMEOUT_MIN = float(os.environ.get("AUTOBUILD_STEP_TIMEOUT_MIN", "120"))  # per-step ceiling
 # "main" | "branch:<name>" | "off"
 PUSH = os.environ.get("AUTOBUILD_PUSH", "main")
 FIREBASE_SA = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
@@ -58,13 +64,15 @@ SLACK_WEBHOOK = os.environ.get("AUTOBUILD_SLACK_WEBHOOK")
 # Destructive command patterns the guardrail hook always denies — even though
 # the interactive settings.json may allow them. Unattended runs get hard rails.
 DESTRUCTIVE = [
-    r"\brm\s+-rf\b",
+    # (recursive+force rm is handled by a dedicated check in guardrail() — it
+    # catches every flag spelling/order, not just the literal "-rf")
     r"\bsudo\b",
     r"\bmkfs\b",
     r"\bdd\s+if=",
     r":\(\)\s*\{\s*:",            # fork bomb
     r"git\s+push\b",              # the DRIVER pushes, never the agent
     r"git\s+reset\s+--hard\b",
+    r"git\s+(commit|add|rebase|merge)\b",  # the driver owns git history
     r"firebase\s+deploy\b",       # prod deploys stay human-gated
     r">\s*/dev/sd",
 ]
@@ -77,7 +85,8 @@ ALLOWED_TOOLS = [
 DISALLOWED_TOOLS = [
     "Bash(sudo *)", "Bash(rm -rf *)",
     "Bash(git push *)", "Bash(git push --force *)", "Bash(git push -f *)",
-    "Bash(git reset --hard *)", "Bash(firebase deploy *)",
+    "Bash(git reset --hard *)", "Bash(git commit *)", "Bash(git add *)",
+    "Bash(firebase deploy *)",
 ]
 
 
@@ -115,14 +124,29 @@ def notify(msg: str) -> None:
 # Plan parsing — PROJECT_PLAN.md is the source of truth
 # --------------------------------------------------------------------------- #
 def parse_plan(text: str) -> list[dict]:
+    # Drop fenced code blocks first — the shipped plan template shows the step
+    # FORMAT inside a ``` fence, which would otherwise parse as a phantom step.
+    kept: list[str] = []
+    in_fence = False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if not in_fence:
+            kept.append(line)
+    cleaned = "\n".join(kept)
+
     steps: list[dict] = []
-    for raw in re.split(r"(?m)^## Step ", text)[1:]:
+    for raw in re.split(r"(?m)^## Step ", cleaned)[1:]:
         block = "## Step " + raw
         m_id = re.search(r"(?m)^- id:\s*(\S+)", block)
         if not m_id:
             continue
         sid = m_id.group(1).strip()
-        done = bool(re.search(r"(?m)^- \[x\]", block))
+        # Done = the step's OWN checkbox — the FIRST one in the block — is
+        # checked ([x] or [X]). A stray [x] elsewhere in the block doesn't count.
+        m_box = re.search(r"(?m)^- \[([ xX])\]", block)
+        done = bool(m_box) and m_box.group(1).lower() == "x"
         m_dep = re.search(r"(?m)^- depends_on:\s*(.+)$", block)
         deps_raw = (m_dep.group(1).strip() if m_dep else "none").lower()
         deps = (
@@ -157,6 +181,21 @@ def is_done(step_id: str) -> bool:
 async def guardrail(input_data, tool_use_id, context):  # noqa: ANN001
     data = input_data or {}
     cmd = data.get("command") or data.get("tool_input", {}).get("command", "") or ""
+    # rm with BOTH a recursive flag and a force flag — any spelling, order, or
+    # clustering (-rf, -fR, -r -f, --recursive --force, …) — is denied outright.
+    if (
+        re.match(r"\s*rm\b", cmd)
+        and re.search(r"(^|\s)-{1,2}[^\s]*([rR]|recursive)", cmd)
+        and re.search(r"(^|\s)-{1,2}[^\s]*(f|force)", cmd)
+    ):
+        log(f"⛔ guardrail denied: {cmd!r} (recursive+force rm)")
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": "autobuild guardrail: recursive+force rm is not allowed unattended",
+            }
+        }
     for pat in DESTRUCTIVE:
         if re.search(pat, cmd):
             log(f"⛔ guardrail denied: {cmd!r} (matched {pat!r})")
@@ -180,7 +219,7 @@ def mcp_servers() -> dict:
         servers["firebase"] = {
             "type": "stdio",
             "command": "npx",
-            "args": ["-y", "firebase-tools", "experimental:mcp"],
+            "args": ["-y", "firebase-tools", "mcp"],
             "env": {"GOOGLE_APPLICATION_CREDENTIALS": FIREBASE_SA},
         }
     else:
@@ -192,22 +231,16 @@ def mcp_servers() -> dict:
 # --------------------------------------------------------------------------- #
 # One step = one query()
 # --------------------------------------------------------------------------- #
-STEP_PROMPT = """You are running the bundle's /step workflow HEADLESSLY and unattended.
-
-Read these files first: CLAUDE.md, PRODUCT_SPEC.md, PROJECT_PLAN.md, and
-.claude/commands/step.md. Then implement step "{sid}" — "{title}" — following
-.claude/commands/step.md EXACTLY:
-- Delegate to the flutter-architect / flutter-developer / flutter-tester agents
-  as that workflow specifies.
-- Build the prod impls AND the demo-flavor fakes the flow needs.
-- Verify with the flutter-qa agent on an iOS simulator AND an Android emulator,
-  demo flavor (--dart-define=APP_ENV=demo). The step is only done when QA PASSES:
-  zero runtime errors, zero overflow across the size matrix, all flows green.
-- On PASS, flip this step's checkbox to [x] in PROJECT_PLAN.md (as step.md says).
+# The /step slash command itself is invoked natively (prompt = "/step <id>");
+# these unattended rules + the AUTOBUILD_RESULT marker contract ride along as a
+# system-prompt append on top of the claude_code preset.
+UNATTENDED_RULES = """You are running the bundle's /step workflow HEADLESSLY and unattended.
 
 Rules for unattended operation:
 - NEVER wait for a human. Make sensible, spec-aligned decisions and proceed.
-- Do NOT run any git command — the runner handles commits and pushes.
+- Do NOT run any git command that mutates state (add, commit, push, reset,
+  rebase, merge, tag) — the runner owns commits and pushes. Read-only git
+  (status, diff, log, show) is fine.
 - If you hit a dependency only a human can satisfy (e.g. an App Store / Play /
   RevenueCat product that must be created, signing, a real API key), DO NOT fake
   past it: stop and report it as blocked with the exact items needed.
@@ -218,6 +251,17 @@ AUTOBUILD_RESULT: {{"step": "{sid}", "status": "completed|blocked|failed", "need
 
 
 def parse_marker(text: str) -> dict | None:
+    # Line-anchored scan first: the contract says ONE line of JSON, and the
+    # marker JSON has no nested objects, so a non-greedy {...} is safe. Take
+    # the LAST occurrence (agents sometimes quote the contract before emitting
+    # the real marker).
+    matches = re.findall(r"(?m)^\s*AUTOBUILD_RESULT:\s*(\{.*?\})\s*$", text or "")
+    if matches:
+        try:
+            return json.loads(matches[-1])
+        except json.JSONDecodeError:
+            pass
+    # Fallback: the old greedy single-shot scan (marker mid-line / trailing prose).
     m = re.search(r"AUTOBUILD_RESULT:\s*(\{.*\})", text or "", re.S)
     if not m:
         return None
@@ -241,7 +285,9 @@ async def run_step(step: dict) -> dict:
         cwd=str(PROJECT_DIR),
         model=MODEL,
         max_turns=MAX_TURNS,
-        setting_sources=["project"],          # loads settings.json, CLAUDE.md, agents
+        setting_sources=["project"],          # loads settings.json, CLAUDE.md, agents, slash commands
+        system_prompt={"type": "preset", "preset": "claude_code",
+                       "append": UNATTENDED_RULES.format(sid=step["id"])},
         permission_mode="bypassPermissions",  # deny rules + hooks still apply
         allowed_tools=ALLOWED_TOOLS,
         disallowed_tools=DISALLOWED_TOOLS,
@@ -249,7 +295,9 @@ async def run_step(step: dict) -> dict:
         hooks={"PreToolUse": [HookMatcher(matcher="Bash", hooks=[guardrail])]},
     )
     result = {"subtype": "error_during_execution", "cost": 0.0, "text": ""}
-    prompt = STEP_PROMPT.format(sid=step["id"], title=step["title"])
+    # Invoke the project's /step slash command natively — setting_sources above
+    # is what makes the SDK load .claude/commands/step.md.
+    prompt = f"/step {step['id']}"
 
     async for msg in query(prompt=prompt, options=options):
         cls = type(msg).__name__
@@ -278,30 +326,75 @@ def _commit_message(step: dict) -> str:
         f"autobuild: step {step['id']} — {step['title']}\n\n"
         "Built and verified on iOS + Android simulators (demo flavor) by the "
         "autobuild runner.\n\n"
-        "Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+        f"Co-Authored-By: Claude ({MODEL}) <noreply@anthropic.com>"
     )
 
 
-def commit_and_push(step: dict, push: str) -> None:
+def commit_and_push(step: dict, push: str, pre_head: str) -> None:
     git("add", "-A")
     c = git("commit", "-m", _commit_message(step))
     if c.returncode != 0:
         if "nothing to commit" in (c.stdout + c.stderr):
-            log("…nothing to commit (step made no file changes?)")
+            if git("rev-parse", "HEAD").stdout.strip() == pre_head:
+                log("…nothing to commit (step made no file changes?)")
+                return
+            # HEAD moved despite the rails — the agent made its own commit.
+            # Don't strand it locally; proceed to push it.
+            log("…nothing to commit, but HEAD moved — the agent committed on its own; pushing that commit")
+        else:
+            log(f"⚠ commit failed: {c.stderr.strip()}")
             return
-        log(f"⚠ commit failed: {c.stderr.strip()}")
-        return
     if push == "off":
         log("…committed (push disabled)")
         return
     if push == "main":
-        p = git("push", "origin", "main")
+        # Push the actual checkout, not a possibly-stale local main ref.
+        p = git("push", "origin", "HEAD:main")
     elif push.startswith("branch:"):
         p = git("push", "origin", f"HEAD:{push.split(':', 1)[1]}")
     else:
         log(f"⚠ unknown push target {push!r}; committed but not pushed")
         return
     log("…committed + pushed" if p.returncode == 0 else f"⚠ push failed: {p.stderr.strip()}")
+
+
+def restore_worktree(reason: str) -> None:
+    """Throw away the attempt's uncommitted changes so retries start clean and
+    halts leave a clean repo. (`git clean -fd` skips gitignored files, so
+    autobuild.log / AUTOBUILD_NEEDS_HUMAN.md survive.)"""
+    git("checkout", "--", ".")
+    git("clean", "-fd")
+    log(f"…working tree restored ({reason})")
+
+
+def push_preflight(push: str) -> str:
+    """Sanity-check the push target ONCE at startup, before burning budget.
+    Downgrades to 'off' (with a loud notify) instead of failing mid-run."""
+    if push == "off":
+        return push
+    origin = git("remote", "get-url", "origin")
+    if origin.returncode != 0:
+        notify("⚠ push preflight: no 'origin' remote — downgrading push to off")
+        return "off"
+    url = origin.stdout.strip()
+    if "flutter-app-bundle" in url:
+        notify(f"⚠ push preflight: origin is the BUNDLE repo ({url}) — refusing to "
+               "push app commits there; downgrading push to off")
+        return "off"
+    if push == "main":
+        refspec = "HEAD:main"
+    elif push.startswith("branch:"):
+        refspec = f"HEAD:{push.split(':', 1)[1]}"
+    else:
+        notify(f"⚠ push preflight: unknown push target {push!r} — downgrading push to off")
+        return "off"
+    p = git("push", "--dry-run", "origin", refspec)
+    if p.returncode != 0:
+        notify(f"⚠ push preflight: `git push --dry-run origin {refspec}` failed "
+               f"({p.stderr.strip()}) — downgrading push to off")
+        return "off"
+    log(f"…push preflight OK (origin={url}, refspec={refspec})")
+    return push
 
 
 def dry_run_report(step: dict, push: str) -> None:
@@ -348,6 +441,8 @@ async def main(args) -> None:
         return
 
     push = "off" if args.no_push else PUSH
+    if push != "off" and not args.dry_run:
+        push = push_preflight(push)
     single = args.once or args.dry_run or bool(args.step)
     mode = "DRY RUN" if args.dry_run else ("single-step" if single else "full loop")
     start = time.time()
@@ -372,26 +467,53 @@ async def main(args) -> None:
             log(f"✗ no step with id {args.step!r} in PROJECT_PLAN.md")
             break
         if step is None:
+            # Nothing runnable. That's only success if nothing is PENDING —
+            # otherwise the remaining steps have unmet/orphaned depends_on.
+            pending = [s for s in parse_plan(PLAN.read_text()) if not s["done"]]
+            if pending:
+                ids = ", ".join(s["id"] for s in pending)
+                notify(f"⚠ {len(pending)} pending step(s) are unrunnable "
+                       f"(unmet or orphaned depends_on): {ids}")
+                break
             notify("✅ autobuild complete — all plan steps are [x]")
             break
 
+        pre_head = git("rev-parse", "HEAD").stdout.strip()
         log(f"▶ step {step['id']} — {step['title']}")
-        res = await run_step(step)
+        remaining_wallclock = WALLCLOCK_HOURS * 3600.0 - (time.time() - start)
+        try:
+            res = await asyncio.wait_for(
+                run_step(step),
+                timeout=max(60, min(STEP_TIMEOUT_MIN * 60, remaining_wallclock)),
+            )
+        except asyncio.TimeoutError:
+            log(f"✗ step {step['id']} hit the per-step timeout "
+                f"(AUTOBUILD_STEP_TIMEOUT_MIN={STEP_TIMEOUT_MIN:g})")
+            res = {"subtype": "timeout", "cost": 0.0, "text": ""}
+        except Exception:  # KeyboardInterrupt/SystemExit are BaseException — not caught
+            log(f"✗ step {step['id']} raised:\n{traceback.format_exc()}")
+            res = {"subtype": "exception", "cost": 0.0, "text": ""}
         spent += res["cost"]
-        marker = parse_marker(res["text"]) or {}
+        marker = parse_marker(res["text"])
+        if marker is None and res["subtype"] == "success" and is_done(step["id"]):
+            log("⚠ marker unparseable; trusting checkbox + success subtype")
+            marker = {"status": "completed"}
+        marker = marker or {}
         status = marker.get("status")
         done = is_done(step["id"])
-        verified = status == "completed" and res["subtype"] == "success" and (done or args.dry_run)
+        verified = status == "completed" and res["subtype"] == "success" and done
 
         if verified:
             if args.dry_run:
                 dry_run_report(step, push)
             else:
-                commit_and_push(step, push)
+                commit_and_push(step, push, pre_head)
             consec_failures = 0
             log(f"✓ {step['id']} — step ${res['cost']:.2f}, total ${spent:.2f}")
         elif status == "blocked":
             record_needs_human(step, marker.get("needs_human", []))
+            if not args.dry_run:
+                restore_worktree("blocked — leaving a clean repo for the human")
             notify(f"⏸ blocked at {step['id']}: {marker.get('needs_human')} "
                    f"— see {NEEDS_HUMAN_FILE.name}. Halting for human action.")
             break
@@ -399,6 +521,8 @@ async def main(args) -> None:
             consec_failures += 1
             log(f"✗ {step['id']} not verified (subtype={res['subtype']}, status={status}, "
                 f"checkbox={'[x]' if done else '[ ]'}); failure {consec_failures}/{MAX_CONSEC_FAILURES}")
+            if not args.dry_run:
+                restore_worktree("step not verified — retries start clean")
             if consec_failures >= MAX_CONSEC_FAILURES:
                 notify(f"✗ halting after {consec_failures} consecutive failures at {step['id']}")
                 break
@@ -429,8 +553,17 @@ def parse_args():
     return p.parse_args()
 
 
+def _sigterm(signum, frame):  # noqa: ANN001
+    # Translate `kill <pid>` into the same clean halt path as Ctrl-C.
+    raise KeyboardInterrupt
+
+
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, _sigterm)
     try:
         asyncio.run(main(parse_args()))
     except KeyboardInterrupt:
-        log("interrupted by user")
+        notify("⏹ interrupted (Ctrl-C / SIGTERM) — halted")
+    except Exception as exc:  # noqa: BLE001
+        notify(f"✗ autobuild crashed: {exc}")
+        raise

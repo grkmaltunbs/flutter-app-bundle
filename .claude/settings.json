@@ -1,9 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter analyze)",
+      "mcp__dart",
       "Bash(flutter analyze *)",
-      "Bash(flutter test)",
       "Bash(flutter test *)",
       "Bash(flutter pub get)",
       "Bash(flutter pub outdated)",
@@ -11,23 +10,18 @@
       "Bash(flutter pub upgrade)",
       "Bash(flutter pub upgrade *)",
       "Bash(flutter clean)",
-      "Bash(flutter doctor)",
       "Bash(flutter doctor *)",
       "Bash(flutter devices)",
       "Bash(flutter emulators)",
       "Bash(flutter emulators --launch *)",
       "Bash(flutter gen-l10n)",
+      "Bash(flutter create *)",
+      "Bash(flutter screenshot *)",
       "Bash(dart format *)",
-      "Bash(dart format .)",
-      "Bash(dart analyze)",
       "Bash(dart analyze *)",
       "Bash(dart fix *)",
       "Bash(dart pub *)",
-      "Bash(dart run build_runner build *)",
-      "Bash(dart run build_runner watch *)",
-      "Bash(dart run build_runner clean)",
       "Bash(dart run *)",
-      "Bash(firebase use)",
       "Bash(firebase use *)",
       "Bash(firebase projects:list)",
       "Bash(firebase login:list)",
@@ -35,21 +29,16 @@
       "Bash(firebase functions:log *)",
       "Bash(claude mcp list)",
       "Bash(claude mcp get *)",
-      "Bash(git status)",
       "Bash(git status *)",
-      "Bash(git diff)",
       "Bash(git diff *)",
-      "Bash(git log)",
       "Bash(git log *)",
       "Bash(git show *)",
       "Bash(git blame *)",
-      "Bash(git branch)",
       "Bash(git branch *)",
       "Bash(git switch *)",
       "Bash(git checkout -b *)",
       "Bash(git add *)",
       "Bash(git restore *)",
-      "Bash(git stash)",
       "Bash(git stash *)",
       "Bash(git commit -m *)",
       "Bash(grep *)",
@@ -65,10 +54,13 @@
       "Bash(cp *)",
       "Bash(mv *)",
       "Bash(xcrun simctl io *)",
-      "Bash(xcrun simctl screenshot *)",
       "Bash(xcrun simctl list *)",
       "Bash(xcrun simctl boot *)",
       "Bash(xcrun simctl shutdown *)",
+      "Bash(adb devices)",
+      "Bash(adb exec-out screencap *)",
+      "Bash(adb shell screencap *)",
+      "Bash(adb logcat *)",
       "Bash(lsof -nP -iTCP* -sTCP:LISTEN)",
       "Bash(flutter build *)",
       "Bash(flutter run *)",
@@ -86,13 +78,7 @@
       "Bash(git tag *)",
       "Bash(git reset --hard *)",
       "Bash(rm *)",
-      "Bash(pod *)",
-      "Bash(git push --force *)",
-      "Bash(git push -f *)",
-      "Bash(git push * main)",
-      "Bash(git push * master)",
-      "Bash(git push origin main)",
-      "Bash(git push origin master)"
+      "Bash(pod *)"
     ],
     "deny": [
       "Bash(rm -rf /*)",
@@ -100,10 +86,30 @@
       "Bash(rm -rf ~)",
       "Bash(sudo *)",
       "Bash(curl * | sh)",
-      "Bash(curl * | bash)"
+      "Bash(curl * | bash)",
+      "Read(.env*)",
+      "Read(**/.env*)",
+      "Read(**/key.properties)",
+      "Read(**/*.keystore)",
+      "Read(**/*.jks)",
+      "Read(**/*.p8)",
+      "Read(**/*service-account*.json)"
     ],
     "ask": [
 
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/analyze-changed.sh"
+          }
+        ]
+      }
     ]
   },
   "enabledPlugins": {

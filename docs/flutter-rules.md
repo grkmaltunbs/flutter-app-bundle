@@ -7,9 +7,11 @@
 >
 > This document defaults against third-party packages for state management and
 > dependency injection "unless explicitly requested" (see
-> [State Management](#state-management)). The project's `CLAUDE.md` **is** that
-> explicit request: `flutter_bloc` (state) and `get_it` + `injectable` (DI)
-> override the State Management and Dependency Injection defaults below.
+> [State Management](#state-management)), and defaults to `dart:developer`'s
+> `log` for logging (see [Logging](#logging)). The project's `CLAUDE.md` **is**
+> that explicit request: `flutter_bloc` (state), `get_it` + `injectable` (DI),
+> and `talker_flutter` (logging) override the State Management, Dependency
+> Injection, and Logging defaults below.
 >
 > The `analysis_options.yaml` here uses `very_good_analysis`; the
 > [Lint Rules](#lint-rules) section is explicitly "a starting point," and
@@ -444,14 +446,12 @@ linter:
     ```dart
     Image.asset('assets/images/placeholder.png')
     ```
-* **Network images:** Use NetworkImage for images loaded from the network.
-* **Cached images:** For cached images, use NetworkImage a package like
-  `cached_network_image`.
 * **Custom Icons:** Use `ImageIcon` to display an icon from an `ImageProvider`,
   useful for custom icons not in the `Icons` class.
 * **Network Images:** Use `Image.network` to display images from a URL, and
   always include `loadingBuilder` and `errorBuilder` for a better user
-  experience.
+  experience. When caching matters (images that reappear across sessions or
+  scroll positions), use a package like `cached_network_image` instead.
 
   ```dart
   // When using network images, always provide an errorBuilder.

@@ -18,6 +18,15 @@ Items that don't apply should be struck through: `- [x] ~~item~~ _(not needed)_`
 - [ ] Dart MCP registered: `claude mcp add dart -- dart mcp-server`
 - [ ] Claude Code restarted; `claude mcp list` shows dart Connected.
 
+## Git & repository
+
+- [ ] Repo detached from the bundle: either `rm -rf .git && git init`, or
+      `git remote set-url origin <your-repo>`.
+- [ ] Your own remote created and `git remote -v` shows it.
+
+> The autobuild runner refuses to push while `origin` still points at
+> `flutter-app-bundle` — it downgrades push to off and tells you.
+
 ## Firebase (if using Firebase)
 
 - [ ] Firebase project created. Project ID: ___________________
@@ -26,9 +35,9 @@ Items that don't apply should be struck through: `- [x] ~~item~~ _(not needed)_`
 - [ ] Sign-in providers enabled (Email, Google, Apple — as needed).
 - [ ] Firestore security rules scoped to the owner; published.
 
-> No emulator setup — this bundle verifies against fakes (`demo` flavor). The
-> real Firebase project is only needed for `prod` builds and your own smoke
-> tests.
+> No Firebase emulator setup — this bundle verifies against fakes (`demo`
+> flavor). The real Firebase project is only needed for `prod` builds and your
+> own smoke tests.
 
 ## Monetization — RevenueCat + store products (if paid)
 
@@ -73,7 +82,7 @@ Only needed if you want Claude to implement the whole plan on its own with
       `export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json`
 - [ ] Smoke-test the wiring before a real run (no commits, leaves changes in tree):
   ```bash
-  python3 runner/autobuild.py --dry-run
+  runner/.venv/bin/python runner/autobuild.py --dry-run
   ```
 
 ## Project-specific items

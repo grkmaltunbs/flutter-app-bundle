@@ -11,7 +11,8 @@
 ## Platforms & constraints
 - **Platforms:** <iOS, Android, …>
 - **Form factors:** <phone, tablet> · **Orientations:** <portrait, landscape>
-- **Min OS:** <iOS 14 / Android API 24>
+- **Min OS:** <iOS 15 / Android API 24> — iOS 15 is the floor (Firebase Apple
+  SDK 12+ requires it).
 - **Tech stack:** see `CLAUDE.md` (flutter_bloc, get_it, drift, RevenueCat, …).
 
 ## Feature inventory

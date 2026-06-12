@@ -77,11 +77,11 @@ lib/
 
 - `const` everywhere it compiles.
 - Lazy lists only (`ListView.builder`, `SliverList`).
-- Heavy work (>50 ms) in isolates.
+- Heavy work (>16 ms — one 60 fps frame) in isolates.
 - `BlocSelector` / `buildWhen` for any state with >3 fields.
 - Extract any `build` method >150 lines into a separate widget class.
 
-## Flavors, fakes & no emulators
+## Flavors, fakes & no Firebase emulators
 
 This project does **not** use Firebase emulators. Every backend dependency sits
 behind a repository interface with two implementations, selected by environment:
@@ -143,10 +143,18 @@ survive the **size matrix**:
 
 Every top-level screen carries an **overflow-guard** widget test. A `RenderFlex`
 overflow throws in debug, so pumping at each matrix size and asserting no
-exception catches it deterministically:
+exception catches it deterministically. The widget-test matrix is intentionally
+stricter than the simulator device set — the 320-wide entry stress-tests below
+any current device:
 
 ```dart
-const _matrix = <Size>[Size(320, 568), Size(393, 852), Size(430, 932), Size(834, 1194)];
+const _matrix = <Size>[
+  Size(320, 568), // narrow stress (below any current device)
+  Size(375, 667), // iPhone SE 3rd gen
+  Size(402, 874), // iPhone 16 Pro
+  Size(440, 956), // iPhone 16 Pro Max
+  Size(834, 1194), // iPad
+];
 
 for (final size in _matrix) {
   for (final scale in const [1.0, 2.0]) {
@@ -166,10 +174,10 @@ for (final size in _matrix) {
 
 ## Tech stack
 
-> This stack is the project's **explicit override** of the State Management and
-> Dependency Injection defaults in `docs/flutter-rules.md` (which otherwise
-> defaults to built-in state management + manual constructor DI). All other
-> rules in that document apply as written.
+> This stack is the project's **explicit override** of the State Management,
+> Dependency Injection, and Logging defaults in `docs/flutter-rules.md` (which
+> otherwise defaults to built-in state management + manual constructor DI +
+> `dart:developer`'s `log`). All other rules in that document apply as written.
 
 - **State:** `flutter_bloc` + sealed states via `freezed`.
 - **Models:** `freezed` + `json_serializable`.
@@ -182,7 +190,7 @@ for (final size in _matrix) {
 - **App icon / splash:** `flutter_launcher_icons`, `flutter_native_splash`.
 - **Lints:** `very_good_analysis`.
 - **Testing:** `bloc_test`, `mocktail`, `integration_test` (run on simulators
-  against the `demo` flavor — no emulators).
+  against the `demo` flavor — no Firebase emulators).
 
 <ADD_PROJECT_SPECIFIC_DEPENDENCIES_HERE>
 
@@ -200,11 +208,12 @@ flutter gen-l10n
 dart format .
 flutter analyze
 flutter test
-# Run / test the demo flavor (fakes) on a simulator — no emulators:
+# Run / test the demo flavor (fakes) on a simulator — no Firebase emulators:
 flutter run --dart-define=APP_ENV=demo -d <device>
 flutter test integration_test/ --dart-define=APP_ENV=demo -d <ios-sim>
 flutter test integration_test/ --dart-define=APP_ENV=demo -d <android-emu>
 xcrun simctl io "iPhone 16 Pro" screenshot /tmp/screenshot.png
+adb exec-out screencap -p > docs/screenshots/<name>.png
 ```
 
 ## Codegen workflow
@@ -234,18 +243,22 @@ After implementing a feature, `/step` (via the `flutter-qa` agent) gates on:
 
 ## Flutter & Dart rules
 
+@docs/flutter-rules.md
+
+The `@`-import above loads the full rule set into context on every session.
 `docs/flutter-rules.md` is the **primary, authoritative rule set** — it wins
 over agents, commands, and skills wherever they conflict. It covers SOLID
 principles, code quality, Dart best practices, testing, theming, accessibility,
 layout, and code generation conventions. The only sanctioned deviations are the
-**State Management** and **Dependency Injection** choices in the Tech stack
-section above, which the rules doc's own "unless explicitly requested" clause
-permits.
+**State Management**, **Dependency Injection**, and **Logging**
+(`talker_flutter` instead of `dart:developer`'s `log`) choices in the Tech
+stack section above, which the rules doc's own "unless explicitly requested"
+clause permits.
 
 ## Working with Claude Code in this repo
 
 - **Commands:** `/init-app`, `/step`, `/plan-status`, `/plan-extend`,
-  `/feature`, `/fix`, `/refactor`, `/review`, `/test`, `/qa`, `/ship`,
+  `/feature`, `/fix`, `/refactor`, `/app-review`, `/test`, `/qa`, `/ship`,
   `/codegen`, `/clean`, `/deps`
 - **Agents:** flutter-architect, developer, debugger, refactorer,
   releaser, reviewer, tester, qa, ui-designer

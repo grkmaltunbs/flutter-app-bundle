@@ -1,3 +1,7 @@
+---
+description: Show PROJECT_PLAN.md progress and the next step to implement
+---
+
 # /plan-status — Show plan progress
 
 Read PROJECT_PLAN.md and show the current status of each step.

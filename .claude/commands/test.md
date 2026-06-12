@@ -1,3 +1,8 @@
+---
+description: Add or improve tests for recent changes or a named scope
+argument-hint: [files or scope]
+---
+
 Add or improve tests: $ARGUMENTS
 
 Delegate to the **flutter-tester** agent.
@@ -12,5 +17,7 @@ After the agent finishes:
   do NOT silently fix them; let the user route them to the debugger.
 
 Integration tests run the **demo flavor against fakes** on a simulator — no
-Firebase emulators, and NEVER the live `<YOUR_PROJECT_ID>` project:
+Firebase emulators, and NEVER the live project (the Firebase project ID
+recorded in CLAUDE.md, Project overview → "Firebase project"; verify at
+runtime via `firebase use`):
 `flutter test integration_test/ --dart-define=APP_ENV=demo -d <device>`

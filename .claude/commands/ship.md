@@ -1,16 +1,25 @@
+---
+description: Prepare a release — audit, full tests, version bump, changelog, artifacts
+argument-hint: [platform or version]
+disable-model-invocation: true
+---
+
 Prepare a release: $ARGUMENTS
 
 Workflow:
 
-1. Delegate to the **flutter-reviewer** for an audit of uncommitted changes.
-   Do not proceed if there are uncommitted changes — ask the user to commit
-   or stash first.
+1. Check `git status`. If the tree is dirty, stop and ask the user to commit
+   or stash first. Once clean, delegate to the **flutter-reviewer** to audit
+   the changes since the last release tag (`git diff <last-tag>..HEAD`, or a
+   full review if no tag exists).
 
 2. Run the full test suite. Block on failure.
 
 3. Delegate to the **flutter-releaser** agent. They will:
-   - Run pre-flight Firebase + signing guardrail checks (project ID is
-     `<YOUR_PROJECT_ID>`, rules locked, key.properties `.gitignored`).
+   - Run pre-flight Firebase + signing guardrail checks (project ID is the
+     Firebase project ID recorded in CLAUDE.md (Project overview → "Firebase
+     project"), verified at runtime via `firebase use`; rules locked,
+     key.properties `.gitignored`).
    - Confirm version bump with the user
    - Propose a CHANGELOG entry from git log since last tag
    - Build artifacts (after explicit confirmation per platform)

@@ -1,3 +1,8 @@
+---
+description: Implement a new feature end-to-end with tests and runtime verification
+argument-hint: <description>
+---
+
 Implement a new feature end-to-end: $ARGUMENTS
 
 Workflow:
@@ -7,8 +12,9 @@ Workflow:
    `lib/features/_template/` for the reference structure. Show the plan to
    the user briefly.
 
-2. Delegate to the **flutter-developer** agent to execute the plan
-   bottom-up (domain → data → presentation). The developer runs
+2. Execute the plan bottom-up (domain → data → presentation). Route screen/
+   widget construction and visual polish to the **flutter-ui-designer** agent
+   and Bloc/data wiring to the **flutter-developer** agent. The developer runs
    `dart run build_runner build --delete-conflicting-outputs` after any
    `@freezed` / `@JsonSerializable` / `@injectable` / `@DriftDatabase` edit.
 
@@ -39,3 +45,8 @@ Workflow:
    - Test count delta
    - flutter-qa verdict (platforms run, flows exercised) + screenshots
    - Anything left as TODO and why
+
+8. Record it in the plan: append the shipped feature to `PROJECT_PLAN.md` as a
+   completed `[x]` step (id, spec_refs, one-line description) so the plan stays
+   the source of truth for regression sets. Offer to update `PRODUCT_SPEC.md`
+   with the new flow/screens.

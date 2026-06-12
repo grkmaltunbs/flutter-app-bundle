@@ -10,8 +10,9 @@ workflow — you direct, Claude Code implements.
 ├── commands/       Slash commands (/init-app, /step, /qa, /plan-status, etc.)
 ├── agents/         9 specialist agents (architect, developer, debugger, qa, …)
 ├── skills/         Official Dart + Flutter skills
+├── hooks/          PostToolUse analyze gate
 └── settings.json   Permissions (allow/ask/deny lists)
-templates/          CLAUDE.md, PRODUCT_SPEC, PROJECT_PLAN, HUMAN_SETUP templates
+templates/          CLAUDE.md, PRODUCT_SPEC, PROJECT_PLAN, HUMAN_SETUP, ci.yml templates
 runner/             autobuild.py — headless autonomous build loop (Agent SDK)
 docs/
 ├── requirements-checklist.md  29-category intake coverage engine
@@ -27,6 +28,9 @@ docs/
    mkdir my-app && cd my-app
    git clone https://github.com/grkmaltunbs/flutter-app-bundle.git .
    ```
+   Then make it yours: `rm -rf .git && git init` (recommended — fresh history
+   for your app) or `git remote set-url origin <your-repo-url>`. The autobuild
+   runner refuses to push while origin still points at the bundle repo.
 
 2. **Set up MCP (one-time):**
    ```bash
@@ -53,8 +57,10 @@ docs/
 
 5. **Or build the whole plan unattended** with the Agent SDK runner:
    ```bash
-   pip install -r runner/requirements.txt
-   caffeinate -i python3 runner/autobuild.py   # touch .autobuild-stop to halt
+   python3 -m venv runner/.venv
+   runner/.venv/bin/pip install -r runner/requirements.txt
+   runner/.venv/bin/python runner/autobuild.py --dry-run        # smoke test
+   caffeinate -i runner/.venv/bin/python runner/autobuild.py    # touch .autobuild-stop to halt
    ```
    It runs `/step` end-to-end for every pending step — implement, test, verify on
    the iOS + Android simulators, commit, push — stopping only when done, blocked
@@ -71,13 +77,16 @@ docs/
 | `/feature <desc>` | Implement a feature outside the plan |
 | `/fix <desc>` | Debug and fix a bug |
 | `/refactor <desc>` | Refactor with tests |
-| `/review [files]` | Code review (read-only) |
+| `/app-review [files]` | Code review (read-only findings; asks before routing fixes) |
 | `/test [files]` | Add or improve tests |
 | `/qa [scope]` | Run/observe the app on iOS + Android simulators (fakes) |
 | `/ship [args]` | Prepare a release |
 | `/codegen [args]` | Run build_runner / gen-l10n |
 | `/clean` | Clean and rebuild |
 | `/deps [args]` | Manage dependencies |
+
+Project commands can shadow Claude Code built-ins with the same name; the
+bundle's review command is namespaced as `/app-review` for that reason.
 
 ## Agents
 
@@ -92,7 +101,8 @@ Specialist agents invoked automatically by commands:
 - **flutter-tester** — Writes unit/bloc/widget/integration tests
 - **flutter-qa** — Runs the app on iOS + Android simulators, drives every flow,
   reports runtime errors and overflow (read-only)
-- **flutter-ui-designer** — Builds polished UI components
+- **flutter-ui-designer** — Builds polished UI components (routed to by `/step`
+  and `/feature` for screens and visual polish)
 
 ## Requirements
 

@@ -1,3 +1,8 @@
+---
+description: Manage pub dependencies — add, upgrade, audit, or lock
+argument-hint: add <pkg> | upgrade | audit | lock
+---
+
 Manage dependencies: $ARGUMENTS
 
 Supported intents (parse from $ARGUMENTS):

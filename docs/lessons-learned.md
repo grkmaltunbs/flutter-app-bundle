@@ -61,8 +61,9 @@ If `flutter create` is deferred to Step 0, you get a chicken-and-egg
 deadlock: can't complete setup without the project, can't start the
 project without completing setup.
 
-Fix: `/init-app` runs `flutter create` during Stage 5 (before the
-setup walkthrough), so all items can be completed immediately.
+Fix: `/init-app` runs `flutter create` before the setup walkthrough
+(Stage 6, just before the Stage 7 walkthrough), so all items can be
+completed immediately.
 
 ## No Firebase emulators — verify against fakes
 
@@ -85,7 +86,8 @@ This is deterministic, offline, instant, and never touches the live project.
 Seed fakes to cover every screen state (populated/empty/error/offline) and
 entitlement state (free/subscribed/expired), and let them toggle error modes so
 edge paths are testable. The real `prod` backend is exercised only by the human
-in `HUMAN_SETUP.md` smoke items. See `CLAUDE.md` → "Flavors, fakes & no emulators".
+in `HUMAN_SETUP.md` smoke items. See `CLAUDE.md` → "Flavors, fakes & no
+Firebase emulators".
 
 ## iOS cold builds are slow (3–7 minutes)
 
@@ -111,13 +113,13 @@ cd ios && pod update <conflicting-pod> --repo-update
 
 ## iOS minimum deployment target
 
-Set iOS platform to 14.0+ in `ios/Podfile`:
+Set iOS platform to 15.0+ in `ios/Podfile`:
 ```ruby
-platform :ios, '14.0'
+platform :ios, '15.0'
 ```
 
 Also update `IPHONEOS_DEPLOYMENT_TARGET` in `ios/Runner.xcodeproj/project.pbxproj`.
-Firebase and Google Sign-In SDKs require iOS 14+.
+Firebase Apple SDK 12+ and current FlutterFire releases require iOS 15+.
 
 ## APNS on iOS Simulator
 

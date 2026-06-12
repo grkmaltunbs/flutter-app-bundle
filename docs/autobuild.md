@@ -13,6 +13,9 @@ the plan is solid and the simulators work; babysit the first run.
 
 1. Parse `PROJECT_PLAN.md`, pick the next step whose deps are `[x]` and that
    isn't done. (`PROJECT_PLAN.md` is the source of truth — fresh context per step.)
+   If pending steps remain but their deps can never be met (a dependency
+   deadlock), they're reported as **unrunnable** — never silently treated as
+   "complete".
 2. Run a `query()` (Opus, `bypassPermissions`) that follows `step.md`, delegating
    to the developer/tester/qa agents and using the Dart MCP (+ Firebase MCP).
 3. If the step flips to `[x]`, QA returned PASS, and the run succeeded → `git
@@ -23,7 +26,14 @@ the plan is solid and the simulators work; babysit the first run.
 ## Prerequisites
 
 - **Claude Code CLI** installed and authenticated (`claude login`) — the SDK
-  spawns it. `ANTHROPIC_API_KEY` also works for API-key auth.
+  spawns it. `ANTHROPIC_API_KEY` also works for API-key auth. For
+  unattended/headless auth the supported path is `claude setup-token`, then
+  `export CLAUDE_CODE_OAUTH_TOKEN=…`. Note: starting **June 15, 2026**, Agent
+  SDK / `claude -p` usage on subscription plans draws from a separate monthly
+  **Agent SDK credit** (distinct from your interactive limits). Also note that
+  `AUTOBUILD_BUDGET_USD` tracks API-style cost accounting, which is **not**
+  meaningful quota accounting under subscription auth — treat it as a relative
+  cap, not real dollars.
 - **Python 3.10+** in a virtual environment with the SDK installed:
   ```bash
   python3 -m venv runner/.venv
@@ -83,6 +93,7 @@ committing and pushing as it goes.
 | `AUTOBUILD_BUDGET_USD` | `50` | Total spend cap across the run |
 | `AUTOBUILD_MAX_FAILURES` | `2` | Consecutive step failures before halting |
 | `AUTOBUILD_WALLCLOCK_HOURS` | `8` | Max total runtime |
+| `AUTOBUILD_STEP_TIMEOUT_MIN` | `120` | Per-step time limit (minutes); a step that exceeds it is cancelled and counted as a failure |
 | `AUTOBUILD_PUSH` | `main` | `main` · `branch:<name>` · `off` |
 | `GOOGLE_APPLICATION_CREDENTIALS` | — | Firebase service-account JSON (enables Firebase MCP) |
 | `AUTOBUILD_SLACK_WEBHOOK` | — | Optional Slack webhook for notifications |
@@ -93,11 +104,20 @@ Nobody is watching, so the runner is intentionally more locked down than the
 permissive `settings.json` you use interactively:
 
 - Runs `permissionMode: bypassPermissions` (never blocks on a prompt), but a
-  **`PreToolUse` guardrail hook** + a **deny list** still block `rm -rf`, `sudo`,
+  **`PreToolUse` guardrail hook** + a **deny list** still block `rm -rf` — and
+  its flag variants (`-fr`, `-r -f`, `-Rf`, `--recursive --force`) — `sudo`,
   `git reset --hard`, fork bombs, raw disk writes, and **prod `firebase deploy`**
   — even though interactive settings allow some of these.
-- The **agent is forbidden from running any `git` push/commit**; the *driver*
-  commits and pushes deterministically, so history stays clean and intentional.
+- The agent is **hard-blocked from `git commit`/`add`/`rebase`/`merge` as well
+  as push** (guardrail hook + disallowed tools); the *driver* commits and pushes
+  deterministically, so history stays clean and intentional.
+- Failed or blocked attempts **restore the working tree**
+  (`git checkout -- . && git clean -fd`), so every retry starts from a clean
+  slate instead of on top of a half-finished step.
+- A **push preflight at startup**: the runner refuses to push while `origin`
+  still points at the `flutter-app-bundle` template repo, and otherwise verifies
+  push access with `git push --dry-run` — on failure it downgrades to
+  `AUTOBUILD_PUSH=off` and notifies you rather than failing mid-run.
 - Per-step commit = every checkpoint is recoverable; `AUTOBUILD_PUSH=branch:…`
   or `off` if pushing straight to `main` unattended feels too aggressive.
 - A step that hits a human-only dependency (store IAP products, signing, real API
@@ -110,8 +130,14 @@ permissive `settings.json` you use interactively:
   Use `caffeinate`; don't run it against a locked console.
 - **Cost is real.** A full plan on Opus can run into dollars; the budget cap is
   your backstop. Watch `autobuild.log` on the first run.
-- **Firebase MCP command** in `mcp_servers()` may need to match your
+- **Firebase MCP command** in `mcp_servers()` is
+  `["npx", "-y", "firebase-tools", "mcp"]` (`firebase mcp` replaced the old
+  `experimental:mcp`). It may still need to match your
   `claude mcp get firebase` invocation — adjust if your plugin registers it
   differently.
-- Slash commands aren't loaded by the SDK, so the runner has the agent **read
-  `step.md`** rather than invoking `/step`. Keep that file authoritative.
+- The runner invokes the slash command **natively**: the prompt is literally
+  `/step <id>` (the SDK loads project slash commands via
+  `setting_sources=["project"]`), with the unattended rules and the
+  `AUTOBUILD_RESULT` marker contract riding in an appended system prompt.
+  `step.md` remains the **single source of truth**, executed natively by both
+  the interactive and headless paths.

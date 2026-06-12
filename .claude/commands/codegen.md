@@ -1,3 +1,8 @@
+---
+description: Run build_runner code generation and verify the output
+argument-hint: [watch|clean|l10n]
+---
+
 Run code generation: $ARGUMENTS
 
 If $ARGUMENTS is empty, run a one-shot build:

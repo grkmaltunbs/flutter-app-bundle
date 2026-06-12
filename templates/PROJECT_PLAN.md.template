@@ -5,10 +5,10 @@ maps to a step (or part of one). Each `## Step N` is one implementation session,
 worked through in order via `/step`. Mark `[x]` when complete.
 
 `/step` does not mark a step done until it has been **verified on the iOS and
-Android simulators** (demo flavor, fakes — no emulators): the new flow plus every
-dependent flow are exercised, with zero runtime errors/exceptions and zero render
-overflow across the responsive size matrix. Write Acceptance criteria as
-**verifiable flow/state outcomes taken from the spec**.
+Android simulators** (demo flavor, fakes — no Firebase emulators): the new flow
+plus every dependent flow are exercised, with zero runtime errors/exceptions
+and zero render overflow across the responsive size matrix. Write Acceptance
+criteria as **verifiable flow/state outcomes taken from the spec**.
 
 Format per step:
 
