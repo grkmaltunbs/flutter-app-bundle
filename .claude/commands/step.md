@@ -25,12 +25,22 @@ own and dependent ones) exercised and zero runtime errors or overflow.
    - `dart run build_runner build --delete-conflicting-outputs` (if codegen changed)
    - `dart format .`
    - `flutter analyze` — clean
-   - `flutter test` — all unit/bloc/widget tests pass
+   - `flutter test` — all unit/bloc/widget tests pass.
+     Unit/bloc tests fail after 30s (`dart_test.yaml`), but `testWidgets`
+     carries its own 10-minute absolute timeout that overrides it — so if a
+     test run produces **no output for >60s, it is deadlocked: kill it and
+     debug immediately**; never wait out the 10-minute ceiling.
 
 5. **Write tests.** Delegate to **flutter-tester**: unit/bloc tests, widget
    tests, the **integration test(s) for each spec flow** (happy + every error/
    edge path, against the demo flavor), and the **responsive overflow-guard**
    test for any new/changed screens.
+   New integration tests get **at most ONE de-flake run, on one platform**
+   (the iOS simulator). If it fails, diagnose and validate fixes host-side
+   (widget tests, analyze) — do **not** iterate on the device; both-platform
+   device verification belongs to flutter-qa in step 6, which gates anyway.
+   Implementation defects found during the run are reported and routed
+   (step 7), never re-run around.
 
 6. **Runtime verification (gating).** Delegate to **flutter-qa** with the step's
    `spec_refs` and the **regression set** — the flows that depend on the same

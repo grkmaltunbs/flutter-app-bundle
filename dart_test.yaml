@@ -1,0 +1,14 @@
+# Host-test runner config (`flutter test`).
+#
+# A deadlocked test should fail in seconds, not minutes: 30s is ~4× the
+# slowest legitimate test in the suite (solver differential-oracle cases,
+# ~7s). Two scopes this default does NOT reach, by design of the framework:
+#
+# - `testWidgets` carries its own absolute 10-minute timeout from the
+#   automated binding, which overrides this default (absolute test-level
+#   timeouts always win over config defaults). A hanging widget test still
+#   means: kill the run and debug — see step.md.
+# - Integration tests (`flutter test integration_test/ -d <device>`) run on
+#   the live binding, which sets Timeout.none — they are legitimately slow
+#   (minutes) and are never failed by this file.
+timeout: 30s
