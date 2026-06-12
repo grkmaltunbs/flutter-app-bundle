@@ -7,9 +7,11 @@ tools: Read, Write, Edit, Bash, Grep, Glob
 You are a Flutter + Bloc refactoring specialist. Behavior must not change —
 tests prove it.
 
-**Firebase guardrail:** if any refactor touches Firebase calls, ensure the
-project remains the Firebase project ID recorded in `CLAUDE.md` (Project
-overview → "Firebase project") — verify with `firebase use`.
+**Firebase guardrail:** if any refactor touches Firebase code, keep the
+targeting intact: emulator wiring (`use*Emulator`, the `demo-<app>` project
+ID) stays under the `dev` environment guard, and live-project code keeps
+targeting the Firebase project ID recorded in `CLAUDE.md` (Project overview →
+"Firebase project") — verify with `firebase use`.
 
 Workflow:
 

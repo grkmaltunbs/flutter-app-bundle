@@ -29,13 +29,16 @@ strictly opt-in: it runs only when the user explicitly asks for it (e.g.
    Route screen/widget construction and visual polish to **flutter-ui-designer**
    and Bloc/data wiring to **flutter-developer**. Follow the architecture and
    hard rules in `CLAUDE.md` and the spec's flows/states exactly. Build the
-   `prod` impls **and** their `demo`-flavor fakes (seeded for every state the
-   flow needs).
+   `prod` impls (in dev they run against the local emulators) and add
+   `demo`-flavor fakes only where a flow needs states the emulator can't
+   produce (offline, injected errors).
 
 4. **Write tests.** Delegate to **flutter-tester**: unit/bloc tests, widget
    tests, the **integration test(s) for each spec flow** (happy + every error/
-   edge path, against the demo flavor), and the **responsive overflow-guard**
-   test for any new/changed screens.
+   edge path, against the dev flavor and the emulators; states the emulator
+   can't simulate are covered at the widget/bloc layer, or via demo fakes
+   where they exist), and the **responsive overflow-guard** test for any
+   new/changed screens.
 
 5. **Static quality gates** (all must pass, run after the tests exist):
    - `dart run build_runner build --delete-conflicting-outputs` (if codegen changed)
@@ -48,8 +51,9 @@ strictly opt-in: it runs only when the user explicitly asks for it (e.g.
    simulator** with the step's `spec_refs` and the **regression set** — the
    flows that depend on the same Blocs, routes, repositories, or data this step
    touched. flutter-qa boots the iOS simulator, drives the new flow +
-   dependent flows on the demo flavor, and sweeps the Dart MCP runtime-error
-   log. No screenshots on PASS; on FAIL it captures one screenshot of the
+   dependent flows on the dev flavor against the running Emulator Suite
+   (it health-checks the hub and starts the emulators if down), and sweeps
+   the Dart MCP runtime-error log. No screenshots on PASS; on FAIL it captures one screenshot of the
    failing screen as defect evidence. (The multi-size visual pass lives in
    `/qa`, not here — per-step overflow protection is the overflow-guard tests +
    the runtime-error sweep.) It returns **PASS** or **FAIL** with routed
@@ -84,8 +88,10 @@ strictly opt-in: it runs only when the user explicitly asks for it (e.g.
 - Do NOT skip ahead to other steps.
 - Do NOT mark a step complete if any quality gate, integration test, or QA check
   fails — no "minor" runtime errors or overflows.
-- Verification runs the **demo flavor against fakes** — never Firebase emulators,
-  never the live project.
+- Verification runs the **dev flavor against the LOCAL Emulator Suite**
+  (health-check the hub at `http://localhost:4441`, start if down) — never the
+  live project; the only step that touches real Firebase is the Backend
+  integration pass (staging).
 - If you hit a wall, tell the user what's blocking and stop.
 - Follow the architecture and hard rules in `CLAUDE.md` strictly.
 - Prefer editing existing files over creating new ones.

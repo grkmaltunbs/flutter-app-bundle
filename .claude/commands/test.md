@@ -16,8 +16,13 @@ After the agent finishes:
 - Surface any production-code defects discovered during test writing —
   do NOT silently fix them; let the user route them to the debugger.
 
-Integration tests run the **demo flavor against fakes** on a simulator — no
-Firebase emulators, and NEVER the live project (the Firebase project ID
-recorded in CLAUDE.md, Project overview → "Firebase project"; verify at
-runtime via `firebase use`):
-`flutter test integration_test/ --dart-define=APP_ENV=demo -d <device>`
+Integration tests run the **dev flavor against the local Emulator Suite** on a
+simulator. Health-check the hub first (`curl http://localhost:4441`); if down,
+start it (`firebase emulators:start --project demo-<app> --import .firebase/seed
+--export-on-exit .firebase/seed`) or run headless via `firebase emulators:exec`.
+States the emulator can't simulate (offline, injected errors) are covered at
+the widget/bloc layer, or via demo-flavor fakes where they exist. NEVER the
+live project (the Firebase project ID recorded in CLAUDE.md, Project overview →
+"Firebase project"; verify at runtime via `firebase use`) — live project access
+is reserved for the Backend integration pass against staging:
+`flutter test integration_test/ --dart-define=APP_ENV=dev -d <device>`

@@ -2,7 +2,7 @@
 
 Headless, unattended driver that marches the bundle through `PROJECT_PLAN.md`
 using the Claude Agent SDK: implement → test → verify on the iOS simulator
-(demo flavor, fakes) → commit → push, one step at a time.
+(dev flavor, local Firebase emulators) → commit → push, one step at a time.
 
 Use a venv — bare `pip`/`python3` fails with `externally-managed-environment`
 on Homebrew Python:

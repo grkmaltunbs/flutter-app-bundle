@@ -24,9 +24,12 @@ Flutter project.
   default and record it as an **assumption** (don't stall).
 - **Ask one question at a time.** Long lists overwhelm. Use `AskUserQuestion`
   for structured choices.
-- **No Firebase emulators.** This bundle verifies against **injected fakes** in a
-  **demo flavor** running on real simulators — never Firebase emulators. Do not
-  add Firebase emulator setup anywhere.
+- **Local emulators, not real Firebase.** Development verifies the **dev flavor**
+  (`--dart-define=APP_ENV=dev`) against the **local Firebase Emulator Suite**
+  under a `demo-<app>` project ID (the suite treats `demo-*` as offline-only —
+  no real Firebase project needed). Optional `demo`-flavor fakes cover states
+  the emulator can't simulate (offline, injected errors). Real (staging)
+  Firebase is touched only in the **Backend integration pass**.
 - **Verify file existence before editing.** Templates live in `templates/`.
 
 ## Workflow
@@ -82,7 +85,9 @@ Then, in order:
    every flow and screen in the spec maps to a step (or part of one). Each step
    is sized for one Claude Code session and carries Acceptance criteria taken
    from the spec's flows/states. Include a final responsive/accessibility pass
-   step and a release-prep step.
+   step, a **Backend integration pass (staging)** step — prod flavor against a
+   real **staging** project, never production — immediately before release
+   prep, and a release-prep step with `depends_on` the integration pass.
 4. **`HUMAN_SETUP.md`** — remove items that don't apply; add the project's
    external/store items (RevenueCat dashboard + products, App Store Connect /
    Play Console IAP products, signing, API keys, legal URLs). These are the
@@ -92,6 +97,15 @@ Then, in order:
    (CI runs analyze + test; simulator verification stays local).
 6. **Build journal** — create `docs/BUILD_NOTES.md` with the one-line header:
    `Per-project build journal — appended by /step and /qa; read at the start of every step.`
+7. **Emulator config** — write these files directly (no interactive
+   `firebase init`):
+   - `firebase.json` — emulator suite on non-default ports: ui 4040, hub 4441,
+     auth 9199, firestore 8181, database 9100, storage 9299; rules file
+     `firestore.rules`.
+   - `.firebaserc` — default project `demo-<app>` (offline-only; the suite
+     treats `demo-*` as needing no real project).
+   - `firestore.rules` — a stub ruleset (deny-by-default) for plan steps to
+     grow; the emulators exercise it continuously.
 
 ### Stage 6 — Create the Flutter project
 Run `flutter create` NOW (not deferred), so setup items that need `ios/` and
@@ -143,8 +157,9 @@ Files ready:
 
 Flutter project created and compiling.
 
-Each /step builds a slice of the spec, then verifies it on the iOS simulator
-against fakes (no Firebase emulators) — checking every flow + dependent flows
+Each /step builds a slice of the spec, then verifies the dev flavor on the iOS
+simulator against the local Firebase emulators (optional demo fakes for edge
+states) — checking every flow + dependent flows
 for bugs, exceptions, and overflow (size-matrix widget tests). /qa runs the
 full iOS sweep anytime (add "android" to the scope for an Android sweep).
 
@@ -164,7 +179,8 @@ HUMAN_SETUP.md, ask whether the user wants unattended builds; if yes, walk them
 through creating the virtual environment and installing the SDK then and there.
 
 ## What you must NOT do
-- Don't add Firebase emulator setup anywhere (this bundle is fakes-only).
+- Don't wire emulators anywhere except under the dev environment guard, and
+  never point dev at a real project.
 - Don't write `pubspec.yaml` beyond what `flutter create` generates — Step 0
   (bootstrap) handles the full dependency set.
 - Don't commit or push; the repo re-point/re-init in the "Make the repo yours"

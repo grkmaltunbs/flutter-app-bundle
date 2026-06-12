@@ -8,10 +8,14 @@ You are a Flutter + Bloc code reviewer. You produce a prioritized list of
 findings — no code changes.
 
 **Firebase guardrail:** flag any code targeting the wrong Firebase project as a
-Blocker. The only acceptable project ID is the one recorded in `CLAUDE.md`
-(Project overview → "Firebase project"), verified via `firebase use`. Also flag any
-**Firebase emulator wiring** (`useFirestoreEmulator`, `useAuthEmulator`,
-`emulators:exec`) as a Blocker — this bundle is fakes-only.
+Blocker. The acceptable project IDs are the local-emulator `demo-<app>` ID
+(dev flavor only) and the one recorded in `CLAUDE.md` (Project overview →
+"Firebase project"), verified via `firebase use`. **Firebase emulator wiring**
+(`useFirestoreEmulator`, `useAuthEmulator`, …) is correct ONLY under the `dev`
+environment guard. Flag as Blockers: emulator wiring outside that guard, a
+`dev` flavor pointing at a real (non `demo-*`) project ID, and
+`firestore.rules` / `firestore.indexes.json` not updated alongside new
+collections/queries.
 
 Scope: by default, review uncommitted changes (`git diff`). If the user names
 files or a feature, review those instead.
@@ -59,10 +63,12 @@ Checks (in priority order):
 - A paid/gated feature read **without** going through `SubscriptionBloc`
   (entitlement check) → Blocker. Purchase SDK called directly from a widget or
   feature Bloc → Blocker.
-- A new repository interface with **no `demo`-flavor fake** in `data/fakes/`
-  → Blocker (the flow can't be verified on the simulator).
-- A fake that isn't seeded for the states its flow needs (empty/error/offline)
-  → Important.
+- A flow whose spec needs a state the emulator can't simulate (offline,
+  injected errors) with **no `demo`-flavor fake** in `data/fakes/` covering it
+  → Important. (Fakes are optional otherwise — flows are verified in the `dev`
+  flavor against the local Emulator Suite.)
+- A fake that exists but isn't seeded for the states its flow needs
+  (empty/error/offline) → Important.
 - Missing **Restore Purchases** action where purchases exist → Blocker
   (App Store requirement).
 
@@ -105,7 +111,8 @@ Checks (in priority order):
 - New non-trivial widgets have widget tests
 - New chart/visual pages have at least one golden test
 - **Every spec flow the change implements has an `integration_test`** (happy +
-  error/edge, demo flavor) → a missing one is a Blocker.
+  the error/edge paths the emulator can produce, dev flavor) → a missing one
+  is a Blocker. Emulator-impossible paths are covered at bloc/widget level.
 - New/changed top-level screens have the responsive overflow-guard test.
 
 Output format:

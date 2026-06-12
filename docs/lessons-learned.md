@@ -65,29 +65,34 @@ Fix: `/init-app` runs `flutter create` before the setup walkthrough
 (Stage 6, just before the Stage 7 walkthrough), so all items can be
 completed immediately.
 
-## No Firebase emulators — verify against fakes
+## Firebase emulators: avoid the classic pitfalls
 
-This bundle does **not** use Firebase emulators. They were a recurring source of
-pain — port collisions (`:8080` taken by Unity MCP, Tomcat, etc.), stale
-processes holding ports after crashes, and `useFirestoreEmulator` /
-`useAuthEmulator` hanging or throwing when the emulator wasn't running (which
-blocks `runApp()` → blank white screen).
+This bundle verifies the `dev` flavor against the **local Firebase Emulator
+Suite**. The emulators have well-known failure modes — all avoidable:
 
-Instead, every backend dependency sits behind a repository interface with a
-**seeded in-memory fake** (`lib/**/data/fakes/`), wired under the `demo`
-environment via `injectable`. All verification runs the **demo flavor on real
-simulators**:
+- **Port collisions.** Default `:8080` is taken by Unity MCP, Tomcat, etc.
+  Use non-default ports in `firebase.json` — never default 8080:
+  ui 4040, hub 4441, auth 9199, firestore 8181, database 9100, storage 9299.
+- **Stale emulator processes hold ports after crashes.** Kill them before
+  restarting:
+  ```bash
+  lsof -ti :<port> | xargs kill
+  ```
+- **`useFirestoreEmulator` / `useAuthEmulator` hang or throw when the emulator
+  isn't running**, which blocks `runApp()` → blank white screen. Dev bootstrap
+  must health-check the hub first (`curl http://localhost:4441`) and fail fast
+  with a clear message if it's down.
+- **Use `demo-*` project IDs.** The Emulator Suite treats them as offline-only
+  — no real Firebase project (and no `flutterfire configure`) needed during
+  development.
+- **Use `firebase emulators:exec "<cmd>"` for test runs** — it starts the
+  emulators, runs the command, and cleans up automatically.
+- **Seed via `--import .firebase/seed --export-on-exit .firebase/seed`** so
+  seed data round-trips between runs and stays committed.
 
-```bash
-flutter run --dart-define=APP_ENV=demo -d <device>
-```
-
-This is deterministic, offline, instant, and never touches the live project.
-Seed fakes to cover every screen state (populated/empty/error/offline) and
-entitlement state (free/subscribed/expired), and let them toggle error modes so
-edge paths are testable. The real `prod` backend is exercised only by the human
-in `HUMAN_SETUP.md` smoke items. See `CLAUDE.md` → "Flavors, fakes & no
-Firebase emulators".
+The Firebase MCP covers the emulators only partially (Firestore query + RTDB
+yes, Auth no) — use the emulators' REST endpoints via `curl` when the MCP
+can't.
 
 ## iOS cold builds are slow (3–7 minutes)
 

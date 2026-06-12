@@ -3,8 +3,9 @@
 `runner/autobuild.py` drives the bundle through `PROJECT_PLAN.md` with **no human
 in the loop**. For each pending step it runs a fresh Claude Agent SDK `query()`
 that follows `.claude/commands/step.md` — implement → test → verify on the
-iOS simulator (demo flavor, fakes; Android runs only on an explicit `/qa`
-request) — and the runner commits each verified step and pushes to `main`.
+iOS simulator (dev flavor against the local Firebase emulators; Android runs
+only on an explicit `/qa` request) — and the runner commits each verified step
+and pushes to `main`.
 
 This is the headless twin of running `/step` over and over yourself. Use it once
 the plan is solid and the iOS simulator works; babysit the first run.
@@ -41,13 +42,17 @@ the plan is solid and the iOS simulator works; babysit the first run.
   pip install -r runner/requirements.txt    # installs claude-agent-sdk
   ```
 - **Flutter toolchain** + a booted **iOS simulator**.
+- **Java 11+** and the **firebase-tools CLI** — the agents start and stop the
+  local Emulator Suite themselves (`firebase emulators:start --project
+  demo-<app>`; `demo-*` projects are offline-only, no real Firebase needed).
 - **Dart MCP** available (`dart mcp-server` — ships with the SDK).
 - A completed `/init-app` (so `PRODUCT_SPEC.md` + `PROJECT_PLAN.md` exist).
 - **Firebase MCP (optional)**: only needed if a step does real Firebase config.
   Provide a **service account** — `firebase login` is interactive and won't work
   unattended. Export `GOOGLE_APPLICATION_CREDENTIALS=/path/sa.json`. Without it
-  the Firebase MCP is disabled and the build runs against fakes (which is the
-  normal verification path anyway).
+  the Firebase MCP is disabled — dev verification runs against the local
+  Emulator Suite either way. (The **Backend integration pass** step needs an
+  interactive session anyway; expect autobuild to report it `blocked`.)
 
 ## Run
 

@@ -30,6 +30,9 @@ Workflow:
    - Full test suite green — /ship's gate already ran it; re-run only if
      commits landed since
    - All `*.g.dart` / `*.freezed.dart` / `*.config.dart` up to date? Run codegen if needed.
+   - `PROJECT_PLAN.md`: the **"Backend integration pass"** step is `[x]` —
+     release-blocking. Release builds talk to the real Firebase project;
+     refuse to build if that pass hasn't been completed.
    - Firebase + signing guardrail (above) — pass all checks.
 
 2. **Version bump** — propose the new version in `pubspec.yaml`. Confirm

@@ -2,18 +2,25 @@
 
 These are the **irreducibly human** tasks — external accounts, store/dashboard
 config, signing, secrets, and legal — that Claude cannot do for you. Everything
-else (all code, and all simulator verification against fakes) is automated.
+else (all code, and all simulator verification against the local Firebase
+emulators) is automated.
 
-The app **builds and is fully verified on simulators against fakes** without any
-backend, so most of this is needed only for the real (`prod`) build and
-real-device smoke tests. Front-load the slow ones (Apple enrollment, store IAP
-products, RevenueCat) — they gate later release work.
+The app **builds and is fully verified on simulators against the local Firebase
+Emulator Suite** — the `dev` flavor uses a `demo-*` project ID, which the
+emulators treat as offline-only, so **no real Firebase project is needed during
+development**. Most of this is needed only for the **Backend integration pass**
+plan step, the real (`prod`) build, and real-device smoke tests. Front-load the
+slow ones (Apple enrollment, store IAP products, RevenueCat) — they gate later
+release work.
 
 Items that don't apply should be struck through: `- [x] ~~item~~ _(not needed)_`
 
 ## Toolchain (one-time per machine)
 
 - [ ] Flutter SDK installed (`flutter doctor` green).
+- [ ] Java 11+ installed (`java -version`) — the Firebase Emulator Suite needs it.
+- [ ] Firebase CLI installed: `npm install -g firebase-tools` (or
+      `curl -sL https://firebase.tools | bash`).
 - [ ] `claude` CLI installed and `claude login` done.
 - [ ] Dart MCP registered: `claude mcp add dart -- dart mcp-server`
 - [ ] Claude Code restarted; `claude mcp list` shows dart Connected.
@@ -29,15 +36,21 @@ Items that don't apply should be struck through: `- [x] ~~item~~ _(not needed)_`
 
 ## Firebase (if using Firebase)
 
-- [ ] Firebase project created. Project ID: ___________________
-- [ ] `firebase login` done.
-- [ ] `flutterfire configure --project=<id>` run; `firebase_options.dart` generated.
-- [ ] Sign-in providers enabled (Email, Google, Apple — as needed).
-- [ ] Firestore security rules scoped to the owner; published.
+Development needs **no real project** — the `dev` flavor runs against the local
+Emulator Suite with a `demo-<app>` project ID (offline-only). The items below
+are needed **before the "Backend integration pass" plan step** and release:
 
-> No Firebase emulator setup — this bundle verifies against fakes (`demo`
-> flavor). The real Firebase project is only needed for `prod` builds and your
-> own smoke tests.
+- [ ] **Staging** Firebase project created. Project ID: ___________________
+- [ ] **Production** Firebase project created. Project ID: ___________________
+      — never smoke-test against production.
+- [ ] `firebase login` done.
+- [ ] `flutterfire configure --project=<staging-id>` run; `firebase_options.dart`
+      generated.
+- [ ] Sign-in providers enabled on **staging** (Email, Google, Apple — as needed).
+
+> Security rules and indexes (`firestore.rules`, `firestore.indexes.json`)
+> already live in the repo and are exercised by the emulator continuously;
+> deploying them to staging happens in the backend-pass step itself.
 
 ## Monetization — RevenueCat + store products (if paid)
 
@@ -77,6 +90,7 @@ Only needed if you want Claude to implement the whole plan on its own with
   pip install -r runner/requirements.txt  # installs claude-agent-sdk
   ```
 - [ ] Claude Code CLI installed + authenticated (`claude login`) — the SDK spawns it.
+- [ ] Java + firebase CLI installed (agents start the emulators).
 - [ ] An iOS simulator can boot (the runner drives it).
 - [ ] (Only if a step configures real Firebase) service-account key exported:
       `export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json`

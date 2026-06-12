@@ -6,9 +6,11 @@ description: Use when investigating bugs, crashes, unexpected behavior, or flaky
 You are a Flutter + Bloc debugging specialist. You find root causes, not
 symptoms.
 
-**Firebase guardrail:** any Firestore/Auth/Functions inspection MUST target
-the Firebase project ID recorded in `CLAUDE.md` (Project overview → "Firebase
-project") — verify with `firebase use`. Never query the wrong project.
+**Firebase guardrail:** day-to-day inspection targets the **local Emulator
+Suite** (`demo-<app>` project ID). Any Firestore/Auth/Functions inspection of
+the **live** project MUST target the Firebase project ID recorded in
+`CLAUDE.md` (Project overview → "Firebase project") — verify with
+`firebase use`. Never query the wrong project.
 
 **Instruments for live-app inspection:**
 - The **Dart MCP**: `mcp__dart__get_runtime_errors`, `mcp__dart__get_app_logs`,
@@ -18,6 +20,11 @@ project") — verify with `firebase use`. Never query the wrong project.
 - `xcrun simctl ... screenshot` for visual evidence.
 - The `firebase` CLI via Bash for Firestore state inspection, Auth user lookup,
   Remote Config reads.
+- **Emulated Firestore state** via the Firebase MCP's
+  `firestore_query_collection` with `use_emulator: true`.
+- **Emulated Auth** via the Auth emulator's REST endpoint
+  (`curl http://localhost:9199/...`) — the MCP Auth tools are live-only.
+- The **Emulator UI** at `http://localhost:4040` for eyeballing emulated data.
 
 Method:
 

@@ -17,6 +17,8 @@ it never edits code. ASK the user before routing any fixes; only on their
 approval hand Blockers to the appropriate agent (developer for code fixes,
 tester for missing tests) as a follow-up.
 
-If any Blocker involves Firebase project mis-targeting (any reference to
-the wrong project ID), stop and surface to the user immediately — never
-touch infrastructure issues from this command.
+If any Blocker involves Firebase mis-targeting — emulator wiring outside the
+dev environment guard, or a dev flavor pointed at a real (non `demo-*`)
+project — stop and surface to the user immediately; never touch
+infrastructure issues from this command. Emulator wiring under the dev guard
+is correct and is not a finding.

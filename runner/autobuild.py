@@ -4,8 +4,8 @@
 Marches through PROJECT_PLAN.md unattended: for each pending step it spins up a
 fresh Claude Agent SDK `query()` that invokes the project's `/step` slash command
 natively — setting_sources=["project"] loads `.claude/commands/step.md` —
-(implement → test → verify on the iOS simulator against fakes), then this
-driver commits the verified step and pushes to main.
+(implement → test → verify on the iOS simulator against the local Firebase
+emulators), then this driver commits the verified step and pushes to main.
 
 State lives in PROJECT_PLAN.md on disk — each step is an independent query()
 (fresh context, cheaper, crash-resilient). The driver, not the model, owns git,
@@ -224,7 +224,8 @@ def mcp_servers() -> dict:
         }
     else:
         log("⚠ GOOGLE_APPLICATION_CREDENTIALS unset — Firebase MCP disabled "
-            "(the demo flavor uses fakes, so this is fine for building/verifying).")
+            "(dev verification runs against the local Emulator Suite, so this is "
+            "fine for building/verifying — it's only needed for real-project config).")
     return servers
 
 

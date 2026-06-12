@@ -5,7 +5,7 @@ maps to a step (or part of one). Each `## Step N` is one implementation session,
 worked through in order via `/step`. Mark `[x]` when complete.
 
 `/step` does not mark a step done until it has been **verified on the iOS
-simulator** (demo flavor, fakes — no Firebase emulators): the new flow
+simulator** (dev flavor, against the local Firebase emulators): the new flow
 plus every dependent flow are exercised, with zero runtime errors/exceptions
 and zero render overflow across the responsive size matrix. Write Acceptance
 criteria as **verifiable flow/state outcomes taken from the spec**.
@@ -49,20 +49,26 @@ Set up the Flutter project scaffolding. `/init-app` already ran
 - Stub `bootstrap.dart`, `app.dart`, theme/router/logging/clock.
 - Set up DI scaffolding and run `build_runner build`.
 - Set up `l10n.yaml` and stub ARB files.
+- Write `firebase.json` (non-default emulator ports), `.firebaserc`
+  (`demo-<app>` project ID), and stub `firestore.rules` +
+  `firestore.indexes.json` directly — no interactive `firebase init`.
 
 ### Acceptance
 - `flutter analyze` exits 0.
 - `flutter test` exits 0.
 - `dart run build_runner build` succeeds.
-- App boots to a blank Material screen on an **iOS simulator** in the demo
-  flavor (`--dart-define=APP_ENV=demo`) with fakes wired.
+- App boots to a blank Material screen on an **iOS simulator** in the dev
+  flavor (`--dart-define=APP_ENV=dev`) against the running Emulator Suite
+  (`demo-*` project) with zero runtime errors.
+- `firebase.json`, `.firebaserc`, and `firestore.rules` scaffolded.
 - No runtime errors/exceptions in the Dart MCP error log on boot.
 
 ### Touchpoints
 - `pubspec.yaml`, `analysis_options.yaml`, `l10n.yaml`,
   `lib/main.dart`, `lib/app.dart`, `lib/bootstrap.dart`,
   `lib/core/**`, `lib/features/_template/**`,
-  `lib/**/data/fakes/**` (demo-flavor fake repositories),
+  `firebase.json`, `.firebaserc`, `firestore.rules`, `firestore.indexes.json`,
+  `lib/**/data/fakes/**` (optional demo-flavor fakes),
   `ios/*.storekit` (StoreKit test config, if monetised).
 
 ---
@@ -71,12 +77,14 @@ Set up the Flutter project scaffolding. `/init-app` already ran
 /init-app populates additional steps from PRODUCT_SPEC.md.
 Expected shape:
 
-  Step 1: Backend + DI + fakes layer (demo flavor wires fakes; real backend
-          behind the same interfaces)
+  Step 1: Backend + DI layer (dev flavor wires the real impls at the
+          Emulator Suite; optional demo fakes behind the same interfaces)
   Steps 2..N: Features in dependency order (one per spec flow/screen group)
   Step N+1: Responsive + accessibility pass (size matrix, textScale 2.0,
             zero overflow on all screens)
   Step N+2: Monetization wiring + entitlement gates (RevenueCat; .storekit +
             FakePurchaseRepository for simulator testing)
-  Step N+3: Release prep
+  Step N+3: Backend integration pass (staging — prod flavor against the real
+            staging project; release prep depends on it)
+  Step N+4: Release prep
 -->

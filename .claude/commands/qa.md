@@ -23,18 +23,20 @@ Scope:
 The agent:
 1. Boots a typical iOS simulator (plus smallest/largest for the responsive
    pass).
-2. Runs the relevant integration tests on iOS against the **demo flavor**
-   (`--dart-define=APP_ENV=demo`) — no Firebase emulators, never the live
-   project.
+2. Runs the relevant integration tests on iOS against the **dev flavor**
+   (`--dart-define=APP_ENV=dev`) and the local Emulator Suite — health-checks
+   the hub (`curl http://localhost:4441`); if down, starts it with
+   `firebase emulators:start --project demo-<app> --import .firebase/seed
+   --export-on-exit .firebase/seed` — never the live project.
 3. Sweeps the Dart MCP runtime-error log for exceptions/overflow.
 4. Runs the **multi-size visual pass** — screenshots at the smallest and
    largest iOS sizes. This pass belongs to this command (and pre-`/ship`)
    only; per-step gates never do it.
 5. **Only when the user explicitly requested Android in the scope:** also
    boots a typical Android emulator (plus smallest/largest for the responsive
-   pass), runs the same integration tests there against the demo flavor, and
-   extends the multi-size visual pass with screenshots at the smallest and
-   largest Android sizes.
+   pass), runs the same integration tests there against the dev flavor and
+   the Emulator Suite, and extends the multi-size visual pass with screenshots
+   at the smallest and largest Android sizes.
 6. Returns **PASS**, or **FAIL** with per-defect platform, verbatim error/
    screenshot, repro, and routing tag (`→ debugger` / `→ developer` / `→ tester`).
 

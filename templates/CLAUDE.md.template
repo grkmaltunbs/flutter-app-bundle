@@ -24,7 +24,7 @@ lib/
 ├── app.dart                    MaterialApp.router + global providers
 ├── core/                       Cross-cutting kernel
 │   ├── di/                     get_it + injectable (env-scoped registration)
-│   ├── env/                    AppEnv (demo | prod) from --dart-define
+│   ├── env/                    AppEnv (dev | demo | prod) from --dart-define
 │   ├── error/                  Failure sealed hierarchy + error mapper
 │   ├── extensions/             context.colors, context.l10n, context.mq
 │   ├── logging/                Talker wrapper
@@ -40,8 +40,8 @@ lib/
         ├── data/
         │   ├── datasources/
         │   ├── dtos/
-        │   ├── repositories/   real (prod) repository impls
-        │   └── fakes/          in-memory seeded fakes (demo flavor)
+        │   ├── repositories/   real repository impls (dev + prod)
+        │   └── fakes/          optional in-memory seeded fakes (demo flavor)
         ├── domain/{entities, repositories, usecases}/
         └── presentation/{blocs, pages, widgets}/
 ```
@@ -68,10 +68,15 @@ lib/
 - **Every BLoC overrides `close()`** if it holds subscriptions.
 - **Every paid feature is gated through `SubscriptionBloc`** (entitlement check)
   — never read a purchase SDK directly from a widget or feature Bloc.
-- **Every repository interface has a fake** in `data/fakes/`, registered under
-  the `demo` environment. Real impls register under `prod`.
-- **No Firebase emulators.** Verification runs the `demo` flavor against fakes
-  on real simulators. Never add emulator wiring to `bootstrap.dart`.
+- **Emulator wiring lives ONLY under the `dev` environment guard** in
+  `bootstrap.dart`. Flag it anywhere else.
+- **Dev bootstrap fails fast** when the emulators are unreachable — health-check
+  the hub first; never hang into a white screen.
+- **The `dev` flavor never points at a real Firebase project** — `demo-*`
+  project IDs only.
+- **Fakes are optional.** Add one under the `demo` environment where the
+  emulator can't simulate a state (offline mode, injected errors) or for
+  instant backend-free demos.
 
 ### Performance rules
 
@@ -81,24 +86,33 @@ lib/
 - `BlocSelector` / `buildWhen` for any state with >3 fields.
 - Extract any `build` method >150 lines into a separate widget class.
 
-## Flavors, fakes & no Firebase emulators
+## Flavors: dev (emulators) · demo (fakes) · prod
 
-This project does **not** use Firebase emulators. Every backend dependency sits
-behind a repository interface with two implementations, selected by environment:
+Every backend dependency sits behind a repository interface. Three environments,
+selected via `--dart-define=APP_ENV=<env>`:
 
-- **`prod`** — real impls (Firebase, RevenueCat, network).
-- **`demo`** — in-memory, **seeded** fakes in `data/fakes/`. Deterministic,
-  offline, instant. This is what all verification runs against.
+- **`dev`** (default for development) — the **real** Firebase repository impls
+  pointed at the **local Firebase Emulator Suite** (`useAuthEmulator`,
+  `useFirestoreEmulator`, …), wired only under the dev env in `bootstrap.dart`.
+  Uses project ID `demo-<app>` — the Emulator Suite treats `demo-*` projects as
+  offline-only, so **no real Firebase project is needed**: a hand-written
+  `FirebaseOptions` with projectId `demo-<app>` and dummy keys suffices
+  (`flutterfire configure` isn't needed until the backend pass).
+- **`demo`** (optional) — in-memory, **seeded** fakes in `data/fakes/`.
+  Recommended where the emulator can't simulate a state (offline mode, injected
+  errors) and for instant backend-free demos. Not mandatory per repository.
+- **`prod`** — the real Firebase project. Used by the **Backend integration
+  pass** plan step (against a STAGING project) and release builds.
 
 ```bash
-# Build/run the demo flavor (fakes) — used for all simulator verification:
-flutter run --dart-define=APP_ENV=demo -d <device>
+# Run the dev flavor (emulators) — used for all simulator verification:
+flutter run --dart-define=APP_ENV=dev -d <device>
 ```
 
 Wiring (via `injectable` environments):
 
 ```dart
-@Environment('prod')
+@Environment('prod')   // dev reuses these prod impls
 @LazySingleton(as: AuthRepository)
 class FirebaseAuthRepository implements AuthRepository { … }
 
@@ -107,14 +121,47 @@ class FirebaseAuthRepository implements AuthRepository { … }
 class FakeAuthRepository implements AuthRepository { … }   // seeded users
 ```
 
+The dev env reuses the prod impls; `bootstrap.dart` redirects the Firebase SDKs
+at the emulators **before** DI resolves anything:
+
+```dart
+if (env == AppEnv.dev) {
+  // Health-check first — fail fast if the Emulator Suite is down.
+  await Firebase.initializeApp(options: demoProjectOptions); // demo-<app> ID
+  await FirebaseAuth.instance.useAuthEmulator('localhost', 9199);
+  FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8181);
+}
+```
+
 Rules:
-- Fakes are **seeded with representative data** covering each screen state
-  (populated, empty, error, offline) and each entitlement state (free,
-  subscribed, expired) so every flow is reachable on a simulator.
-- Fakes can simulate failures (toggle/inject errors) so error/edge paths are
-  testable without a backend.
-- The real `prod` path is exercised only by the human via `HUMAN_SETUP.md`
-  smoke items — Claude never touches the live backend project.
+- **Fail fast:** dev bootstrap health-checks the emulator hub
+  (`curl http://localhost:4441`) before any `use*Emulator` call. If unreachable,
+  throw with a clear "start the emulators" message immediately — never hang
+  `runApp()` into a white screen.
+- **Non-default ports** in `firebase.json` (defaults collide with other tools —
+  never 8080):
+
+  | Emulator | UI | Hub | Auth | Firestore | Database | Storage |
+  |---|---|---|---|---|---|---|
+  | Port | 4040 | 4441 | 9199 | 8181 | 9100 | 9299 |
+
+- **Seed strategy:** start with
+  `--import .firebase/seed --export-on-exit .firebase/seed` so seed data
+  round-trips; `.firebase/seed/` is committed.
+- `firebase.json`, `.firebaserc`, `firestore.rules`, and
+  `firestore.indexes.json` are written directly (no interactive
+  `firebase init`) and live in the repo from early development — the emulator
+  exercises the security rules continuously.
+- When demo fakes exist, seed them with representative data covering each
+  screen state (populated, empty, error, offline) and entitlement state (free,
+  subscribed, expired), with toggleable failures for edge paths.
+- Inspect emulator state via the Firebase MCP where it supports emulators
+  (`firestore_query_collection` has `use_emulator`; RTDB tools accept emulator
+  URLs; Auth tools are live-only) — otherwise via the emulators' REST endpoints
+  with `curl`.
+- The real backend is exercised by the **Backend integration pass** plan step
+  (staging project) and the human's `HUMAN_SETUP.md` items — never during
+  day-to-day development.
 
 ### Monetization (RevenueCat)
 
@@ -182,7 +229,7 @@ for (final size in _matrix) {
 - **State:** `flutter_bloc` + sealed states via `freezed`.
 - **Models:** `freezed` + `json_serializable`.
 - **Routing:** `go_router` (declarative; deep links).
-- **DI:** `get_it` + `injectable` (env-scoped: `demo` | `prod`).
+- **DI:** `get_it` + `injectable` (env-scoped: `dev` | `demo` | `prod`).
 - **Local DB:** `drift` (compile-time SQL).
 - **Backend:** <Firebase / Supabase / none>
 - **Payments:** `purchases_flutter` (RevenueCat); fakes + `.storekit` for sims.
@@ -190,7 +237,7 @@ for (final size in _matrix) {
 - **App icon / splash:** `flutter_launcher_icons`, `flutter_native_splash`.
 - **Lints:** `very_good_analysis`.
 - **Testing:** `bloc_test`, `mocktail`, `integration_test` (run on simulators
-  against the `demo` flavor — no Firebase emulators).
+  against the `dev` flavor + local Firebase Emulator Suite).
 
 <ADD_PROJECT_SPECIFIC_DEPENDENCIES_HERE>
 
@@ -208,10 +255,18 @@ flutter gen-l10n
 dart format .
 flutter analyze
 flutter test
-# Run / test the demo flavor (fakes) on a simulator — no Firebase emulators:
-flutter run --dart-define=APP_ENV=demo -d <device>
-flutter test integration_test/ --dart-define=APP_ENV=demo -d <ios-sim>
-flutter test integration_test/ --dart-define=APP_ENV=demo -d <android-emu>  # (Android — on explicit request)
+# Emulator Suite — health-check the hub; start it if down (seeds round-trip):
+curl -s http://localhost:4441
+firebase emulators:start --project demo-<app> --import .firebase/seed --export-on-exit .firebase/seed
+# Stop the suite (frees the ports; --export-on-exit writes the seed on the way out):
+lsof -ti :4441 | xargs kill
+# Headless test runs (emulators start + clean up automatically):
+firebase emulators:exec --project demo-<app> --import .firebase/seed \
+  "flutter test integration_test/ --dart-define=APP_ENV=dev -d <ios-sim>"
+# Run / test the dev flavor (emulators) on a simulator:
+flutter run --dart-define=APP_ENV=dev -d <device>
+flutter test integration_test/ --dart-define=APP_ENV=dev -d <ios-sim>
+flutter test integration_test/ --dart-define=APP_ENV=dev -d <android-emu>  # (Android — on explicit request)
 xcrun simctl io "iPhone 16 Pro" screenshot /tmp/screenshot.png
 adb exec-out screencap -p > docs/screenshots/<name>.png  # (Android — on explicit request)
 ```
@@ -229,8 +284,10 @@ Generated files are committed. Workflow:
 After implementing a feature, `/step` (via the `flutter-qa` agent) gates on:
 1. `flutter analyze` — clean.
 2. `flutter test` — all unit/bloc/widget tests pass.
-3. Demo flavor runs on the **iOS simulator**; the new flow's happy + error/edge
-   paths and **every dependent flow** are exercised via `integration_test`.
+3. Dev flavor runs on the **iOS simulator** against the running **Firebase
+   Emulator Suite** — so the prod repository impls and security rules are
+   exercised continuously; the new flow's happy + error/edge paths and **every
+   dependent flow** are exercised via `integration_test`.
    For steps touching `android/` or Android-specific behavior, add a one-line
    non-blocking note: recommend an explicit Android `/qa` sweep.
 4. **Zero runtime errors/exceptions** in the Dart MCP error log during the runs.
@@ -238,6 +295,11 @@ After implementing a feature, `/step` (via the `flutter-qa` agent) gates on:
    `PRODUCT_SPEC.md` → Non-functional) at textScale 1.0 and 2.0.
 6. Successful flows captured as permanent integration tests; screenshots only as
    FAIL evidence (the multi-size visual sweep runs in `/qa` and pre-`/ship`).
+
+The **Backend integration pass** plan step (immediately before release prep) is
+the final real-backend checkpoint: prod flavor on the iOS simulator against the
+real **STAGING** Firebase project, rules + indexes deployed first, core flows
+driven, zero unhandled exceptions to pass.
 
 ## Platform support
 

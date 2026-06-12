@@ -79,7 +79,7 @@ docs/
 | `/refactor <desc>` | Refactor with tests |
 | `/app-review [files]` | Code review (read-only findings; asks before routing fixes) |
 | `/test [files]` | Add or improve tests |
-| `/qa [scope]` | Run/observe the app on the iOS simulator (fakes; Android on request) |
+| `/qa [scope]` | Run/observe the app on the iOS simulator (emulators; Android on request) |
 | `/ship [args]` | Prepare a release |
 | `/codegen [args]` | Run build_runner / gen-l10n |
 | `/clean` | Clean and rebuild |
@@ -110,20 +110,24 @@ Specialist agents invoked automatically by commands:
 - Flutter SDK (stable channel)
 - Claude Code CLI (`claude login`)
 - Dart MCP: `claude mcp add dart -- dart mcp-server`
-- Firebase CLI (optional, if using Firebase): `npm install -g firebase-tools`
+- Firebase CLI + Java 11+ (if using Firebase — the dev flavor runs the local
+  Emulator Suite): `npm install -g firebase-tools`
 
 ## Verification approach
 
-**No Firebase emulators, no flutter-skill dependency.** Every backend sits behind
-a repository interface with a seeded in-memory **fake**, wired under a **demo
-flavor** (`--dart-define=APP_ENV=demo`). All verification runs that flavor on real
-simulators — offline, deterministic, never touching the live project.
+**Local Firebase emulators, no flutter-skill dependency.** Development
+verification runs the **dev flavor** (`--dart-define=APP_ENV=dev`) — the real
+Firebase repository impls pointed at the **local Firebase Emulator Suite** with
+a `demo-*` project ID (offline-only, no real project needed) — on real
+simulators, so the prod impls **and security rules** are exercised continuously.
+Optional **demo-flavor fakes** cover what the emulator can't simulate (offline
+mode, injected errors).
 
 Each `/step` is gated by the **flutter-qa** agent before it counts as done:
 
 1. `flutter analyze` + `flutter test` — static + unit/bloc/widget tests
 2. The new flow **and its dependent flows** driven via `integration_test` on
-   the **iOS simulator**
+   the **iOS simulator** against the running Emulator Suite
 3. Dart MCP runtime-error sweep — zero unhandled exceptions
 4. Render safety — zero overflow via the widget-test size matrix
    (320-wide → iPad; small/Pixel/tablet Android) at textScale 1.0 & 2.0
@@ -131,7 +135,9 @@ Each `/step` is gated by the **flutter-qa** agent before it counts as done:
 
 The full iOS + multi-size visual sweep lives in `/qa` (run it anytime) and runs
 before every `/ship`; Android verification is available on explicit request
-(e.g. `/qa android`).
+(e.g. `/qa android`). The **Backend integration pass** plan step (prod flavor
+against a **staging** Firebase project) is the final real-backend checkpoint
+before release.
 
 ## Architecture
 
@@ -139,12 +145,12 @@ Default stack (customizable during `/init-app`):
 
 - **State:** flutter_bloc + freezed
 - **Routing:** go_router
-- **DI:** get_it + injectable (env-scoped: demo | prod)
+- **DI:** get_it + injectable (env-scoped: dev | demo | prod)
 - **Local DB:** drift
-- **Backend:** Firebase (optional) — behind repository interfaces with fakes
+- **Backend:** Firebase (optional) — behind repository interfaces (emulators in dev, optional fakes)
 - **Payments:** RevenueCat (`purchases_flutter`); `.storekit` + fakes for sims
 - **Lints:** very_good_analysis
-- **Testing:** bloc_test, mocktail, integration_test (demo flavor on simulators)
+- **Testing:** bloc_test, mocktail, integration_test (dev flavor on simulators)
 
 Clean architecture with vertical feature slices:
 `domain/` (pure Dart) → `data/` (infrastructure + `fakes/`) → `presentation/` (Flutter + Bloc)
@@ -152,7 +158,7 @@ Clean architecture with vertical feature slices:
 ## Lessons learned
 
 See `docs/lessons-learned.md` for known pitfalls:
-- Why fakes, not Firebase emulators
+- Firebase emulators: avoiding the classic pitfalls
 - Firebase bootstrap order
 - iOS cold build times
 - CocoaPods conflicts

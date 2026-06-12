@@ -21,8 +21,10 @@ Workflow:
 
 3. Delegate to the **flutter-tester** agent to add bloc_tests, usecase tests,
    widget tests, the integration test(s) for each flow (happy + error/edge,
-   demo flavor), the responsive overflow-guard test, and golden tests for
-   visually-critical widgets. Build the `demo`-flavor fakes the flows need.
+   dev flavor against the local emulators), the responsive overflow-guard
+   test, and golden tests for visually-critical widgets. Add `demo`-flavor
+   fakes only for states the emulator can't simulate (offline, injected
+   errors).
 
 4. Delegate to the **flutter-reviewer** agent for a final audit against the
    hard rules (no `BuildContext` in events, no `setState` in build, no
@@ -35,7 +37,8 @@ Workflow:
 6. **Runtime verification (gating).** Delegate to the **flutter-qa** agent on
    the **iOS simulator** with the feature's flows and the dependent-flow
    regression set. It boots the iOS simulator, drives the new flow + dependent
-   flows on the demo flavor, and sweeps runtime errors — no screenshots on
+   flows on the dev flavor against the local Emulator Suite (health-check the
+   hub, start if down), and sweeps runtime errors — no screenshots on
    PASS, one screenshot of the failing screen on FAIL (the multi-size visual
    pass lives in `/qa`). If it returns FAIL, route defects (`→ debugger` /
    `→ developer` / `→ tester`); after each fix re-run only the failed flow on

@@ -25,7 +25,8 @@ Workflow:
 
 5. If the refactor changed widget trees/layout, navigation structure, or DI
    wiring: delegate a scoped **flutter-qa** pass over the affected flows (iOS
-   simulator, demo flavor) — behavior must be observably unchanged. A pure
+   simulator, dev flavor against the local emulators) — behavior must be
+   observably unchanged. A pure
    logic/Bloc-internal refactor with green characterization tests does not
    need a QA pass.
 
