@@ -61,11 +61,12 @@ own and dependent ones) exercised and zero runtime errors or overflow.
    headless under autobuild (the runner owns git — never run git in that mode)
    or when the user prefers manual git.
 
-10. **Report.** What was built, files touched, test-count delta, the **flutter-qa
-    verdict** (platforms run, flows exercised), and the saved screenshots (show
-    the smallest + largest via Read). Append durable findings — new fake
-    seeds/toggles, environment quirks, defect root causes — to
-    `docs/BUILD_NOTES.md`.
+10. **Report.** What was built, files touched, test-count delta, and the
+    **flutter-qa verdict** (platforms run, flows exercised). Do NOT capture or
+    open screenshots here — it's slow; report with what's already available
+    and at most list the paths of any screenshots flutter-qa saved. Append
+    durable findings — new fake seeds/toggles, environment quirks, defect root
+    causes — to `docs/BUILD_NOTES.md`.
 
 ## Rules
 - Do NOT skip ahead to other steps.
