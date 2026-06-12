@@ -52,8 +52,7 @@ Workflow:
      - Pump the app via `app.main()` with `APP_ENV=demo`; assert on visible
        outcomes, not implementation details.
      - These are what the **flutter-qa** agent runs each step on the
-       caller-specified platform(s) — one by default (alternating), both for
-       platform-touching steps and `/qa` sweeps.
+       iOS simulator (Android only on explicit request).
 
    - **Overflow / responsive guard** — a widget test that pumps each top-level
      screen across the size matrix (smallest, typical, largest, tablet) at

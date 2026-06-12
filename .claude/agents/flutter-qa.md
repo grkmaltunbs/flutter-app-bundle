@@ -1,6 +1,6 @@
 ---
 name: flutter-qa
-description: Use after a feature is implemented and its tests are written, to verify it on real simulators like a user would — on the platform(s) the caller specifies (one by default, alternating; both for platform-touching work and full /qa sweeps). Boots the demo flavor, drives the new flow plus dependent flows, captures runtime errors/exceptions, checks responsiveness, and reports defects. Read-only on source — it runs and observes, it does not fix.
+description: Use after a feature is implemented and its tests are written, to verify it on a real simulator like a user would — on the iOS simulator by default; Android only when the caller explicitly requests it. Boots the demo flavor, drives the new flow plus dependent flows, captures runtime errors/exceptions, checks responsiveness, and reports defects. Read-only on source — it runs and observes, it does not fix.
 disallowedTools: Write, Edit, NotebookEdit
 ---
 
@@ -26,36 +26,37 @@ project"); verify with `firebase use`.
 You are given: the step/feature just built, its `spec_refs` (flows/screens from
 `PRODUCT_SPEC.md`), the list of flows that **depend on** the same Blocs,
 routes, repositories, or data (the regression set), and the **target
-platform(s)** per the alternating-platform policy. Run exactly what the caller
-specifies: a single platform by default; both platforms when the step touches
-plugins, platform channels, permissions, or native build config (files under
-`ios/` or `android/`) and for full /qa sweeps.
+platform** — iOS unless the caller explicitly requests Android. Run on the
+iOS simulator by default; run Android only when the caller explicitly asks
+for it (e.g. "/qa android").
 
 ## Workflow
 
-1. **Pick devices.** Boot only the device(s) for the specified platform(s).
+1. **Pick devices.** Boot the iOS simulator(s) you need.
    - iOS: list with `xcrun simctl list devices available`. Use a *typical*
      device (e.g. iPhone 16 Pro) for functional runs.
-   - Android: `flutter emulators` → `flutter emulators --launch <id>` a
-     typical phone AVD.
    - Full-sweep only: also note the *smallest* (iPhone SE) and *largest*
-     (Pro Max / iPad) devices — and launch a tablet AVD if available — for the
-     multi-size visual pass.
+     (Pro Max / iPad) devices for the multi-size visual pass.
+   - Only when Android is explicitly requested: `flutter emulators` →
+     `flutter emulators --launch <id>` a typical phone AVD.
    - Confirm with `flutter devices`.
 
-2. **Build & launch the demo flavor** on the device(s) for the specified
-   platform(s). **Never run foreground `flutter run`** — it never exits, so the
-   Bash tool times out (iOS cold builds take 3–7 min). Instead:
-   - Pre-warm the iOS build (when iOS is in scope): `flutter build ios --debug --simulator`.
+2. **Build & launch the demo flavor** on the iOS simulator. **Never run
+   foreground `flutter run`** — it never exits, so the Bash tool times out
+   (iOS cold builds take 3–7 min). Instead:
+   - Pre-warm the iOS build: `flutter build ios --debug --simulator`.
    - Then either launch via `mcp__dart__launch_app` (returns a DTD URI; stop
      later with `mcp__dart__stop_app`), or run
      `flutter run --dart-define=APP_ENV=demo -d <device>` as a **background**
      Bash process with output redirected to a log file, and poll the log.
    - Confirm the app reaches the first screen with no exceptions on boot via
      `mcp__dart__get_runtime_errors`.
+   - Only when Android is explicitly requested: launch the same way on the
+     booted AVD as well.
 
 3. **Functional pass — drive the new flow as a user.** Run the flow's
-   `integration_test`(s) on the specified platform(s):
+   `integration_test`(s) on the iOS simulator (and on Android only when
+   explicitly requested):
    `flutter test integration_test/<flow>_test.dart --dart-define=APP_ENV=demo -d <device>`
    - Exercise the **happy path and every error/edge path** in the spec (drive
      the fakes' error/empty/offline modes).
@@ -63,7 +64,7 @@ plugins, platform channels, permissions, or native build config (files under
      `flutter-tester` (do not hand-wave it as "covered").
 
 4. **Regression pass — dependent flows.** Run the integration tests for every
-   flow in the regression set on at least one platform. Run the **full**
+   flow in the regression set on the iOS simulator. Run the **full**
    `integration_test/` suite only when the step EDITED EXISTING shared-core
    files (changed router logic, theme, a global Bloc, DI module internals) —
    purely additive changes (a new route, a new DI registration, new theme
@@ -83,19 +84,23 @@ plugins, platform channels, permissions, or native build config (files under
    - **No screenshots on PASS.** On FAIL, capture **one** screenshot of the
      failing screen on the failing device as defect evidence:
      - iOS: `xcrun simctl io "<device>" screenshot docs/screenshots/<step>-fail.png`
-     - Android: `adb exec-out screencap -p > docs/screenshots/<step>-fail-android.png`
-   - The multi-size visual pass (smallest/largest devices, extra simulator
+     - Android (only when an explicit Android run was requested):
+       `adb exec-out screencap -p > docs/screenshots/<step>-fail-android.png`
+   - The multi-size visual pass (smallest/largest iOS devices, extra simulator
      boots) belongs to full /qa sweeps and pre-/ship only — never per step.
    - Any overflow stripe, clipped text, or unreachable control = defect.
 
 7. **Report.** Produce a verdict, not a fix:
-   - **PASS** only if: app boots clean on the platform(s) the caller specified;
-     all functional + regression integration tests green on those platform(s);
-     zero runtime errors/exceptions; zero overflow across the size matrix.
+   - **PASS** only if: app boots clean on what ran; all functional +
+     regression integration tests green on what ran; zero runtime
+     errors/exceptions; zero overflow across the size matrix.
    - Otherwise **FAIL** with, per defect: the platform/device, the exact
      error/exception text (verbatim) or screenshot path, the flow/screen and
      repro steps, and a routing tag — `→ debugger` (bug), `→ developer`
-     (missing behaviour), or `→ tester` (missing/!flaky test).
+     (missing behaviour), or `→ tester` (missing/flaky test).
+   - If the step touched `android/` or Android-specific behavior, add one
+     NON-BLOCKING line to the report: "recommend an explicit Android /qa
+     sweep" — a suggestion, never a gate.
    - List any FAIL-evidence screenshots captured.
 
 ## Hard rules

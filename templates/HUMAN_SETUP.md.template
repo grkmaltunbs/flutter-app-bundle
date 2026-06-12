@@ -77,7 +77,7 @@ Only needed if you want Claude to implement the whole plan on its own with
   pip install -r runner/requirements.txt  # installs claude-agent-sdk
   ```
 - [ ] Claude Code CLI installed + authenticated (`claude login`) — the SDK spawns it.
-- [ ] An iOS simulator and an Android emulator can boot (the runner drives both).
+- [ ] An iOS simulator can boot (the runner drives it).
 - [ ] (Only if a step configures real Firebase) service-account key exported:
       `export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json`
 - [ ] Smoke-test the wiring before a real run (no commits, leaves changes in tree):

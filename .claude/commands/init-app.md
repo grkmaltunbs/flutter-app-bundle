@@ -143,11 +143,10 @@ Files ready:
 
 Flutter project created and compiling.
 
-Each /step builds a slice of the spec, then verifies it on a simulator against
-fakes (no Firebase emulators) — iOS/Android alternate per step, both for
-platform-touching steps — checking every flow + dependent flows for bugs,
-exceptions, and overflow (size-matrix widget tests). /qa runs the full
-dual-platform sweep anytime.
+Each /step builds a slice of the spec, then verifies it on the iOS simulator
+against fakes (no Firebase emulators) — checking every flow + dependent flows
+for bugs, exceptions, and overflow (size-matrix widget tests). /qa runs the
+full iOS sweep anytime (add "android" to the scope for an Android sweep).
 
 To start building — step by step yourself:
     /step

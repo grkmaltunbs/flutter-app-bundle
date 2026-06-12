@@ -4,7 +4,7 @@
 Marches through PROJECT_PLAN.md unattended: for each pending step it spins up a
 fresh Claude Agent SDK `query()` that invokes the project's `/step` slash command
 natively — setting_sources=["project"] loads `.claude/commands/step.md` —
-(implement → test → verify on iOS+Android simulators against fakes), then this
+(implement → test → verify on the iOS simulator against fakes), then this
 driver commits the verified step and pushes to main.
 
 State lives in PROJECT_PLAN.md on disk — each step is an independent query()
@@ -324,8 +324,8 @@ def git(*args: str) -> subprocess.CompletedProcess:
 def _commit_message(step: dict) -> str:
     return (
         f"autobuild: step {step['id']} — {step['title']}\n\n"
-        "Built and verified on a simulator (demo flavor) by the autobuild "
-        "runner.\n\n"
+        "Built and verified on the iOS simulator (demo flavor) by the "
+        "autobuild runner.\n\n"
         f"Co-Authored-By: Claude ({MODEL}) <noreply@anthropic.com>"
     )
 

@@ -211,9 +211,9 @@ flutter test
 # Run / test the demo flavor (fakes) on a simulator — no Firebase emulators:
 flutter run --dart-define=APP_ENV=demo -d <device>
 flutter test integration_test/ --dart-define=APP_ENV=demo -d <ios-sim>
-flutter test integration_test/ --dart-define=APP_ENV=demo -d <android-emu>
+flutter test integration_test/ --dart-define=APP_ENV=demo -d <android-emu>  # (Android — on explicit request)
 xcrun simctl io "iPhone 16 Pro" screenshot /tmp/screenshot.png
-adb exec-out screencap -p > docs/screenshots/<name>.png
+adb exec-out screencap -p > docs/screenshots/<name>.png  # (Android — on explicit request)
 ```
 
 ## Codegen workflow
@@ -229,10 +229,10 @@ Generated files are committed. Workflow:
 After implementing a feature, `/step` (via the `flutter-qa` agent) gates on:
 1. `flutter analyze` — clean.
 2. `flutter test` — all unit/bloc/widget tests pass.
-3. Demo flavor runs on **one simulator** — the platform the previous step did
-   **not** use (both platforms when the step touches plugins, channels,
-   permissions, or `ios/`/`android/` config); the new flow's happy + error/edge
+3. Demo flavor runs on the **iOS simulator**; the new flow's happy + error/edge
    paths and **every dependent flow** are exercised via `integration_test`.
+   For steps touching `android/` or Android-specific behavior, add a one-line
+   non-blocking note: recommend an explicit Android `/qa` sweep.
 4. **Zero runtime errors/exceptions** in the Dart MCP error log during the runs.
 5. **Zero render (overflow) errors** across the responsive size matrix (see
    `PRODUCT_SPEC.md` → Non-functional) at textScale 1.0 and 2.0.

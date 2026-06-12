@@ -4,9 +4,8 @@ Steps are **derived from `PRODUCT_SPEC.md`** — every flow and screen in the sp
 maps to a step (or part of one). Each `## Step N` is one implementation session,
 worked through in order via `/step`. Mark `[x]` when complete.
 
-`/step` does not mark a step done until it has been **verified on a simulator**
-(demo flavor, fakes — no Firebase emulators; iOS/Android alternate per step,
-with both platforms at milestones and for platform-touching steps): the new flow
+`/step` does not mark a step done until it has been **verified on the iOS
+simulator** (demo flavor, fakes — no Firebase emulators): the new flow
 plus every dependent flow are exercised, with zero runtime errors/exceptions
 and zero render overflow across the responsive size matrix. Write Acceptance
 criteria as **verifiable flow/state outcomes taken from the spec**.
@@ -55,8 +54,8 @@ Set up the Flutter project scaffolding. `/init-app` already ran
 - `flutter analyze` exits 0.
 - `flutter test` exits 0.
 - `dart run build_runner build` succeeds.
-- App boots to a blank Material screen on an **iOS simulator** and an **Android
-  emulator** in the demo flavor (`--dart-define=APP_ENV=demo`) with fakes wired.
+- App boots to a blank Material screen on an **iOS simulator** in the demo
+  flavor (`--dart-define=APP_ENV=demo`) with fakes wired.
 - No runtime errors/exceptions in the Dart MCP error log on boot.
 
 ### Touchpoints

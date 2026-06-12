@@ -2,13 +2,12 @@
 
 `runner/autobuild.py` drives the bundle through `PROJECT_PLAN.md` with **no human
 in the loop**. For each pending step it runs a fresh Claude Agent SDK `query()`
-that follows `.claude/commands/step.md` — implement → test → verify on a
-simulator (demo flavor, fakes; iOS/Android alternate per step, both for
-platform-touching steps — `/qa` milestone sweeps cover both) — and the runner
-commits each verified step and pushes to `main`.
+that follows `.claude/commands/step.md` — implement → test → verify on the
+iOS simulator (demo flavor, fakes; Android runs only on an explicit `/qa`
+request) — and the runner commits each verified step and pushes to `main`.
 
 This is the headless twin of running `/step` over and over yourself. Use it once
-the plan is solid and the simulators work; babysit the first run.
+the plan is solid and the iOS simulator works; babysit the first run.
 
 ## What it does each iteration
 
@@ -41,7 +40,7 @@ the plan is solid and the simulators work; babysit the first run.
   source runner/.venv/bin/activate          # Windows: runner\.venv\Scripts\activate
   pip install -r runner/requirements.txt    # installs claude-agent-sdk
   ```
-- **Flutter toolchain** + a booted **iOS simulator** and **Android emulator**.
+- **Flutter toolchain** + a booted **iOS simulator**.
 - **Dart MCP** available (`dart mcp-server` — ships with the SDK).
 - A completed `/init-app` (so `PRODUCT_SPEC.md` + `PROJECT_PLAN.md` exist).
 - **Firebase MCP (optional)**: only needed if a step does real Firebase config.
@@ -53,7 +52,7 @@ the plan is solid and the simulators work; babysit the first run.
 ## Run
 
 Always run via the venv's interpreter (or `source .../activate` first).
-`caffeinate` keeps the Mac awake so the simulators keep running:
+`caffeinate` keeps the Mac awake so the simulator keeps running:
 
 ```bash
 # Smoke-test the wiring FIRST — runs one step, no commit/push, prints the diff:
@@ -127,8 +126,8 @@ permissive `settings.json` you use interactively:
 
 ## Caveats
 
-- **The Mac must stay awake and unlocked** — simulators need a live GUI session.
-  Use `caffeinate`; don't run it against a locked console.
+- **The Mac must stay awake and unlocked** — the simulator needs a live GUI
+  session. Use `caffeinate`; don't run it against a locked console.
 - **Cost is real.** A full plan on Opus can run into dollars; the budget cap is
   your backstop. Watch `autobuild.log` on the first run.
 - **Firebase MCP command** in `mcp_servers()` is

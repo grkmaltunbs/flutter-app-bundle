@@ -32,28 +32,24 @@ Workflow:
 5. Run `dart format .`, `flutter analyze`, `flutter test`. All green before
    proceeding.
 
-6. **Runtime verification (gating).** Pick **one platform** — the one the
-   previous step/feature did NOT verify on (check the latest `Verified on:`
-   line in the report / `docs/BUILD_NOTES.md`; default iOS when unknown). Use
-   **both** platforms only if the work touched plugins, platform channels,
-   permissions, or native config (files under `ios/` or `android/`). Delegate
-   to the **flutter-qa** agent with the chosen platform(s), the feature's
-   flows, and the dependent-flow regression set. It boots the specified
-   simulator(s), drives the new flow + dependent flows on the demo flavor, and
-   sweeps runtime errors — no screenshots on PASS, one screenshot of the
-   failing screen on FAIL (the multi-size visual pass lives in `/qa`). If it
-   returns FAIL, route defects (`→ debugger` / `→ developer` / `→ tester`);
-   after each fix re-run only the failed flow on the failing platform plus
-   analyze + affected unit tests, then run one final full pass when all defects
-   are green. Do not declare done while any runtime error or overflow remains.
+6. **Runtime verification (gating).** Delegate to the **flutter-qa** agent on
+   the **iOS simulator** with the feature's flows and the dependent-flow
+   regression set. It boots the iOS simulator, drives the new flow + dependent
+   flows on the demo flavor, and sweeps runtime errors — no screenshots on
+   PASS, one screenshot of the failing screen on FAIL (the multi-size visual
+   pass lives in `/qa`). If it returns FAIL, route defects (`→ debugger` /
+   `→ developer` / `→ tester`); after each fix re-run only the failed flow on
+   the iOS simulator plus analyze + affected unit tests, then run one final
+   full pass when all defects are green. Do not declare done while any runtime
+   error or overflow remains. If the work touched `android/` or platform
+   channels, recommend an explicit Android `/qa` sweep — a suggestion, never
+   a gate.
 
 7. Summarize:
    - What was built (one short paragraph)
    - Files added/modified
    - Test count delta
-   - flutter-qa verdict — including a `Verified on: iOS|Android` line (the
-     next step/feature alternates off it) — flows exercised, and any FAIL
-     screenshots
+   - flutter-qa verdict, flows exercised, and any FAIL screenshots
    - Anything left as TODO and why
 
 8. Record it in the plan: append the shipped feature to `PROJECT_PLAN.md` as a

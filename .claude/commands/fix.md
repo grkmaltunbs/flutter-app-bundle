@@ -19,11 +19,12 @@ Workflow:
 
 3. Scoped runtime verification — **only if the fix touched widgets, routes,
    rendering/layout, or platform channels**: delegate to **flutter-qa** with the
-   affected flow(s) and their regression set on **one platform** — the one where
-   the bug reproduced (demo flavor). Do not declare the fix complete until it
-   returns PASS. Logic-only fixes skip this: they're gated by the regression
-   test plus the full-suite run in step 2 (that run stays — it is this command's
-   single authoritative suite run).
+   affected flow(s) and their regression set on the **iOS simulator** (demo
+   flavor). Do not declare the fix complete until it returns PASS. If the bug
+   is Android-specific, say so explicitly and recommend an explicit Android
+   `/qa` sweep instead of silently passing. Logic-only fixes skip this:
+   they're gated by the regression test plus the full-suite run in step 2
+   (that run stays — it is this command's single authoritative suite run).
 
 4. Summarize:
    - Root cause in one paragraph (not just "what was changed" — *why* it broke)
