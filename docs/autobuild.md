@@ -2,9 +2,10 @@
 
 `runner/autobuild.py` drives the bundle through `PROJECT_PLAN.md` with **no human
 in the loop**. For each pending step it runs a fresh Claude Agent SDK `query()`
-that follows `.claude/commands/step.md` — implement → test → verify on the iOS
-and Android simulators (demo flavor, fakes) — and the runner commits each verified
-step and pushes to `main`.
+that follows `.claude/commands/step.md` — implement → test → verify on a
+simulator (demo flavor, fakes; iOS/Android alternate per step, both for
+platform-touching steps — `/qa` milestone sweeps cover both) — and the runner
+commits each verified step and pushes to `main`.
 
 This is the headless twin of running `/step` over and over yourself. Use it once
 the plan is solid and the simulators work; babysit the first run.

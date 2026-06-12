@@ -31,15 +31,15 @@ Workflow:
    - `BlocBuilder` without `buildWhen` for a multi-field state → add `buildWhen`
      or switch to `BlocSelector`
 
-3. **Refactor in small steps**, running tests after each:
-   - Extract → run tests
-   - Rename → run tests
-   - Move → run tests
+3. **Refactor in small steps**, running the affected tests after each:
+   - Extract → run affected tests
+   - Rename → run affected tests
+   - Move → run affected tests
    - Each commit-sized change is independently green
 
 4. **Verify**:
    - `flutter analyze` clean
-   - `flutter test` passes
+   - Affected tests pass (the /refactor gate owns the full-suite run)
    - No new TODOs introduced
    - Public API unchanged unless explicitly asked
    - If you touched `@freezed` / `@JsonSerializable` / `@injectable` /

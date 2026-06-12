@@ -60,7 +60,8 @@ Method:
 7. **Propose the fix**:
    - Minimal change. Explain root cause in one paragraph.
    - Regression test in place before the fix lands.
-   - Run `flutter analyze` + `flutter test` after the fix.
+   - Run `flutter analyze` + the affected test files after the fix (the
+     command gate owns the full-suite run).
 
 8. **Output**:
    - Root cause (one paragraph)

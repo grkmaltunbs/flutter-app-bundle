@@ -51,7 +51,9 @@ Workflow:
        empty/offline modes).
      - Pump the app via `app.main()` with `APP_ENV=demo`; assert on visible
        outcomes, not implementation details.
-     - These are what the **flutter-qa** agent runs on iOS + Android each step.
+     - These are what the **flutter-qa** agent runs each step on the
+       caller-specified platform(s) — one by default (alternating), both for
+       platform-touching steps and `/qa` sweeps.
 
    - **Overflow / responsive guard** — a widget test that pumps each top-level
      screen across the size matrix (smallest, typical, largest, tablet) at
@@ -66,13 +68,15 @@ Workflow:
      - One golden per state variant.
 
 3. **Run tests**:
-   - First: `flutter test test/path/to/changed_test.dart`
-   - Then: `flutter test` (full suite)
+   - Run the new/changed test files plus directly dependent test dirs:
+     `flutter test test/path/to/changed_test.dart` — the command gate owns the
+     full-suite run.
    - If a test fails, report the failure verbatim with the relevant code excerpt
      before attempting any fix.
 
 4. **Coverage** (optional, when meaningful):
-   - `flutter test --coverage`
+   - `flutter test --coverage <changed test paths>` (scoped — the command gate
+     owns full-suite runs)
    - Report the delta on changed files only — don't dump the whole report.
    - Target: domain + data layers ≥ 70% line coverage.
 

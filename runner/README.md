@@ -1,8 +1,9 @@
 # runner/ — autobuild
 
 Headless, unattended driver that marches the bundle through `PROJECT_PLAN.md`
-using the Claude Agent SDK: implement → test → verify on iOS + Android
-simulators (demo flavor, fakes) → commit → push, one step at a time.
+using the Claude Agent SDK: implement → test → verify on a simulator (demo
+flavor, fakes; iOS/Android alternate per step) → commit → push, one step at
+a time.
 
 Use a venv — bare `pip`/`python3` fails with `externally-managed-environment`
 on Homebrew Python:

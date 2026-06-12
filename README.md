@@ -63,7 +63,7 @@ docs/
    caffeinate -i runner/.venv/bin/python runner/autobuild.py    # touch .autobuild-stop to halt
    ```
    It runs `/step` end-to-end for every pending step — implement, test, verify on
-   the iOS + Android simulators, commit, push — stopping only when done, blocked
+   a simulator (iOS/Android alternate per step), commit, push — stopping only when done, blocked
    on a human-only task, or a guardrail/budget trips. See `docs/autobuild.md`.
 
 ## Commands
@@ -99,8 +99,9 @@ Specialist agents invoked automatically by commands:
 - **flutter-releaser** — Builds and prepares releases
 - **flutter-reviewer** — Reviews code (read-only findings)
 - **flutter-tester** — Writes unit/bloc/widget/integration tests
-- **flutter-qa** — Runs the app on iOS + Android simulators, drives every flow,
-  reports runtime errors and overflow (read-only)
+- **flutter-qa** — Runs the app on the caller-specified simulator(s) (one per
+  step, both in `/qa` sweeps), drives every flow, reports runtime errors and
+  overflow (read-only)
 - **flutter-ui-designer** — Builds polished UI components (routed to by `/step`
   and `/feature` for screens and visual polish)
 
@@ -121,14 +122,16 @@ simulators — offline, deterministic, never touching the live project.
 Each `/step` is gated by the **flutter-qa** agent before it counts as done:
 
 1. `flutter analyze` + `flutter test` — static + unit/bloc/widget tests
-2. The new flow **and its dependent flows** driven via `integration_test` on an
-   **iOS simulator and an Android emulator**
+2. The new flow **and its dependent flows** driven via `integration_test` on
+   **one simulator** — alternating iOS/Android per step; **both** when the step
+   touches plugins, channels, permissions, or native config
 3. Dart MCP runtime-error sweep — zero unhandled exceptions
-4. Responsive pass — zero render (overflow) errors across the size matrix
-   (iPhone SE → Pro Max → iPad; small/Pixel/tablet Android) at textScale 1.0 & 2.0
-5. `xcrun simctl io "<device>" screenshot` — visual capture
+4. Render safety — zero overflow via the widget-test size matrix
+   (320-wide → iPad; small/Pixel/tablet Android) at textScale 1.0 & 2.0
+5. On FAIL only: a screenshot of the failing screen as defect evidence
 
-Run it anytime with `/qa`.
+The full dual-platform + multi-size visual sweep lives in `/qa` (run it anytime)
+and runs before every `/ship`.
 
 ## Architecture
 

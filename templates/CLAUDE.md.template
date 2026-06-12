@@ -229,13 +229,15 @@ Generated files are committed. Workflow:
 After implementing a feature, `/step` (via the `flutter-qa` agent) gates on:
 1. `flutter analyze` — clean.
 2. `flutter test` — all unit/bloc/widget tests pass.
-3. Demo flavor runs on an **iOS simulator** and an **Android emulator**; the new
-   flow's happy + error/edge paths and **every dependent flow** are exercised
-   via `integration_test`.
+3. Demo flavor runs on **one simulator** — the platform the previous step did
+   **not** use (both platforms when the step touches plugins, channels,
+   permissions, or `ios/`/`android/` config); the new flow's happy + error/edge
+   paths and **every dependent flow** are exercised via `integration_test`.
 4. **Zero runtime errors/exceptions** in the Dart MCP error log during the runs.
 5. **Zero render (overflow) errors** across the responsive size matrix (see
    `PRODUCT_SPEC.md` → Non-functional) at textScale 1.0 and 2.0.
-6. Successful flows captured as permanent integration tests; screenshots saved.
+6. Successful flows captured as permanent integration tests; screenshots only as
+   FAIL evidence (the multi-size visual sweep runs in `/qa` and pre-`/ship`).
 
 ## Platform support
 

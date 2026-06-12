@@ -23,9 +23,11 @@ Workflow:
    - No public API changes unless explicitly requested
    - Codegen rerun if any annotated source changed
 
-5. If the refactor touched widgets, Blocs, or routes: delegate a scoped
-   **flutter-qa** pass over the affected flows (both platforms, demo flavor) —
-   behavior must be observably unchanged.
+5. If the refactor changed widget trees/layout, navigation structure, or DI
+   wiring: delegate a scoped **flutter-qa** pass over the affected flows (one
+   platform, demo flavor) — behavior must be observably unchanged. A pure
+   logic/Bloc-internal refactor with green characterization tests does not
+   need a QA pass.
 
 6. Summarize improvements, files touched, and any follow-up refactors worth
    doing later.

@@ -324,8 +324,8 @@ def git(*args: str) -> subprocess.CompletedProcess:
 def _commit_message(step: dict) -> str:
     return (
         f"autobuild: step {step['id']} — {step['title']}\n\n"
-        "Built and verified on iOS + Android simulators (demo flavor) by the "
-        "autobuild runner.\n\n"
+        "Built and verified on a simulator (demo flavor) by the autobuild "
+        "runner.\n\n"
         f"Co-Authored-By: Claude ({MODEL}) <noreply@anthropic.com>"
     )
 

@@ -6,9 +6,11 @@ allowed-tools: Read, Grep, Glob, Bash, Task, TodoWrite
 
 Run a full QA sweep on the iOS and Android simulators: $ARGUMENTS
 
-Delegate to the **flutter-qa** agent. This is the on-demand version of the
-verification phase that `/step` runs automatically — use it to re-check the whole
-app (e.g. before `/ship`, after a refactor, or when something feels off).
+Delegate to the **flutter-qa** agent. This is the **full dual-platform
+milestone sweep** — per-step gates verify on one platform at a time; both
+platforms and the multi-size visual pass live here. Use it to re-check the
+whole app at milestones (e.g. before `/ship`, which runs it, after a refactor,
+or when something feels off).
 
 Scope:
 - If `$ARGUMENTS` names a flow/feature/screen, verify that plus its dependent
@@ -23,7 +25,9 @@ The agent:
    **demo flavor** (`--dart-define=APP_ENV=demo`) — no Firebase emulators, never
    the live project.
 3. Sweeps the Dart MCP runtime-error log for exceptions/overflow.
-4. Captures screenshots at the smallest and largest sizes.
+4. Runs the **multi-size visual pass** — screenshots at the smallest and
+   largest sizes on both platforms. This pass belongs to this command (and
+   pre-`/ship`) only; per-step gates never do it.
 5. Returns **PASS**, or **FAIL** with per-defect platform, verbatim error/
    screenshot, repro, and routing tag (`→ debugger` / `→ developer` / `→ tester`).
 

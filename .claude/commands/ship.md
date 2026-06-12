@@ -15,7 +15,11 @@ Workflow:
 
 2. Run the full test suite. Block on failure.
 
-3. Delegate to the **flutter-releaser** agent. They will:
+3. Run the full `/qa` sweep — **both platforms**, all flows, plus the
+   multi-size visual pass (this is the pre-release home of the checks the
+   per-step gates skip). Block on FAIL.
+
+4. Delegate to the **flutter-releaser** agent. They will:
    - Run pre-flight Firebase + signing guardrail checks (project ID is the
      Firebase project ID recorded in CLAUDE.md (Project overview → "Firebase
      project"), verified at runtime via `firebase use`; rules locked,
@@ -24,7 +28,7 @@ Workflow:
    - Propose a CHANGELOG entry from git log since last tag
    - Build artifacts (after explicit confirmation per platform)
 
-4. Output:
+5. Output:
    - Artifact paths (APK, AAB, IPA)
    - File sizes
    - Submission checklist (the user uploads to stores — agent does not)

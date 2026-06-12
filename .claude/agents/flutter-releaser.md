@@ -27,7 +27,8 @@ Workflow:
    - Working tree clean? (`git status`)
    - On the right branch? (confirm with user)
    - `flutter analyze` — must be clean
-   - `flutter test` — must pass
+   - Full test suite green — /ship's gate already ran it; re-run only if
+     commits landed since
    - All `*.g.dart` / `*.freezed.dart` / `*.config.dart` up to date? Run codegen if needed.
    - Firebase + signing guardrail (above) — pass all checks.
 

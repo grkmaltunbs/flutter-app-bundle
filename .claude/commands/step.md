@@ -1,5 +1,5 @@
 ---
-description: Implement the next pending PROJECT_PLAN.md step and verify it on both simulators
+description: Implement the next pending PROJECT_PLAN.md step and verify it on a simulator
 argument-hint: [step-id]
 ---
 
@@ -10,8 +10,11 @@ step id. Otherwise, find the next pending step (first step whose dependencies ar
 all `[x]` and that isn't itself complete).
 
 A step is **not done when the code compiles** — it's done when the feature has
-been **verified running on the iOS and Android simulators**, with every flow (its
-own and dependent ones) exercised and zero runtime errors or overflow.
+been **verified running on a simulator** — by default the platform the previous
+step did NOT use (alternate iOS/Android; default iOS when unknown) — with every
+flow (its own and dependent ones) exercised and zero runtime errors or overflow.
+**Both** platforms are mandatory only when the step touches plugins, platform
+channels, permissions, or native build config (files under `ios/` or `android/`).
 
 ## Workflow
 
@@ -39,19 +42,30 @@ own and dependent ones) exercised and zero runtime errors or overflow.
    - `dart run build_runner build --delete-conflicting-outputs` (if codegen changed)
    - `dart format .`
    - `flutter analyze` — clean
-   - `flutter test` — all unit/bloc/widget tests pass
+   - `flutter test` — all unit/bloc/widget tests pass. This is the workflow's
+     **single full-suite run**; inner agents run only the affected test files.
 
-6. **Runtime verification (gating).** Delegate to **flutter-qa** with the step's
-   `spec_refs` and the **regression set** — the flows that depend on the same
-   Blocs, routes, repositories, or data this step touched. flutter-qa boots both
-   simulators, drives the new flow + dependent flows on the demo flavor, sweeps
-   the Dart MCP runtime-error log, and runs the responsive/overflow pass across
-   the size matrix. It returns **PASS** or **FAIL** with routed defects.
+6. **Runtime verification (gating).** Pick the platform: the one the previous
+   step did NOT verify on (check its `Verified on:` line in the report /
+   `docs/BUILD_NOTES.md`; default iOS when unknown). Use **both** platforms only
+   if the step touched plugins, platform channels, permissions, or native config
+   (files under `ios/` or `android/`). Delegate to **flutter-qa** with the
+   chosen platform(s), the step's `spec_refs`, and the **regression set** — the
+   flows that depend on the same Blocs, routes, repositories, or data this step
+   touched. flutter-qa boots the specified simulator(s), drives the new flow +
+   dependent flows on the demo flavor, and sweeps the Dart MCP runtime-error
+   log. No screenshots on PASS; on FAIL it captures one screenshot of the
+   failing screen as defect evidence. (The multi-size visual pass lives in
+   `/qa`, not here — per-step overflow protection is the overflow-guard tests +
+   the runtime-error sweep.) It returns **PASS** or **FAIL** with routed defects.
 
 7. **Resolve & re-verify.** If flutter-qa returns FAIL, route each defect:
    `→ flutter-debugger` (bugs), `→ flutter-developer` (missing behaviour),
-   `→ flutter-tester` (missing/flaky tests). Re-run step 6 until PASS. **Do not
-   mark the step complete while any defect or runtime error remains.**
+   `→ flutter-tester` (missing/flaky tests). After each fix, re-run **only** the
+   failed test/flow on the failing platform plus `flutter analyze` and the
+   affected unit tests. When all defects are individually green, run **one**
+   final full step-6 pass. **Do not mark the step complete while any defect or
+   runtime error remains.**
 
 8. **Mark complete.** Only after flutter-qa returns PASS, flip the step's
    checkbox `- [ ]` → `- [x]` in `PROJECT_PLAN.md`.
@@ -62,11 +76,12 @@ own and dependent ones) exercised and zero runtime errors or overflow.
    or when the user prefers manual git.
 
 10. **Report.** What was built, files touched, test-count delta, and the
-    **flutter-qa verdict** (platforms run, flows exercised). Do NOT capture or
-    open screenshots here — it's slow; report with what's already available
-    and at most list the paths of any screenshots flutter-qa saved. Append
-    durable findings — new fake seeds/toggles, environment quirks, defect root
-    causes — to `docs/BUILD_NOTES.md`.
+    **flutter-qa verdict** — including a `Verified on: iOS|Android` line (the
+    next step alternates off it). Do NOT capture or open screenshots here —
+    it's slow; report with what's already available and at most list the paths
+    of any screenshots flutter-qa saved. Append durable findings — the
+    `Verified on:` line, new fake seeds/toggles, environment quirks, defect
+    root causes — to `docs/BUILD_NOTES.md`.
 
 ## Rules
 - Do NOT skip ahead to other steps.

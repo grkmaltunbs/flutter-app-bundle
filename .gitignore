@@ -40,3 +40,4 @@ autobuild.log
 AUTOBUILD_NEEDS_HUMAN.md
 runner/__pycache__/
 runner/.venv/
+.claude/.analyze-queue

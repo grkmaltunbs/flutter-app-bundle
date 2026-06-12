@@ -17,9 +17,13 @@ Workflow:
    - Run `flutter analyze` — must be clean
    - Run `flutter test` — full suite must pass
 
-3. Scoped runtime verification: delegate to **flutter-qa** with the affected
-   flow(s) and their regression set on both platforms (demo flavor). Do not
-   declare the fix complete until it returns PASS.
+3. Scoped runtime verification — **only if the fix touched widgets, routes,
+   rendering/layout, or platform channels**: delegate to **flutter-qa** with the
+   affected flow(s) and their regression set on **one platform** — the one where
+   the bug reproduced (demo flavor). Do not declare the fix complete until it
+   returns PASS. Logic-only fixes skip this: they're gated by the regression
+   test plus the full-suite run in step 2 (that run stays — it is this command's
+   single authoritative suite run).
 
 4. Summarize:
    - Root cause in one paragraph (not just "what was changed" — *why* it broke)

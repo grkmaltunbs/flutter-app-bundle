@@ -45,14 +45,16 @@ Workflow:
    - All Firestore reads: `.where('ownerId', isEqualTo: uid)` + `.limit(...)`.
    - All multi-doc writes use `WriteBatch` or `runTransaction`.
 
-5. **Codegen** — after editing any `@freezed`, `@JsonSerializable`,
-   `@DriftDatabase`, `@injectable`, or `@module`-annotated file, run:
+5. **Codegen** — after finishing the batch of `@freezed`, `@JsonSerializable`,
+   `@DriftDatabase`, `@injectable`, or `@module`-annotated edits, run ONCE,
+   before verification — never per file:
    `dart run build_runner build --delete-conflicting-outputs`
 
 6. **Verify before declaring done**:
    - `dart format .`
    - `flutter analyze` — must be clean
-   - `flutter test` — must pass (run the affected test files first, then full suite)
+   - `flutter test <affected test files>` — must pass. Run the affected test
+     files only; the orchestrating command's gate owns the single full-suite run.
 
 7. **Summarize** what you changed, in one short paragraph + a bullet list of
    files. Note any TODOs you left and why.
