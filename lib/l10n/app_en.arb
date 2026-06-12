@@ -750,6 +750,357 @@
     "description": "Accessibility label for the banner dismiss button."
   },
 
+  "resultStepEyebrow": "3/3 · RESULT",
+  "@resultStepEyebrow": {
+    "description": "Eyebrow step indicator at the top of the result screen."
+  },
+  "resultCloseSemantics": "Close result",
+  "@resultCloseSemantics": {
+    "description": "Accessibility label for the result screen's close (X) button."
+  },
+  "resultSolving": "Calculating…",
+  "@resultSolving": {
+    "description": "Progress label while the solver runs."
+  },
+  "resultErrorTitle": "Could not calculate",
+  "@resultErrorTitle": {
+    "description": "Title of the solver-failure view."
+  },
+  "resultErrorBody": "The solver hit an error. Please try again.",
+  "@resultErrorBody": {
+    "description": "Body of the solver-failure view."
+  },
+  "resultRetry": "Try again",
+  "@resultRetry": {
+    "description": "Action that re-runs the solver after a failure."
+  },
+  "resultAgain": "Again",
+  "@resultAgain": {
+    "description": "Footer action that starts a new scan from the camera."
+  },
+  "resultDone": "Done",
+  "@resultDone": {
+    "description": "Footer action that finishes the flow and returns home."
+  },
+
+  "resultOpensEyebrow": "YOU CAN OPEN",
+  "@resultOpensEyebrow": {
+    "description": "Eyebrow above the verdict when the 101 hand opens."
+  },
+  "resultClosesEyebrow": "NOT YET",
+  "@resultClosesEyebrow": {
+    "description": "Eyebrow above the verdict when the 101 hand does not open."
+  },
+  "resultOpensVerdict": "Opens.",
+  "@resultOpensVerdict": {
+    "description": "The big serif verdict when the 101 hand opens."
+  },
+  "resultClosesVerdict": "No open.",
+  "@resultClosesVerdict": {
+    "description": "The big serif verdict when the 101 hand does not open."
+  },
+  "resultScoreLabel": "SCORE",
+  "@resultScoreLabel": {
+    "description": "Mono label before the meld score on the verdict header."
+  },
+  "resultScoreOutOf": "/ 101",
+  "@resultScoreOutOf": {
+    "description": "Mono suffix after the score showing the 101 threshold."
+  },
+  "resultPointsShort": "{points} short. Best possible play:",
+  "@resultPointsShort": {
+    "description": "Caption under a does-not-open verdict with the missing points.",
+    "placeholders": {
+      "points": { "type": "int", "example": "13" }
+    }
+  },
+  "resultOpensViaPairs": "Opens with five pairs.",
+  "@resultOpensViaPairs": {
+    "description": "Caption when the 101 hand opens via the five-pairs path."
+  },
+
+  "resultOkeyEyebrow": "BEST HAND",
+  "@resultOkeyEyebrow": {
+    "description": "Eyebrow above the okey-mode verdict header."
+  },
+  "resultOkeyWin": "Winning hand.",
+  "@resultOkeyWin": {
+    "description": "Okey-mode headline when the rack already wins (0 tiles to go)."
+  },
+  "resultOkeyTilesToWinHeadline": "{count, plural, =1{1 tile to go.} other{{count} tiles to go.}}",
+  "@resultOkeyTilesToWinHeadline": {
+    "description": "Okey-mode headline with the minimum tile exchanges to a win.",
+    "placeholders": {
+      "count": { "type": "int", "example": "2" }
+    }
+  },
+  "resultOkeyTilesToWinLabel": "TILES TO WIN",
+  "@resultOkeyTilesToWinLabel": {
+    "description": "Mono label before the tiles-to-win figure on the okey verdict."
+  },
+  "resultOkeyViaSevenPairs": "Via seven pairs.",
+  "@resultOkeyViaSevenPairs": {
+    "description": "Caption when the okey winning template is seven pairs."
+  },
+  "resultTilesNeeded": "{count, plural, =1{1 tile needed} other{{count} tiles needed}}",
+  "@resultTilesNeeded": {
+    "description": "Summary caption of how many tiles the okey arrangement still needs.",
+    "placeholders": {
+      "count": { "type": "int", "example": "2" }
+    }
+  },
+  "resultDiscardSuggestion": "DISCARD",
+  "@resultDiscardSuggestion": {
+    "description": "Eyebrow above the suggested discard tile (okey 15-tile racks)."
+  },
+
+  "resultBestArrangement": "BEST ARRANGEMENT",
+  "@resultBestArrangement": {
+    "description": "Eyebrow above the arranged rack layout."
+  },
+  "resultGroups": "GROUPS",
+  "@resultGroups": {
+    "description": "Eyebrow above the list layout of melds and pairs."
+  },
+  "resultLayoutRack": "Rack",
+  "@resultLayoutRack": {
+    "description": "Layout toggle pill: the arranged-rack view."
+  },
+  "resultLayoutList": "List",
+  "@resultLayoutList": {
+    "description": "Layout toggle pill: the per-group list view."
+  },
+  "resultMeldRun": "Run",
+  "@resultMeldRun": {
+    "description": "Label of a run meld (same color, consecutive numbers)."
+  },
+  "resultMeldSet": "Set",
+  "@resultMeldSet": {
+    "description": "Label of a set meld (same number, distinct colors)."
+  },
+  "resultPairLabel": "Pair",
+  "@resultPairLabel": {
+    "description": "Label of a pair group in a pairs-path arrangement."
+  },
+  "resultLegendTileCount": "{count} tiles",
+  "@resultLegendTileCount": {
+    "description": "Tile count after a group label in the rack legend.",
+    "placeholders": {
+      "count": { "type": "int", "example": "4" }
+    }
+  },
+  "resultLeftover": "Leftover · {count}",
+  "@resultLeftover": {
+    "description": "Label of the unused-tiles row/card with the leftover count.",
+    "placeholders": {
+      "count": { "type": "int", "example": "3" }
+    }
+  },
+
+  "resultWhyThis": "WHY THIS?",
+  "@resultWhyThis": {
+    "description": "Eyebrow above the step-by-step reasoning card."
+  },
+  "resultDetailLockedTitle": "Detailed reasoning",
+  "@resultDetailLockedTitle": {
+    "description": "Title of the locked reasoning card."
+  },
+  "resultDetailLockedBody": "Unlock the step-by-step explanation.",
+  "@resultDetailLockedBody": {
+    "description": "Body of the locked reasoning card."
+  },
+  "resultDetailUnlockCta": "Unlock",
+  "@resultDetailUnlockCta": {
+    "description": "CTA on the locked reasoning card (rewarded-ad gate in Step 11)."
+  },
+
+  "resultReasonOkeyDerived": "Indicator {indicator} → okey is {okey}.",
+  "@resultReasonOkeyDerived": {
+    "description": "Reasoning step: the okey derived from the indicator.",
+    "placeholders": {
+      "indicator": { "type": "String", "example": "Red 5" },
+      "okey": { "type": "String", "example": "Red 6" }
+    }
+  },
+  "resultReasonWildsCounted": "Counted {falseJokers} false jokers, {okeyCopies} okey tiles.",
+  "@resultReasonWildsCounted": {
+    "description": "Reasoning step: wilds counted on the rack.",
+    "placeholders": {
+      "falseJokers": { "type": "int", "example": "1" },
+      "okeyCopies": { "type": "int", "example": "2" }
+    }
+  },
+  "resultReasonRackCountNoted": "{count} tiles on the rack ({mode}).",
+  "@resultReasonRackCountNoted": {
+    "description": "Reasoning step: the rack size noted against the mode.",
+    "placeholders": {
+      "count": { "type": "int", "example": "21" },
+      "mode": { "type": "String", "example": "101 Okey" }
+    }
+  },
+  "resultReasonCountsClamped": "Dropped {dropped} extra copies of {kind}.",
+  "@resultReasonCountsClamped": {
+    "description": "Reasoning step: excess copies of one tile kind were dropped.",
+    "placeholders": {
+      "kind": { "type": "String", "example": "Red 5" },
+      "dropped": { "type": "int", "example": "1" }
+    }
+  },
+  "resultReasonMeldFormed": "Formed {meld} → running total {runningTotal}.",
+  "@resultReasonMeldFormed": {
+    "description": "Reasoning step: a meld was formed with the score so far.",
+    "placeholders": {
+      "meld": { "type": "String", "example": "Red run 5–8" },
+      "runningTotal": { "type": "int", "example": "26" }
+    }
+  },
+  "resultReasonThresholdOpens": "Total {total} ≥ {threshold} — opens.",
+  "@resultReasonThresholdOpens": {
+    "description": "Reasoning step: the meld total reaches the opening threshold.",
+    "placeholders": {
+      "total": { "type": "int", "example": "104" },
+      "threshold": { "type": "int", "example": "101" }
+    }
+  },
+  "resultReasonThresholdShort": "Total {total} < {threshold} — does not open.",
+  "@resultReasonThresholdShort": {
+    "description": "Reasoning step: the meld total misses the opening threshold.",
+    "placeholders": {
+      "total": { "type": "int", "example": "88" },
+      "threshold": { "type": "int", "example": "101" }
+    }
+  },
+  "resultReasonPairsCountedOpens": "Found {pairCount} pairs — opens with five pairs.",
+  "@resultReasonPairsCountedOpens": {
+    "description": "Reasoning step: enough pairs for the five-pairs opening.",
+    "placeholders": {
+      "pairCount": { "type": "int", "example": "5" }
+    }
+  },
+  "resultReasonPairsCounted": "Found {pairCount} pairs.",
+  "@resultReasonPairsCounted": {
+    "description": "Reasoning step: achievable pairs counted (no five-pairs open).",
+    "placeholders": {
+      "pairCount": { "type": "int", "example": "3" }
+    }
+  },
+  "resultReasonPathChosen": "Opening path: {path}.",
+  "@resultReasonPathChosen": {
+    "description": "Reasoning step: which 101 opening path the verdict uses.",
+    "placeholders": {
+      "path": { "type": "String", "example": "runs and sets" }
+    }
+  },
+  "resultPathMelds": "runs and sets",
+  "@resultPathMelds": {
+    "description": "Name of the melds opening path inside resultReasonPathChosen."
+  },
+  "resultPathPairs": "five pairs",
+  "@resultPathPairs": {
+    "description": "Name of the pairs opening path inside resultReasonPathChosen."
+  },
+  "resultReasonOkeyTemplateChosen": "{template}: {matched} tiles placed, {wildsUsed} wilds used.",
+  "@resultReasonOkeyTemplateChosen": {
+    "description": "Reasoning step: the chosen okey winning template and its fill.",
+    "placeholders": {
+      "template": { "type": "String", "example": "Melds + pair" },
+      "matched": { "type": "int", "example": "12" },
+      "wildsUsed": { "type": "int", "example": "2" }
+    }
+  },
+  "resultTemplateMeldsAndPair": "Melds + pair",
+  "@resultTemplateMeldsAndPair": {
+    "description": "Name of the melds-and-pair okey winning template."
+  },
+  "resultTemplateSevenPairs": "Seven pairs",
+  "@resultTemplateSevenPairs": {
+    "description": "Name of the seven-pairs okey winning template."
+  },
+  "resultReasonTilesNeeded": "Tiles needed: {tiles}.",
+  "@resultReasonTilesNeeded": {
+    "description": "Reasoning step: the exact tiles still needed, comma-joined.",
+    "placeholders": {
+      "tiles": { "type": "String", "example": "Red 5, Blue 9" }
+    }
+  },
+  "resultReasonDiscardSuggested": "Suggested discard: {tile}.",
+  "@resultReasonDiscardSuggested": {
+    "description": "Reasoning step: the suggested discard for a 15-tile okey rack.",
+    "placeholders": {
+      "tile": { "type": "String", "example": "Black 11" }
+    }
+  },
+  "resultReasonTilesToWin": "{count, plural, =1{1 tile to win.} other{{count} tiles to win.}}",
+  "@resultReasonTilesToWin": {
+    "description": "Reasoning step: the final tiles-to-win figure.",
+    "placeholders": {
+      "count": { "type": "int", "example": "2" }
+    }
+  },
+  "resultMeldRunDescription": "{color} run {first}–{last}",
+  "@resultMeldRunDescription": {
+    "description": "Describes a run meld inside resultReasonMeldFormed.",
+    "placeholders": {
+      "color": { "type": "String", "example": "Red" },
+      "first": { "type": "int", "example": "5" },
+      "last": { "type": "int", "example": "8" }
+    }
+  },
+  "resultMeldSetDescription": "set of {number}s ({count} colors)",
+  "@resultMeldSetDescription": {
+    "description": "Describes a set meld inside resultReasonMeldFormed.",
+    "placeholders": {
+      "number": { "type": "int", "example": "5" },
+      "count": { "type": "int", "example": "3" }
+    }
+  },
+
+  "resultCellSemantics": "{tile}, {group}",
+  "@resultCellSemantics": {
+    "description": "Accessibility label for an arranged rack cell inside a group.",
+    "placeholders": {
+      "tile": { "type": "String", "example": "Red 7" },
+      "group": { "type": "String", "example": "Run, group 1" }
+    }
+  },
+  "resultGroupSemantics": "{label}, group {index}",
+  "@resultGroupSemantics": {
+    "description": "Accessibility description of a group (run/set/pair) by index.",
+    "placeholders": {
+      "label": { "type": "String", "example": "Run" },
+      "index": { "type": "int", "example": "1" }
+    }
+  },
+  "resultNeededTileSemantics": "Needed tile: {tile}",
+  "@resultNeededTileSemantics": {
+    "description": "Accessibility label for a still-needed (phantom) tile.",
+    "placeholders": {
+      "tile": { "type": "String", "example": "Red 5" }
+    }
+  },
+  "resultWildTileSemantics": "Wild, playing as {tile}",
+  "@resultWildTileSemantics": {
+    "description": "Accessibility label for a wild standing in for a tile.",
+    "placeholders": {
+      "tile": { "type": "String", "example": "Red 5" }
+    }
+  },
+  "resultDiscardTileSemantics": "Suggested discard: {tile}",
+  "@resultDiscardTileSemantics": {
+    "description": "Accessibility label for the suggested-discard tile.",
+    "placeholders": {
+      "tile": { "type": "String", "example": "Black 11" }
+    }
+  },
+  "resultModeOneZeroOne": "101 Okey",
+  "@resultModeOneZeroOne": {
+    "description": "Mode name inside resultReasonRackCountNoted (101 mode)."
+  },
+  "resultModeOkey": "Okey",
+  "@resultModeOkey": {
+    "description": "Mode name inside resultReasonRackCountNoted (okey mode)."
+  },
+
   "tileSemantics": "{color} {number}",
   "@tileSemantics": {
     "description": "Accessibility label for a numbered tile.",

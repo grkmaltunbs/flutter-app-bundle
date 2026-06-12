@@ -678,6 +678,269 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sessionExpiredDismiss => 'Dismiss';
 
   @override
+  String get resultStepEyebrow => '3/3 · RESULT';
+
+  @override
+  String get resultCloseSemantics => 'Close result';
+
+  @override
+  String get resultSolving => 'Calculating…';
+
+  @override
+  String get resultErrorTitle => 'Could not calculate';
+
+  @override
+  String get resultErrorBody => 'The solver hit an error. Please try again.';
+
+  @override
+  String get resultRetry => 'Try again';
+
+  @override
+  String get resultAgain => 'Again';
+
+  @override
+  String get resultDone => 'Done';
+
+  @override
+  String get resultOpensEyebrow => 'YOU CAN OPEN';
+
+  @override
+  String get resultClosesEyebrow => 'NOT YET';
+
+  @override
+  String get resultOpensVerdict => 'Opens.';
+
+  @override
+  String get resultClosesVerdict => 'No open.';
+
+  @override
+  String get resultScoreLabel => 'SCORE';
+
+  @override
+  String get resultScoreOutOf => '/ 101';
+
+  @override
+  String resultPointsShort(int points) {
+    return '$points short. Best possible play:';
+  }
+
+  @override
+  String get resultOpensViaPairs => 'Opens with five pairs.';
+
+  @override
+  String get resultOkeyEyebrow => 'BEST HAND';
+
+  @override
+  String get resultOkeyWin => 'Winning hand.';
+
+  @override
+  String resultOkeyTilesToWinHeadline(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count tiles to go.',
+      one: '1 tile to go.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get resultOkeyTilesToWinLabel => 'TILES TO WIN';
+
+  @override
+  String get resultOkeyViaSevenPairs => 'Via seven pairs.';
+
+  @override
+  String resultTilesNeeded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count tiles needed',
+      one: '1 tile needed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get resultDiscardSuggestion => 'DISCARD';
+
+  @override
+  String get resultBestArrangement => 'BEST ARRANGEMENT';
+
+  @override
+  String get resultGroups => 'GROUPS';
+
+  @override
+  String get resultLayoutRack => 'Rack';
+
+  @override
+  String get resultLayoutList => 'List';
+
+  @override
+  String get resultMeldRun => 'Run';
+
+  @override
+  String get resultMeldSet => 'Set';
+
+  @override
+  String get resultPairLabel => 'Pair';
+
+  @override
+  String resultLegendTileCount(int count) {
+    return '$count tiles';
+  }
+
+  @override
+  String resultLeftover(int count) {
+    return 'Leftover · $count';
+  }
+
+  @override
+  String get resultWhyThis => 'WHY THIS?';
+
+  @override
+  String get resultDetailLockedTitle => 'Detailed reasoning';
+
+  @override
+  String get resultDetailLockedBody => 'Unlock the step-by-step explanation.';
+
+  @override
+  String get resultDetailUnlockCta => 'Unlock';
+
+  @override
+  String resultReasonOkeyDerived(String indicator, String okey) {
+    return 'Indicator $indicator → okey is $okey.';
+  }
+
+  @override
+  String resultReasonWildsCounted(int falseJokers, int okeyCopies) {
+    return 'Counted $falseJokers false jokers, $okeyCopies okey tiles.';
+  }
+
+  @override
+  String resultReasonRackCountNoted(int count, String mode) {
+    return '$count tiles on the rack ($mode).';
+  }
+
+  @override
+  String resultReasonCountsClamped(String kind, int dropped) {
+    return 'Dropped $dropped extra copies of $kind.';
+  }
+
+  @override
+  String resultReasonMeldFormed(String meld, int runningTotal) {
+    return 'Formed $meld → running total $runningTotal.';
+  }
+
+  @override
+  String resultReasonThresholdOpens(int total, int threshold) {
+    return 'Total $total ≥ $threshold — opens.';
+  }
+
+  @override
+  String resultReasonThresholdShort(int total, int threshold) {
+    return 'Total $total < $threshold — does not open.';
+  }
+
+  @override
+  String resultReasonPairsCountedOpens(int pairCount) {
+    return 'Found $pairCount pairs — opens with five pairs.';
+  }
+
+  @override
+  String resultReasonPairsCounted(int pairCount) {
+    return 'Found $pairCount pairs.';
+  }
+
+  @override
+  String resultReasonPathChosen(String path) {
+    return 'Opening path: $path.';
+  }
+
+  @override
+  String get resultPathMelds => 'runs and sets';
+
+  @override
+  String get resultPathPairs => 'five pairs';
+
+  @override
+  String resultReasonOkeyTemplateChosen(
+    String template,
+    int matched,
+    int wildsUsed,
+  ) {
+    return '$template: $matched tiles placed, $wildsUsed wilds used.';
+  }
+
+  @override
+  String get resultTemplateMeldsAndPair => 'Melds + pair';
+
+  @override
+  String get resultTemplateSevenPairs => 'Seven pairs';
+
+  @override
+  String resultReasonTilesNeeded(String tiles) {
+    return 'Tiles needed: $tiles.';
+  }
+
+  @override
+  String resultReasonDiscardSuggested(String tile) {
+    return 'Suggested discard: $tile.';
+  }
+
+  @override
+  String resultReasonTilesToWin(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count tiles to win.',
+      one: '1 tile to win.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String resultMeldRunDescription(String color, int first, int last) {
+    return '$color run $first–$last';
+  }
+
+  @override
+  String resultMeldSetDescription(int number, int count) {
+    return 'set of ${number}s ($count colors)';
+  }
+
+  @override
+  String resultCellSemantics(String tile, String group) {
+    return '$tile, $group';
+  }
+
+  @override
+  String resultGroupSemantics(String label, int index) {
+    return '$label, group $index';
+  }
+
+  @override
+  String resultNeededTileSemantics(String tile) {
+    return 'Needed tile: $tile';
+  }
+
+  @override
+  String resultWildTileSemantics(String tile) {
+    return 'Wild, playing as $tile';
+  }
+
+  @override
+  String resultDiscardTileSemantics(String tile) {
+    return 'Suggested discard: $tile';
+  }
+
+  @override
+  String get resultModeOneZeroOne => '101 Okey';
+
+  @override
+  String get resultModeOkey => 'Okey';
+
+  @override
   String tileSemantics(String color, int number) {
     return '$color $number';
   }

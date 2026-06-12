@@ -262,7 +262,7 @@ from them.
 ---
 
 ## Step 8 — Result presentation (verdict, rack, melds, layouts)
-- [ ]
+- [x]
 - id: result
 - depends_on: solver
 - spec_refs: flow-scan (result), screen-result, f-result

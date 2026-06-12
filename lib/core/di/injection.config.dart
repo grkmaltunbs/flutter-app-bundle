@@ -83,6 +83,10 @@ import 'package:okey_acar_mi/features/detection/domain/usecases/detect_tiles.dar
     as _i437;
 import 'package:okey_acar_mi/features/detection/presentation/blocs/detection_bloc.dart'
     as _i105;
+import 'package:okey_acar_mi/features/result/presentation/blocs/result_bloc.dart'
+    as _i120;
+import 'package:okey_acar_mi/features/review/domain/entities/review_outcome.dart'
+    as _i389;
 import 'package:okey_acar_mi/features/review/presentation/blocs/review_bloc.dart'
     as _i739;
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart'
@@ -211,6 +215,13 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i502.SolveRack>(
       () => _i502.SolveRack(gh<_i641.SolverEngine>()),
+    );
+    gh.factoryParam<_i120.ResultBloc, _i389.ReviewOutcome, dynamic>(
+      (outcome, _) => _i120.ResultBloc(
+        gh<_i502.SolveRack>(),
+        gh<_i856.AppLogger>(),
+        outcome,
+      ),
     );
     gh.factory<_i1033.GetTemplateItems>(
       () => _i1033.GetTemplateItems(gh<_i434.TemplateRepository>()),

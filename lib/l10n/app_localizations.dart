@@ -1352,6 +1352,388 @@ abstract class AppLocalizations {
   /// **'Dismiss'**
   String get sessionExpiredDismiss;
 
+  /// Eyebrow step indicator at the top of the result screen.
+  ///
+  /// In en, this message translates to:
+  /// **'3/3 · RESULT'**
+  String get resultStepEyebrow;
+
+  /// Accessibility label for the result screen's close (X) button.
+  ///
+  /// In en, this message translates to:
+  /// **'Close result'**
+  String get resultCloseSemantics;
+
+  /// Progress label while the solver runs.
+  ///
+  /// In en, this message translates to:
+  /// **'Calculating…'**
+  String get resultSolving;
+
+  /// Title of the solver-failure view.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not calculate'**
+  String get resultErrorTitle;
+
+  /// Body of the solver-failure view.
+  ///
+  /// In en, this message translates to:
+  /// **'The solver hit an error. Please try again.'**
+  String get resultErrorBody;
+
+  /// Action that re-runs the solver after a failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get resultRetry;
+
+  /// Footer action that starts a new scan from the camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Again'**
+  String get resultAgain;
+
+  /// Footer action that finishes the flow and returns home.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get resultDone;
+
+  /// Eyebrow above the verdict when the 101 hand opens.
+  ///
+  /// In en, this message translates to:
+  /// **'YOU CAN OPEN'**
+  String get resultOpensEyebrow;
+
+  /// Eyebrow above the verdict when the 101 hand does not open.
+  ///
+  /// In en, this message translates to:
+  /// **'NOT YET'**
+  String get resultClosesEyebrow;
+
+  /// The big serif verdict when the 101 hand opens.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens.'**
+  String get resultOpensVerdict;
+
+  /// The big serif verdict when the 101 hand does not open.
+  ///
+  /// In en, this message translates to:
+  /// **'No open.'**
+  String get resultClosesVerdict;
+
+  /// Mono label before the meld score on the verdict header.
+  ///
+  /// In en, this message translates to:
+  /// **'SCORE'**
+  String get resultScoreLabel;
+
+  /// Mono suffix after the score showing the 101 threshold.
+  ///
+  /// In en, this message translates to:
+  /// **'/ 101'**
+  String get resultScoreOutOf;
+
+  /// Caption under a does-not-open verdict with the missing points.
+  ///
+  /// In en, this message translates to:
+  /// **'{points} short. Best possible play:'**
+  String resultPointsShort(int points);
+
+  /// Caption when the 101 hand opens via the five-pairs path.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens with five pairs.'**
+  String get resultOpensViaPairs;
+
+  /// Eyebrow above the okey-mode verdict header.
+  ///
+  /// In en, this message translates to:
+  /// **'BEST HAND'**
+  String get resultOkeyEyebrow;
+
+  /// Okey-mode headline when the rack already wins (0 tiles to go).
+  ///
+  /// In en, this message translates to:
+  /// **'Winning hand.'**
+  String get resultOkeyWin;
+
+  /// Okey-mode headline with the minimum tile exchanges to a win.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 tile to go.} other{{count} tiles to go.}}'**
+  String resultOkeyTilesToWinHeadline(int count);
+
+  /// Mono label before the tiles-to-win figure on the okey verdict.
+  ///
+  /// In en, this message translates to:
+  /// **'TILES TO WIN'**
+  String get resultOkeyTilesToWinLabel;
+
+  /// Caption when the okey winning template is seven pairs.
+  ///
+  /// In en, this message translates to:
+  /// **'Via seven pairs.'**
+  String get resultOkeyViaSevenPairs;
+
+  /// Summary caption of how many tiles the okey arrangement still needs.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 tile needed} other{{count} tiles needed}}'**
+  String resultTilesNeeded(int count);
+
+  /// Eyebrow above the suggested discard tile (okey 15-tile racks).
+  ///
+  /// In en, this message translates to:
+  /// **'DISCARD'**
+  String get resultDiscardSuggestion;
+
+  /// Eyebrow above the arranged rack layout.
+  ///
+  /// In en, this message translates to:
+  /// **'BEST ARRANGEMENT'**
+  String get resultBestArrangement;
+
+  /// Eyebrow above the list layout of melds and pairs.
+  ///
+  /// In en, this message translates to:
+  /// **'GROUPS'**
+  String get resultGroups;
+
+  /// Layout toggle pill: the arranged-rack view.
+  ///
+  /// In en, this message translates to:
+  /// **'Rack'**
+  String get resultLayoutRack;
+
+  /// Layout toggle pill: the per-group list view.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get resultLayoutList;
+
+  /// Label of a run meld (same color, consecutive numbers).
+  ///
+  /// In en, this message translates to:
+  /// **'Run'**
+  String get resultMeldRun;
+
+  /// Label of a set meld (same number, distinct colors).
+  ///
+  /// In en, this message translates to:
+  /// **'Set'**
+  String get resultMeldSet;
+
+  /// Label of a pair group in a pairs-path arrangement.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair'**
+  String get resultPairLabel;
+
+  /// Tile count after a group label in the rack legend.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} tiles'**
+  String resultLegendTileCount(int count);
+
+  /// Label of the unused-tiles row/card with the leftover count.
+  ///
+  /// In en, this message translates to:
+  /// **'Leftover · {count}'**
+  String resultLeftover(int count);
+
+  /// Eyebrow above the step-by-step reasoning card.
+  ///
+  /// In en, this message translates to:
+  /// **'WHY THIS?'**
+  String get resultWhyThis;
+
+  /// Title of the locked reasoning card.
+  ///
+  /// In en, this message translates to:
+  /// **'Detailed reasoning'**
+  String get resultDetailLockedTitle;
+
+  /// Body of the locked reasoning card.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock the step-by-step explanation.'**
+  String get resultDetailLockedBody;
+
+  /// CTA on the locked reasoning card (rewarded-ad gate in Step 11).
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get resultDetailUnlockCta;
+
+  /// Reasoning step: the okey derived from the indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Indicator {indicator} → okey is {okey}.'**
+  String resultReasonOkeyDerived(String indicator, String okey);
+
+  /// Reasoning step: wilds counted on the rack.
+  ///
+  /// In en, this message translates to:
+  /// **'Counted {falseJokers} false jokers, {okeyCopies} okey tiles.'**
+  String resultReasonWildsCounted(int falseJokers, int okeyCopies);
+
+  /// Reasoning step: the rack size noted against the mode.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} tiles on the rack ({mode}).'**
+  String resultReasonRackCountNoted(int count, String mode);
+
+  /// Reasoning step: excess copies of one tile kind were dropped.
+  ///
+  /// In en, this message translates to:
+  /// **'Dropped {dropped} extra copies of {kind}.'**
+  String resultReasonCountsClamped(String kind, int dropped);
+
+  /// Reasoning step: a meld was formed with the score so far.
+  ///
+  /// In en, this message translates to:
+  /// **'Formed {meld} → running total {runningTotal}.'**
+  String resultReasonMeldFormed(String meld, int runningTotal);
+
+  /// Reasoning step: the meld total reaches the opening threshold.
+  ///
+  /// In en, this message translates to:
+  /// **'Total {total} ≥ {threshold} — opens.'**
+  String resultReasonThresholdOpens(int total, int threshold);
+
+  /// Reasoning step: the meld total misses the opening threshold.
+  ///
+  /// In en, this message translates to:
+  /// **'Total {total} < {threshold} — does not open.'**
+  String resultReasonThresholdShort(int total, int threshold);
+
+  /// Reasoning step: enough pairs for the five-pairs opening.
+  ///
+  /// In en, this message translates to:
+  /// **'Found {pairCount} pairs — opens with five pairs.'**
+  String resultReasonPairsCountedOpens(int pairCount);
+
+  /// Reasoning step: achievable pairs counted (no five-pairs open).
+  ///
+  /// In en, this message translates to:
+  /// **'Found {pairCount} pairs.'**
+  String resultReasonPairsCounted(int pairCount);
+
+  /// Reasoning step: which 101 opening path the verdict uses.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening path: {path}.'**
+  String resultReasonPathChosen(String path);
+
+  /// Name of the melds opening path inside resultReasonPathChosen.
+  ///
+  /// In en, this message translates to:
+  /// **'runs and sets'**
+  String get resultPathMelds;
+
+  /// Name of the pairs opening path inside resultReasonPathChosen.
+  ///
+  /// In en, this message translates to:
+  /// **'five pairs'**
+  String get resultPathPairs;
+
+  /// Reasoning step: the chosen okey winning template and its fill.
+  ///
+  /// In en, this message translates to:
+  /// **'{template}: {matched} tiles placed, {wildsUsed} wilds used.'**
+  String resultReasonOkeyTemplateChosen(
+    String template,
+    int matched,
+    int wildsUsed,
+  );
+
+  /// Name of the melds-and-pair okey winning template.
+  ///
+  /// In en, this message translates to:
+  /// **'Melds + pair'**
+  String get resultTemplateMeldsAndPair;
+
+  /// Name of the seven-pairs okey winning template.
+  ///
+  /// In en, this message translates to:
+  /// **'Seven pairs'**
+  String get resultTemplateSevenPairs;
+
+  /// Reasoning step: the exact tiles still needed, comma-joined.
+  ///
+  /// In en, this message translates to:
+  /// **'Tiles needed: {tiles}.'**
+  String resultReasonTilesNeeded(String tiles);
+
+  /// Reasoning step: the suggested discard for a 15-tile okey rack.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested discard: {tile}.'**
+  String resultReasonDiscardSuggested(String tile);
+
+  /// Reasoning step: the final tiles-to-win figure.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 tile to win.} other{{count} tiles to win.}}'**
+  String resultReasonTilesToWin(int count);
+
+  /// Describes a run meld inside resultReasonMeldFormed.
+  ///
+  /// In en, this message translates to:
+  /// **'{color} run {first}–{last}'**
+  String resultMeldRunDescription(String color, int first, int last);
+
+  /// Describes a set meld inside resultReasonMeldFormed.
+  ///
+  /// In en, this message translates to:
+  /// **'set of {number}s ({count} colors)'**
+  String resultMeldSetDescription(int number, int count);
+
+  /// Accessibility label for an arranged rack cell inside a group.
+  ///
+  /// In en, this message translates to:
+  /// **'{tile}, {group}'**
+  String resultCellSemantics(String tile, String group);
+
+  /// Accessibility description of a group (run/set/pair) by index.
+  ///
+  /// In en, this message translates to:
+  /// **'{label}, group {index}'**
+  String resultGroupSemantics(String label, int index);
+
+  /// Accessibility label for a still-needed (phantom) tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Needed tile: {tile}'**
+  String resultNeededTileSemantics(String tile);
+
+  /// Accessibility label for a wild standing in for a tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Wild, playing as {tile}'**
+  String resultWildTileSemantics(String tile);
+
+  /// Accessibility label for the suggested-discard tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested discard: {tile}'**
+  String resultDiscardTileSemantics(String tile);
+
+  /// Mode name inside resultReasonRackCountNoted (101 mode).
+  ///
+  /// In en, this message translates to:
+  /// **'101 Okey'**
+  String get resultModeOneZeroOne;
+
+  /// Mode name inside resultReasonRackCountNoted (okey mode).
+  ///
+  /// In en, this message translates to:
+  /// **'Okey'**
+  String get resultModeOkey;
+
   /// Accessibility label for a numbered tile.
   ///
   /// In en, this message translates to:

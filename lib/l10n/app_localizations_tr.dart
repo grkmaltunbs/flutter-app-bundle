@@ -680,6 +680,268 @@ class AppLocalizationsTr extends AppLocalizations {
   String get sessionExpiredDismiss => 'Kapat';
 
   @override
+  String get resultStepEyebrow => '3/3 · SONUÇ';
+
+  @override
+  String get resultCloseSemantics => 'Sonucu kapat';
+
+  @override
+  String get resultSolving => 'Hesaplanıyor…';
+
+  @override
+  String get resultErrorTitle => 'Hesaplanamadı';
+
+  @override
+  String get resultErrorBody =>
+      'Çözücü bir hatayla karşılaştı. Lütfen tekrar dene.';
+
+  @override
+  String get resultRetry => 'Tekrar dene';
+
+  @override
+  String get resultAgain => 'Tekrar';
+
+  @override
+  String get resultDone => 'Bitir';
+
+  @override
+  String get resultOpensEyebrow => 'AÇABİLİRSİN';
+
+  @override
+  String get resultClosesEyebrow => 'HENÜZ AÇMIYOR';
+
+  @override
+  String get resultOpensVerdict => 'Açar.';
+
+  @override
+  String get resultClosesVerdict => 'Açmaz.';
+
+  @override
+  String get resultScoreLabel => 'PUAN';
+
+  @override
+  String get resultScoreOutOf => '/ 101';
+
+  @override
+  String resultPointsShort(int points) {
+    return '$points puan eksik. En iyi olası diziliş:';
+  }
+
+  @override
+  String get resultOpensViaPairs => 'Beş çift ile açar.';
+
+  @override
+  String get resultOkeyEyebrow => 'EN İYİ EL';
+
+  @override
+  String get resultOkeyWin => 'El bitti.';
+
+  @override
+  String resultOkeyTilesToWinHeadline(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count taş kaldı.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get resultOkeyTilesToWinLabel => 'KALAN TAŞ';
+
+  @override
+  String get resultOkeyViaSevenPairs => 'Yedi çift ile.';
+
+  @override
+  String resultTilesNeeded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count taş gerekli',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get resultDiscardSuggestion => 'ATILACAK TAŞ';
+
+  @override
+  String get resultBestArrangement => 'EN İYİ DİZİLİŞ';
+
+  @override
+  String get resultGroups => 'GRUPLAR';
+
+  @override
+  String get resultLayoutRack => 'Istaka';
+
+  @override
+  String get resultLayoutList => 'Liste';
+
+  @override
+  String get resultMeldRun => 'Seri';
+
+  @override
+  String get resultMeldSet => 'Küt';
+
+  @override
+  String get resultPairLabel => 'Çift';
+
+  @override
+  String resultLegendTileCount(int count) {
+    return '$count taş';
+  }
+
+  @override
+  String resultLeftover(int count) {
+    return 'Kalan taşlar · $count';
+  }
+
+  @override
+  String get resultWhyThis => 'NEDEN BÖYLE?';
+
+  @override
+  String get resultDetailLockedTitle => 'Detaylı açıklama';
+
+  @override
+  String get resultDetailLockedBody =>
+      'Bu dizilişin adım adım açıklamasını aç.';
+
+  @override
+  String get resultDetailUnlockCta => 'Detayı aç';
+
+  @override
+  String resultReasonOkeyDerived(String indicator, String okey) {
+    return 'Gösterge $indicator → okey $okey.';
+  }
+
+  @override
+  String resultReasonWildsCounted(int falseJokers, int okeyCopies) {
+    return '$falseJokers sahte okey, $okeyCopies okey sayıldı.';
+  }
+
+  @override
+  String resultReasonRackCountNoted(int count, String mode) {
+    return 'Istakada $count taş ($mode).';
+  }
+
+  @override
+  String resultReasonCountsClamped(String kind, int dropped) {
+    return '$kind fazlasından $dropped taş çıkarıldı.';
+  }
+
+  @override
+  String resultReasonMeldFormed(String meld, int runningTotal) {
+    return '$meld kuruldu → toplam $runningTotal.';
+  }
+
+  @override
+  String resultReasonThresholdOpens(int total, int threshold) {
+    return 'Toplam $total ≥ $threshold — açar.';
+  }
+
+  @override
+  String resultReasonThresholdShort(int total, int threshold) {
+    return 'Toplam $total < $threshold — açmaz.';
+  }
+
+  @override
+  String resultReasonPairsCountedOpens(int pairCount) {
+    return '$pairCount çift bulundu — beş çiftle açar.';
+  }
+
+  @override
+  String resultReasonPairsCounted(int pairCount) {
+    return '$pairCount çift bulundu.';
+  }
+
+  @override
+  String resultReasonPathChosen(String path) {
+    return 'Açılış yolu: $path.';
+  }
+
+  @override
+  String get resultPathMelds => 'seriler/kütler';
+
+  @override
+  String get resultPathPairs => 'beş çift';
+
+  @override
+  String resultReasonOkeyTemplateChosen(
+    String template,
+    int matched,
+    int wildsUsed,
+  ) {
+    return '$template: $matched taş yerleşti, $wildsUsed okey kullanıldı.';
+  }
+
+  @override
+  String get resultTemplateMeldsAndPair => 'Seriler + çift';
+
+  @override
+  String get resultTemplateSevenPairs => 'Yedi çift';
+
+  @override
+  String resultReasonTilesNeeded(String tiles) {
+    return 'Gereken taşlar: $tiles.';
+  }
+
+  @override
+  String resultReasonDiscardSuggested(String tile) {
+    return 'Atılacak taş: $tile.';
+  }
+
+  @override
+  String resultReasonTilesToWin(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kazanmaya $count taş kaldı.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String resultMeldRunDescription(String color, int first, int last) {
+    return '$color $first–$last serisi';
+  }
+
+  @override
+  String resultMeldSetDescription(int number, int count) {
+    return '$number kütü ($count renk)';
+  }
+
+  @override
+  String resultCellSemantics(String tile, String group) {
+    return '$tile, $group';
+  }
+
+  @override
+  String resultGroupSemantics(String label, int index) {
+    return '$label, grup $index';
+  }
+
+  @override
+  String resultNeededTileSemantics(String tile) {
+    return 'Gereken taş: $tile';
+  }
+
+  @override
+  String resultWildTileSemantics(String tile) {
+    return 'Okey, $tile yerine';
+  }
+
+  @override
+  String resultDiscardTileSemantics(String tile) {
+    return 'Atılması önerilen: $tile';
+  }
+
+  @override
+  String get resultModeOneZeroOne => '101 Okey';
+
+  @override
+  String get resultModeOkey => 'Okey';
+
+  @override
   String tileSemantics(String color, int number) {
     return '$color $number';
   }

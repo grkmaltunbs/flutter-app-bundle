@@ -9,13 +9,13 @@ import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
 import 'package:okey_acar_mi/core/game/indicator.dart';
 import 'package:okey_acar_mi/core/game/tile_color.dart';
 import 'package:okey_acar_mi/core/widgets/app_buttons.dart';
-import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
 import 'package:okey_acar_mi/core/widgets/tile_slot.dart';
 import 'package:okey_acar_mi/features/capture/data/fakes/fake_capture_service.dart';
 import 'package:okey_acar_mi/features/capture/presentation/pages/camera_page.dart';
 import 'package:okey_acar_mi/features/detection/data/fakes/fake_tile_detector.dart';
 import 'package:okey_acar_mi/features/detection/presentation/pages/analyzing_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
+import 'package:okey_acar_mi/features/result/presentation/pages/result_page.dart';
 import 'package:okey_acar_mi/features/review/domain/entities/review_tile.dart';
 import 'package:okey_acar_mi/features/review/presentation/blocs/review_bloc.dart';
 import 'package:okey_acar_mi/features/review/presentation/pages/review_page.dart';
@@ -176,9 +176,10 @@ bool calculateEnabled(WidgetTester tester) =>
         .onPressed !=
     null;
 
-void expectOnResultPlaceholder(WidgetTester tester) {
-  final page = tester.widget<PlaceholderPage>(find.byType(PlaceholderPage));
-  check(page.screen).equals(PlaceholderScreen.result);
+/// Calculate landed on the real result screen (Step 8); the solve resolves
+/// inside the preceding `pumpAndSettle`, so the screen is already settled.
+void expectLandedOnResult(WidgetTester tester) {
+  check(find.byType(ResultView).evaluate()).length.equals(1);
 }
 
 // ---------------------------------------------------------------------------
@@ -206,7 +207,7 @@ void main() {
 
     testWidgets('1. happy 101 review: fix a low-confidence tile, remove and '
         're-add a tile, pick indicator 13 (okey wraps to 1), calculate lands '
-        'on /result, and back returns to the live review', (tester) async {
+        'on the result screen, and Done returns home', (tester) async {
       await pumpApp(tester);
       await captureToReview(tester);
 
@@ -265,22 +266,14 @@ void main() {
       ).length.equals(1);
       check(calculateEnabled(tester)).isTrue();
 
-      // Calculate → the /result placeholder (Step 8 owns the real screen).
+      // Calculate → the result screen solves the confirmed outcome.
       await tapKey(tester, 'review-calculate');
-      expectOnResultPlaceholder(tester);
+      expectLandedOnResult(tester);
 
-      // Back from result returns to the live review, edits intact.
-      await tester.tap(
-        find.descendant(
-          of: find.byType(PlaceholderPage),
-          matching: find.byIcon(Icons.arrow_back),
-        ),
-      );
-      await tester.pumpAndSettle();
-      check(find.byType(ReviewView).evaluate()).length.equals(1);
-      check(
-        find.text(l10n.reviewOkeyLabel(l10n.tileColorYellow, 1)).evaluate(),
-      ).length.equals(1);
+      // "Bitir" finishes the flow and unwinds the scan stack to Home.
+      await tapKey(tester, 'result-done');
+      check(find.byType(HomePage).evaluate()).length.equals(1);
+      check(find.byType(ResultView).evaluate()).isEmpty();
       check(tester.takeException()).isNull();
     });
 
@@ -327,7 +320,7 @@ void main() {
       check(calculateEnabled(tester)).isTrue();
 
       await tapKey(tester, 'review-calculate');
-      expectOnResultPlaceholder(tester);
+      expectLandedOnResult(tester);
       check(tester.takeException()).isNull();
     });
 
