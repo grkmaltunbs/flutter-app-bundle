@@ -16,6 +16,10 @@ import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
+import 'package:okey_acar_mi/features/history/domain/entities/scan.dart';
+import 'package:okey_acar_mi/features/history/domain/entities/scan_summary.dart';
+import 'package:okey_acar_mi/features/history/domain/usecases/save_scan.dart';
+import 'package:okey_acar_mi/features/result/domain/entities/result_args.dart';
 import 'package:okey_acar_mi/features/result/presentation/blocs/result_bloc.dart';
 import 'package:okey_acar_mi/features/result/presentation/pages/result_page.dart';
 import 'package:okey_acar_mi/features/result/presentation/reasoning_step_localizer.dart';
@@ -34,6 +38,8 @@ import 'package:okey_acar_mi/features/solver/domain/usecases/solve_rack.dart';
 import 'package:okey_acar_mi/l10n/app_localizations.dart';
 
 class _MockSolveRack extends Mock implements SolveRack {}
+
+class _MockSaveScan extends Mock implements SaveScan {}
 
 class _MockAppLogger extends Mock implements AppLogger {}
 
@@ -258,6 +264,7 @@ final SolveResult _okeySevenPairs = SolveResult(
 
 void main() {
   late _MockSolveRack solveRack;
+  late _MockSaveScan saveScan;
   late _MockAppLogger logger;
 
   setUpAll(() {
@@ -268,12 +275,37 @@ void main() {
         mode: GameMode.oneZeroOne,
       ),
     );
+    registerFallbackValue(_outcome);
+    registerFallbackValue(_opensMelds);
   });
 
   setUp(() {
     solveRack = _MockSolveRack();
+    saveScan = _MockSaveScan();
     logger = _MockAppLogger();
+    // The page renders from the solve status alone; the save is background
+    // best-effort, so it is stubbed quiet rather than asserted here.
+    when(
+      () => saveScan(
+        outcome: any(named: 'outcome'),
+        result: any(named: 'result'),
+      ),
+    ).thenAnswer(
+      (_) async => Scan(
+        id: 'saved-scan',
+        createdAt: DateTime.utc(2026),
+        updatedAt: DateTime.utc(2026),
+        tiles: _outcome.tiles,
+        indicator: _outcome.indicator,
+        gameMode: _outcome.gameMode,
+        summary: ScanSummary.fromResult(_opensMelds),
+      ),
+    );
   });
+
+  /// Builds the screen-scoped bloc directly (widget tests own the harness).
+  ResultBloc buildBloc() =>
+      ResultBloc(solveRack, saveScan, logger, ResultArgs.fresh(_outcome));
 
   /// `ResultView` on the result route, with stub home + camera routes so
   /// the footer/top-bar navigation is observable.
@@ -321,7 +353,7 @@ void main() {
   /// solved frame.
   Future<ResultBloc> pumpResult(WidgetTester tester, SolveResult result) async {
     when(() => solveRack(any())).thenAnswer((_) async => result);
-    final bloc = ResultBloc(solveRack, logger, _outcome);
+    final bloc = buildBloc();
     addTearDown(bloc.close);
     await tester.pumpWidget(harness(bloc));
     await tester.pumpAndSettle();
@@ -479,7 +511,7 @@ void main() {
     ) async {
       final completer = Completer<SolveResult>();
       when(() => solveRack(any())).thenAnswer((_) => completer.future);
-      final bloc = ResultBloc(solveRack, logger, _outcome);
+      final bloc = buildBloc();
       addTearDown(bloc.close);
 
       await tester.pumpWidget(harness(bloc));
@@ -506,7 +538,7 @@ void main() {
         if (++calls == 1) throw StateError('engine defect');
         return _opensMelds;
       });
-      final bloc = ResultBloc(solveRack, logger, _outcome);
+      final bloc = buildBloc();
       addTearDown(bloc.close);
 
       await tester.pumpWidget(harness(bloc));
@@ -569,7 +601,7 @@ void main() {
     testWidgets('disableAnimations renders the verdict directly, without '
         'the entrance wrapper', (tester) async {
       when(() => solveRack(any())).thenAnswer((_) async => _opensMelds);
-      final bloc = ResultBloc(solveRack, logger, _outcome);
+      final bloc = buildBloc();
       addTearDown(bloc.close);
 
       await tester.pumpWidget(harness(bloc, disableAnimations: true));
@@ -633,7 +665,8 @@ void main() {
         routes: [
           GoRoute(
             path: AppRoutes.result,
-            builder: (context, state) => ResultPage(outcome: outcome),
+            builder: (context, state) =>
+                ResultPage(args: ResultArgs.fresh(outcome)),
           ),
         ],
       );

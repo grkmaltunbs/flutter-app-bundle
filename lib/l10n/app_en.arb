@@ -120,6 +120,18 @@
   "@homeEmptyBody": {
     "description": "Empty-state body shown when there is no scan history."
   },
+  "homeStatsTotalScans": "TOTAL SCANS",
+  "@homeStatsTotalScans": {
+    "description": "Eyebrow label of the total-scans stat card on Home."
+  },
+  "homeStatsOpenRate": "OPEN RATE",
+  "@homeStatsOpenRate": {
+    "description": "Eyebrow label of the open-rate stat card on Home."
+  },
+  "homeStatsBest": "BEST",
+  "@homeStatsBest": {
+    "description": "Eyebrow label of the best-score stat card on Home."
+  },
 
   "tutorialEyebrow": "HOW IT WORKS",
   "@tutorialEyebrow": {
@@ -186,10 +198,80 @@
   },
 
   "historyEyebrow": "HISTORY",
-  "historyTitle": "Your scans",
+  "historyTitle": "Your past hands.",
+  "@historyTitle": {
+    "description": "Serif title of the History screen."
+  },
   "historyEmptyTitle": "No scans yet",
   "historyEmptyBody": "Racks you scan will show up here.",
   "historyEmptyCta": "Scan now",
+  "historyFilterAll": "All",
+  "@historyFilterAll": {
+    "description": "Filter chip showing every scan."
+  },
+  "historyFilterOpened": "Opened",
+  "@historyFilterOpened": {
+    "description": "Filter chip showing scans whose hand opened / was winning."
+  },
+  "historyFilterClosed": "Closed",
+  "@historyFilterClosed": {
+    "description": "Filter chip showing scans whose hand did not open / was not winning."
+  },
+  "historyNoResultsTitle": "No matches",
+  "@historyNoResultsTitle": {
+    "description": "Title shown when scans exist but none match the active filter."
+  },
+  "historyNoResultsBody": "No hands match this filter.",
+  "@historyNoResultsBody": {
+    "description": "Body shown when scans exist but none match the active filter."
+  },
+  "historyOfflineBanner": "You're offline — showing local history.",
+  "@historyOfflineBanner": {
+    "description": "Warn banner on the History screen while the device is offline."
+  },
+  "historyLoadFailedTitle": "Couldn't load history",
+  "@historyLoadFailedTitle": {
+    "description": "Title of the History screen's stream-failure view."
+  },
+  "historyRetry": "Try again",
+  "@historyRetry": {
+    "description": "Retry button on the History screen's failure view."
+  },
+  "scanCardOpened": "Opened",
+  "@scanCardOpened": {
+    "description": "Scan-card pill label for a 101 hand that opened (composed as 'label · score' in-widget)."
+  },
+  "scanCardClosed": "No",
+  "@scanCardClosed": {
+    "description": "Scan-card pill label for a 101 hand that did not open (composed as 'label · score' in-widget)."
+  },
+  "scanCardOkeyWin": "Okey",
+  "@scanCardOkeyWin": {
+    "description": "Scan-card pill label for an okey hand that is already winning."
+  },
+  "scanCardTilesToWin": "{count, plural, =1{1 tile} other{{count} tiles}}",
+  "@scanCardTilesToWin": {
+    "description": "Scan-card pill label for an okey hand: tiles still needed to win.",
+    "placeholders": {
+      "count": { "type": "int", "example": "2" }
+    }
+  },
+  "scanCardSemantics": "{date}, {verdict}. Open result.",
+  "@scanCardSemantics": {
+    "description": "Accessibility label for a tappable scan card.",
+    "placeholders": {
+      "date": { "type": "String", "example": "Today · 21:48" },
+      "verdict": { "type": "String", "example": "Opened · 104" }
+    }
+  },
+  "timeToday": "Today",
+  "@timeToday": {
+    "description": "Relative-day label for a timestamp from today."
+  },
+  "timeYesterday": "Yesterday",
+  "@timeYesterday": {
+    "description": "Relative-day label for a timestamp from yesterday."
+  },
 
   "placeholderComingSoon": "Coming soon",
   "@placeholderComingSoon": {

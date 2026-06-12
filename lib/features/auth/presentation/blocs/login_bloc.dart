@@ -20,9 +20,9 @@ final RegExp _emailPattern = RegExp(r'^\S+@\S+\.\S+$');
 ///
 /// Validation runs on submit only; editing any field clears the inline
 /// errors. Cancelled provider flows (null from the use case) silently return
-/// to idle — no failure, no toast (D2). Successful sign-in never navigates:
-/// the router redirect does (D8). Holds no subscriptions, so [close] is not
-/// overridden.
+/// to idle — no failure, no toast (D2). Successful sign-in never navigates
+/// from the bloc: the router redirect or the login view's auth listener does
+/// (D8). Holds no subscriptions, so [close] is not overridden.
 @injectable
 class LoginBloc extends Bloc<LoginEvent, LoginState> {
   /// Creates a [LoginBloc].
@@ -120,7 +120,8 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       } else {
         await _signUpWithEmail(email: event.email, password: event.password);
       }
-      // Success: back to idle — the router redirect handles navigation.
+      // Success: back to idle — the router redirect / login view's auth
+      // listener handles navigation (D8).
       emit(state.copyWith(inFlight: LoginInFlight.none));
     } on EmailAlreadyInUseFailure {
       emit(
@@ -176,7 +177,8 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     );
     try {
       // Null = cancelled: silently back to idle, no failure (D2). Success
-      // also just returns to idle — the router redirect navigates.
+      // also just returns to idle — the router redirect / login view's auth
+      // listener navigates (D8).
       await signIn();
       emit(state.copyWith(inFlight: LoginInFlight.none));
     } on Failure catch (failure) {

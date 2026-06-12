@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
 import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/widgets/app_buttons.dart';
+import 'package:okey_acar_mi/features/result/domain/entities/result_args.dart';
 import 'package:okey_acar_mi/features/review/presentation/blocs/review_bloc.dart';
 
 /// The pinned bottom bar: a helper line naming the highest-priority blocker
@@ -59,7 +60,7 @@ class ReviewFooter extends StatelessWidget {
                     onPressed: state.canSolve
                         ? () => context.push(
                             AppRoutes.result,
-                            extra: state.outcome(),
+                            extra: ResultArgs.fresh(state.outcome()),
                           )
                         : null,
                   ),

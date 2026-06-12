@@ -98,6 +98,15 @@ class AppLocalizationsTr extends AppLocalizations {
   String get homeEmptyBody => 'İlk istakanı tarat, en iyi açılışı görelim.';
 
   @override
+  String get homeStatsTotalScans => 'TOPLAM TARAMA';
+
+  @override
+  String get homeStatsOpenRate => 'AÇILIŞ ORANI';
+
+  @override
+  String get homeStatsBest => 'EN İYİ';
+
+  @override
   String get tutorialEyebrow => 'NASIL ÇALIŞIR';
 
   @override
@@ -236,7 +245,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get historyEyebrow => 'GEÇMİŞ';
 
   @override
-  String get historyTitle => 'Taramaların';
+  String get historyTitle => 'Önceki ellerin.';
 
   @override
   String get historyEmptyTitle => 'Henüz tarama yok';
@@ -246,6 +255,56 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get historyEmptyCta => 'Tarama yap';
+
+  @override
+  String get historyFilterAll => 'Tümü';
+
+  @override
+  String get historyFilterOpened => 'Açanlar';
+
+  @override
+  String get historyFilterClosed => 'Açmayanlar';
+
+  @override
+  String get historyNoResultsTitle => 'Eşleşen tarama yok';
+
+  @override
+  String get historyNoResultsBody => 'Bu filtreyle eşleşen el yok.';
+
+  @override
+  String get historyOfflineBanner =>
+      'Çevrimdışısın — yerel geçmiş gösteriliyor.';
+
+  @override
+  String get historyLoadFailedTitle => 'Geçmiş yüklenemedi';
+
+  @override
+  String get historyRetry => 'Tekrar dene';
+
+  @override
+  String get scanCardOpened => 'Açtı';
+
+  @override
+  String get scanCardClosed => 'Açmadı';
+
+  @override
+  String get scanCardOkeyWin => 'Okey';
+
+  @override
+  String scanCardTilesToWin(int count) {
+    return '$count taş';
+  }
+
+  @override
+  String scanCardSemantics(String date, String verdict) {
+    return '$date, $verdict. Sonucu aç.';
+  }
+
+  @override
+  String get timeToday => 'Bugün';
+
+  @override
+  String get timeYesterday => 'Dün';
 
   @override
   String get placeholderComingSoon => 'Yakında';

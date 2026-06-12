@@ -6,6 +6,7 @@ import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
 import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/widgets/circle_icon_button.dart';
 import 'package:okey_acar_mi/core/widgets/eyebrow.dart';
+import 'package:okey_acar_mi/features/result/domain/entities/result_args.dart';
 import 'package:okey_acar_mi/features/result/presentation/blocs/result_bloc.dart';
 import 'package:okey_acar_mi/features/result/presentation/models/result_arrangement.dart';
 import 'package:okey_acar_mi/features/result/presentation/widgets/result_detail_section.dart';
@@ -17,23 +18,23 @@ import 'package:okey_acar_mi/features/result/presentation/widgets/result_list_la
 import 'package:okey_acar_mi/features/result/presentation/widgets/result_loading_view.dart';
 import 'package:okey_acar_mi/features/result/presentation/widgets/result_rack_layout.dart';
 import 'package:okey_acar_mi/features/result/presentation/widgets/result_verdict_header.dart';
-import 'package:okey_acar_mi/features/review/domain/entities/review_outcome.dart';
 import 'package:okey_acar_mi/features/solver/domain/entities/solve_result.dart';
 
 /// The result screen: owns the screen-scoped [ResultBloc], seeded from the
-/// confirmed [outcome], which solves immediately on creation.
+/// [args] (fresh review outcome or history replay), which solves immediately
+/// on creation.
 class ResultPage extends StatelessWidget {
-  /// Creates a [ResultPage] for [outcome].
-  const ResultPage({required this.outcome, super.key});
+  /// Creates a [ResultPage] for [args].
+  const ResultPage({required this.args, super.key});
 
-  /// The confirmed review outcome to solve (route `extra`, guarded by the
-  /// router redirect).
-  final ReviewOutcome outcome;
+  /// What to solve — fresh outcome or replayed scan (route `extra`, guarded
+  /// by the router redirect).
+  final ResultArgs args;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ResultBloc>(
-      create: (_) => getIt<ResultBloc>(param1: outcome),
+      create: (_) => getIt<ResultBloc>(param1: args),
       child: const ResultView(),
     );
   }

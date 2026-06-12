@@ -11,6 +11,10 @@ import 'package:okey_acar_mi/core/logging/app_logger.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
+import 'package:okey_acar_mi/features/history/domain/entities/scan.dart';
+import 'package:okey_acar_mi/features/history/domain/entities/scan_summary.dart';
+import 'package:okey_acar_mi/features/history/domain/usecases/save_scan.dart';
+import 'package:okey_acar_mi/features/result/domain/entities/result_args.dart';
 import 'package:okey_acar_mi/features/result/presentation/blocs/result_bloc.dart';
 import 'package:okey_acar_mi/features/result/presentation/pages/result_page.dart';
 import 'package:okey_acar_mi/features/review/domain/entities/review_outcome.dart';
@@ -57,6 +61,26 @@ class _ThrowingSolveRack implements SolveRack {
   @override
   Future<SolveResult> call(SolveRequest request) async =>
       throw StateError('overflow-guard');
+}
+
+/// A [SaveScan] that persists nothing — the overflow guard renders from the
+/// solve status alone.
+class _NoopSaveScan implements SaveScan {
+  const _NoopSaveScan();
+
+  @override
+  Future<Scan> call({
+    required ReviewOutcome outcome,
+    required SolveResult result,
+  }) async => Scan(
+    id: 'overflow-guard',
+    createdAt: DateTime.utc(2026),
+    updatedAt: DateTime.utc(2026),
+    tiles: outcome.tiles,
+    indicator: outcome.indicator,
+    gameMode: outcome.gameMode,
+    summary: ScanSummary.fromResult(result),
+  );
 }
 
 GameTile _t(TileColor color, int number) =>
@@ -204,38 +228,30 @@ void main() {
   final scenarios = <String, ResultBloc Function()>{
     '21-tile 101, 6 groups, rack layout, detail locked': () => ResultBloc(
       _FixedSolveRack(_result101),
+      const _NoopSaveScan(),
       logger,
-      _outcome(
-        GameMode.oneZeroOne,
-        21,
-      ),
+      ResultArgs.fresh(_outcome(GameMode.oneZeroOne, 21)),
     ),
     '21-tile 101, 6 groups, list layout, detail unlocked': () =>
         ResultBloc(
             _FixedSolveRack(_result101),
+            const _NoopSaveScan(),
             logger,
-            _outcome(
-              GameMode.oneZeroOne,
-              21,
-            ),
+            ResultArgs.fresh(_outcome(GameMode.oneZeroOne, 21)),
           )
           ..add(const ResultEvent.layoutToggled(ResultLayout.list))
           ..add(const ResultEvent.detailUnlockGranted()),
     '15-tile okey, neededs + discard, detail unlocked': () => ResultBloc(
       _FixedSolveRack(_resultOkey),
+      const _NoopSaveScan(),
       logger,
-      _outcome(
-        GameMode.okey,
-        15,
-      ),
+      ResultArgs.fresh(_outcome(GameMode.okey, 15)),
     )..add(const ResultEvent.detailUnlockGranted()),
     'solver error state': () => ResultBloc(
       _ThrowingSolveRack(),
+      const _NoopSaveScan(),
       logger,
-      _outcome(
-        GameMode.oneZeroOne,
-        21,
-      ),
+      ResultArgs.fresh(_outcome(GameMode.oneZeroOne, 21)),
     ),
   };
 

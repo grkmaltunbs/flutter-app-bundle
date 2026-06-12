@@ -60,7 +60,8 @@ class RackFrame extends StatelessWidget {
 /// A physical-looking rack (istaka) holding 14–21 tiles across two rows.
 ///
 /// Tile width is derived entirely from the incoming [BoxConstraints]: the
-/// widest of the two rows determines `tileWidth`, clamped to `[14, sm]`. The
+/// widest of the two rows determines `tileWidth`, clamped to `[14, maxSize]`
+/// (`sm` by default). The
 /// available width subtracts the inner padding, the inter-tile gaps **and** the
 /// decoration border inset, so the sized row fits exactly. As a final
 /// guarantee, each row is wrapped in a `FittedBox(scaleDown)`, so even an
@@ -73,6 +74,7 @@ class Rack extends StatelessWidget {
     required this.tiles,
     this.style,
     this.padding,
+    this.maxSize = TileSize.sm,
     super.key,
   });
 
@@ -84,6 +86,10 @@ class Rack extends StatelessWidget {
 
   /// Inner padding; defaults to the design bundle's `14/12/10`.
   final EdgeInsets? padding;
+
+  /// The widest a tile may render — the design bundle's rack `size` knob
+  /// (`sm` for full racks, `xs` for the mini history/home cards).
+  final TileSize maxSize;
 
   /// Horizontal gap between tiles, in logical pixels.
   static const double _gap = 3;
@@ -106,16 +112,16 @@ class Rack extends StatelessWidget {
             // on each side; account for both edges or tiles are sized 2px wide.
             RackFrame.borderWidth * 2 -
             math.max(0, perRow - 1) * _gap;
-        // Width per tile, never wider than `sm`, never narrower than 14.
+        // Width per tile, never wider than `maxSize`, never narrower than 14.
         // Floor to whole pixels so `perRow * tileWidth + gaps` can never exceed
         // the available width by a sub-pixel rounding error (which would trip a
         // RenderFlex overflow). The clamp lower bound keeps tiles legible.
         final rawWidth = perRow == 0
-            ? TileSize.sm.width
-            : (available / perRow).clamp(14.0, TileSize.sm.width);
+            ? maxSize.width
+            : (available / perRow).clamp(14.0, maxSize.width);
         final tileWidth = rawWidth.floorToDouble().clamp(
           14.0,
-          TileSize.sm.width,
+          maxSize.width,
         );
 
         return RackFrame(

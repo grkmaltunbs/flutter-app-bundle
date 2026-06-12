@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'package:okey_acar_mi/core/error/error_mapper.dart';
 import 'package:okey_acar_mi/core/error/failure.dart';
 import 'package:okey_acar_mi/features/auth/domain/repositories/auth_repository.dart';
+import 'package:okey_acar_mi/features/auth/domain/services/user_data_purger.dart';
 
 part 'delete_account_cubit.freezed.dart';
 part 'delete_account_state.dart';
@@ -18,10 +19,11 @@ part 'delete_account_state.dart';
 @injectable
 class DeleteAccountCubit extends Cubit<DeleteAccountState> {
   /// Creates a [DeleteAccountCubit] in the confirm step.
-  DeleteAccountCubit(this._repository)
+  DeleteAccountCubit(this._repository, this._purger)
     : super(const DeleteAccountState.confirm());
 
   final AuthRepository _repository;
+  final UserDataPurger _purger;
 
   /// The user confirmed the warning; move to re-authentication.
   void confirmRequested() => emit(const DeleteAccountState.reauth());
@@ -50,6 +52,18 @@ class DeleteAccountCubit extends Cubit<DeleteAccountState> {
         return;
       }
       emit(const DeleteAccountState.deleting());
+      // Purge owned data while the auth uid is still valid — remote rules
+      // require an authenticated owner. A purge failure must never block
+      // the deletion the user explicitly confirmed (the purger logs).
+      final user = _repository.currentUser;
+      if (user != null) {
+        try {
+          await _purger.purgeUserData(ownerId: user.id);
+        } on Object {
+          // Defense in depth: proceed with deletion regardless.
+        }
+        if (isClosed) return;
+      }
       await _repository.deleteAccount();
       if (isClosed) return;
       emit(const DeleteAccountState.done());

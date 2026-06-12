@@ -8,12 +8,33 @@ import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/error/failure.dart';
 import 'package:okey_acar_mi/features/auth/data/fakes/fake_auth_repository.dart';
 import 'package:okey_acar_mi/features/auth/domain/repositories/auth_repository.dart';
+import 'package:okey_acar_mi/features/auth/domain/services/user_data_purger.dart';
 import 'package:okey_acar_mi/features/auth/presentation/blocs/delete_account_cubit.dart';
 
 class _MockAuthRepository extends Mock implements AuthRepository {}
 
+class _MockUserDataPurger extends Mock implements UserDataPurger {}
+
 void main() {
-  setUp(() async => configureDependencies('demo'));
+  late _MockUserDataPurger purger;
+
+  _MockUserDataPurger stubbedPurger() {
+    final mock = _MockUserDataPurger();
+    when(
+      () => mock.purgeUserData(ownerId: any(named: 'ownerId')),
+    ).thenAnswer((_) async {});
+    return mock;
+  }
+
+  setUp(() async {
+    await configureDependencies('demo');
+    // The real ScanUserDataPurger reaches the drift database; swap in a mock
+    // so this bloc test stays hermetic (the purge wiring itself is covered
+    // by the repository/data-source tests).
+    purger = stubbedPurger();
+    await getIt.unregister<UserDataPurger>();
+    getIt.registerLazySingleton<UserDataPurger>(() => purger);
+  });
   tearDown(() async => getIt.reset());
 
   FakeAuthRepository fake() => getIt<AuthRepository>() as FakeAuthRepository;
@@ -50,7 +71,12 @@ void main() {
         DeleteAccountState.deleting(),
         DeleteAccountState.done(),
       ],
-      verify: (_) => check(fake().currentUser).isNull(),
+      verify: (_) {
+        check(fake().currentUser).isNull();
+        // The user's data was purged with the still-valid uid before the
+        // account itself was deleted.
+        verify(() => purger.purgeUserData(ownerId: 'demo-oyuncu')).called(1);
+      },
     );
 
     blocTest<DeleteAccountCubit, DeleteAccountState>(
@@ -114,12 +140,13 @@ void main() {
             password: any(named: 'password'),
           ),
         ).thenAnswer((_) async => true);
+        when(() => repository.currentUser).thenReturn(null);
         var deleteCalls = 0;
         when(repository.deleteAccount).thenAnswer((_) async {
           deleteCalls++;
           if (deleteCalls == 1) throw const Failure.requiresRecentLogin();
         });
-        return DeleteAccountCubit(repository);
+        return DeleteAccountCubit(repository, stubbedPurger());
       },
       seed: () => const DeleteAccountState.reauth(),
       act: (cubit) async {
@@ -145,7 +172,7 @@ void main() {
           password: any(named: 'password'),
         ),
       ).thenAnswer((_) => reauthCompleter.future);
-      final cubit = DeleteAccountCubit(repository);
+      final cubit = DeleteAccountCubit(repository, stubbedPurger());
 
       final pending = cubit.reauthWithPassword('okey1234');
       await cubit.close();

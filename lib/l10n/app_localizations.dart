@@ -272,6 +272,24 @@ abstract class AppLocalizations {
   /// **'Scan your first rack to see your best opening.'**
   String get homeEmptyBody;
 
+  /// Eyebrow label of the total-scans stat card on Home.
+  ///
+  /// In en, this message translates to:
+  /// **'TOTAL SCANS'**
+  String get homeStatsTotalScans;
+
+  /// Eyebrow label of the open-rate stat card on Home.
+  ///
+  /// In en, this message translates to:
+  /// **'OPEN RATE'**
+  String get homeStatsOpenRate;
+
+  /// Eyebrow label of the best-score stat card on Home.
+  ///
+  /// In en, this message translates to:
+  /// **'BEST'**
+  String get homeStatsBest;
+
   /// Eyebrow at the top of the tutorial screen.
   ///
   /// In en, this message translates to:
@@ -542,10 +560,10 @@ abstract class AppLocalizations {
   /// **'HISTORY'**
   String get historyEyebrow;
 
-  /// No description provided for @historyTitle.
+  /// Serif title of the History screen.
   ///
   /// In en, this message translates to:
-  /// **'Your scans'**
+  /// **'Your past hands.'**
   String get historyTitle;
 
   /// No description provided for @historyEmptyTitle.
@@ -565,6 +583,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Scan now'**
   String get historyEmptyCta;
+
+  /// Filter chip showing every scan.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get historyFilterAll;
+
+  /// Filter chip showing scans whose hand opened / was winning.
+  ///
+  /// In en, this message translates to:
+  /// **'Opened'**
+  String get historyFilterOpened;
+
+  /// Filter chip showing scans whose hand did not open / was not winning.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get historyFilterClosed;
+
+  /// Title shown when scans exist but none match the active filter.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get historyNoResultsTitle;
+
+  /// Body shown when scans exist but none match the active filter.
+  ///
+  /// In en, this message translates to:
+  /// **'No hands match this filter.'**
+  String get historyNoResultsBody;
+
+  /// Warn banner on the History screen while the device is offline.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re offline — showing local history.'**
+  String get historyOfflineBanner;
+
+  /// Title of the History screen's stream-failure view.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load history'**
+  String get historyLoadFailedTitle;
+
+  /// Retry button on the History screen's failure view.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get historyRetry;
+
+  /// Scan-card pill label for a 101 hand that opened (composed as 'label · score' in-widget).
+  ///
+  /// In en, this message translates to:
+  /// **'Opened'**
+  String get scanCardOpened;
+
+  /// Scan-card pill label for a 101 hand that did not open (composed as 'label · score' in-widget).
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get scanCardClosed;
+
+  /// Scan-card pill label for an okey hand that is already winning.
+  ///
+  /// In en, this message translates to:
+  /// **'Okey'**
+  String get scanCardOkeyWin;
+
+  /// Scan-card pill label for an okey hand: tiles still needed to win.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 tile} other{{count} tiles}}'**
+  String scanCardTilesToWin(int count);
+
+  /// Accessibility label for a tappable scan card.
+  ///
+  /// In en, this message translates to:
+  /// **'{date}, {verdict}. Open result.'**
+  String scanCardSemantics(String date, String verdict);
+
+  /// Relative-day label for a timestamp from today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get timeToday;
+
+  /// Relative-day label for a timestamp from yesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get timeYesterday;
 
   /// Headline on placeholder screens for features not yet built.
   ///

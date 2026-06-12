@@ -12,8 +12,8 @@ import 'package:okey_acar_mi/features/detection/presentation/pages/analyzing_pag
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
+import 'package:okey_acar_mi/features/result/domain/entities/result_args.dart';
 import 'package:okey_acar_mi/features/result/presentation/pages/result_page.dart';
-import 'package:okey_acar_mi/features/review/domain/entities/review_outcome.dart';
 import 'package:okey_acar_mi/features/review/presentation/pages/review_page.dart';
 import 'package:okey_acar_mi/features/settings/presentation/pages/settings_page.dart';
 import 'package:okey_acar_mi/features/shell/presentation/pages/app_shell.dart';
@@ -49,7 +49,7 @@ abstract final class AppRoutes {
   /// Review & correct + indicator (`extra` must be a `DetectionResult`).
   static const String review = '/review';
 
-  /// Result / verdict (`extra` must be a `ReviewOutcome`).
+  /// Result / verdict (`extra` must be a `ResultArgs` — fresh or replay).
   static const String result = '/result';
 
   /// Remove-ads paywall (placeholder until Step 11).
@@ -91,17 +91,35 @@ class AppRouter {
     config.dispose();
   }
 
-  /// Guard v1 (D8): authenticated users never see splash or login. Login
-  /// screens never navigate on success — this redirect does.
+  /// Guard v1 (D8): authenticated users never see splash or login.
+  ///
+  /// Post-sign-in navigation has exactly one effective owner per path. On an
+  /// auth refresh, go_router re-evaluates this redirect against only the
+  /// *declarative base location* of the current stack
+  /// ([GoRouterState.matchedLocation] == `RouteMatchList.uri.path`) — an
+  /// imperatively pushed `/login` is invisible to it, and when no redirect
+  /// fires the refresh restores the stack unchanged. So:
+  ///
+  /// * Login reached declaratively, or pushed over a guarded base (splash):
+  ///   this redirect navigates; the returned location replaces the whole
+  ///   stack, pushed login included.
+  /// * Login pushed over an unguarded base (Settings sign-up CTA, the
+  ///   session-expired banner on Home): this redirect provably never fires
+  ///   on the refresh — `LoginView`'s auth listener performs the single
+  ///   `go(home)` instead, gated on [isAuthEntryLocation].
   String? _redirect(BuildContext context, GoRouterState state) {
     final authenticated = _authBloc.state is AuthAuthenticated;
-    final location = state.matchedLocation;
-    if (authenticated &&
-        (location == AppRoutes.splash || location == AppRoutes.login)) {
+    if (authenticated && isAuthEntryLocation(state.matchedLocation)) {
       return AppRoutes.home;
     }
     return null;
   }
+
+  /// True for the locations [_redirect] bounces authenticated users away
+  /// from. `LoginView`'s success listener uses it to decide whether the
+  /// redirect owns the post-sign-in navigation (see [_redirect]).
+  static bool isAuthEntryLocation(String location) =>
+      location == AppRoutes.splash || location == AppRoutes.login;
 
   GoRouter _build() {
     return GoRouter(
@@ -149,13 +167,13 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.result,
-          // The screen is meaningless without a confirmed outcome: anything
-          // that lands here without one (deep link, cold-start restoration —
-          // `extra` is not restored) bounces to the camera.
+          // The screen is meaningless without its args: anything that lands
+          // here without them (deep link, cold-start restoration — `extra`
+          // is not restored) bounces to the camera.
           redirect: (context, state) =>
-              state.extra is ReviewOutcome ? null : AppRoutes.camera,
+              state.extra is ResultArgs ? null : AppRoutes.camera,
           builder: (context, state) =>
-              ResultPage(outcome: state.extra! as ReviewOutcome),
+              ResultPage(args: state.extra! as ResultArgs),
         ),
         GoRoute(
           path: AppRoutes.paywall,

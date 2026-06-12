@@ -285,7 +285,7 @@ from them.
 ---
 
 ## Step 9 — History + persistence (drift) + sync
-- [ ]
+- [x]
 - id: history
 - depends_on: result, auth
 - spec_refs: flow-history, flow-history-sync, screen-history, Data model

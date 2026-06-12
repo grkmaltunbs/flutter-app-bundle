@@ -18,7 +18,7 @@ import 'package:okey_acar_mi/core/widgets/tile_slot.dart';
 import 'package:okey_acar_mi/features/detection/data/fakes/seeded_detections.dart';
 import 'package:okey_acar_mi/features/detection/domain/entities/detected_tile.dart';
 import 'package:okey_acar_mi/features/detection/domain/entities/detection_result.dart';
-import 'package:okey_acar_mi/features/review/domain/entities/review_outcome.dart';
+import 'package:okey_acar_mi/features/result/domain/entities/result_args.dart';
 import 'package:okey_acar_mi/features/review/domain/entities/review_tile.dart';
 import 'package:okey_acar_mi/features/review/presentation/blocs/review_bloc.dart';
 import 'package:okey_acar_mi/features/review/presentation/pages/review_page.dart';
@@ -461,7 +461,7 @@ void main() {
       await tap(tester, key('review-calculate'));
 
       check(find.text('result-stub').evaluate()).length.equals(1);
-      check(resultExtra).isA<ReviewOutcome>()
+      check(resultExtra).isA<ResultArgsFresh>().has((a) => a.outcome, 'outcome')
         ..has((o) => o.gameMode, 'gameMode').equals(GameMode.oneZeroOne)
         ..has((o) => o.indicator, 'indicator').equals(
           const Indicator(color: TileColor.yellow, number: 13),

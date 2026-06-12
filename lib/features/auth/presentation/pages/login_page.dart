@@ -19,8 +19,10 @@ import 'package:okey_acar_mi/features/auth/presentation/widgets/forgot_password_
 /// Login / sign-up screen: email + password form, provider buttons, guest
 /// escape, and the sign-in ⇄ sign-up mode switch.
 ///
-/// Never navigates on success — the router's auth redirect moves
-/// authenticated users to Home (D8).
+/// On success the router's auth redirect moves authenticated users to Home
+/// (D8) — except when this screen was pushed imperatively over an unguarded
+/// base location, where the redirect provably cannot see it and [LoginView]'s
+/// auth listener issues the `go(home)` instead (see `AppRouter._redirect`).
 class LoginPage extends StatelessWidget {
   /// Creates a [LoginPage].
   const LoginPage({super.key});
@@ -60,12 +62,28 @@ class _LoginViewState extends State<LoginView> {
 
   @override
   Widget build(BuildContext context) {
-    // On successful sign-in, commit the autofill context so password
-    // managers offer to save the entered credentials.
+    // On successful sign-in: commit the autofill context (so password
+    // managers offer to save the credentials) and land on Home when the
+    // router's auth redirect cannot (D8). The refresh redirect evaluates
+    // only the declarative base location of the stack — a pushed /login is
+    // invisible to it — so when this screen sits over an unguarded base
+    // (Settings sign-up CTA, session-expired banner on Home) this listener
+    // owns the navigation; `go` replaces the whole stack. When the base IS
+    // guarded the redirect owns it: by listener time that base is either
+    // still the guarded location (skip) or already /home, where the repeat
+    // `go(home)` is an exact no-op (same location, stable page keys).
     return BlocListener<AuthBloc, AuthState>(
       listenWhen: (prev, curr) =>
           prev is! AuthAuthenticated && curr is AuthAuthenticated,
-      listener: (_, _) => TextInput.finishAutofillContext(),
+      listener: (context, _) {
+        TextInput.finishAutofillContext();
+        final base = GoRouter.of(
+          context,
+        ).routerDelegate.currentConfiguration.uri.path;
+        if (!AppRouter.isAuthEntryLocation(base)) {
+          context.go(AppRoutes.home);
+        }
+      },
       child: Scaffold(
         body: SafeArea(
           child: SingleChildScrollView(

@@ -9,6 +9,10 @@ import 'package:okey_acar_mi/core/game/game_tile.dart';
 import 'package:okey_acar_mi/core/game/indicator.dart';
 import 'package:okey_acar_mi/core/game/tile_color.dart';
 import 'package:okey_acar_mi/core/logging/app_logger.dart';
+import 'package:okey_acar_mi/features/history/domain/entities/scan.dart';
+import 'package:okey_acar_mi/features/history/domain/entities/scan_summary.dart';
+import 'package:okey_acar_mi/features/history/domain/usecases/save_scan.dart';
+import 'package:okey_acar_mi/features/result/domain/entities/result_args.dart';
 import 'package:okey_acar_mi/features/result/presentation/blocs/result_bloc.dart';
 import 'package:okey_acar_mi/features/review/domain/entities/review_outcome.dart';
 import 'package:okey_acar_mi/features/solver/domain/entities/reasoning_step.dart';
@@ -20,6 +24,8 @@ import 'package:okey_acar_mi/features/solver/domain/entities/solved_spot.dart';
 import 'package:okey_acar_mi/features/solver/domain/usecases/solve_rack.dart';
 
 class _MockSolveRack extends Mock implements SolveRack {}
+
+class _MockSaveScan extends Mock implements SaveScan {}
 
 class _MockAppLogger extends Mock implements AppLogger {}
 
@@ -60,8 +66,20 @@ final SolveResult _solved = SolveResult(
   ],
 );
 
+/// A persisted-scan fixture for stubbing [SaveScan].
+final Scan _savedScan = Scan(
+  id: 'scan-1',
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+  tiles: _outcome.tiles,
+  indicator: _outcome.indicator,
+  gameMode: _outcome.gameMode,
+  summary: ScanSummary.fromResult(_solved),
+);
+
 void main() {
   late _MockSolveRack solveRack;
+  late _MockSaveScan saveScan;
   late _MockAppLogger logger;
 
   setUpAll(() {
@@ -72,14 +90,24 @@ void main() {
         mode: GameMode.oneZeroOne,
       ),
     );
+    registerFallbackValue(_outcome);
+    registerFallbackValue(_solved);
   });
 
   setUp(() {
     solveRack = _MockSolveRack();
+    saveScan = _MockSaveScan();
     logger = _MockAppLogger();
+    when(
+      () => saveScan(
+        outcome: any(named: 'outcome'),
+        result: any(named: 'result'),
+      ),
+    ).thenAnswer((_) async => _savedScan);
   });
 
-  ResultBloc build() => ResultBloc(solveRack, logger, _outcome);
+  ResultBloc build() =>
+      ResultBloc(solveRack, saveScan, logger, ResultArgs.fresh(_outcome));
 
   ResultState state({
     ResultSolveStatus status = const ResultSolveStatus.solving(),
@@ -233,13 +261,145 @@ void main() {
     );
   });
 
+  group('history save (Step 9)', () {
+    blocTest<ResultBloc, ResultState>(
+      'a successful fresh solve saves exactly once, with the solved outcome '
+      'and result verbatim',
+      build: () {
+        when(() => solveRack(any())).thenAnswer((_) async => _solved);
+        return build();
+      },
+      act: (_) => pumpEventQueue(),
+      verify: (_) {
+        verify(
+          () => saveScan(outcome: _outcome, result: _solved),
+        ).called(1);
+      },
+    );
+
+    blocTest<ResultBloc, ResultState>(
+      'a re-solve of an already-solved fresh outcome does NOT save again '
+      '(save-once latch)',
+      build: () {
+        when(() => solveRack(any())).thenAnswer((_) async => _solved);
+        return build();
+      },
+      act: (bloc) async {
+        await pumpEventQueue(); // first solve + save land
+        bloc.add(const ResultEvent.solveRequested());
+        await pumpEventQueue();
+      },
+      verify: (_) {
+        verify(
+          () => saveScan(
+            outcome: any(named: 'outcome'),
+            result: any(named: 'result'),
+          ),
+        ).called(1);
+      },
+    );
+
+    blocTest<ResultBloc, ResultState>(
+      'a replay from history never saves (read-only)',
+      build: () {
+        when(() => solveRack(any())).thenAnswer((_) async => _solved);
+        return ResultBloc(
+          solveRack,
+          saveScan,
+          logger,
+          ResultArgs.replay(_savedScan),
+        );
+      },
+      act: (_) => pumpEventQueue(),
+      verify: (bloc) {
+        check(bloc.state.status).equals(ResultSolveStatus.solved(_solved));
+        verifyNever(
+          () => saveScan(
+            outcome: any(named: 'outcome'),
+            result: any(named: 'result'),
+          ),
+        );
+      },
+    );
+
+    blocTest<ResultBloc, ResultState>(
+      'a failed solve never saves',
+      build: () {
+        when(() => solveRack(any())).thenThrow(StateError('engine defect'));
+        return build();
+      },
+      act: (_) => pumpEventQueue(),
+      verify: (_) {
+        verifyNever(
+          () => saveScan(
+            outcome: any(named: 'outcome'),
+            result: any(named: 'result'),
+          ),
+        );
+      },
+    );
+
+    blocTest<ResultBloc, ResultState>(
+      'failure → retry → success saves exactly once',
+      build: () {
+        var calls = 0;
+        when(() => solveRack(any())).thenAnswer((_) async {
+          if (++calls == 1) throw StateError('engine defect');
+          return _solved;
+        });
+        return build();
+      },
+      act: (bloc) async {
+        await pumpEventQueue(); // initial solve fails — no save
+        bloc.add(const ResultEvent.solveRequested());
+        await pumpEventQueue();
+      },
+      verify: (_) {
+        verify(
+          () => saveScan(outcome: _outcome, result: _solved),
+        ).called(1);
+      },
+    );
+
+    blocTest<ResultBloc, ResultState>(
+      'a throwing SaveScan is logged and the solved state stands — no error '
+      'state ever surfaces for a failed save',
+      build: () {
+        when(() => solveRack(any())).thenAnswer((_) async => _solved);
+        when(
+          () => saveScan(
+            outcome: any(named: 'outcome'),
+            result: any(named: 'result'),
+          ),
+        ).thenThrow(StateError('drift down'));
+        return build();
+      },
+      act: (_) => pumpEventQueue(),
+      expect: () => [
+        state(),
+        state(status: ResultSolveStatus.solved(_solved)),
+      ],
+      verify: (bloc) {
+        check(bloc.state.status).equals(ResultSolveStatus.solved(_solved));
+        verify(
+          () => logger.error('Scan save failed', any<Object?>(), any()),
+        ).called(1);
+      },
+    );
+  });
+
   group('close mid-solve', () {
     test('a result landing after close() is dropped — no emit-after-close '
         'error, state stays solving', () async {
       final completer = Completer<SolveResult>();
       when(() => solveRack(any())).thenAnswer((_) => completer.future);
 
-      final bloc = ResultBloc(solveRack, logger, _outcome);
+      final bloc = ResultBloc(
+        solveRack,
+        saveScan,
+        logger,
+        ResultArgs.fresh(_outcome),
+      );
       final emitted = <ResultState>[];
       final subscription = bloc.stream.listen(emitted.add);
 

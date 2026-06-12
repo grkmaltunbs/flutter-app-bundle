@@ -1,19 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
+import 'package:okey_acar_mi/core/format/scan_timestamp.dart';
 import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/theme/app_radii.dart';
 import 'package:okey_acar_mi/core/theme/app_typography.dart';
+import 'package:okey_acar_mi/core/time/clock.dart';
 import 'package:okey_acar_mi/core/widgets/circle_icon_button.dart';
 import 'package:okey_acar_mi/core/widgets/eyebrow.dart';
+import 'package:okey_acar_mi/core/widgets/scan_card.dart';
+import 'package:okey_acar_mi/features/history/domain/entities/scan.dart';
+import 'package:okey_acar_mi/features/history/domain/entities/scan_stats.dart';
+import 'package:okey_acar_mi/features/history/presentation/scan_card_mapping.dart';
+import 'package:okey_acar_mi/features/home/presentation/cubit/home_cubit.dart';
+import 'package:okey_acar_mi/features/home/presentation/widgets/home_stats_row.dart';
+import 'package:okey_acar_mi/features/result/domain/entities/result_args.dart';
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart';
 
-/// Home / dashboard — greeting, game-mode chooser, the primary scan CTA, and
-/// (until history lands in Step 9) an inviting empty state.
+/// Home / dashboard — greeting, game-mode chooser, the primary scan CTA, the
+/// live last-scan card, and the stats strip.
 class HomePage extends StatelessWidget {
   /// Creates a [HomePage].
   const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider<HomeCubit>(
+      create: (_) => getIt<HomeCubit>(),
+      child: const HomeView(),
+    );
+  }
+}
+
+/// The home screen view (assumes a [HomeCubit] is provided above it).
+class HomeView extends StatelessWidget {
+  /// Creates a [HomeView].
+  const HomeView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -105,11 +129,72 @@ class HomePage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              const _EmptyLastScan(),
+              const _LastScanSlot(),
+              const _StatsSlot(),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The last-scan slot: the live newest-scan card, or the inviting empty
+/// state while none exists.
+class _LastScanSlot extends StatelessWidget {
+  const _LastScanSlot();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocSelector<HomeCubit, HomeState, Scan?>(
+      selector: (state) => state.lastScan,
+      builder: (context, scan) {
+        if (scan == null) return const _EmptyLastScan();
+        final l10n = context.l10n;
+        final (pillLabel, tone) = scanVerdictPill(l10n, scan.summary);
+        final timestamp = formatScanTimestamp(
+          at: scan.createdAt,
+          now: getIt<Clock>().now(),
+          localeName: l10n.localeName,
+          // Per the design, the home card spells today out: "Bugün · 21:48".
+          todayLabel: l10n.timeToday,
+          yesterdayLabel: l10n.timeYesterday,
+        );
+        return ScanCard(
+          key: const ValueKey('home-last-scan'),
+          timestamp: timestamp,
+          modeLabel: scan.gameMode == GameMode.oneZeroOne
+              ? l10n.gameMode101Title
+              : l10n.gameModeOkeyTitle,
+          pillLabel: pillLabel,
+          tone: tone,
+          tiles: scanCardTiles(scan),
+          semanticsLabel: l10n.scanCardSemantics(timestamp, pillLabel),
+          onTap: () =>
+              context.push(AppRoutes.result, extra: ResultArgs.replay(scan)),
+        );
+      },
+    );
+  }
+}
+
+/// The stats strip; collapses to nothing until at least one scan exists.
+class _StatsSlot extends StatelessWidget {
+  const _StatsSlot();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocSelector<HomeCubit, HomeState, ScanStats?>(
+      selector: (state) => state.stats,
+      builder: (context, stats) {
+        if (stats == null || stats.total == 0) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: HomeStatsRow(stats: stats),
+        );
+      },
     );
   }
 }

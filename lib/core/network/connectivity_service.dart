@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
@@ -40,16 +42,61 @@ class ConnectivityServiceImpl implements ConnectivityService {
       _isOnline(await _connectivity.checkConnectivity());
 }
 
-/// Demo [ConnectivityService] that is always online.
+/// Closes the [FakeConnectivityService]'s stream controller when the DI
+/// container resets (`getIt.reset()`).
+///
+/// A top-level adapter (instead of `@disposeMethod`) because the fake is
+/// registered as [ConnectivityService], and the generated dispose callback is
+/// typed against that interface.
+void disposeFakeConnectivityService(ConnectivityService instance) =>
+    (instance as FakeConnectivityService).dispose();
+
+/// Demo [ConnectivityService]: stateful, in-memory, online by default.
+///
+/// [setOnline] is the demo/integration-test hook for driving offline → online
+/// transitions on a simulator without touching real radios. [onlineStream]
+/// replays the current state to every new listener, then every change
+/// (mirroring `FakeAuthRepository`'s gap-free `Stream.multi` pattern).
 @Environment('demo')
-@LazySingleton(as: ConnectivityService)
+@LazySingleton(as: ConnectivityService, dispose: disposeFakeConnectivityService)
 class FakeConnectivityService implements ConnectivityService {
-  /// Creates a [FakeConnectivityService].
-  const FakeConnectivityService();
+  /// Creates a [FakeConnectivityService] in the online state.
+  FakeConnectivityService();
+
+  bool _online = true;
+
+  final StreamController<bool> _controller = StreamController<bool>.broadcast();
 
   @override
-  Stream<bool> get onlineStream => Stream<bool>.value(true);
+  Stream<bool> get onlineStream {
+    // Gap-free replay: `async*` would yield the current value and only then
+    // subscribe to the broadcast controller, dropping any emission landing in
+    // that microtask window. Stream.multi subscribes synchronously on listen.
+    return Stream<bool>.multi((listener) {
+      listener
+        ..add(_online)
+        ..addStream(_controller.stream).ignore();
+    });
+  }
 
   @override
-  Future<bool> isOnline() async => true;
+  Future<bool> isOnline() async => _online;
+
+  /// Demo hook: drives the fake [online] or offline, emitting on every
+  /// change (no-op when the state is unchanged, like the real transport).
+  ///
+  /// Deliberately a plain public member — the demo flavor's integration
+  /// tests flip it at runtime to exercise offline banners and sync retries.
+  void setOnline({required bool online}) {
+    if (_online == online) return;
+    _online = online;
+    _controller.add(online);
+  }
+
+  /// Restores the fake to its default online state.
+  void reset() => setOnline(online: true);
+
+  /// Closes the change controller; called via
+  /// [disposeFakeConnectivityService] when the DI container resets.
+  void dispose() => _controller.close();
 }

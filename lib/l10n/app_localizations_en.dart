@@ -97,6 +97,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeEmptyBody => 'Scan your first rack to see your best opening.';
 
   @override
+  String get homeStatsTotalScans => 'TOTAL SCANS';
+
+  @override
+  String get homeStatsOpenRate => 'OPEN RATE';
+
+  @override
+  String get homeStatsBest => 'BEST';
+
+  @override
   String get tutorialEyebrow => 'HOW IT WORKS';
 
   @override
@@ -235,7 +244,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get historyEyebrow => 'HISTORY';
 
   @override
-  String get historyTitle => 'Your scans';
+  String get historyTitle => 'Your past hands.';
 
   @override
   String get historyEmptyTitle => 'No scans yet';
@@ -245,6 +254,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get historyEmptyCta => 'Scan now';
+
+  @override
+  String get historyFilterAll => 'All';
+
+  @override
+  String get historyFilterOpened => 'Opened';
+
+  @override
+  String get historyFilterClosed => 'Closed';
+
+  @override
+  String get historyNoResultsTitle => 'No matches';
+
+  @override
+  String get historyNoResultsBody => 'No hands match this filter.';
+
+  @override
+  String get historyOfflineBanner => 'You\'re offline — showing local history.';
+
+  @override
+  String get historyLoadFailedTitle => 'Couldn\'t load history';
+
+  @override
+  String get historyRetry => 'Try again';
+
+  @override
+  String get scanCardOpened => 'Opened';
+
+  @override
+  String get scanCardClosed => 'No';
+
+  @override
+  String get scanCardOkeyWin => 'Okey';
+
+  @override
+  String scanCardTilesToWin(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count tiles',
+      one: '1 tile',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String scanCardSemantics(String date, String verdict) {
+    return '$date, $verdict. Open result.';
+  }
+
+  @override
+  String get timeToday => 'Today';
+
+  @override
+  String get timeYesterday => 'Yesterday';
 
   @override
   String get placeholderComingSoon => 'Coming soon';

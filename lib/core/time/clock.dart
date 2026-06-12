@@ -22,15 +22,18 @@ class SystemClock implements Clock {
 
 /// Deterministic clock for the demo flavor and tests.
 ///
-/// Always returns the same seeded instant so flows are reproducible.
+/// Always returns the same seeded instant so flows are reproducible. The
+/// instant is exposed as [seed] so seeded fakes (e.g. demo scan history) can
+/// derive timestamps relative to "now" deterministically.
 @Environment('demo')
 @LazySingleton(as: Clock)
 class FakeClock implements Clock {
-  /// Creates a [FakeClock] pinned to [_seed].
+  /// Creates a [FakeClock] pinned to [seed].
   const FakeClock();
 
-  static final DateTime _seed = DateTime.utc(2026);
+  /// The pinned instant every [now] call returns.
+  static final DateTime seed = DateTime.utc(2026);
 
   @override
-  DateTime now() => _seed;
+  DateTime now() => seed;
 }
