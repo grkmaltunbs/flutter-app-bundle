@@ -87,6 +87,10 @@ import 'package:okey_acar_mi/features/review/presentation/blocs/review_bloc.dart
     as _i739;
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart'
     as _i997;
+import 'package:okey_acar_mi/features/solver/domain/engine/solver_engine.dart'
+    as _i641;
+import 'package:okey_acar_mi/features/solver/domain/usecases/solve_rack.dart'
+    as _i502;
 
 const String _demo = 'demo';
 const String _prod = 'prod';
@@ -126,6 +130,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => const _i854.FakeConnectivityService(),
       registerFor: {_demo},
     );
+    gh.lazySingleton<_i641.SolverEngine>(() => const _i641.DpSolverEngine());
     gh.lazySingleton<_i910.CaptureRepository>(
       () =>
           captureBindings.demoCaptureRepository(gh<_i510.FakeCaptureService>()),
@@ -203,6 +208,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i611.AuthRepository>(),
         gh<_i574.GuestDataMigrator>(),
       ),
+    );
+    gh.factory<_i502.SolveRack>(
+      () => _i502.SolveRack(gh<_i641.SolverEngine>()),
     );
     gh.factory<_i1033.GetTemplateItems>(
       () => _i1033.GetTemplateItems(gh<_i434.TemplateRepository>()),

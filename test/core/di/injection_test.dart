@@ -7,6 +7,8 @@ import 'package:okey_acar_mi/features/_template/data/fakes/fake_template_reposit
 import 'package:okey_acar_mi/features/_template/data/repositories/template_repository_impl.dart';
 import 'package:okey_acar_mi/features/_template/domain/repositories/template_repository.dart';
 import 'package:okey_acar_mi/features/_template/presentation/blocs/template_bloc.dart';
+import 'package:okey_acar_mi/features/solver/domain/engine/solver_engine.dart';
+import 'package:okey_acar_mi/features/solver/domain/usecases/solve_rack.dart';
 
 void main() {
   group('configureDependencies (demo environment)', () {
@@ -39,6 +41,15 @@ void main() {
       check(getIt.isRegistered<TemplateBloc>()).isTrue();
       addTearDown(getIt<TemplateBloc>().close);
     });
+
+    test('SolverEngine resolves to the DP engine (no environment split)', () {
+      check(getIt<SolverEngine>()).isA<DpSolverEngine>();
+    });
+
+    test('SolveRack resolves with the engine wired in', () {
+      check(getIt.isRegistered<SolveRack>()).isTrue();
+      check(getIt<SolveRack>()).isA<SolveRack>();
+    });
   });
 
   group('configureDependencies (prod environment)', () {
@@ -55,6 +66,15 @@ void main() {
 
     test('TemplateRepository resolves to the real impl', () {
       check(getIt<TemplateRepository>()).isA<TemplateRepositoryImpl>();
+    });
+
+    test('SolverEngine resolves to the DP engine (no environment split)', () {
+      check(getIt<SolverEngine>()).isA<DpSolverEngine>();
+    });
+
+    test('SolveRack resolves with the engine wired in', () {
+      check(getIt.isRegistered<SolveRack>()).isTrue();
+      check(getIt<SolveRack>()).isA<SolveRack>();
     });
   });
 }

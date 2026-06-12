@@ -235,7 +235,7 @@ from them.
 ---
 
 ## Step 7 — Solver (101 + Okey) — pure Dart domain
-- [ ]
+- [x]
 - id: solver
 - depends_on: review-indicator
 - spec_refs: flow-scan (solve), f-solve-101, f-solve-okey, Domain rules
