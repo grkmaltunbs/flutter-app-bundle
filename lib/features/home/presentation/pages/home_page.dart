@@ -53,10 +53,10 @@ class HomeView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 FloatingActionButton.extended(
-                  heroTag: 'mlkit-lab-temp',
-                  onPressed: () => context.push(AppRoutes.mlkitLab),
+                  heroTag: 'detection-lab-temp',
+                  onPressed: () => context.push(AppRoutes.detectionLab),
                   icon: const Icon(Icons.science_outlined),
-                  label: const Text('ML Kit Lab'),
+                  label: const Text('Gemini Lab'),
                 ),
                 const SizedBox(height: 12),
                 FloatingActionButton.extended(

@@ -119,10 +119,10 @@ class _SolverLabPageState extends State<SolverLabPage> {
   }
 
   void _clear() => setState(() {
-        _rack.clear();
-        _output = null;
-        _result = null;
-      });
+    _rack.clear();
+    _output = null;
+    _result = null;
+  });
 
   Future<void> _solve() async {
     setState(() {
@@ -158,10 +158,14 @@ class _SolverLabPageState extends State<SolverLabPage> {
     final buf = StringBuffer()
       ..writeln('=== SOLVE (${(micros / 1000).toStringAsFixed(2)} ms) ===')
       ..writeln('mode: ${req.mode.name}   rack: ${req.tiles.length} tiles')
-      ..writeln('indicator: '
-          '${_tileStr(req.indicator.color, req.indicator.number)}')
-      ..writeln('okey (wild target): '
-          '${_tileStr(req.indicator.color, req.indicator.okeyNumber)}')
+      ..writeln(
+        'indicator: '
+        '${_tileStr(req.indicator.color, req.indicator.number)}',
+      )
+      ..writeln(
+        'okey (wild target): '
+        '${_tileStr(req.indicator.color, req.indicator.okeyNumber)}',
+      )
       ..writeln()
       ..writeln('VERDICT: ${_verdictStr(r.verdict)}')
       ..writeln('totalScore: ${r.totalScore}')
@@ -170,8 +174,10 @@ class _SolverLabPageState extends State<SolverLabPage> {
     if (r.melds.isNotEmpty) {
       buf.writeln('--- MELDS (${r.melds.length}) ---');
       for (final (i, m) in r.melds.indexed) {
-        buf.writeln('  [$i] ${m.kind.name}  +${m.points}  '
-            '${m.spots.map(_spotStr).join(' ')}');
+        buf.writeln(
+          '  [$i] ${m.kind.name}  +${m.points}  '
+          '${m.spots.map(_spotStr).join(' ')}',
+        );
       }
       buf.writeln();
     }
@@ -179,8 +185,10 @@ class _SolverLabPageState extends State<SolverLabPage> {
     if (r.pairs.isNotEmpty) {
       buf.writeln('--- PAIRS (${r.pairs.length}) ---');
       for (final (i, p) in r.pairs.indexed) {
-        buf.writeln('  [$i] ${_tileStr(p.identity.color, p.identity.number)}  '
-            '${_spotStr(p.first)} + ${_spotStr(p.second)}');
+        buf.writeln(
+          '  [$i] ${_tileStr(p.identity.color, p.identity.number)}  '
+          '${_spotStr(p.first)} + ${_spotStr(p.second)}',
+        );
       }
       buf.writeln();
     }
@@ -194,9 +202,11 @@ class _SolverLabPageState extends State<SolverLabPage> {
 
     if (r.discardSuggested != null) {
       buf
-        ..writeln('discard: '
-            '${_tileStr(r.discardSuggested!.color, r.discardSuggested!.number)}'
-            ' @rack${r.discardRackIndex}')
+        ..writeln(
+          'discard: '
+          '${_tileStr(r.discardSuggested!.color, r.discardSuggested!.number)}'
+          ' @rack${r.discardRackIndex}',
+        )
         ..writeln();
     }
 
@@ -208,22 +218,30 @@ class _SolverLabPageState extends State<SolverLabPage> {
   }
 
   String _verdictStr(SolveVerdict v) => switch (v) {
-        Opens101(:final score, :final via) =>
-          'AÇAR — opens 101 (score $score via ${via.name})',
-        DoesNotOpen101(:final score, :final pointsShort) =>
-          'AÇMAZ — does not open (score $score, $pointsShort short)',
-        OkeyOutcome(:final tilesToWin, :final via) =>
-          'tilesToWin=$tilesToWin via ${via.name}',
-      };
+    Opens101(:final score, :final via) =>
+      'AÇAR — opens 101 (score $score via ${via.name})',
+    DoesNotOpen101(:final score, :final pointsShort) =>
+      'AÇMAZ — does not open (score $score, $pointsShort short)',
+    OkeyOutcome(:final tilesToWin, :final via) =>
+      'tilesToWin=$tilesToWin via ${via.name}',
+  };
 
   String _spotStr(SolvedSpot s) => switch (s) {
-        RackSpot(:final physical, :final playsAs, :final rackIndex) =>
-          _playStr(physical, playsAs, rackIndex, 'R'),
-        WildSpot(:final physical, :final playsAs, :final rackIndex) =>
-          _playStr(physical, playsAs, rackIndex, 'W'),
-        NeededSpot(:final playsAs) =>
-          '[need ${_tileStr(playsAs.color, playsAs.number)}]',
-      };
+    RackSpot(:final physical, :final playsAs, :final rackIndex) => _playStr(
+      physical,
+      playsAs,
+      rackIndex,
+      'R',
+    ),
+    WildSpot(:final physical, :final playsAs, :final rackIndex) => _playStr(
+      physical,
+      playsAs,
+      rackIndex,
+      'W',
+    ),
+    NeededSpot(:final playsAs) =>
+      '[need ${_tileStr(playsAs.color, playsAs.number)}]',
+  };
 
   String _playStr(GameTile physical, GameTile playsAs, int idx, String tag) {
     final phys = _tileStr(physical.color, physical.number);
@@ -233,48 +251,49 @@ class _SolverLabPageState extends State<SolverLabPage> {
   }
 
   String _reasonStr(ReasoningStep s) => switch (s) {
-        OkeyDerivedStep(:final okeyTile) =>
-          'okey derived → ${_tileStr(okeyTile.color, okeyTile.number)}',
-        WildsCountedStep(:final falseJokers, :final okeyCopies) =>
-          'wilds: $falseJokers false-joker(s), $okeyCopies okey-copy',
-        RackCountNotedStep(:final count, :final mode) =>
-          'rack count $count (${mode.name})',
-        CountsClampedStep(:final kind, :final dropped) =>
-          'clamped ${_tileStr(kind.color, kind.number)} ×$dropped',
-        MeldFormedStep(:final meld, :final runningTotal) =>
-          'meld ${meld.kind.name} +${meld.points} → total $runningTotal',
-        ThresholdCheckedStep(:final total, :final threshold, :final opens) =>
-          'threshold $total/$threshold → ${opens ? "opens" : "short"}',
-        PairsCountedStep(:final pairCount, :final opens) =>
-          'pairs $pairCount → ${opens ? "opens" : "short"}',
-        PathChosenStep(:final via) => 'path: ${via.name}',
-        OkeyTemplateChosenStep(:final via, :final matched, :final wildsUsed) =>
-          'template ${via.name}: matched $matched, wilds $wildsUsed',
-        TilesNeededStep(:final needed) => 'needed: '
-            '${needed.map((t) => _tileStr(t.color, t.number)).join(", ")}',
-        DiscardSuggestedStep(:final tile, :final rackIndex) =>
-          'discard ${_tileStr(tile.color, tile.number)} @$rackIndex',
-        TilesToWinComputedStep(:final tilesToWin) => 'tilesToWin=$tilesToWin',
-      };
+    OkeyDerivedStep(:final okeyTile) =>
+      'okey derived → ${_tileStr(okeyTile.color, okeyTile.number)}',
+    WildsCountedStep(:final falseJokers, :final okeyCopies) =>
+      'wilds: $falseJokers false-joker(s), $okeyCopies okey-copy',
+    RackCountNotedStep(:final count, :final mode) =>
+      'rack count $count (${mode.name})',
+    CountsClampedStep(:final kind, :final dropped) =>
+      'clamped ${_tileStr(kind.color, kind.number)} ×$dropped',
+    MeldFormedStep(:final meld, :final runningTotal) =>
+      'meld ${meld.kind.name} +${meld.points} → total $runningTotal',
+    ThresholdCheckedStep(:final total, :final threshold, :final opens) =>
+      'threshold $total/$threshold → ${opens ? "opens" : "short"}',
+    PairsCountedStep(:final pairCount, :final opens) =>
+      'pairs $pairCount → ${opens ? "opens" : "short"}',
+    PathChosenStep(:final via) => 'path: ${via.name}',
+    OkeyTemplateChosenStep(:final via, :final matched, :final wildsUsed) =>
+      'template ${via.name}: matched $matched, wilds $wildsUsed',
+    TilesNeededStep(:final needed) =>
+      'needed: '
+          '${needed.map((t) => _tileStr(t.color, t.number)).join(", ")}',
+    DiscardSuggestedStep(:final tile, :final rackIndex) =>
+      'discard ${_tileStr(tile.color, tile.number)} @$rackIndex',
+    TilesToWinComputedStep(:final tilesToWin) => 'tilesToWin=$tilesToWin',
+  };
 
   String _tileStr(TileColor c, int? n) =>
       c == TileColor.joker ? '🃏' : '${_colorTag(c)}$n';
 
   String _colorTag(TileColor c) => switch (c) {
-        TileColor.red => 'R',
-        TileColor.black => 'K',
-        TileColor.yellow => 'Y',
-        TileColor.blue => 'B',
-        TileColor.joker => 'J',
-      };
+    TileColor.red => 'R',
+    TileColor.black => 'K',
+    TileColor.yellow => 'Y',
+    TileColor.blue => 'B',
+    TileColor.joker => 'J',
+  };
 
   Color _colorOf(TileColor c) => switch (c) {
-        TileColor.red => const Color(0xFFD23B3B),
-        TileColor.black => const Color(0xFF222222),
-        TileColor.yellow => const Color(0xFFCB9A00),
-        TileColor.blue => const Color(0xFF2D6BD2),
-        TileColor.joker => const Color(0xFF6B7280),
-      };
+    TileColor.red => const Color(0xFFD23B3B),
+    TileColor.black => const Color(0xFF222222),
+    TileColor.yellow => const Color(0xFFCB9A00),
+    TileColor.blue => const Color(0xFF2D6BD2),
+    TileColor.joker => const Color(0xFF6B7280),
+  };
 
   // ---- UI ----------------------------------------------------------------
 
@@ -328,9 +347,11 @@ class _SolverLabPageState extends State<SolverLabPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.play_arrow),
-                label: Text(legal
-                    ? 'Run solver'
-                    : 'Run solver (rack is $min–$max for ${_mode.name})'),
+                label: Text(
+                  legal
+                      ? 'Run solver'
+                      : 'Run solver (rack is $min–$max for ${_mode.name})',
+                ),
               ),
               const SizedBox(height: 12),
               _outputText(),
@@ -377,8 +398,10 @@ class _SolverLabPageState extends State<SolverLabPage> {
           (n) => setState(() => _indicatorNumber = n),
         ),
         const SizedBox(width: 8),
-        Text('→ okey ${_indicatorNumber % 13 + 1}',
-            style: const TextStyle(color: Colors.grey)),
+        Text(
+          '→ okey ${_indicatorNumber % 13 + 1}',
+          style: const TextStyle(color: Colors.grey),
+        ),
       ],
     );
   }
@@ -413,9 +436,10 @@ class _SolverLabPageState extends State<SolverLabPage> {
         for (final c in _numberedColors)
           DropdownMenuItem(
             value: c,
-            child: Text(_colorTag(c),
-                style: TextStyle(
-                    color: _colorOf(c), fontWeight: FontWeight.bold)),
+            child: Text(
+              _colorTag(c),
+              style: TextStyle(color: _colorOf(c), fontWeight: FontWeight.bold),
+            ),
           ),
       ],
     );
@@ -531,17 +555,17 @@ class _SolverLabPageState extends State<SolverLabPage> {
   }
 
   Widget _sectionLabel(String text) => Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 6),
-        child: Text(
-          text.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-            color: Colors.grey,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(top: 8, bottom: 6),
+    child: Text(
+      text.toUpperCase(),
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1,
+        color: Colors.grey,
+      ),
+    ),
+  );
 
   Widget _meldRow(SolvedMeld m) {
     return Padding(
@@ -594,16 +618,21 @@ class _SolverLabPageState extends State<SolverLabPage> {
   }
 
   Widget _spotTile(SolvedSpot s) => switch (s) {
-        RackSpot(:final playsAs) =>
-          _tileWidget(color: playsAs.color, number: playsAs.number),
-        WildSpot(:final playsAs) =>
-          _tileWidget(color: playsAs.color, number: playsAs.number, wild: true),
-        NeededSpot(:final playsAs) => _tileWidget(
-            color: playsAs.color,
-            number: playsAs.number,
-            needed: true,
-          ),
-      };
+    RackSpot(:final playsAs) => _tileWidget(
+      color: playsAs.color,
+      number: playsAs.number,
+    ),
+    WildSpot(:final playsAs) => _tileWidget(
+      color: playsAs.color,
+      number: playsAs.number,
+      wild: true,
+    ),
+    NeededSpot(:final playsAs) => _tileWidget(
+      color: playsAs.color,
+      number: playsAs.number,
+      needed: true,
+    ),
+  };
 
   Widget _tileWidget({
     required TileColor color,
@@ -623,8 +652,8 @@ class _SolverLabPageState extends State<SolverLabPage> {
           color: needed
               ? Colors.grey
               : wild
-                  ? const Color(0xFF1F8A70)
-                  : Colors.black26,
+              ? const Color(0xFF1F8A70)
+              : Colors.black26,
           width: wild ? 2 : 1,
         ),
       ),

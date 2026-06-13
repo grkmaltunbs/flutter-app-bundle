@@ -80,6 +80,10 @@ import 'package:okey_acar_mi/features/detection/data/detection_bindings.dart'
     as _i386;
 import 'package:okey_acar_mi/features/detection/data/fakes/fake_tile_detector.dart'
     as _i965;
+import 'package:okey_acar_mi/features/detection/data/services/gemini_client.dart'
+    as _i747;
+import 'package:okey_acar_mi/features/detection/data/services/gemini_tile_detector.dart'
+    as _i266;
 import 'package:okey_acar_mi/features/detection/data/services/pipeline_tile_detector.dart'
     as _i457;
 import 'package:okey_acar_mi/features/detection/domain/entities/detection_result.dart'
@@ -225,6 +229,10 @@ extension GetItInjectableX on _i174.GetIt {
       registerFor: {_prod},
       dispose: _i144.disposeDeviceCaptureService,
     );
+    gh.lazySingleton<_i747.GeminiClient>(
+      () => detectionBindings.geminiClient(),
+      registerFor: {_prod},
+    );
     gh.lazySingleton<_i974.FirebaseFirestore>(
       () => historyBindings.firebaseFirestore,
       registerFor: {_prod},
@@ -284,11 +292,23 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_prod},
     );
+    gh.lazySingleton<_i266.GeminiTileDetector>(
+      () => detectionBindings.geminiTileDetector(
+        gh<_i747.GeminiClient>(),
+        gh<_i92.Clock>(),
+        gh<_i856.AppLogger>(),
+      ),
+      registerFor: {_prod},
+    );
     gh.factory<_i928.ConnectivityCubit>(
       () => _i928.ConnectivityCubit(
         gh<_i854.ConnectivityService>(),
         gh<_i856.AppLogger>(),
       ),
+    );
+    gh.lazySingleton<_i58.TileDetector>(
+      () => detectionBindings.prodTileDetector(gh<_i266.GeminiTileDetector>()),
+      registerFor: {_prod},
     );
     gh.factory<_i60.TemplateBloc>(
       () => _i60.TemplateBloc(gh<_i1033.GetTemplateItems>()),
@@ -325,14 +345,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i92.Clock>(),
       ),
     );
+    gh.factory<_i437.DetectTiles>(
+      () => _i437.DetectTiles(gh<_i58.TileDetector>()),
+    );
     gh.lazySingleton<_i126.AppRouter>(
       () => _i126.AppRouter(gh<_i614.AuthBloc>()),
       dispose: (i) => i.dispose(),
-    );
-    gh.lazySingleton<_i58.TileDetector>(
-      () =>
-          detectionBindings.prodTileDetector(gh<_i457.PipelineTileDetector>()),
-      registerFor: {_prod},
     );
     gh.factory<_i437.CameraBloc>(
       () => _i437.CameraBloc(
@@ -368,8 +386,12 @@ extension GetItInjectableX on _i174.GetIt {
         args,
       ),
     );
-    gh.factory<_i437.DetectTiles>(
-      () => _i437.DetectTiles(gh<_i58.TileDetector>()),
+    gh.factoryParam<_i105.DetectionBloc, _i983.CapturePayload, dynamic>(
+      (payload, _) => _i105.DetectionBloc(
+        gh<_i437.DetectTiles>(),
+        gh<_i856.AppLogger>(),
+        payload,
+      ),
     );
     gh.lazySingleton<_i574.GuestDataMigrator>(
       () => _i771.ScanGuestDataMigrator(
@@ -430,13 +452,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i186.SignUpWithEmail(
         gh<_i611.AuthRepository>(),
         gh<_i574.GuestDataMigrator>(),
-      ),
-    );
-    gh.factoryParam<_i105.DetectionBloc, _i983.CapturePayload, dynamic>(
-      (payload, _) => _i105.DetectionBloc(
-        gh<_i437.DetectTiles>(),
-        gh<_i856.AppLogger>(),
-        payload,
       ),
     );
     gh.factory<_i379.HomeCubit>(
