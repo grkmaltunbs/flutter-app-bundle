@@ -4,7 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:okey_acar_mi/app.dart';
+import 'package:okey_acar_mi/core/app_info/app_info.dart';
+import 'package:okey_acar_mi/core/db/app_database.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
+import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_palette.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
@@ -24,8 +27,23 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('Settings switching end-to-end (demo flavor)', () {
-    setUp(() async => configureDependencies('demo'));
-    tearDown(() async => getIt.reset());
+    setUp(() async {
+      // Settings persist to the on-device drift file since Step 10, and the
+      // store snapshot preloads DURING `configureDependencies` — so rows left
+      // by a crashed previous run must be wiped and the container rebuilt
+      // for the test to start from the defaults it asserts against.
+      await configureDependencies('demo');
+      await getIt<AppDatabase>().wipePreferencesForTest();
+      await getIt.reset();
+      await configureDependencies('demo');
+    });
+
+    tearDown(() async {
+      // Wipe BEFORE the reset closes the db: the felt/bold/coral/turkish/okey
+      // end-state must never leak into other integration tests.
+      await getIt<AppDatabase>().wipePreferencesForTest();
+      await getIt.reset();
+    });
 
     BuildContext settingsContext(WidgetTester tester) =>
         tester.element(find.byType(SettingsPage));
@@ -90,6 +108,61 @@ void main() {
       await tapKey(tester, 'settings-mode-okey');
       check(settings(tester).gameMode).equals(GameMode.okey);
 
+      check(tester.takeException()).isNull();
+    });
+
+    testWidgets('purchases + about sections: rows present, restore shows the '
+        'coming-soon SnackBar, version row carries AppInfo', (tester) async {
+      await tester.pumpWidget(const App());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('splash-guest')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('app-nav-2')));
+      await tester.pumpAndSettle();
+      check(find.byType(SettingsPage).evaluate()).length.equals(1);
+
+      // The settings list is lazy: scroll until the about rows materialize.
+      final scrollable = find
+          .descendant(
+            of: find.byType(SettingsPage),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final terms = find.byKey(const ValueKey('settings-terms-of-use'));
+      await tester.scrollUntilVisible(terms, 120, scrollable: scrollable);
+      await tester.pumpAndSettle();
+
+      // All four new rows are present. The legal links are NOT tapped: they
+      // would launch an external browser intent on the device.
+      check(
+        find.byKey(const ValueKey('settings-restore-purchases')).evaluate(),
+      ).length.equals(1);
+      check(
+        find.byKey(const ValueKey('settings-manage-subscription')).evaluate(),
+      ).length.equals(1);
+      check(
+        find.byKey(const ValueKey('settings-privacy-policy')).evaluate(),
+      ).length.equals(1);
+      check(terms.evaluate()).length.equals(1);
+
+      // The version row renders the real on-device package version.
+      check(find.text(getIt<AppInfo>().label).evaluate()).length.equals(1);
+
+      // Restore purchases → the Step-11 placeholder SnackBar.
+      final l10n = tester.element(find.byType(SettingsPage)).l10n;
+      await tapKey(tester, 'settings-restore-purchases');
+      check(
+        find
+            .descendant(
+              of: find.byType(SnackBar),
+              matching: find.text(l10n.settingsComingSoon),
+            )
+            .evaluate(),
+      ).length.equals(1);
+
+      // Let the SnackBar time out so the test ends with a settled tree.
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
       check(tester.takeException()).isNull();
     });
   });

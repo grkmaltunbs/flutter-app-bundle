@@ -252,7 +252,7 @@ void main() {
       check(find.text(l10n.historyNoResultsTitle).evaluate()).isEmpty();
       check(scanCards().evaluate()).isEmpty();
       check(
-        find.byKey(const ValueKey('history-offline-banner')).evaluate(),
+        find.byKey(const ValueKey('offline-banner')).evaluate(),
       ).isEmpty();
       check(tester.takeException()).isNull();
     });
@@ -462,14 +462,16 @@ void main() {
       check(tester.takeException()).isNull();
     });
 
-    testWidgets('6. going offline shows the local-history banner over the '
-        'still-populated list; back online clears it', (tester) async {
+    testWidgets('6. going offline shows the shell-level offline banner over '
+        'the still-populated list; back online clears it', (tester) async {
       await pumpApp(tester);
       await signInFromSplash(tester);
       await openHistoryTab(tester);
       // The pulled seeds land via the coalesced background sync — awaited.
       await pumpUntilFound(tester, scanCards());
-      final banner = find.byKey(const ValueKey('history-offline-banner'));
+      // The banner is shell-level now (above the active tab), so it renders
+      // while the History tab is on screen.
+      final banner = find.byKey(const ValueKey('offline-banner'));
       check(banner.evaluate()).isEmpty();
       check(scanCards().evaluate()).isNotEmpty();
 
@@ -477,7 +479,7 @@ void main() {
       await tester.pumpAndSettle();
       check(banner.evaluate()).length.equals(1);
       final l10n = historyL10n(tester);
-      check(find.text(l10n.historyOfflineBanner).evaluate()).length.equals(1);
+      check(find.text(l10n.offlineBanner).evaluate()).length.equals(1);
       // The local store keeps serving the list.
       check(scanCards().evaluate()).isNotEmpty();
 

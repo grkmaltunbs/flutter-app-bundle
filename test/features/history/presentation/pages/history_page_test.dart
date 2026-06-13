@@ -13,7 +13,6 @@ import 'package:okey_acar_mi/core/game/game_tile.dart';
 import 'package:okey_acar_mi/core/game/indicator.dart';
 import 'package:okey_acar_mi/core/game/tile_color.dart';
 import 'package:okey_acar_mi/core/logging/app_logger.dart';
-import 'package:okey_acar_mi/core/network/connectivity_service.dart';
 import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
@@ -33,8 +32,6 @@ import 'package:okey_acar_mi/l10n/app_localizations.dart';
 class _MockWatchScans extends Mock implements WatchScans {}
 
 class _MockWatchScanCounts extends Mock implements WatchScanCounts {}
-
-class _MockConnectivityService extends Mock implements ConnectivityService {}
 
 class _MockAppLogger extends Mock implements AppLogger {}
 
@@ -63,11 +60,9 @@ List<Scan> _scans(int count) => [for (var i = 1; i <= count; i++) _scan('s$i')];
 void main() {
   late _MockWatchScans watchScans;
   late _MockWatchScanCounts watchCounts;
-  late _MockConnectivityService connectivity;
   late _MockAppLogger logger;
   late StreamController<List<Scan>> scansStream;
   late StreamController<ScanCounts> countsStream;
-  late StreamController<bool> onlineStream;
   late Object? pushedExtra;
 
   setUpAll(() {
@@ -79,11 +74,9 @@ void main() {
     await configureDependencies('demo');
     watchScans = _MockWatchScans();
     watchCounts = _MockWatchScanCounts();
-    connectivity = _MockConnectivityService();
     logger = _MockAppLogger();
     scansStream = StreamController<List<Scan>>.broadcast();
     countsStream = StreamController<ScanCounts>.broadcast();
-    onlineStream = StreamController<bool>.broadcast();
     pushedExtra = null;
     when(
       () => watchScans(
@@ -92,15 +85,11 @@ void main() {
       ),
     ).thenAnswer((_) => scansStream.stream);
     when(watchCounts.call).thenAnswer((_) => countsStream.stream);
-    when(
-      () => connectivity.onlineStream,
-    ).thenAnswer((_) => onlineStream.stream);
   });
 
   tearDown(() async {
     await scansStream.close();
     await countsStream.close();
-    await onlineStream.close();
     await getIt.reset();
   });
 
@@ -120,7 +109,7 @@ void main() {
           path: AppRoutes.history,
           builder: (context, state) => BlocProvider<HistoryBloc>(
             create: (_) =>
-                HistoryBloc(watchScans, watchCounts, connectivity, logger)
+                HistoryBloc(watchScans, watchCounts, logger)
                   ..add(const HistoryEvent.started()),
             child: const HistoryView(),
           ),
@@ -295,33 +284,6 @@ void main() {
       verify(
         () => watchScans(filter: HistoryFilter.opened, limit: 20),
       ).called(1);
-      check(tester.takeException()).isNull();
-    });
-  });
-
-  group('offline banner', () {
-    testWidgets('is visible iff offline', (tester) async {
-      await pumpHistory(tester);
-      await deliver(
-        tester,
-        scans: _scans(2),
-        counts: const ScanCounts(all: 2, opened: 2, closed: 0),
-      );
-      final banner = find.byKey(const ValueKey('history-offline-banner'));
-      check(banner.evaluate()).isEmpty();
-
-      onlineStream.add(false);
-      await tester.pumpAndSettle();
-      check(banner.evaluate()).length.equals(1);
-      check(
-        find.text(_l10n.historyOfflineBanner).evaluate(),
-      ).length.equals(1);
-      // The list keeps rendering beneath the banner.
-      check(find.byKey(const ValueKey('scan-card-s1')).evaluate()).isNotEmpty();
-
-      onlineStream.add(true);
-      await tester.pumpAndSettle();
-      check(banner.evaluate()).isEmpty();
       check(tester.takeException()).isNull();
     });
   });

@@ -1,16 +1,26 @@
 import 'package:checks/checks.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:okey_acar_mi/core/app_info/app_info.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
+import 'package:okey_acar_mi/core/network/connectivity_cubit.dart';
 import 'package:okey_acar_mi/core/network/connectivity_service.dart';
+import 'package:okey_acar_mi/core/storage/drift_preferences_store.dart';
+import 'package:okey_acar_mi/core/storage/preferences_store.dart';
 import 'package:okey_acar_mi/core/time/clock.dart';
 import 'package:okey_acar_mi/features/_template/data/fakes/fake_template_repository.dart';
 import 'package:okey_acar_mi/features/_template/data/repositories/template_repository_impl.dart';
 import 'package:okey_acar_mi/features/_template/domain/repositories/template_repository.dart';
 import 'package:okey_acar_mi/features/_template/presentation/blocs/template_bloc.dart';
+import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:okey_acar_mi/features/solver/domain/engine/solver_engine.dart';
 import 'package:okey_acar_mi/features/solver/domain/usecases/solve_rack.dart';
 
 void main() {
+  // configureDependencies pre-resolves AppInfo (a platform channel): without
+  // a binding the channel access throws an Error before the module's
+  // host-test fallback can catch the MissingPluginException.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('configureDependencies (demo environment)', () {
     setUp(() async => configureDependencies('demo'));
     tearDown(() async => getIt.reset());
@@ -50,6 +60,28 @@ void main() {
       check(getIt.isRegistered<SolveRack>()).isTrue();
       check(getIt<SolveRack>()).isA<SolveRack>();
     });
+
+    test('PreferencesStore resolves to the drift-backed store', () {
+      check(getIt<PreferencesStore>()).isA<DriftPreferencesStore>();
+    });
+
+    test('ConnectivityCubit resolves online over the fake service', () {
+      final cubit = getIt<ConnectivityCubit>();
+      addTearDown(cubit.close);
+
+      check(cubit.state).isTrue();
+    });
+
+    test('SettingsCubit resolves hydrated to the defaults (fresh store)', () {
+      final cubit = getIt<SettingsCubit>();
+      addTearDown(cubit.close);
+
+      check(cubit.state).equals(SettingsState.initial());
+    });
+
+    test('AppInfo pre-resolves (host fallback without platform channel)', () {
+      check(getIt<AppInfo>().label).isNotEmpty();
+    });
   });
 
   group('configureDependencies (prod environment)', () {
@@ -75,6 +107,27 @@ void main() {
     test('SolveRack resolves with the engine wired in', () {
       check(getIt.isRegistered<SolveRack>()).isTrue();
       check(getIt<SolveRack>()).isA<SolveRack>();
+    });
+
+    test('PreferencesStore resolves to the drift-backed store', () {
+      check(getIt<PreferencesStore>()).isA<DriftPreferencesStore>();
+    });
+
+    test('ConnectivityCubit is registered', () {
+      // Registration only: instantiating would subscribe the REAL
+      // connectivity plugin, which has no platform channel on the host.
+      check(getIt.isRegistered<ConnectivityCubit>()).isTrue();
+    });
+
+    test('SettingsCubit resolves hydrated to the defaults (fresh store)', () {
+      final cubit = getIt<SettingsCubit>();
+      addTearDown(cubit.close);
+
+      check(cubit.state).equals(SettingsState.initial());
+    });
+
+    test('AppInfo pre-resolves (host fallback without platform channel)', () {
+      check(getIt<AppInfo>().label).isNotEmpty();
     });
   });
 }

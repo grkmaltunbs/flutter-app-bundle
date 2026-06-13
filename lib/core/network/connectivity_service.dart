@@ -93,6 +93,15 @@ class FakeConnectivityService implements ConnectivityService {
     _controller.add(online);
   }
 
+  /// Test seam: rewrites the state WITHOUT emitting on [onlineStream] —
+  /// models a transport change the change stream never delivered (e.g. while
+  /// the app was backgrounded), so the resume-time `ConnectivityCubit.refresh`
+  /// probe is testable in isolation from the stream path.
+  @visibleForTesting
+  // A method (not a setter): mirrors setOnline's named-bool call-site shape.
+  // ignore: use_setters_to_change_properties
+  void setOnlineSilently({required bool online}) => _online = online;
+
   /// Restores the fake to its default online state.
   void reset() => setOnline(online: true);
 

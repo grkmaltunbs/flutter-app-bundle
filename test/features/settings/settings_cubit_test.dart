@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart';
+import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_persistence.dart';
+
+import '../../helpers/in_memory_preferences_store.dart';
 
 void main() {
   group('SettingsCubit', () {
@@ -90,6 +93,97 @@ void main() {
           tileStyle: TileStyle.minimal,
           accent: AppAccent.indigo,
           language: AppLanguage.turkish,
+          gameMode: GameMode.okey,
+        ),
+      ],
+    );
+  });
+
+  group('SettingsCubit persistence', () {
+    test('hydrates the initial state from a seeded store', () {
+      final store = InMemoryPreferencesStore({
+        SettingsPrefKeys.themeChoice: 'felt',
+        SettingsPrefKeys.tileStyle: 'minimal',
+        SettingsPrefKeys.accent: 'amber',
+        SettingsPrefKeys.language: 'turkish',
+        SettingsPrefKeys.gameMode: 'okey',
+      });
+
+      final cubit = SettingsCubit(store: store);
+      addTearDown(cubit.close);
+
+      check(cubit.state).equals(
+        SettingsState.initial().copyWith(
+          themeChoice: ThemeChoice.felt,
+          tileStyle: TileStyle.minimal,
+          accent: AppAccent.amber,
+          language: AppLanguage.turkish,
+          gameMode: GameMode.okey,
+        ),
+      );
+      // Hydration is read-only: nothing is written back at construction.
+      check(store.writes).isEmpty();
+    });
+
+    test('a partially-seeded store hydrates seeded fields and defaults the '
+        'rest', () {
+      final store = InMemoryPreferencesStore({
+        SettingsPrefKeys.accent: 'indigo',
+      });
+
+      final cubit = SettingsCubit(store: store);
+      addTearDown(cubit.close);
+
+      check(
+        cubit.state,
+      ).equals(SettingsState.initial().copyWith(accent: AppAccent.indigo));
+    });
+
+    test('every setter persists its enum name under its SettingsPrefKeys '
+        'key', () {
+      final store = InMemoryPreferencesStore();
+      final cubit = SettingsCubit(store: store)
+        ..setThemeChoice(ThemeChoice.dark)
+        ..setTileStyle(TileStyle.flat)
+        ..setAccent(AppAccent.indigo)
+        ..setLanguage(AppLanguage.english)
+        ..setGameMode(GameMode.okey);
+      addTearDown(cubit.close);
+
+      check(store.values).deepEquals({
+        SettingsPrefKeys.themeChoice: 'dark',
+        SettingsPrefKeys.tileStyle: 'flat',
+        SettingsPrefKeys.accent: 'indigo',
+        SettingsPrefKeys.language: 'english',
+        SettingsPrefKeys.gameMode: 'okey',
+      });
+    });
+
+    test('re-selecting a setting overwrites the persisted value', () {
+      final store = InMemoryPreferencesStore();
+      final cubit = SettingsCubit(store: store)
+        ..setThemeChoice(ThemeChoice.dark)
+        ..setThemeChoice(ThemeChoice.light);
+      addTearDown(cubit.close);
+
+      check(store.read(SettingsPrefKeys.themeChoice)).equals('light');
+      check(store.writes).deepEquals([
+        (SettingsPrefKeys.themeChoice, 'dark'),
+        (SettingsPrefKeys.themeChoice, 'light'),
+      ]);
+    });
+
+    blocTest<SettingsCubit, SettingsState>(
+      'a failing store write never disturbs the emitted states',
+      build: () =>
+          SettingsCubit(store: InMemoryPreferencesStore()..failWrites = true),
+      act: (cubit) => cubit
+        ..setAccent(AppAccent.coral)
+        ..setGameMode(GameMode.okey),
+      expect: () => [
+        SettingsState.initial().copyWith(accent: AppAccent.coral),
+        SettingsState.initial().copyWith(
+          accent: AppAccent.coral,
           gameMode: GameMode.okey,
         ),
       ],

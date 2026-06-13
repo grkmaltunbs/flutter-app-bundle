@@ -189,12 +189,35 @@
   "settingsGameLabel": "GAME",
   "settingsDefaultModeLabel": "Default mode",
   "settingsAccountLabel": "ACCOUNT",
+  "settingsPurchasesLabel": "PURCHASES",
+  "@settingsPurchasesLabel": {
+    "description": "Eyebrow label of the Settings purchases section."
+  },
+  "settingsRestorePurchases": "Restore purchases",
+  "@settingsRestorePurchases": {
+    "description": "Settings row that restores previous purchases (App Store requirement)."
+  },
+  "settingsManageSubscription": "Manage subscription",
+  "@settingsManageSubscription": {
+    "description": "Settings row that opens subscription management."
+  },
   "settingsAboutLabel": "ABOUT",
+  "settingsPrivacyPolicy": "Privacy policy",
+  "@settingsPrivacyPolicy": {
+    "description": "Settings row that opens the privacy policy in the browser."
+  },
+  "settingsTermsOfUse": "Terms of use",
+  "@settingsTermsOfUse": {
+    "description": "Settings row that opens the terms of use in the browser."
+  },
+  "settingsLinkError": "Couldn't open the link.",
+  "@settingsLinkError": {
+    "description": "SnackBar shown when an external legal link fails to open."
+  },
   "settingsVersionLabel": "Version",
-  "settingsVersionValue": "1.0.0",
   "settingsComingSoon": "Coming soon",
   "@settingsComingSoon": {
-    "description": "Placeholder text for settings rows not yet implemented."
+    "description": "SnackBar for settings rows whose feature has not shipped yet."
   },
 
   "historyEyebrow": "HISTORY",
@@ -224,10 +247,6 @@
   "historyNoResultsBody": "No hands match this filter.",
   "@historyNoResultsBody": {
     "description": "Body shown when scans exist but none match the active filter."
-  },
-  "historyOfflineBanner": "You're offline — showing local history.",
-  "@historyOfflineBanner": {
-    "description": "Warn banner on the History screen while the device is offline."
   },
   "historyLoadFailedTitle": "Couldn't load history",
   "@historyLoadFailedTitle": {
@@ -830,6 +849,10 @@
   "sessionExpiredDismiss": "Dismiss",
   "@sessionExpiredDismiss": {
     "description": "Accessibility label for the banner dismiss button."
+  },
+  "offlineBanner": "You're offline — showing local data.",
+  "@offlineBanner": {
+    "description": "Global shell banner shown while the device is offline."
   },
 
   "resultStepEyebrow": "3/3 · RESULT",

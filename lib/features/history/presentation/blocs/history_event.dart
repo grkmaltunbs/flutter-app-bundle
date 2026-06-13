@@ -9,7 +9,7 @@ part of 'history_bloc.dart';
 /// instead.
 @Freezed(map: FreezedMapOptions.none, when: FreezedWhenOptions.none)
 sealed class HistoryEvent with _$HistoryEvent {
-  /// The screen opened — subscribe scans, counts, and connectivity.
+  /// The screen opened — subscribe scans and counts.
   const factory HistoryEvent.started() = HistoryStarted;
 
   /// The user picked a verdict filter chip.
@@ -29,10 +29,6 @@ sealed class HistoryEvent with _$HistoryEvent {
   /// Internal: the counts stream delivered fresh per-filter counts.
   const factory HistoryEvent._countsEmitted(ScanCounts counts) =
       _HistoryCountsEmitted;
-
-  /// Internal: connectivity flipped.
-  const factory HistoryEvent._onlineChanged({required bool online}) =
-      _HistoryOnlineChanged;
 
   /// Internal: a watch stream errored.
   const factory HistoryEvent._streamFailed() = _HistoryStreamFailed;

@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
+import 'package:okey_acar_mi/core/network/connectivity_cubit.dart';
+import 'package:okey_acar_mi/core/widgets/offline_banner.dart';
 import 'package:okey_acar_mi/features/auth/presentation/blocs/auth_bloc.dart';
 import 'package:okey_acar_mi/features/auth/presentation/widgets/session_expired_banner.dart';
 import 'package:okey_acar_mi/features/shell/presentation/widgets/app_bottom_nav.dart';
@@ -11,8 +16,10 @@ import 'package:okey_acar_mi/features/shell/presentation/widgets/app_bottom_nav.
 ///
 /// Driven by go_router's [StatefulNavigationShell]: each tab keeps its own
 /// navigation stack and state (IndexedStack), and tapping the active tab again
-/// pops it back to its root. When a persisted session failed to restore, the
-/// [SessionExpiredBanner] renders above the active tab on all three tabs.
+/// pops it back to its root. Two global banners stack above the active tab:
+/// the [SessionExpiredBanner] (persisted session failed to restore) and the
+/// [OfflineBanner] (driven by the shell-scoped [ConnectivityCubit], refreshed
+/// on app resume).
 class AppShell extends StatelessWidget {
   /// Creates an [AppShell] around [navigationShell].
   const AppShell({required this.navigationShell, super.key});
@@ -20,11 +27,52 @@ class AppShell extends StatelessWidget {
   /// The go_router shell controlling the active branch.
   final StatefulNavigationShell navigationShell;
 
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider<ConnectivityCubit>(
+      create: (_) => getIt<ConnectivityCubit>(),
+      child: _ShellView(navigationShell: navigationShell),
+    );
+  }
+}
+
+/// The shell body (assumes a [ConnectivityCubit] is provided above it).
+///
+/// Stateful only for the [AppLifecycleListener] that re-probes connectivity
+/// when the app regains the foreground (a transport change while backgrounded
+/// may never reach the change stream).
+class _ShellView extends StatefulWidget {
+  const _ShellView({required this.navigationShell});
+
+  final StatefulNavigationShell navigationShell;
+
+  @override
+  State<_ShellView> createState() => _ShellViewState();
+}
+
+class _ShellViewState extends State<_ShellView> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    final connectivity = context.read<ConnectivityCubit>();
+    _lifecycle = AppLifecycleListener(
+      onResume: () => unawaited(connectivity.refresh()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
   void _onTap(int index) {
-    navigationShell.goBranch(
+    widget.navigationShell.goBranch(
       index,
       // Re-tapping the current tab returns it to its initial route.
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: index == widget.navigationShell.currentIndex,
     );
   }
 
@@ -37,26 +85,33 @@ class AppShell extends StatelessWidget {
           AuthGuest(:final sessionExpired) => sessionExpired,
           _ => false,
         },
-        builder: (context, expired) => Column(
-          children: [
-            // The banner owns the top inset (SafeArea inside its Material);
-            // the tab content below must then NOT re-apply it, or the
+        builder: (context, expired) => BlocBuilder<ConnectivityCubit, bool>(
+          builder: (context, online) {
+            // Exactly one element owns the top inset: the topmost banner (via
+            // its inner SafeArea) or, with no banner, the tab content itself.
+            // The content below a banner must NOT re-apply the inset, or the
             // status-bar gap doubles.
-            if (expired) const SessionExpiredBanner(),
-            Expanded(
-              child: expired
-                  ? MediaQuery.removePadding(
-                      context: context,
-                      removeTop: true,
-                      child: navigationShell,
-                    )
-                  : navigationShell,
-            ),
-          ],
+            final banners = expired || !online;
+            return Column(
+              children: [
+                if (expired) const SessionExpiredBanner(),
+                if (!online) OfflineBanner(applyTopInset: !expired),
+                Expanded(
+                  child: banners
+                      ? MediaQuery.removePadding(
+                          context: context,
+                          removeTop: true,
+                          child: widget.navigationShell,
+                        )
+                      : widget.navigationShell,
+                ),
+              ],
+            );
+          },
         ),
       ),
       bottomNavigationBar: AppBottomNav(
-        currentIndex: navigationShell.currentIndex,
+        currentIndex: widget.navigationShell.currentIndex,
         onTap: _onTap,
         destinations: [
           AppNavDestination(

@@ -229,13 +229,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAccountLabel => 'ACCOUNT';
 
   @override
+  String get settingsPurchasesLabel => 'PURCHASES';
+
+  @override
+  String get settingsRestorePurchases => 'Restore purchases';
+
+  @override
+  String get settingsManageSubscription => 'Manage subscription';
+
+  @override
   String get settingsAboutLabel => 'ABOUT';
 
   @override
-  String get settingsVersionLabel => 'Version';
+  String get settingsPrivacyPolicy => 'Privacy policy';
 
   @override
-  String get settingsVersionValue => '1.0.0';
+  String get settingsTermsOfUse => 'Terms of use';
+
+  @override
+  String get settingsLinkError => 'Couldn\'t open the link.';
+
+  @override
+  String get settingsVersionLabel => 'Version';
 
   @override
   String get settingsComingSoon => 'Coming soon';
@@ -269,9 +284,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get historyNoResultsBody => 'No hands match this filter.';
-
-  @override
-  String get historyOfflineBanner => 'You\'re offline — showing local history.';
 
   @override
   String get historyLoadFailedTitle => 'Couldn\'t load history';
@@ -740,6 +752,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sessionExpiredDismiss => 'Dismiss';
+
+  @override
+  String get offlineBanner => 'You\'re offline — showing local data.';
 
   @override
   String get resultStepEyebrow => '3/3 · RESULT';

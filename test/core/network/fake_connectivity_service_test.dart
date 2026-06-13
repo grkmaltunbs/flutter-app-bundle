@@ -61,6 +61,26 @@ void main() {
       await subscription.cancel();
     });
 
+    test('setOnlineSilently flips isOnline without emitting (the missed '
+        'transport change behind the resume-refresh path)', () async {
+      final events = <bool>[];
+      final subscription = service.onlineStream.listen(events.add);
+      await pumpEventQueue();
+
+      service.setOnlineSilently(online: false);
+      await pumpEventQueue();
+
+      check(events).deepEquals([true]); // only the replay — no change event
+      check(await service.isOnline()).isFalse();
+      // A fresh listener replays the silent state.
+      final lateEvents = <bool>[];
+      final lateSubscription = service.onlineStream.listen(lateEvents.add);
+      await pumpEventQueue();
+      check(lateEvents).deepEquals([false]);
+      await subscription.cancel();
+      await lateSubscription.cancel();
+    });
+
     test('reset restores the online state and emits it', () async {
       service.setOnline(online: false);
       final events = <bool>[];

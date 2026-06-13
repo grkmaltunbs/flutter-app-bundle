@@ -13,9 +13,9 @@ enum HistoryStatus {
 }
 
 /// The history screen state: load status, the active filter, the visible
-/// scan window, chip counts, pagination, and the offline flag.
+/// scan window, chip counts, and pagination.
 ///
-/// Has eight fields — consumers must scope rebuilds with `BlocSelector` /
+/// Has seven fields — consumers must scope rebuilds with `BlocSelector` /
 /// `buildWhen` per the project performance rules.
 @freezed
 abstract class HistoryState with _$HistoryState {
@@ -41,9 +41,6 @@ abstract class HistoryState with _$HistoryState {
 
     /// Whether a grow-the-window request is in flight.
     @Default(false) bool loadingMore,
-
-    /// Whether the device is online (offline shows the local-history banner).
-    @Default(true) bool online,
   }) = _HistoryState;
 
   const HistoryState._();

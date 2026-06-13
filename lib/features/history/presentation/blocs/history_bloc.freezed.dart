@@ -354,72 +354,6 @@ $ScanCountsCopyWith<$Res> get counts {
 /// @nodoc
 
 
-class _HistoryOnlineChanged implements HistoryEvent {
-  const _HistoryOnlineChanged({required this.online});
-  
-
- final  bool online;
-
-/// Create a copy of HistoryEvent
-/// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-_$HistoryOnlineChangedCopyWith<_HistoryOnlineChanged> get copyWith => __$HistoryOnlineChangedCopyWithImpl<_HistoryOnlineChanged>(this, _$identity);
-
-
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _HistoryOnlineChanged&&(identical(other.online, online) || other.online == online));
-}
-
-
-@override
-int get hashCode => Object.hash(runtimeType,online);
-
-@override
-String toString() {
-  return 'HistoryEvent._onlineChanged(online: $online)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class _$HistoryOnlineChangedCopyWith<$Res> implements $HistoryEventCopyWith<$Res> {
-  factory _$HistoryOnlineChangedCopyWith(_HistoryOnlineChanged value, $Res Function(_HistoryOnlineChanged) _then) = __$HistoryOnlineChangedCopyWithImpl;
-@useResult
-$Res call({
- bool online
-});
-
-
-
-
-}
-/// @nodoc
-class __$HistoryOnlineChangedCopyWithImpl<$Res>
-    implements _$HistoryOnlineChangedCopyWith<$Res> {
-  __$HistoryOnlineChangedCopyWithImpl(this._self, this._then);
-
-  final _HistoryOnlineChanged _self;
-  final $Res Function(_HistoryOnlineChanged) _then;
-
-/// Create a copy of HistoryEvent
-/// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? online = null,}) {
-  return _then(_HistoryOnlineChanged(
-online: null == online ? _self.online : online // ignore: cast_nullable_to_non_nullable
-as bool,
-  ));
-}
-
-
-}
-
-/// @nodoc
-
-
 class _HistoryStreamFailed implements HistoryEvent {
   const _HistoryStreamFailed();
   
@@ -459,8 +393,7 @@ mixin _$HistoryState {
  ScanCounts get counts;/// How many [HistoryBloc.pageSize] pages the window spans.
  int get pagesRequested;/// Whether another page may exist beyond the window.
  bool get hasMore;/// Whether a grow-the-window request is in flight.
- bool get loadingMore;/// Whether the device is online (offline shows the local-history banner).
- bool get online;
+ bool get loadingMore;
 /// Create a copy of HistoryState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -471,16 +404,16 @@ $HistoryStateCopyWith<HistoryState> get copyWith => _$HistoryStateCopyWithImpl<H
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is HistoryState&&(identical(other.status, status) || other.status == status)&&(identical(other.filter, filter) || other.filter == filter)&&const DeepCollectionEquality().equals(other.scans, scans)&&(identical(other.counts, counts) || other.counts == counts)&&(identical(other.pagesRequested, pagesRequested) || other.pagesRequested == pagesRequested)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.online, online) || other.online == online));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is HistoryState&&(identical(other.status, status) || other.status == status)&&(identical(other.filter, filter) || other.filter == filter)&&const DeepCollectionEquality().equals(other.scans, scans)&&(identical(other.counts, counts) || other.counts == counts)&&(identical(other.pagesRequested, pagesRequested) || other.pagesRequested == pagesRequested)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,status,filter,const DeepCollectionEquality().hash(scans),counts,pagesRequested,hasMore,loadingMore,online);
+int get hashCode => Object.hash(runtimeType,status,filter,const DeepCollectionEquality().hash(scans),counts,pagesRequested,hasMore,loadingMore);
 
 @override
 String toString() {
-  return 'HistoryState(status: $status, filter: $filter, scans: $scans, counts: $counts, pagesRequested: $pagesRequested, hasMore: $hasMore, loadingMore: $loadingMore, online: $online)';
+  return 'HistoryState(status: $status, filter: $filter, scans: $scans, counts: $counts, pagesRequested: $pagesRequested, hasMore: $hasMore, loadingMore: $loadingMore)';
 }
 
 
@@ -491,7 +424,7 @@ abstract mixin class $HistoryStateCopyWith<$Res>  {
   factory $HistoryStateCopyWith(HistoryState value, $Res Function(HistoryState) _then) = _$HistoryStateCopyWithImpl;
 @useResult
 $Res call({
- HistoryStatus status, HistoryFilter filter, List<Scan> scans, ScanCounts counts, int pagesRequested, bool hasMore, bool loadingMore, bool online
+ HistoryStatus status, HistoryFilter filter, List<Scan> scans, ScanCounts counts, int pagesRequested, bool hasMore, bool loadingMore
 });
 
 
@@ -508,7 +441,7 @@ class _$HistoryStateCopyWithImpl<$Res>
 
 /// Create a copy of HistoryState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? filter = null,Object? scans = null,Object? counts = null,Object? pagesRequested = null,Object? hasMore = null,Object? loadingMore = null,Object? online = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? filter = null,Object? scans = null,Object? counts = null,Object? pagesRequested = null,Object? hasMore = null,Object? loadingMore = null,}) {
   return _then(_self.copyWith(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as HistoryStatus,filter: null == filter ? _self.filter : filter // ignore: cast_nullable_to_non_nullable
@@ -517,7 +450,6 @@ as List<Scan>,counts: null == counts ? _self.counts : counts // ignore: cast_nul
 as ScanCounts,pagesRequested: null == pagesRequested ? _self.pagesRequested : pagesRequested // ignore: cast_nullable_to_non_nullable
 as int,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
 as bool,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
-as bool,online: null == online ? _self.online : online // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -612,10 +544,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( HistoryStatus status,  HistoryFilter filter,  List<Scan> scans,  ScanCounts counts,  int pagesRequested,  bool hasMore,  bool loadingMore,  bool online)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( HistoryStatus status,  HistoryFilter filter,  List<Scan> scans,  ScanCounts counts,  int pagesRequested,  bool hasMore,  bool loadingMore)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _HistoryState() when $default != null:
-return $default(_that.status,_that.filter,_that.scans,_that.counts,_that.pagesRequested,_that.hasMore,_that.loadingMore,_that.online);case _:
+return $default(_that.status,_that.filter,_that.scans,_that.counts,_that.pagesRequested,_that.hasMore,_that.loadingMore);case _:
   return orElse();
 
 }
@@ -633,10 +565,10 @@ return $default(_that.status,_that.filter,_that.scans,_that.counts,_that.pagesRe
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( HistoryStatus status,  HistoryFilter filter,  List<Scan> scans,  ScanCounts counts,  int pagesRequested,  bool hasMore,  bool loadingMore,  bool online)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( HistoryStatus status,  HistoryFilter filter,  List<Scan> scans,  ScanCounts counts,  int pagesRequested,  bool hasMore,  bool loadingMore)  $default,) {final _that = this;
 switch (_that) {
 case _HistoryState():
-return $default(_that.status,_that.filter,_that.scans,_that.counts,_that.pagesRequested,_that.hasMore,_that.loadingMore,_that.online);case _:
+return $default(_that.status,_that.filter,_that.scans,_that.counts,_that.pagesRequested,_that.hasMore,_that.loadingMore);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -653,10 +585,10 @@ return $default(_that.status,_that.filter,_that.scans,_that.counts,_that.pagesRe
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( HistoryStatus status,  HistoryFilter filter,  List<Scan> scans,  ScanCounts counts,  int pagesRequested,  bool hasMore,  bool loadingMore,  bool online)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( HistoryStatus status,  HistoryFilter filter,  List<Scan> scans,  ScanCounts counts,  int pagesRequested,  bool hasMore,  bool loadingMore)?  $default,) {final _that = this;
 switch (_that) {
 case _HistoryState() when $default != null:
-return $default(_that.status,_that.filter,_that.scans,_that.counts,_that.pagesRequested,_that.hasMore,_that.loadingMore,_that.online);case _:
+return $default(_that.status,_that.filter,_that.scans,_that.counts,_that.pagesRequested,_that.hasMore,_that.loadingMore);case _:
   return null;
 
 }
@@ -668,7 +600,7 @@ return $default(_that.status,_that.filter,_that.scans,_that.counts,_that.pagesRe
 
 
 class _HistoryState extends HistoryState {
-  const _HistoryState({this.status = HistoryStatus.loading, this.filter = HistoryFilter.all, final  List<Scan> scans = const <Scan>[], this.counts = const ScanCounts(all: 0, opened: 0, closed: 0), this.pagesRequested = 1, this.hasMore = true, this.loadingMore = false, this.online = true}): _scans = scans,super._();
+  const _HistoryState({this.status = HistoryStatus.loading, this.filter = HistoryFilter.all, final  List<Scan> scans = const <Scan>[], this.counts = const ScanCounts(all: 0, opened: 0, closed: 0), this.pagesRequested = 1, this.hasMore = true, this.loadingMore = false}): _scans = scans,super._();
   
 
 /// The load phase.
@@ -692,8 +624,6 @@ class _HistoryState extends HistoryState {
 @override@JsonKey() final  bool hasMore;
 /// Whether a grow-the-window request is in flight.
 @override@JsonKey() final  bool loadingMore;
-/// Whether the device is online (offline shows the local-history banner).
-@override@JsonKey() final  bool online;
 
 /// Create a copy of HistoryState
 /// with the given fields replaced by the non-null parameter values.
@@ -705,16 +635,16 @@ _$HistoryStateCopyWith<_HistoryState> get copyWith => __$HistoryStateCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _HistoryState&&(identical(other.status, status) || other.status == status)&&(identical(other.filter, filter) || other.filter == filter)&&const DeepCollectionEquality().equals(other._scans, _scans)&&(identical(other.counts, counts) || other.counts == counts)&&(identical(other.pagesRequested, pagesRequested) || other.pagesRequested == pagesRequested)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.online, online) || other.online == online));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _HistoryState&&(identical(other.status, status) || other.status == status)&&(identical(other.filter, filter) || other.filter == filter)&&const DeepCollectionEquality().equals(other._scans, _scans)&&(identical(other.counts, counts) || other.counts == counts)&&(identical(other.pagesRequested, pagesRequested) || other.pagesRequested == pagesRequested)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,status,filter,const DeepCollectionEquality().hash(_scans),counts,pagesRequested,hasMore,loadingMore,online);
+int get hashCode => Object.hash(runtimeType,status,filter,const DeepCollectionEquality().hash(_scans),counts,pagesRequested,hasMore,loadingMore);
 
 @override
 String toString() {
-  return 'HistoryState(status: $status, filter: $filter, scans: $scans, counts: $counts, pagesRequested: $pagesRequested, hasMore: $hasMore, loadingMore: $loadingMore, online: $online)';
+  return 'HistoryState(status: $status, filter: $filter, scans: $scans, counts: $counts, pagesRequested: $pagesRequested, hasMore: $hasMore, loadingMore: $loadingMore)';
 }
 
 
@@ -725,7 +655,7 @@ abstract mixin class _$HistoryStateCopyWith<$Res> implements $HistoryStateCopyWi
   factory _$HistoryStateCopyWith(_HistoryState value, $Res Function(_HistoryState) _then) = __$HistoryStateCopyWithImpl;
 @override @useResult
 $Res call({
- HistoryStatus status, HistoryFilter filter, List<Scan> scans, ScanCounts counts, int pagesRequested, bool hasMore, bool loadingMore, bool online
+ HistoryStatus status, HistoryFilter filter, List<Scan> scans, ScanCounts counts, int pagesRequested, bool hasMore, bool loadingMore
 });
 
 
@@ -742,7 +672,7 @@ class __$HistoryStateCopyWithImpl<$Res>
 
 /// Create a copy of HistoryState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? filter = null,Object? scans = null,Object? counts = null,Object? pagesRequested = null,Object? hasMore = null,Object? loadingMore = null,Object? online = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? filter = null,Object? scans = null,Object? counts = null,Object? pagesRequested = null,Object? hasMore = null,Object? loadingMore = null,}) {
   return _then(_HistoryState(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as HistoryStatus,filter: null == filter ? _self.filter : filter // ignore: cast_nullable_to_non_nullable
@@ -751,7 +681,6 @@ as List<Scan>,counts: null == counts ? _self.counts : counts // ignore: cast_nul
 as ScanCounts,pagesRequested: null == pagesRequested ? _self.pagesRequested : pagesRequested // ignore: cast_nullable_to_non_nullable
 as int,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
 as bool,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
-as bool,online: null == online ? _self.online : online // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }

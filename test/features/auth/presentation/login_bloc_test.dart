@@ -16,6 +16,10 @@ class _MockSignUpWithEmail extends Mock implements SignUpWithEmail {}
 /// state list, so every terminal state is also asserted to be back at
 /// `inFlight: none`.
 void main() {
+  // configureDependencies pre-resolves AppInfo (a platform channel): the
+  // test binding must exist so the channel fails as a catchable
+  // MissingPluginException instead of a binding-not-initialized Error.
+  TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() async => configureDependencies('demo'));
   tearDown(() async => getIt.reset());
 

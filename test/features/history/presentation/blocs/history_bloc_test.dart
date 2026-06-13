@@ -9,7 +9,6 @@ import 'package:okey_acar_mi/core/game/game_tile.dart';
 import 'package:okey_acar_mi/core/game/indicator.dart';
 import 'package:okey_acar_mi/core/game/tile_color.dart';
 import 'package:okey_acar_mi/core/logging/app_logger.dart';
-import 'package:okey_acar_mi/core/network/connectivity_service.dart';
 import 'package:okey_acar_mi/features/history/domain/entities/history_filter.dart';
 import 'package:okey_acar_mi/features/history/domain/entities/scan.dart';
 import 'package:okey_acar_mi/features/history/domain/entities/scan_counts.dart';
@@ -22,8 +21,6 @@ import 'package:okey_acar_mi/features/solver/domain/entities/solve_verdict.dart'
 class _MockWatchScans extends Mock implements WatchScans {}
 
 class _MockWatchScanCounts extends Mock implements WatchScanCounts {}
-
-class _MockConnectivityService extends Mock implements ConnectivityService {}
 
 class _MockAppLogger extends Mock implements AppLogger {}
 
@@ -49,11 +46,9 @@ const ScanCounts _counts = ScanCounts(all: 12, opened: 8, closed: 4);
 void main() {
   late _MockWatchScans watchScans;
   late _MockWatchScanCounts watchCounts;
-  late _MockConnectivityService connectivity;
   late _MockAppLogger logger;
   late StreamController<List<Scan>> scansStream;
   late StreamController<ScanCounts> countsStream;
-  late StreamController<bool> onlineStream;
 
   setUpAll(() {
     registerFallbackValue(HistoryFilter.all);
@@ -62,11 +57,9 @@ void main() {
   setUp(() {
     watchScans = _MockWatchScans();
     watchCounts = _MockWatchScanCounts();
-    connectivity = _MockConnectivityService();
     logger = _MockAppLogger();
     scansStream = StreamController<List<Scan>>.broadcast();
     countsStream = StreamController<ScanCounts>.broadcast();
-    onlineStream = StreamController<bool>.broadcast();
     when(
       () => watchScans(
         filter: any(named: 'filter'),
@@ -74,19 +67,14 @@ void main() {
       ),
     ).thenAnswer((_) => scansStream.stream);
     when(watchCounts.call).thenAnswer((_) => countsStream.stream);
-    when(
-      () => connectivity.onlineStream,
-    ).thenAnswer((_) => onlineStream.stream);
   });
 
   tearDown(() async {
     await scansStream.close();
     await countsStream.close();
-    await onlineStream.close();
   });
 
-  HistoryBloc build() =>
-      HistoryBloc(watchScans, watchCounts, connectivity, logger);
+  HistoryBloc build() => HistoryBloc(watchScans, watchCounts, logger);
 
   /// Drives a started bloc to `ready` with [scans] and [counts] delivered.
   Future<HistoryBloc> startedAndReady({
@@ -316,39 +304,6 @@ void main() {
     });
   });
 
-  group('connectivity', () {
-    test('online changes flip state.online both ways', () async {
-      final bloc = await startedAndReady();
-      addTearDown(bloc.close);
-      check(bloc.state.online).isTrue();
-
-      onlineStream.add(false);
-      await pumpEventQueue();
-      check(bloc.state.online).isFalse();
-
-      onlineStream.add(true);
-      await pumpEventQueue();
-      check(bloc.state.online).isTrue();
-    });
-
-    test(
-      'a connectivity stream error is logged but never fails the screen',
-      () async {
-        final bloc = await startedAndReady();
-        addTearDown(bloc.close);
-
-        onlineStream.addError(StateError('radio gone'));
-        await pumpEventQueue();
-
-        check(bloc.state.status).equals(HistoryStatus.ready);
-        verify(
-          () =>
-              logger.error('Connectivity stream failed', any<Object?>(), any()),
-        ).called(1);
-      },
-    );
-  });
-
   group('stream failure & retry', () {
     test('a scans stream error lands in failure and stops the watchers — '
         'late emissions cannot resurrect the screen', () async {
@@ -414,7 +369,6 @@ void main() {
 
       check(scansStream.hasListener).isFalse();
       check(countsStream.hasListener).isFalse();
-      check(onlineStream.hasListener).isFalse();
     });
   });
 }

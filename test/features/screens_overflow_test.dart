@@ -9,6 +9,7 @@ import 'package:okey_acar_mi/core/error/failure.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
+import 'package:okey_acar_mi/core/widgets/offline_banner.dart';
 import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
 import 'package:okey_acar_mi/features/auth/data/fakes/fake_auth_repository.dart';
 import 'package:okey_acar_mi/features/auth/domain/repositories/auth_repository.dart';
@@ -194,6 +195,14 @@ void main() {
     prepare: () => _fakeAuth().mode = FakeAuthMode.sessionExpired,
   );
 
+  // The worst-case banner stack (session-expired + offline, Step 10's shell
+  // layout) — the offline banner cedes the inset to the banner above it.
+  _matrixTest(
+    'Banner stack shell (session-expired + offline)',
+    _bannerStackSample,
+    prepare: () => _fakeAuth().mode = FakeAuthMode.sessionExpired,
+  );
+
   // Bottom-sheet bodies, pumped inside a plain Scaffold.
   _matrixTest(
     'DeleteAccountSheet (confirm)',
@@ -329,6 +338,20 @@ Widget _sessionExpiredSample() {
     body: Column(
       children: [
         SessionExpiredBanner(),
+        Expanded(child: SizedBox.shrink()),
+      ],
+    ),
+  );
+}
+
+/// The AppShell body layout when BOTH global banners are visible (offline
+/// below session-expired, single top-inset owner).
+Widget _bannerStackSample() {
+  return const Scaffold(
+    body: Column(
+      children: [
+        SessionExpiredBanner(),
+        OfflineBanner(applyTopInset: false),
         Expanded(child: SizedBox.shrink()),
       ],
     ),

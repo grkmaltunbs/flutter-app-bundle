@@ -9,7 +9,6 @@ import 'package:okey_acar_mi/core/game/game_tile.dart';
 import 'package:okey_acar_mi/core/game/indicator.dart';
 import 'package:okey_acar_mi/core/game/tile_color.dart';
 import 'package:okey_acar_mi/core/logging/app_logger.dart';
-import 'package:okey_acar_mi/core/network/connectivity_service.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
@@ -62,18 +61,6 @@ class _FixedWatchScanCounts implements WatchScanCounts {
 
   @override
   Stream<ScanCounts> call() => Stream.value(counts);
-}
-
-/// A [ConnectivityService] pinned offline so the banner is part of the
-/// worst-case layout.
-class _OfflineConnectivity implements ConnectivityService {
-  const _OfflineConnectivity();
-
-  @override
-  Stream<bool> get onlineStream => Stream.value(false);
-
-  @override
-  Future<bool> isOnline() async => false;
 }
 
 GameTile _t(TileColor color, int number) =>
@@ -138,26 +125,23 @@ void main() {
   tearDown(() async => getIt.reset());
 
   final scenarios = <String, HistoryBloc Function()>{
-    // Populated window (22 cards incl. a 21-tile rack) + chips + the
-    // offline banner all visible at once.
-    'populated, 21-tile rack, offline banner': () => HistoryBloc(
+    // Populated window (22 cards incl. a 21-tile rack) + chips all visible
+    // at once.
+    'populated, 21-tile rack': () => HistoryBloc(
       _FixedWatchScans(_scans22),
       const _FixedWatchScanCounts(_counts),
-      const _OfflineConnectivity(),
       _MockAppLogger(),
     ),
     // Scans exist but none match the filter: chips + no-results copy.
     'no-results under a filter': () => HistoryBloc(
       const _FixedWatchScans([]),
       const _FixedWatchScanCounts(_counts),
-      const _OfflineConnectivity(),
       _MockAppLogger(),
     ),
     // The no-scans-at-all empty state with its CTA.
     'empty state': () => HistoryBloc(
       const _FixedWatchScans([]),
       const _FixedWatchScanCounts(ScanCounts(all: 0, opened: 0, closed: 0)),
-      const _OfflineConnectivity(),
       _MockAppLogger(),
     ),
   };

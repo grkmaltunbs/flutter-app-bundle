@@ -30,4 +30,9 @@ class AppDatabase extends _$AppDatabase {
   /// between integration-test runs.
   @visibleForTesting
   Future<void> wipeScansForTest() => delete(scans).go();
+
+  /// Deletes every preference row — test seam for resetting persisted
+  /// settings between integration-test runs.
+  @visibleForTesting
+  Future<void> wipePreferencesForTest() => delete(preferences).go();
 }

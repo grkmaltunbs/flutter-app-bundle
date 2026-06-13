@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:okey_acar_mi/core/logging/app_logger.dart';
-import 'package:okey_acar_mi/core/network/connectivity_service.dart';
 import 'package:okey_acar_mi/features/history/domain/entities/history_filter.dart';
 import 'package:okey_acar_mi/features/history/domain/entities/scan.dart';
 import 'package:okey_acar_mi/features/history/domain/entities/scan_counts.dart';
@@ -17,19 +16,19 @@ part 'history_event.dart';
 part 'history_state.dart';
 
 /// Screen-scoped bloc for the history screen: the filtered, paginated scan
-/// list, the per-filter counts (chips), and the offline flag.
+/// list and the per-filter counts (chips). (Offline display is global now —
+/// the shell-scoped `ConnectivityCubit` drives the shared banner.)
 ///
 /// Pagination is page-window resubscription: `loadMoreRequested` grows the
 /// watch limit by [HistoryBloc.pageSize] and resubscribes, so the single
 /// stream stays live for inserts/sync updates across the whole window.
-/// Holds three subscriptions, so [close] is overridden.
+/// Holds two subscriptions, so [close] is overridden.
 @injectable
 class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
   /// Creates a [HistoryBloc]; subscribe by adding [HistoryEvent.started].
   HistoryBloc(
     this._watchScans,
     this._watchCounts,
-    this._connectivity,
     this._logger,
   ) : super(const HistoryState()) {
     on<HistoryStarted>(_onStarted);
@@ -41,7 +40,6 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
     on<HistoryRetryRequested>(_onRetryRequested);
     on<_HistoryScansEmitted>(_onScansEmitted);
     on<_HistoryCountsEmitted>(_onCountsEmitted);
-    on<_HistoryOnlineChanged>(_onOnlineChanged);
     on<_HistoryStreamFailed>(_onStreamFailed);
   }
 
@@ -50,12 +48,10 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
 
   final WatchScans _watchScans;
   final WatchScanCounts _watchCounts;
-  final ConnectivityService _connectivity;
   final AppLogger _logger;
 
   StreamSubscription<List<Scan>>? _scansSubscription;
   StreamSubscription<ScanCounts>? _countsSubscription;
-  StreamSubscription<bool>? _connectivitySubscription;
 
   // First-arrival latches: the screen leaves `loading` only once both the
   // scans and the counts streams have delivered.
@@ -131,13 +127,6 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
     );
   }
 
-  void _onOnlineChanged(
-    _HistoryOnlineChanged event,
-    Emitter<HistoryState> emit,
-  ) {
-    emit(state.copyWith(online: event.online));
-  }
-
   void _onStreamFailed(
     _HistoryStreamFailed event,
     Emitter<HistoryState> emit,
@@ -168,16 +157,6 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
         if (!isClosed) add(const HistoryEvent._streamFailed());
       },
     );
-    unawaited(_connectivitySubscription?.cancel());
-    _connectivitySubscription = _connectivity.onlineStream.listen(
-      (online) {
-        if (!isClosed) add(HistoryEvent._onlineChanged(online: online));
-      },
-      // Connectivity is a cosmetic banner — its failure never fails the
-      // screen.
-      onError: (Object error, StackTrace stackTrace) =>
-          _logger.error('Connectivity stream failed', error, stackTrace),
-    );
   }
 
   void _subscribeScans() {
@@ -201,7 +180,6 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
   Future<void> close() async {
     await _scansSubscription?.cancel();
     await _countsSubscription?.cancel();
-    await _connectivitySubscription?.cancel();
     return super.close();
   }
 }

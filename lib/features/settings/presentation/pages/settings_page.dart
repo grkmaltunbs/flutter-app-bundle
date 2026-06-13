@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:okey_acar_mi/core/app_info/app_info.dart';
+import 'package:okey_acar_mi/core/constants/legal_links.dart';
+import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
@@ -7,10 +12,12 @@ import 'package:okey_acar_mi/core/widgets/eyebrow.dart';
 import 'package:okey_acar_mi/features/auth/presentation/widgets/account_section.dart';
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:okey_acar_mi/l10n/app_localizations.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Settings tab — appearance (theme / tile style / accent), language, and the
 /// default game mode, all bound live to [SettingsCubit], plus the account
-/// section (auth feature). The About section grows in Steps 10 / 13.
+/// section (auth feature), the purchases rows (Step 11 rewires them onto
+/// RevenueCat), and the About section (legal links + version).
 class SettingsPage extends StatelessWidget {
   /// Creates a [SettingsPage].
   const SettingsPage({super.key});
@@ -108,11 +115,45 @@ class SettingsPage extends StatelessWidget {
                 ),
 
                 _SettingsSection(
+                  title: l10n.settingsPurchasesLabel,
+                  children: [
+                    // Step 11 rewires these two rows onto RevenueCat (via
+                    // SubscriptionBloc) — they are the single purchase seams.
+                    _ActionRow(
+                      key: const ValueKey('settings-restore-purchases'),
+                      label: l10n.settingsRestorePurchases,
+                      onTap: () => _showComingSoon(context),
+                    ),
+                    _ActionRow(
+                      key: const ValueKey('settings-manage-subscription'),
+                      label: l10n.settingsManageSubscription,
+                      onTap: () => _showComingSoon(context),
+                    ),
+                  ],
+                ),
+
+                _SettingsSection(
                   title: l10n.settingsAboutLabel,
                   children: [
+                    _ActionRow(
+                      key: const ValueKey('settings-privacy-policy'),
+                      label: l10n.settingsPrivacyPolicy,
+                      trailingIcon: Icons.open_in_new,
+                      onTap: () => unawaited(
+                        _openLegalLink(context, LegalLinks.privacyPolicy),
+                      ),
+                    ),
+                    _ActionRow(
+                      key: const ValueKey('settings-terms-of-use'),
+                      label: l10n.settingsTermsOfUse,
+                      trailingIcon: Icons.open_in_new,
+                      onTap: () => unawaited(
+                        _openLegalLink(context, LegalLinks.termsOfUse),
+                      ),
+                    ),
                     _InfoRow(
                       label: l10n.settingsVersionLabel,
-                      value: l10n.settingsVersionValue,
+                      value: getIt<AppInfo>().label,
                     ),
                   ],
                 ),
@@ -155,6 +196,35 @@ class SettingsPage extends StatelessWidget {
     GameMode.oneZeroOne => l10n.gameMode101Title,
     GameMode.okey => l10n.gameModeOkeyTitle,
   };
+
+  /// Placeholder feedback for the purchase rows until Step 11 lands.
+  void _showComingSoon(BuildContext context) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(context.l10n.settingsComingSoon)));
+  }
+
+  /// Opens [url] in the external browser; a refusal or failure surfaces as a
+  /// localized SnackBar instead of an exception.
+  Future<void> _openLegalLink(BuildContext context, String url) async {
+    // Captured before the await: the context must not be used across it.
+    final messenger = ScaffoldMessenger.of(context);
+    final errorText = context.l10n.settingsLinkError;
+    var opened = false;
+    try {
+      opened = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+    } on Exception {
+      opened = false;
+    }
+    if (!opened) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(errorText)));
+    }
+  }
 }
 
 class _SettingsSection extends StatelessWidget {
@@ -275,6 +345,39 @@ class _AccentSwatch extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A tappable settings row: label (flexes — survives textScale 2.0 on narrow
+/// screens) + trailing affordance icon, with a ≥48dp touch target.
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
+    required this.label,
+    required this.onTap,
+    this.trailingIcon = Icons.chevron_right,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final IconData trailingIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(label, style: context.textTheme.bodyMedium),
+            ),
+            Icon(trailingIcon, size: 18, color: context.palette.muted),
+          ],
         ),
       ),
     );

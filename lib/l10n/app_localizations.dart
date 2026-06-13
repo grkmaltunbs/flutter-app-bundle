@@ -530,11 +530,47 @@ abstract class AppLocalizations {
   /// **'ACCOUNT'**
   String get settingsAccountLabel;
 
+  /// Eyebrow label of the Settings purchases section.
+  ///
+  /// In en, this message translates to:
+  /// **'PURCHASES'**
+  String get settingsPurchasesLabel;
+
+  /// Settings row that restores previous purchases (App Store requirement).
+  ///
+  /// In en, this message translates to:
+  /// **'Restore purchases'**
+  String get settingsRestorePurchases;
+
+  /// Settings row that opens subscription management.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage subscription'**
+  String get settingsManageSubscription;
+
   /// No description provided for @settingsAboutLabel.
   ///
   /// In en, this message translates to:
   /// **'ABOUT'**
   String get settingsAboutLabel;
+
+  /// Settings row that opens the privacy policy in the browser.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy policy'**
+  String get settingsPrivacyPolicy;
+
+  /// Settings row that opens the terms of use in the browser.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms of use'**
+  String get settingsTermsOfUse;
+
+  /// SnackBar shown when an external legal link fails to open.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the link.'**
+  String get settingsLinkError;
 
   /// No description provided for @settingsVersionLabel.
   ///
@@ -542,13 +578,7 @@ abstract class AppLocalizations {
   /// **'Version'**
   String get settingsVersionLabel;
 
-  /// No description provided for @settingsVersionValue.
-  ///
-  /// In en, this message translates to:
-  /// **'1.0.0'**
-  String get settingsVersionValue;
-
-  /// Placeholder text for settings rows not yet implemented.
+  /// SnackBar for settings rows whose feature has not shipped yet.
   ///
   /// In en, this message translates to:
   /// **'Coming soon'**
@@ -613,12 +643,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No hands match this filter.'**
   String get historyNoResultsBody;
-
-  /// Warn banner on the History screen while the device is offline.
-  ///
-  /// In en, this message translates to:
-  /// **'You\'re offline — showing local history.'**
-  String get historyOfflineBanner;
 
   /// Title of the History screen's stream-failure view.
   ///
@@ -1459,6 +1483,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dismiss'**
   String get sessionExpiredDismiss;
+
+  /// Global shell banner shown while the device is offline.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re offline — showing local data.'**
+  String get offlineBanner;
 
   /// Eyebrow step indicator at the top of the result screen.
   ///

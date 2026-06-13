@@ -16,6 +16,10 @@ class _MockAuthRepository extends Mock implements AuthRepository {}
 class _MockUserDataPurger extends Mock implements UserDataPurger {}
 
 void main() {
+  // configureDependencies pre-resolves AppInfo (a platform channel): the
+  // test binding must exist so the channel fails as a catchable
+  // MissingPluginException instead of a binding-not-initialized Error.
+  TestWidgetsFlutterBinding.ensureInitialized();
   late _MockUserDataPurger purger;
 
   _MockUserDataPurger stubbedPurger() {

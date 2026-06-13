@@ -311,7 +311,7 @@ from them.
 ---
 
 ## Step 10 — Settings, preferences & connectivity
-- [ ]
+- [x]
 - id: settings
 - depends_on: history
 - spec_refs: flow-settings, flow-consent (storage), screen-settings, Settings/Connectivity

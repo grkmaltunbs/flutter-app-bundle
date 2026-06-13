@@ -15,7 +15,6 @@ import 'package:okey_acar_mi/features/history/presentation/blocs/history_bloc.da
 import 'package:okey_acar_mi/features/history/presentation/scan_card_mapping.dart';
 import 'package:okey_acar_mi/features/history/presentation/widgets/history_filter_chips.dart';
 import 'package:okey_acar_mi/features/history/presentation/widgets/history_no_results_view.dart';
-import 'package:okey_acar_mi/features/history/presentation/widgets/history_offline_banner.dart';
 import 'package:okey_acar_mi/features/result/domain/entities/result_args.dart';
 
 /// History tab — the owner's past scans: filter chips, the paginated card
@@ -89,8 +88,8 @@ class HistoryView extends StatelessWidget {
   }
 }
 
-/// The live list body: chips, the offline banner, then the scan cards (or
-/// the no-results view), with near-end pagination.
+/// The live list body: chips, then the scan cards (or the no-results view),
+/// with near-end pagination.
 class _HistoryList extends StatelessWidget {
   const _HistoryList();
 
@@ -100,7 +99,6 @@ class _HistoryList extends StatelessWidget {
       buildWhen: (a, b) =>
           a.scans != b.scans ||
           a.loadingMore != b.loadingMore ||
-          a.online != b.online ||
           a.isNoResults != b.isNoResults,
       builder: (context, state) {
         return NotificationListener<ScrollNotification>(
@@ -120,11 +118,6 @@ class _HistoryList extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
                 sliver: SliverToBoxAdapter(child: HistoryFilterChips()),
               ),
-              if (!state.online)
-                const SliverPadding(
-                  padding: EdgeInsets.fromLTRB(20, 14, 20, 0),
-                  sliver: SliverToBoxAdapter(child: HistoryOfflineBanner()),
-                ),
               if (state.isNoResults)
                 const SliverToBoxAdapter(child: HistoryNoResultsView())
               else

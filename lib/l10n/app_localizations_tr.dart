@@ -230,13 +230,28 @@ class AppLocalizationsTr extends AppLocalizations {
   String get settingsAccountLabel => 'HESAP';
 
   @override
+  String get settingsPurchasesLabel => 'SATIN ALIMLAR';
+
+  @override
+  String get settingsRestorePurchases => 'Satın alımları geri yükle';
+
+  @override
+  String get settingsManageSubscription => 'Aboneliği yönet';
+
+  @override
   String get settingsAboutLabel => 'HAKKINDA';
 
   @override
-  String get settingsVersionLabel => 'Sürüm';
+  String get settingsPrivacyPolicy => 'Gizlilik politikası';
 
   @override
-  String get settingsVersionValue => '1.0.0';
+  String get settingsTermsOfUse => 'Kullanım koşulları';
+
+  @override
+  String get settingsLinkError => 'Bağlantı açılamadı.';
+
+  @override
+  String get settingsVersionLabel => 'Sürüm';
 
   @override
   String get settingsComingSoon => 'Yakında';
@@ -270,10 +285,6 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get historyNoResultsBody => 'Bu filtreyle eşleşen el yok.';
-
-  @override
-  String get historyOfflineBanner =>
-      'Çevrimdışısın — yerel geçmiş gösteriliyor.';
 
   @override
   String get historyLoadFailedTitle => 'Geçmiş yüklenemedi';
@@ -737,6 +748,9 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get sessionExpiredDismiss => 'Kapat';
+
+  @override
+  String get offlineBanner => 'Çevrimdışısın — yerel veriler gösteriliyor.';
 
   @override
   String get resultStepEyebrow => '3/3 · SONUÇ';

@@ -143,6 +143,9 @@ Only needed if you want Claude to implement the whole plan on its own with
 - [ ] **Privacy Policy** URL published and added to Settings + store listings:
       ___________________  (must disclose camera use + AdMob/Analytics data).
 - [ ] **Terms of Service** URL published and added to Settings: _______________
+- [ ] **Replace placeholder legal URLs** in `lib/core/constants/legal_links.dart`
+      (`https://okeyacarmi.com/privacy` / `https://okeyacarmi.com/terms` are
+      Step-10 placeholders — swap in the published URLs above).
 - [ ] App Store **Privacy "Nutrition Label"** + Android **Data Safety** form
       completed (camera, identifiers for ads, crash data).
 

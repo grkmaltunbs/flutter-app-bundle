@@ -12,13 +12,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as _i974;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
+import 'package:okey_acar_mi/core/app_info/app_info.dart' as _i50;
 import 'package:okey_acar_mi/core/camera/viewfinder_service.dart' as _i381;
 import 'package:okey_acar_mi/core/db/app_database.dart' as _i483;
 import 'package:okey_acar_mi/core/db/db_module.dart' as _i200;
 import 'package:okey_acar_mi/core/game/game_mode.dart' as _i970;
 import 'package:okey_acar_mi/core/logging/app_logger.dart' as _i856;
+import 'package:okey_acar_mi/core/network/connectivity_cubit.dart' as _i928;
 import 'package:okey_acar_mi/core/network/connectivity_service.dart' as _i854;
 import 'package:okey_acar_mi/core/router/app_router.dart' as _i126;
+import 'package:okey_acar_mi/core/storage/preferences_module.dart' as _i824;
+import 'package:okey_acar_mi/core/storage/preferences_store.dart' as _i339;
 import 'package:okey_acar_mi/core/time/clock.dart' as _i92;
 import 'package:okey_acar_mi/features/_template/data/fakes/fake_template_repository.dart'
     as _i766;
@@ -124,6 +128,8 @@ import 'package:okey_acar_mi/features/result/presentation/blocs/result_bloc.dart
     as _i120;
 import 'package:okey_acar_mi/features/review/presentation/blocs/review_bloc.dart'
     as _i739;
+import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_bindings.dart'
+    as _i490;
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart'
     as _i997;
 import 'package:okey_acar_mi/features/solver/domain/engine/solver_engine.dart'
@@ -136,21 +142,34 @@ const String _prod = 'prod';
 
 extension GetItInjectableX on _i174.GetIt {
   // initializes the registration of main-scope dependencies inside of GetIt
-  _i174.GetIt init({
+  Future<_i174.GetIt> init({
     String? environment,
     _i526.EnvironmentFilter? environmentFilter,
-  }) {
+  }) async {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
+    final appInfoModule = _$AppInfoModule();
     final dbModule = _$DbModule();
+    final preferencesModule = _$PreferencesModule();
     final captureBindings = _$CaptureBindings();
     final historyBindings = _$HistoryBindings();
+    final settingsBindings = _$SettingsBindings();
     final detectionBindings = _$DetectionBindings();
-    gh.factory<_i997.SettingsCubit>(() => _i997.SettingsCubit());
+    await gh.lazySingletonAsync<_i50.AppInfo>(
+      () => appInfoModule.appInfo(),
+      preResolve: true,
+    );
     gh.lazySingleton<_i483.AppDatabase>(
       () => dbModule.appDatabase,
       dispose: _i200.disposeAppDatabase,
     );
     gh.lazySingleton<_i856.AppLogger>(() => _i856.AppLogger());
+    await gh.lazySingletonAsync<_i339.PreferencesStore>(
+      () => preferencesModule.preferencesStore(
+        gh<_i483.AppDatabase>(),
+        gh<_i856.AppLogger>(),
+      ),
+      preResolve: true,
+    );
     gh.lazySingleton<_i510.FakeCaptureService>(
       () => captureBindings.fakeCaptureService,
       registerFor: {_demo},
@@ -179,6 +198,9 @@ extension GetItInjectableX on _i174.GetIt {
       dispose: _i854.disposeFakeConnectivityService,
     );
     gh.lazySingleton<_i641.SolverEngine>(() => const _i641.DpSolverEngine());
+    gh.factory<_i997.SettingsCubit>(
+      () => settingsBindings.settingsCubit(gh<_i339.PreferencesStore>()),
+    );
     gh.lazySingleton<_i910.CaptureRepository>(
       () =>
           captureBindings.demoCaptureRepository(gh<_i510.FakeCaptureService>()),
@@ -261,6 +283,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i856.AppLogger>(),
       ),
       registerFor: {_prod},
+    );
+    gh.factory<_i928.ConnectivityCubit>(
+      () => _i928.ConnectivityCubit(
+        gh<_i854.ConnectivityService>(),
+        gh<_i856.AppLogger>(),
+      ),
     );
     gh.factory<_i60.TemplateBloc>(
       () => _i60.TemplateBloc(gh<_i1033.GetTemplateItems>()),
@@ -367,18 +395,17 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i208.WatchScans>(
       () => _i208.WatchScans(gh<_i281.ScanRepository>()),
     );
-    gh.factory<_i607.HistoryBloc>(
-      () => _i607.HistoryBloc(
-        gh<_i208.WatchScans>(),
-        gh<_i664.WatchScanCounts>(),
-        gh<_i854.ConnectivityService>(),
-        gh<_i856.AppLogger>(),
-      ),
-    );
     gh.factory<_i131.DeleteAccountCubit>(
       () => _i131.DeleteAccountCubit(
         gh<_i611.AuthRepository>(),
         gh<_i35.UserDataPurger>(),
+      ),
+    );
+    gh.factory<_i607.HistoryBloc>(
+      () => _i607.HistoryBloc(
+        gh<_i208.WatchScans>(),
+        gh<_i664.WatchScanCounts>(),
+        gh<_i856.AppLogger>(),
       ),
     );
     gh.factory<_i1041.SignInWithApple>(
@@ -432,10 +459,16 @@ extension GetItInjectableX on _i174.GetIt {
   }
 }
 
+class _$AppInfoModule extends _i50.AppInfoModule {}
+
 class _$DbModule extends _i200.DbModule {}
+
+class _$PreferencesModule extends _i824.PreferencesModule {}
 
 class _$CaptureBindings extends _i144.CaptureBindings {}
 
 class _$HistoryBindings extends _i867.HistoryBindings {}
+
+class _$SettingsBindings extends _i490.SettingsBindings {}
 
 class _$DetectionBindings extends _i386.DetectionBindings {}
