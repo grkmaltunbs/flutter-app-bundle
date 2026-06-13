@@ -1,4 +1,5 @@
 import 'package:checks/checks.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -185,8 +186,8 @@ void main() {
               createdAtMs: _t0.millisecondsSinceEpoch,
               updatedAtMs: _t0.millisecondsSinceEpoch,
               gameMode: 'oneZeroOne',
-              indicatorColor: 'red',
-              indicatorNumber: 5,
+              indicatorColor: const Value('red'),
+              indicatorNumber: const Value(5),
               tilesJson: 'garbage',
               verdictKind: 'opens101',
               opened: true,

@@ -185,14 +185,14 @@ void main() {
       check(rackTiles().evaluate()).length.equals(21);
       check(find.byType(TileSlot).evaluate()).isEmpty();
       check(
-        find.text(_l10n.reviewCount(21, 20, 21)).evaluate(),
+        find.text(_l10n.reviewCount(21, 21, 22)).evaluate(),
       ).length.equals(1);
       // Two seeded tiles read below the threshold → the legend is shown.
       check(
         find.text(_l10n.reviewLowConfidenceLegend).evaluate(),
       ).length.equals(1);
       check(key('review-retake').evaluate()).isEmpty();
-      check(find.text(_l10n.reviewWrongCountFew(20)).evaluate()).isEmpty();
+      check(find.text(_l10n.reviewWrongCountFew(21)).evaluate()).isEmpty();
       check(find.byType(TileEditPanel).evaluate()).isEmpty();
       check(tester.takeException()).isNull();
     });
@@ -327,36 +327,37 @@ void main() {
   });
 
   group('add & remove', () {
-    // The seeded 101 rack trimmed to the mode minimum (20), so adding is
-    // legal.
-    List<DetectedTile> twenty() => SeededDetections.rack101().sublist(0, 20);
+    // The seeded 101 rack is 21 tiles — the mode minimum — so adding one more
+    // is legal and removing is not.
+    List<DetectedTile> minRack() => SeededDetections.rack101();
 
     testWidgets('add appends a dashed slot with its editor open; remove '
         'deletes it again', (tester) async {
-      final bloc = await pumpReview(tester, _result(twenty()));
+      final bloc = await pumpReview(tester, _result(minRack()));
       check(
-        find.text(_l10n.reviewCount(20, 20, 21)).evaluate(),
+        find.text(_l10n.reviewCount(21, 21, 22)).evaluate(),
       ).length.equals(1);
 
       await tap(tester, key('review-add-tile'));
       check(find.byType(TileSlot).evaluate()).length.equals(1);
       check(find.byType(TileEditPanel).evaluate()).length.equals(1);
       check(
-        find.text(_l10n.reviewEditTileTitle(21)).evaluate(),
+        find.text(_l10n.reviewEditTileTitle(22)).evaluate(),
       ).length.equals(1);
       check(
-        find.text(_l10n.reviewCount(21, 20, 21)).evaluate(),
+        find.text(_l10n.reviewCount(22, 21, 22)).evaluate(),
       ).length.equals(1);
 
       await tap(tester, key('review-remove-tile'));
       check(find.byType(TileSlot).evaluate()).isEmpty();
       check(find.byType(TileEditPanel).evaluate()).isEmpty();
-      check(bloc.state.tileCount).equals(20);
+      check(bloc.state.tileCount).equals(21);
       check(tester.takeException()).isNull();
     });
 
     testWidgets('add is disabled at the mode maximum', (tester) async {
-      await pumpReview(tester, _result(SeededDetections.rack101()));
+      // rackFinishFaceDown is a full 22-tile (max) 101 rack.
+      await pumpReview(tester, _result(SeededDetections.rackFinishFaceDown()));
 
       check(
         tester.widget<SecondaryButton>(key('review-add-tile')).onPressed,
@@ -364,7 +365,7 @@ void main() {
     });
 
     testWidgets('remove is disabled at the mode minimum', (tester) async {
-      await pumpReview(tester, _result(twenty()));
+      await pumpReview(tester, _result(minRack()));
 
       await tapCell(tester, 0);
       check(
@@ -379,7 +380,7 @@ void main() {
       await pumpReview(tester, _result(SeededDetections.rackWrongCount()));
 
       check(
-        find.text(_l10n.reviewWrongCountFew(20)).evaluate(),
+        find.text(_l10n.reviewWrongCountFew(21)).evaluate(),
       ).length.equals(1);
       check(calculateButton(tester).onPressed).isNull();
       check(find.text(_l10n.reviewBlockerCount).evaluate()).length.equals(1);
@@ -405,8 +406,8 @@ void main() {
     testWidgets('a legal count shows no warning', (tester) async {
       await pumpReview(tester, _result(SeededDetections.rack101()));
 
-      check(find.text(_l10n.reviewWrongCountFew(20)).evaluate()).isEmpty();
-      check(find.text(_l10n.reviewWrongCountMany(21)).evaluate()).isEmpty();
+      check(find.text(_l10n.reviewWrongCountFew(21)).evaluate()).isEmpty();
+      check(find.text(_l10n.reviewWrongCountMany(22)).evaluate()).isEmpty();
     });
   });
 
@@ -541,7 +542,7 @@ void main() {
       await tester.pumpAndSettle();
 
       check(
-        find.text(_l10n.reviewCount(21, 20, 21)).evaluate(),
+        find.text(_l10n.reviewCount(21, 21, 22)).evaluate(),
       ).length.equals(1);
       check(tester.takeException()).isNull();
     });

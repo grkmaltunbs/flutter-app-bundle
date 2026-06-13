@@ -37,6 +37,14 @@ Future<void> tapKey(WidgetTester tester, String key) async {
   await tester.pumpAndSettle();
 }
 
+/// Pumps until [finder] matches (the off-isolate solve completes on its own
+/// schedule, which `pumpAndSettle` does not await), up to ~10s.
+Future<void> pumpUntilFound(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 100 && finder.evaluate().isEmpty; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 /// Splash → guest entry → Home.
 Future<void> goHomeAsGuest(WidgetTester tester) async {
   await tapKey(tester, 'splash-guest');
@@ -224,6 +232,41 @@ void main() {
       check(find.text(l10n.resultOpensVerdict).evaluate()).isEmpty();
       check(find.text(l10n.resultClosesVerdict).evaluate()).isEmpty();
       check(find.text(l10n.resultScoreOutOf).evaluate()).isEmpty();
+      check(find.text(l10n.resultBestArrangement).evaluate()).length.equals(1);
+
+      await tapKey(tester, 'result-done');
+      check(find.byType(HomePage).evaluate()).length.equals(1);
+      check(tester.takeException()).isNull();
+    });
+
+    testWidgets('3. 101 finish: a face-down rack solves WITHOUT an indicator '
+        'and shows the Biter verdict + spaced arrangement', (tester) async {
+      await pumpApp(tester);
+      await goHomeAsGuest(tester);
+
+      // Pin 101 mode (an earlier scenario may have persisted Okey as default).
+      await tapKey(tester, 'app-nav-2');
+      check(find.byType(SettingsPage).evaluate()).length.equals(1);
+      await tapKey(tester, 'settings-mode-oneZeroOne');
+      await tapKey(tester, 'app-nav-0');
+      check(find.byType(HomePage).evaluate()).length.equals(1);
+
+      // A 22-tile rack with a face-down (blank okey) tile that finishes.
+      fakeDetector().mode = FakeDetectionMode.faceDownFinish;
+      await captureToReview(tester);
+
+      // The face-down makes the indicator optional → calculate directly,
+      // without opening the indicator picker.
+      await tapKey(tester, 'review-calculate');
+      check(find.byType(ResultView).evaluate()).length.equals(1);
+
+      final l10n = resultL10n(tester);
+      // The finish solve runs two DP passes off-isolate; wait for the verdict.
+      await pumpUntilFound(tester, find.text(l10n.resultFinishesVerdict));
+      check(find.text(l10n.resultFinishesVerdict).evaluate()).length.equals(1);
+      check(find.text(l10n.resultFinishesEyebrow).evaluate()).length.equals(1);
+      check(find.text(l10n.resultOpensVerdict).evaluate()).isEmpty();
+      check(find.text(l10n.resultClosesVerdict).evaluate()).isEmpty();
       check(find.text(l10n.resultBestArrangement).evaluate()).length.equals(1);
 
       await tapKey(tester, 'result-done');

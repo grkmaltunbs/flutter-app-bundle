@@ -179,6 +179,15 @@ class _RackCell extends StatelessWidget {
     // Undefined placeholder, or a partial tile (real color, no number yet —
     // e.g. right after switching a joker to a color).
     if (!_rendersAsTile(tile)) return const TileSlot();
+    if (tile.faceDown) {
+      // A blank-back okey: always a blank tile, never the okey identity or the
+      // joker glyph.
+      return Tile(
+        color: TileColor.joker,
+        faceDown: true,
+        selected: selected,
+      );
+    }
     if (color == TileColor.joker && okeyTile != null) {
       // False joker displays as the okey it stands in for (D4).
       return Tile(
@@ -195,7 +204,9 @@ class _RackCell extends StatelessWidget {
     if (!_rendersAsTile(tile)) return l10n.reviewUndefinedTileSemantics;
 
     final String base;
-    if (color == TileColor.joker && okeyTile != null) {
+    if (tile.faceDown) {
+      base = l10n.tileFaceDownSemantics;
+    } else if (color == TileColor.joker && okeyTile != null) {
       base = l10n.reviewFalseJokerTileSemantics(
         _colorName(l10n, okeyTile.color),
         okeyTile.number!,

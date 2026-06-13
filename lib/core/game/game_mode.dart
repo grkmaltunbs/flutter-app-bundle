@@ -12,15 +12,20 @@ enum GameMode {
   okey
   ;
 
-  /// The minimum legal rack size for this mode (101 → 20, Okey → 14).
+  /// The minimum legal rack size for this mode (101 → 21, Okey → 14).
+  ///
+  /// 101 rests on 21 tiles; on your turn you draw a 22nd and must discard one.
   int get minTiles => switch (this) {
-    GameMode.oneZeroOne => 20,
+    GameMode.oneZeroOne => 21,
     GameMode.okey => 14,
   };
 
-  /// The maximum legal rack size for this mode (101 → 21, Okey → 15).
+  /// The maximum legal rack size for this mode (101 → 22, Okey → 15).
+  ///
+  /// The extra tile (22nd for 101, 15th for Okey) is the just-drawn tile that
+  /// must be discarded at the end of the turn.
   int get maxTiles => switch (this) {
-    GameMode.oneZeroOne => 21,
+    GameMode.oneZeroOne => 22,
     GameMode.okey => 15,
   };
 }

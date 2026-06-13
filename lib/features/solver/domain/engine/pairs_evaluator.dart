@@ -99,15 +99,19 @@ class PairsEvaluator {
         ..add(wildIndex);
     }
 
+    // Two leftover wilds pair as the okey identity; with no indicator picked
+    // the count is what matters, so any concrete identity is fine for display.
+    final wildPairIdentity =
+        rack.okeyTile ?? const GameTile(color: TileColor.red, number: 1);
     while (rack.wildQueue.length - wildAt >= 2) {
       final a = rack.wildQueue[wildAt];
       final b = rack.wildQueue[wildAt + 1];
       wildAt += 2;
       pairs.add(
         SolvedPair(
-          identity: rack.okeyTile,
-          first: _wildSpot(rack, a, rack.okeyTile),
-          second: _wildSpot(rack, b, rack.okeyTile),
+          identity: wildPairIdentity,
+          first: _wildSpot(rack, a, wildPairIdentity),
+          second: _wildSpot(rack, b, wildPairIdentity),
         ),
       );
       used

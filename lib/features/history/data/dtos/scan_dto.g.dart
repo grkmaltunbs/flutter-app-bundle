@@ -12,13 +12,13 @@ ScanDto _$ScanDtoFromJson(Map<String, dynamic> json) => ScanDto(
   createdAtMs: (json['createdAtMs'] as num).toInt(),
   updatedAtMs: (json['updatedAtMs'] as num).toInt(),
   gameMode: json['gameMode'] as String,
-  indicator: ScanIndicatorDto.fromJson(
-    json['indicator'] as Map<String, dynamic>,
-  ),
   tiles: (json['tiles'] as List<dynamic>)
       .map((e) => ScanTileDto.fromJson(e as Map<String, dynamic>))
       .toList(),
   summary: ScanSummaryDto.fromJson(json['summary'] as Map<String, dynamic>),
+  indicator: json['indicator'] == null
+      ? null
+      : ScanIndicatorDto.fromJson(json['indicator'] as Map<String, dynamic>),
   schemaVersion: (json['schemaVersion'] as num?)?.toInt() ?? 1,
 );
 
@@ -27,7 +27,7 @@ Map<String, dynamic> _$ScanDtoToJson(ScanDto instance) => <String, dynamic>{
   'createdAtMs': instance.createdAtMs,
   'updatedAtMs': instance.updatedAtMs,
   'gameMode': instance.gameMode,
-  'indicator': instance.indicator.toJson(),
+  'indicator': ?instance.indicator?.toJson(),
   'tiles': instance.tiles.map((e) => e.toJson()).toList(),
   'summary': instance.summary.toJson(),
   'schemaVersion': instance.schemaVersion,

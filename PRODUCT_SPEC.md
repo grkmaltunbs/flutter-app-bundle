@@ -13,8 +13,8 @@ at their rack (istaka), the app **detects every tile by number + color** with a
 **Gemini 3.1 Flash-Lite** vision call (Firebase AI Logic), lets the user **review/correct**
 the reading and **pick the indicator tile (gösterge)**, then runs a **solver** that
 finds the best legal arrangement of sets/runs (and the 5-pairs path). In **101
-mode** it delivers the headline verdict — **"Açar." / "Açmaz."** — with the score
-out of 101; in **Okey mode** it shows the best arrangement and **how many tiles
+mode** it delivers the headline verdict — **"Biter." / "Açar." / "Açmaz."** — with
+the score out of 101; in **Okey mode** it shows the best arrangement and **how many tiles
 from a winning hand**. It is a utility, not a playable game. Revenue comes from
 **AdMob** banners + rewarded ads, with a **RevenueCat "remove ads" subscription**.
 Stage: **greenfield**. UI follows the Claude Design bundle in
@@ -43,24 +43,38 @@ These rules govern detection, the solver, and all fixtures. They are authoritati
   okey tiles are **fully wild** (may substitute for any tile).
 - **False jokers (2 unnumbered tiles):** represent the okey tile (e.g. Blue 4),
   so they are played as the okey and are **also effectively wild**.
+- **Face-down tile (kapalı taş):** a tile flipped to its blank back, which by
+  tradition **is the okey** (a wild). Rendered as a **blank** tile (not the joker
+  glyph). Because it guarantees the player holds an okey, its presence makes
+  **picking the indicator optional** (still allowed, to identify face-up okey
+  copies). With no indicator, only explicit wilds are wild — no okey identity.
 - **Set (per):** 3–4 tiles of the **same number, different colors**.
 - **Run (seri):** 3+ **consecutive** tiles of the **same color**. **1 is low
   only** — `12-13-1` is invalid; `13→1` does not wrap in a run.
 - **Tile value:** each tile scores its **face value**; a 3-tile run/set = 3× the
   middle tile. A wild substituting in a meld **takes the value/identity of the
   tile it replaces** for scoring.
-- **101 mode — "open" threshold:** lay down sets/runs totaling **≥ 101** points.
+- **101 mode — "finish" (bitir):** when the user has just drawn (a **22-tile**
+  rack) and **all 21 playable tiles** form valid sets/runs — leaving exactly one
+  tile to discard — the hand **finishes the round**. Verdict: **Biter**. This
+  ranks **above** opening and holds **regardless of the score** (using all 21
+  tiles beats reaching ≥ 101).
+- **101 mode — "open" threshold:** otherwise, lay down sets/runs totaling **≥
+  101** points (using at most 21 tiles — you need not use all of them).
   Alternative open: **5 pairs (çift)**, where point value does not matter.
   Verdict: **Açar** (≥101 or 5-pair) / **Açmaz** (otherwise, with points short).
+- **Discard:** on a just-drawn rack (22-tile 101 or 15-tile okey) the turn ends
+  by discarding one tile; the solver suggests the lowest-value leftover.
 - **Okey (plain) mode:** no 101 threshold; goal is a complete winning hand (all
   tiles in sets/runs + a final pair, or 7 pairs). Output: best arrangement +
   **tiles-to-win** distance. No Açar/Açmaz verdict.
 - **Rack capacity (hard requirement for detection + UI):**
-  - **101 Okey: 20 or 21 tiles** (21 when it is the user's turn / just drew).
+  - **101 Okey: 21 or 22 tiles** (22 when it is the user's turn / just drew,
+    before discarding one).
   - **Okey (plain): 14 or 15 tiles.**
-  - Tiles sit on the rack in **2 parallel rows** (≈10–11 per row in 101 mode).
+  - Tiles sit on the rack in **2 parallel rows** (≈11 per row in 101 mode).
     Detection relies on the two-baseline assumption; the rack UI must render any
-    count from 14–21 across 2 rows with **zero overflow** at every size.
+    count from 14–22 across 2 rows with **zero overflow** at every size.
 
 ## Feature inventory
 One row per feature. `Gate` = free or a paid entitlement. `Phase` = v1 or later.
@@ -71,7 +85,7 @@ One row per feature. `Gate` = free or a paid entitlement. `Phase` = v1 or later.
 | f-detect | Tile detection | Gemini 3.1 Flash-Lite vision (Firebase AI Logic) → structured JSON of number/color per tile (+ false-joker, face-down/okey); per-tile confidence. Prod-only; demo uses a seeded fake. | free | v1 | f-capture |
 | f-review | Review & correct | Show detected tiles in a 2-row rack; tap to fix number/color; low-confidence flags; add/remove tile to match count. | free | v1 | f-detect |
 | f-indicator | Indicator (gösterge) picker | Select indicator number+color; app derives the okey; mark false jokers. | free | v1 | f-review |
-| f-solve-101 | 101 solver | Max-score legal arrangement; ≥101 / 5-pair open detection; Açar/Açmaz verdict + score. | free | v1 | f-review, f-indicator |
+| f-solve-101 | 101 solver | Max-score legal arrangement; finish detection (all 21 tiles meld on a 22-tile rack → **Biter**, beats score); ≥101 / 5-pair open detection; Biter/Açar/Açmaz verdict + score; discard suggestion at 22 tiles. | free | v1 | f-review, f-indicator |
 | f-solve-okey | Okey solver | Best arrangement + tiles-to-win distance (sets/runs/pairs, 7-pairs path). | free | v1 | f-review, f-indicator |
 | f-result | Result presentation | Verdict + visual rack with meld brackets + legend. Layouts: rack / list. | free | v1 | f-solve-101, f-solve-okey |
 | f-result-detail | Detailed "why this" | Step-by-step reasoning for the arrangement. | premium **or** rewarded-ad unlock per result | v1 | f-result |
@@ -133,7 +147,7 @@ the screens it touches and becomes one or more integration tests.
 - **Happy path:** 1. **Camera** opens (mode = photo/video/gallery). 2. User frames
   the 2-row rack and captures (or imports). 3. **Analyzing** runs on-device
   detection (off the UI isolate); per-tile reveal. 4. **Review** shows the 2-row
-  rack (14–21 tiles) with detected number+color; low-confidence flagged. 5. User
+  rack (14–22 tiles) with detected number+color; low-confidence flagged. 5. User
   fixes any wrong tiles and **picks the indicator (gösterge)**. 6. Tap **Hesapla**
   → solver runs. 7. **Result**: 101 mode → **Açar/Açmaz** + score/101 + best
   arrangement; Okey mode → best arrangement + tiles-to-win. 8. Scan saved to
@@ -144,7 +158,7 @@ the screens it touches and becomes one or more integration tests.
   - **Photo-library permission denied** (gallery mode) → rationale + Open Settings.
   - **No tiles detected** → "Taş bulunamadı" empty/error state with tips
     (lighting, frame the rack) + Retry.
-  - **Wrong tile count** (not 14–15 for Okey / 20–21 for 101) → warn, let the user
+  - **Wrong tile count** (not 14–15 for Okey / 21–22 for 101) → warn, let the user
     add/remove tiles in Review before solving.
   - **Low light / blur / glare** → low overall confidence banner; suggest retake;
     proceed allowed after manual review.
@@ -264,21 +278,22 @@ For **every** screen, define **all** states (no screen ships happy-path-only).
 - **Purpose:** Verify detected tiles; fix number/color; **pick indicator**; adjust
   tile count.
 - **States:** default · editing-tile (color+number panel) · low-confidence
-  highlighted · indicator-not-set (block solve until set) · wrong-count warning ·
+  highlighted · indicator-not-set (block solve until set, unless a face-down tile
+  is present — then optional) · wrong-count warning ·
   add/remove tile.
-- **Key widgets:** 2-row rack (14–21 tiles), per-tile edit panel, **indicator
+- **Key widgets:** 2-row rack (14–22 tiles), per-tile edit panel, **indicator
   picker (color + number)**, count indicator, Hesapla CTA.
-- **Responsive notes:** **critical** — rack must render up to 21 tiles across 2
+- **Responsive notes:** **critical** — rack must render up to 22 tiles across 2
   rows without overflow on SE @2.0 (horizontal scroll or tile-size flex per row).
 
 ### screen-result: Result / verdict
 - **Purpose:** Deliver verdict + best arrangement.
-- **States:** opens (Açar) · closes (Açmaz, points short) · okey-mode (tiles-to-win,
+- **States:** finishes (Biter) · opens (Açar) · closes (Açmaz, points short) · okey-mode (tiles-to-win,
   no verdict) · detailed-locked (free) · detailed-unlocked · banner ad (free) ·
   loading (solving) · error (solver failure → retry).
 - **Key widgets:** big serif verdict, score/101, visual rack w/ meld brackets +
   legend (rack/list layouts), detailed reasoning (gated), Again/Done, banner ad.
-- **Responsive notes:** verdict via FittedBox; rack of up to 21 tiles wraps to 2
+- **Responsive notes:** verdict via FittedBox; rack of up to 22 tiles wraps to 2
   rows; legend list scrolls; ad anchored, never overlaps CTAs.
 
 ### screen-history: History
@@ -360,7 +375,7 @@ For **every** screen, define **all** states (no screen ships happy-path-only).
 - **Responsive size matrix:** iPhone SE, iPhone 16 Pro, iPhone 16 Pro Max; small /
   Pixel-class Android; each at textScale 1.0 and 2.0. **Zero render (overflow)
   errors on any.** Tablet (iPad) runs the scaled phone layout and must also not
-  overflow. **Special case:** the rack widget must render **14–21 tiles in 2 rows**
+  overflow. **Special case:** the rack widget must render **14–22 tiles in 2 rows**
   without overflow at the smallest size + textScale 2.0 (per-row tile-size flex
   and/or horizontal scroll).
 - **Accessibility:** Semantics on interactive + icon-only elements (camera shutter,
@@ -387,9 +402,9 @@ Init is not complete until every row is Confirmed or Overridden.
 | 1 | Backend (7) | Firebase: Auth + Firestore + Analytics + Crashlytics | **Confirmed** |
 | 2 | Auth (3) | email+Google+Apple+guest; verification on; reset on; in-app account deletion; re-auth before delete; silent token refresh | **Confirmed** |
 | 3 | Data/sync (7) | guest local (drift); sync to Firestore on sign-in; offline-first; last-write-wins | **Confirmed** |
-| 4 | Rack counts (domain) | ~~14–15 tiles, 2 rows~~ → **101 Okey = 20–21**, **Okey = 14–15**, 2 rows; rack UI renders 14–21 overflow-free | **Overridden** |
+| 4 | Rack counts (domain) | ~~14–15 tiles, 2 rows~~ → **101 Okey = 21–22** (22 = just drew, then discards), **Okey = 14–15**, 2 rows; rack UI renders 14–22 overflow-free | **Overridden** |
 | 5 | Joker (domain) | ~~joker = same color +1; false jokers act as okey~~ → indicator selected; **okey = color, (n+1) mod 13**; **okey AND false jokers fully wild** (false jokers locked to the okey tile) | **Overridden** |
-| 6 | Solver | max-score legal arrangement; 101 verdict ≥101 / 5-pair; Okey mode tiles-to-win; wild takes substituted value | **Confirmed** |
+| 6 | Solver | max-score legal arrangement; 101 verdict finish (all 21 meld @ 22 tiles, score-independent) / ≥101 / 5-pair; Okey mode tiles-to-win; wild takes substituted value | **Updated** |
 | 7 | Detection errors (25) | no-tiles / wrong-count / blur / glare → retry + manual edit; never dead-end | **Confirmed** |
 | 8 | Navigation (5) | bottom nav 3 tabs; go_router; Android back → pop; no external deep links v1 | **Confirmed** |
 | 9 | Screen states (6) | every screen: loading/empty/error+retry/offline/success | **Confirmed** |

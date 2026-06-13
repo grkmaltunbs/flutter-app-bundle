@@ -68,9 +68,9 @@ class $ScansTable extends Scans with TableInfo<$ScansTable, ScanRow> {
   late final GeneratedColumn<String> indicatorColor = GeneratedColumn<String>(
     'indicator_color',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _indicatorNumberMeta = const VerificationMeta(
     'indicatorNumber',
@@ -79,9 +79,9 @@ class $ScansTable extends Scans with TableInfo<$ScansTable, ScanRow> {
   late final GeneratedColumn<int> indicatorNumber = GeneratedColumn<int>(
     'indicator_number',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.int,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _tilesJsonMeta = const VerificationMeta(
     'tilesJson',
@@ -262,8 +262,6 @@ class $ScansTable extends Scans with TableInfo<$ScansTable, ScanRow> {
           _indicatorColorMeta,
         ),
       );
-    } else if (isInserting) {
-      context.missing(_indicatorColorMeta);
     }
     if (data.containsKey('indicator_number')) {
       context.handle(
@@ -273,8 +271,6 @@ class $ScansTable extends Scans with TableInfo<$ScansTable, ScanRow> {
           _indicatorNumberMeta,
         ),
       );
-    } else if (isInserting) {
-      context.missing(_indicatorNumberMeta);
     }
     if (data.containsKey('tiles_json')) {
       context.handle(
@@ -379,11 +375,11 @@ class $ScansTable extends Scans with TableInfo<$ScansTable, ScanRow> {
       indicatorColor: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}indicator_color'],
-      )!,
+      ),
       indicatorNumber: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}indicator_number'],
-      )!,
+      ),
       tilesJson: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}tiles_json'],
@@ -446,11 +442,12 @@ class ScanRow extends DataClass implements Insertable<ScanRow> {
   /// `GameMode.name` of the solved mode (`oneZeroOne` | `okey`).
   final String gameMode;
 
-  /// `TileColor.name` of the indicator (gösterge) tile.
-  final String indicatorColor;
+  /// `TileColor.name` of the indicator (gösterge) tile, or `null` when none
+  /// was picked (a face-down tile let the user skip it).
+  final String? indicatorColor;
 
-  /// Number (1–13) of the indicator tile.
-  final int indicatorNumber;
+  /// Number (1–13) of the indicator tile, or `null` when none was picked.
+  final int? indicatorNumber;
 
   /// Rack-order tile array as JSON: `[{"c":"red","n":5},{"c":"joker"},…]`
   /// (encoded/decoded by `ScanDto`).
@@ -485,8 +482,8 @@ class ScanRow extends DataClass implements Insertable<ScanRow> {
     required this.createdAtMs,
     required this.updatedAtMs,
     required this.gameMode,
-    required this.indicatorColor,
-    required this.indicatorNumber,
+    this.indicatorColor,
+    this.indicatorNumber,
     required this.tilesJson,
     required this.verdictKind,
     required this.opened,
@@ -507,8 +504,12 @@ class ScanRow extends DataClass implements Insertable<ScanRow> {
     map['created_at_ms'] = Variable<int>(createdAtMs);
     map['updated_at_ms'] = Variable<int>(updatedAtMs);
     map['game_mode'] = Variable<String>(gameMode);
-    map['indicator_color'] = Variable<String>(indicatorColor);
-    map['indicator_number'] = Variable<int>(indicatorNumber);
+    if (!nullToAbsent || indicatorColor != null) {
+      map['indicator_color'] = Variable<String>(indicatorColor);
+    }
+    if (!nullToAbsent || indicatorNumber != null) {
+      map['indicator_number'] = Variable<int>(indicatorNumber);
+    }
     map['tiles_json'] = Variable<String>(tilesJson);
     map['verdict_kind'] = Variable<String>(verdictKind);
     map['opened'] = Variable<bool>(opened);
@@ -538,8 +539,12 @@ class ScanRow extends DataClass implements Insertable<ScanRow> {
       createdAtMs: Value(createdAtMs),
       updatedAtMs: Value(updatedAtMs),
       gameMode: Value(gameMode),
-      indicatorColor: Value(indicatorColor),
-      indicatorNumber: Value(indicatorNumber),
+      indicatorColor: indicatorColor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(indicatorColor),
+      indicatorNumber: indicatorNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(indicatorNumber),
       tilesJson: Value(tilesJson),
       verdictKind: Value(verdictKind),
       opened: Value(opened),
@@ -571,8 +576,8 @@ class ScanRow extends DataClass implements Insertable<ScanRow> {
       createdAtMs: serializer.fromJson<int>(json['createdAtMs']),
       updatedAtMs: serializer.fromJson<int>(json['updatedAtMs']),
       gameMode: serializer.fromJson<String>(json['gameMode']),
-      indicatorColor: serializer.fromJson<String>(json['indicatorColor']),
-      indicatorNumber: serializer.fromJson<int>(json['indicatorNumber']),
+      indicatorColor: serializer.fromJson<String?>(json['indicatorColor']),
+      indicatorNumber: serializer.fromJson<int?>(json['indicatorNumber']),
       tilesJson: serializer.fromJson<String>(json['tilesJson']),
       verdictKind: serializer.fromJson<String>(json['verdictKind']),
       opened: serializer.fromJson<bool>(json['opened']),
@@ -593,8 +598,8 @@ class ScanRow extends DataClass implements Insertable<ScanRow> {
       'createdAtMs': serializer.toJson<int>(createdAtMs),
       'updatedAtMs': serializer.toJson<int>(updatedAtMs),
       'gameMode': serializer.toJson<String>(gameMode),
-      'indicatorColor': serializer.toJson<String>(indicatorColor),
-      'indicatorNumber': serializer.toJson<int>(indicatorNumber),
+      'indicatorColor': serializer.toJson<String?>(indicatorColor),
+      'indicatorNumber': serializer.toJson<int?>(indicatorNumber),
       'tilesJson': serializer.toJson<String>(tilesJson),
       'verdictKind': serializer.toJson<String>(verdictKind),
       'opened': serializer.toJson<bool>(opened),
@@ -613,8 +618,8 @@ class ScanRow extends DataClass implements Insertable<ScanRow> {
     int? createdAtMs,
     int? updatedAtMs,
     String? gameMode,
-    String? indicatorColor,
-    int? indicatorNumber,
+    Value<String?> indicatorColor = const Value.absent(),
+    Value<int?> indicatorNumber = const Value.absent(),
     String? tilesJson,
     String? verdictKind,
     bool? opened,
@@ -630,8 +635,12 @@ class ScanRow extends DataClass implements Insertable<ScanRow> {
     createdAtMs: createdAtMs ?? this.createdAtMs,
     updatedAtMs: updatedAtMs ?? this.updatedAtMs,
     gameMode: gameMode ?? this.gameMode,
-    indicatorColor: indicatorColor ?? this.indicatorColor,
-    indicatorNumber: indicatorNumber ?? this.indicatorNumber,
+    indicatorColor: indicatorColor.present
+        ? indicatorColor.value
+        : this.indicatorColor,
+    indicatorNumber: indicatorNumber.present
+        ? indicatorNumber.value
+        : this.indicatorNumber,
     tilesJson: tilesJson ?? this.tilesJson,
     verdictKind: verdictKind ?? this.verdictKind,
     opened: opened ?? this.opened,
@@ -747,8 +756,8 @@ class ScansCompanion extends UpdateCompanion<ScanRow> {
   final Value<int> createdAtMs;
   final Value<int> updatedAtMs;
   final Value<String> gameMode;
-  final Value<String> indicatorColor;
-  final Value<int> indicatorNumber;
+  final Value<String?> indicatorColor;
+  final Value<int?> indicatorNumber;
   final Value<String> tilesJson;
   final Value<String> verdictKind;
   final Value<bool> opened;
@@ -784,8 +793,8 @@ class ScansCompanion extends UpdateCompanion<ScanRow> {
     required int createdAtMs,
     required int updatedAtMs,
     required String gameMode,
-    required String indicatorColor,
-    required int indicatorNumber,
+    this.indicatorColor = const Value.absent(),
+    this.indicatorNumber = const Value.absent(),
     required String tilesJson,
     required String verdictKind,
     required bool opened,
@@ -800,8 +809,6 @@ class ScansCompanion extends UpdateCompanion<ScanRow> {
        createdAtMs = Value(createdAtMs),
        updatedAtMs = Value(updatedAtMs),
        gameMode = Value(gameMode),
-       indicatorColor = Value(indicatorColor),
-       indicatorNumber = Value(indicatorNumber),
        tilesJson = Value(tilesJson),
        verdictKind = Value(verdictKind),
        opened = Value(opened),
@@ -852,8 +859,8 @@ class ScansCompanion extends UpdateCompanion<ScanRow> {
     Value<int>? createdAtMs,
     Value<int>? updatedAtMs,
     Value<String>? gameMode,
-    Value<String>? indicatorColor,
-    Value<int>? indicatorNumber,
+    Value<String?>? indicatorColor,
+    Value<int?>? indicatorNumber,
     Value<String>? tilesJson,
     Value<String>? verdictKind,
     Value<bool>? opened,
@@ -1208,8 +1215,8 @@ typedef $$ScansTableCreateCompanionBuilder =
       required int createdAtMs,
       required int updatedAtMs,
       required String gameMode,
-      required String indicatorColor,
-      required int indicatorNumber,
+      Value<String?> indicatorColor,
+      Value<int?> indicatorNumber,
       required String tilesJson,
       required String verdictKind,
       required bool opened,
@@ -1228,8 +1235,8 @@ typedef $$ScansTableUpdateCompanionBuilder =
       Value<int> createdAtMs,
       Value<int> updatedAtMs,
       Value<String> gameMode,
-      Value<String> indicatorColor,
-      Value<int> indicatorNumber,
+      Value<String?> indicatorColor,
+      Value<int?> indicatorNumber,
       Value<String> tilesJson,
       Value<String> verdictKind,
       Value<bool> opened,
@@ -1526,8 +1533,8 @@ class $$ScansTableTableManager
                 Value<int> createdAtMs = const Value.absent(),
                 Value<int> updatedAtMs = const Value.absent(),
                 Value<String> gameMode = const Value.absent(),
-                Value<String> indicatorColor = const Value.absent(),
-                Value<int> indicatorNumber = const Value.absent(),
+                Value<String?> indicatorColor = const Value.absent(),
+                Value<int?> indicatorNumber = const Value.absent(),
                 Value<String> tilesJson = const Value.absent(),
                 Value<String> verdictKind = const Value.absent(),
                 Value<bool> opened = const Value.absent(),
@@ -1564,8 +1571,8 @@ class $$ScansTableTableManager
                 required int createdAtMs,
                 required int updatedAtMs,
                 required String gameMode,
-                required String indicatorColor,
-                required int indicatorNumber,
+                Value<String?> indicatorColor = const Value.absent(),
+                Value<int?> indicatorNumber = const Value.absent(),
                 required String tilesJson,
                 required String verdictKind,
                 required bool opened,

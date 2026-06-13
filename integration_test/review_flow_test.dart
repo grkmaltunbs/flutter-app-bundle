@@ -136,15 +136,6 @@ Future<void> tapPanelNumber(WidgetTester tester, int number) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> closePanel(WidgetTester tester) async {
-  final target = inPanel(find.byIcon(Icons.close));
-  await tester.ensureVisible(target);
-  await tester.pumpAndSettle();
-  await tester.tap(target);
-  await tester.pumpAndSettle();
-  check(find.byType(TileEditPanel).evaluate()).isEmpty();
-}
-
 /// Opens the indicator sheet and confirms a pick. Sheet InkWell order:
 /// the colors red(0) / black(1) / yellow(2) / blue(3) — never the joker —
 /// then the 13 numerals, then the confirm button.
@@ -214,10 +205,10 @@ void main() {
       final l10n = reviewL10n(tester);
       final bloc = reviewBloc(tester);
 
-      // The seeded 101 rack: 21 tiles, two flagged low-confidence.
+      // The seeded 101 rack: 21 tiles (the min), two flagged low-confidence.
       check(bloc.state.tileCount).equals(21);
       check(
-        find.text(l10n.reviewCount(21, 20, 21)).evaluate(),
+        find.text(l10n.reviewCount(21, 21, 22)).evaluate(),
       ).length.equals(1);
       check(
         find.text(l10n.reviewLowConfidenceLegend).evaluate(),
@@ -231,26 +222,24 @@ void main() {
         const ReviewTile(color: TileColor.yellow, number: 5),
       );
 
-      // Remove the last tile (21 → 20) through its editor.
-      await tapRackCell(tester, 20);
-      await tapKey(tester, 'review-remove-tile');
-      check(bloc.state.tileCount).equals(20);
-      check(find.byType(TileEditPanel).evaluate()).isEmpty();
-      check(
-        find.text(l10n.reviewCount(20, 20, 21)).evaluate(),
-      ).length.equals(1);
-
-      // Add one back: a dashed slot appears with its editor open; define it.
+      // At the minimum (21) removing is disabled; add a tile (21 → 22): a
+      // dashed slot appears with its editor open.
       await tapKey(tester, 'review-add-tile');
+      check(bloc.state.tileCount).equals(22);
       check(find.byType(TileSlot).evaluate()).length.equals(1);
       check(find.byType(TileEditPanel).evaluate()).length.equals(1);
-      await tapPanelColor(tester, 0); // red
-      await tapPanelNumber(tester, 9);
-      check(bloc.state.tiles[20]).equals(
-        const ReviewTile(color: TileColor.red, number: 9),
-      );
+      check(
+        find.text(l10n.reviewCount(22, 21, 22)).evaluate(),
+      ).length.equals(1);
+
+      // Remove it again (22 → 21) through its open editor.
+      await tapKey(tester, 'review-remove-tile');
+      check(bloc.state.tileCount).equals(21);
       check(find.byType(TileSlot).evaluate()).isEmpty();
-      await closePanel(tester);
+      check(find.byType(TileEditPanel).evaluate()).isEmpty();
+      check(
+        find.text(l10n.reviewCount(21, 21, 22)).evaluate(),
+      ).length.equals(1);
 
       // Everything is complete — only the indicator still blocks.
       check(find.text(l10n.reviewBlockerIndicator).evaluate()).length.equals(1);
@@ -287,28 +276,42 @@ void main() {
       final l10n = reviewL10n(tester);
       final bloc = reviewBloc(tester);
 
-      // 19 tiles: too few for 101 — warning + count blocker, no calculate.
+      // 19 tiles: too few for 101 (min 21) — warning + count blocker.
       check(bloc.state.tileCount).equals(19);
       check(
-        find.text(l10n.reviewWrongCountFew(20)).evaluate(),
+        find.text(l10n.reviewWrongCountFew(21)).evaluate(),
       ).length.equals(1);
       check(find.text(l10n.reviewBlockerCount).evaluate()).length.equals(1);
       check(calculateEnabled(tester)).isFalse();
 
-      // Add the missing tile: the warning clears, the blocker moves on to
-      // the still-undefined placeholder.
+      // Add + define the first missing tile (19 → 20, blue 6): still one short
+      // of the 21 minimum, so the count warning persists.
       await tapKey(tester, 'review-add-tile');
-      check(find.text(l10n.reviewWrongCountFew(20)).evaluate()).isEmpty();
+      await tapPanelColor(tester, 3); // blue
+      await tapPanelNumber(tester, 6);
+      check(bloc.state.tiles[19]).equals(
+        const ReviewTile(color: TileColor.blue, number: 6),
+      );
+      check(bloc.state.tileCount).equals(20);
+      check(
+        find.text(l10n.reviewWrongCountFew(21)).evaluate(),
+      ).length.equals(1);
+      check(calculateEnabled(tester)).isFalse();
+
+      // Add the second missing tile (20 → 21): the count warning clears; the
+      // still-undefined placeholder is now the blocker.
+      await tapKey(tester, 'review-add-tile');
+      check(find.text(l10n.reviewWrongCountFew(21)).evaluate()).isEmpty();
       check(
         find.text(l10n.reviewBlockerIncomplete).evaluate(),
       ).length.equals(1);
       check(calculateEnabled(tester)).isFalse();
 
-      // Define it (blue 6); the blocker moves on to the indicator.
-      await tapPanelColor(tester, 3); // blue
-      await tapPanelNumber(tester, 6);
-      check(bloc.state.tiles[19]).equals(
-        const ReviewTile(color: TileColor.blue, number: 6),
+      // Define it (black 7); the blocker moves on to the indicator.
+      await tapPanelColor(tester, 1); // black
+      await tapPanelNumber(tester, 7);
+      check(bloc.state.tiles[20]).equals(
+        const ReviewTile(color: TileColor.black, number: 7),
       );
       check(find.text(l10n.reviewBlockerIndicator).evaluate()).length.equals(1);
 

@@ -36,8 +36,10 @@ class NormalizedRack {
   /// The original rack, in rack order.
   final List<GameTile> tiles;
 
-  /// The okey identity for the round.
-  final GameTile okeyTile;
+  /// The okey identity for the round, or `null` when no indicator was picked
+  /// (a face-down tile let the user skip it). With no okey identity, no
+  /// numbered tile is treated as a wild okey copy.
+  final GameTile? okeyTile;
 
   /// `counts[c][n]` for the 4 real colors (by enum index) × numbers 1–13,
   /// excluding wilds, clamped at 4 per kind. Index 0 unused.
@@ -84,7 +86,8 @@ class NormalizedRack {
   /// okey identity — displayed needed tiles must always stay drawable.
   int phantomBudget(int color, int number) {
     var remaining = 2 - counts[color][number];
-    if (color == okeyTile.color.index && number == okeyTile.number) {
+    final okey = okeyTile;
+    if (okey != null && color == okey.color.index && number == okey.number) {
       remaining -= okeyCopyCount;
     }
     return remaining > 0 ? remaining : 0;
@@ -107,9 +110,9 @@ class RackNormalizer {
   /// substitution is supply-unconstrained), so it canonically lives here.
   static const TileColor designatedColor = TileColor.red;
 
-  /// Normalizes [tiles] against [indicator].
-  NormalizedRack normalize(List<GameTile> tiles, Indicator indicator) {
-    final okeyTile = indicator.okeyTile;
+  /// Normalizes [tiles] against [indicator] (null when none was picked).
+  NormalizedRack normalize(List<GameTile> tiles, Indicator? indicator) {
+    final okeyTile = indicator?.okeyTile;
     final counts = List.generate(4, (_) => List.filled(14, 0));
     final queues = List.generate(
       4,
@@ -126,7 +129,7 @@ class RackNormalizer {
         jokerIndices.add(i);
         continue;
       }
-      if (tile == okeyTile) {
+      if (okeyTile != null && tile == okeyTile) {
         okeyCopyIndices.add(i);
         continue;
       }

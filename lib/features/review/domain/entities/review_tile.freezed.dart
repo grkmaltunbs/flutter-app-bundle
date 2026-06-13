@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ReviewTile {
 
- TileColor? get color; int? get number; bool get lowConfidence;
+ TileColor? get color; int? get number; bool get lowConfidence; bool get faceDown;
 /// Create a copy of ReviewTile
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $ReviewTileCopyWith<ReviewTile> get copyWith => _$ReviewTileCopyWithImpl<ReviewT
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ReviewTile&&(identical(other.color, color) || other.color == color)&&(identical(other.number, number) || other.number == number)&&(identical(other.lowConfidence, lowConfidence) || other.lowConfidence == lowConfidence));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ReviewTile&&(identical(other.color, color) || other.color == color)&&(identical(other.number, number) || other.number == number)&&(identical(other.lowConfidence, lowConfidence) || other.lowConfidence == lowConfidence)&&(identical(other.faceDown, faceDown) || other.faceDown == faceDown));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,color,number,lowConfidence);
+int get hashCode => Object.hash(runtimeType,color,number,lowConfidence,faceDown);
 
 @override
 String toString() {
-  return 'ReviewTile(color: $color, number: $number, lowConfidence: $lowConfidence)';
+  return 'ReviewTile(color: $color, number: $number, lowConfidence: $lowConfidence, faceDown: $faceDown)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $ReviewTileCopyWith<$Res>  {
   factory $ReviewTileCopyWith(ReviewTile value, $Res Function(ReviewTile) _then) = _$ReviewTileCopyWithImpl;
 @useResult
 $Res call({
- TileColor? color, int? number, bool lowConfidence
+ TileColor? color, int? number, bool lowConfidence, bool faceDown
 });
 
 
@@ -62,11 +62,12 @@ class _$ReviewTileCopyWithImpl<$Res>
 
 /// Create a copy of ReviewTile
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? color = freezed,Object? number = freezed,Object? lowConfidence = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? color = freezed,Object? number = freezed,Object? lowConfidence = null,Object? faceDown = null,}) {
   return _then(_self.copyWith(
 color: freezed == color ? _self.color : color // ignore: cast_nullable_to_non_nullable
 as TileColor?,number: freezed == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
 as int?,lowConfidence: null == lowConfidence ? _self.lowConfidence : lowConfidence // ignore: cast_nullable_to_non_nullable
+as bool,faceDown: null == faceDown ? _self.faceDown : faceDown // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -152,10 +153,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( TileColor? color,  int? number,  bool lowConfidence)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( TileColor? color,  int? number,  bool lowConfidence,  bool faceDown)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ReviewTile() when $default != null:
-return $default(_that.color,_that.number,_that.lowConfidence);case _:
+return $default(_that.color,_that.number,_that.lowConfidence,_that.faceDown);case _:
   return orElse();
 
 }
@@ -173,10 +174,10 @@ return $default(_that.color,_that.number,_that.lowConfidence);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( TileColor? color,  int? number,  bool lowConfidence)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( TileColor? color,  int? number,  bool lowConfidence,  bool faceDown)  $default,) {final _that = this;
 switch (_that) {
 case _ReviewTile():
-return $default(_that.color,_that.number,_that.lowConfidence);case _:
+return $default(_that.color,_that.number,_that.lowConfidence,_that.faceDown);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -193,10 +194,10 @@ return $default(_that.color,_that.number,_that.lowConfidence);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( TileColor? color,  int? number,  bool lowConfidence)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( TileColor? color,  int? number,  bool lowConfidence,  bool faceDown)?  $default,) {final _that = this;
 switch (_that) {
 case _ReviewTile() when $default != null:
-return $default(_that.color,_that.number,_that.lowConfidence);case _:
+return $default(_that.color,_that.number,_that.lowConfidence,_that.faceDown);case _:
   return null;
 
 }
@@ -208,12 +209,13 @@ return $default(_that.color,_that.number,_that.lowConfidence);case _:
 
 
 class _ReviewTile extends ReviewTile {
-  const _ReviewTile({this.color, this.number, this.lowConfidence = false}): super._();
+  const _ReviewTile({this.color, this.number, this.lowConfidence = false, this.faceDown = false}): super._();
   
 
 @override final  TileColor? color;
 @override final  int? number;
 @override@JsonKey() final  bool lowConfidence;
+@override@JsonKey() final  bool faceDown;
 
 /// Create a copy of ReviewTile
 /// with the given fields replaced by the non-null parameter values.
@@ -225,16 +227,16 @@ _$ReviewTileCopyWith<_ReviewTile> get copyWith => __$ReviewTileCopyWithImpl<_Rev
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ReviewTile&&(identical(other.color, color) || other.color == color)&&(identical(other.number, number) || other.number == number)&&(identical(other.lowConfidence, lowConfidence) || other.lowConfidence == lowConfidence));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ReviewTile&&(identical(other.color, color) || other.color == color)&&(identical(other.number, number) || other.number == number)&&(identical(other.lowConfidence, lowConfidence) || other.lowConfidence == lowConfidence)&&(identical(other.faceDown, faceDown) || other.faceDown == faceDown));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,color,number,lowConfidence);
+int get hashCode => Object.hash(runtimeType,color,number,lowConfidence,faceDown);
 
 @override
 String toString() {
-  return 'ReviewTile(color: $color, number: $number, lowConfidence: $lowConfidence)';
+  return 'ReviewTile(color: $color, number: $number, lowConfidence: $lowConfidence, faceDown: $faceDown)';
 }
 
 
@@ -245,7 +247,7 @@ abstract mixin class _$ReviewTileCopyWith<$Res> implements $ReviewTileCopyWith<$
   factory _$ReviewTileCopyWith(_ReviewTile value, $Res Function(_ReviewTile) _then) = __$ReviewTileCopyWithImpl;
 @override @useResult
 $Res call({
- TileColor? color, int? number, bool lowConfidence
+ TileColor? color, int? number, bool lowConfidence, bool faceDown
 });
 
 
@@ -262,11 +264,12 @@ class __$ReviewTileCopyWithImpl<$Res>
 
 /// Create a copy of ReviewTile
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? color = freezed,Object? number = freezed,Object? lowConfidence = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? color = freezed,Object? number = freezed,Object? lowConfidence = null,Object? faceDown = null,}) {
   return _then(_ReviewTile(
 color: freezed == color ? _self.color : color // ignore: cast_nullable_to_non_nullable
 as TileColor?,number: freezed == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
 as int?,lowConfidence: null == lowConfidence ? _self.lowConfidence : lowConfidence // ignore: cast_nullable_to_non_nullable
+as bool,faceDown: null == faceDown ? _self.faceDown : faceDown // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }

@@ -37,9 +37,9 @@ class ScanDto {
     required this.createdAtMs,
     required this.updatedAtMs,
     required this.gameMode,
-    required this.indicator,
     required this.tiles,
     required this.summary,
+    this.indicator,
     this.schemaVersion = 1,
   });
 
@@ -70,10 +70,13 @@ class ScanDto {
       createdAtMs: scan.createdAt.toUtc().millisecondsSinceEpoch,
       updatedAtMs: scan.updatedAt.toUtc().millisecondsSinceEpoch,
       gameMode: scan.gameMode.name,
-      indicator: ScanIndicatorDto(
-        color: scan.indicator.color.name,
-        number: scan.indicator.number,
-      ),
+      indicator: switch (scan.indicator) {
+        final indicator? => ScanIndicatorDto(
+          color: indicator.color.name,
+          number: indicator.number,
+        ),
+        null => null,
+      },
       tiles: [for (final tile in scan.tiles) ScanTileDto.fromTile(tile)],
       summary: ScanSummaryDto.fromSummary(summary),
     );
@@ -96,8 +99,10 @@ class ScanDto {
   /// `GameMode.name` (`oneZeroOne` | `okey`).
   final String gameMode;
 
-  /// The indicator tile.
-  final ScanIndicatorDto indicator;
+  /// The indicator tile, or `null` when none was picked (a face-down tile let
+  /// the user skip it).
+  @JsonKey(includeIfNull: false)
+  final ScanIndicatorDto? indicator;
 
   /// The rack tiles, in rack order.
   final List<ScanTileDto> tiles;
@@ -141,12 +146,20 @@ class ScanDto {
   /// Throws [FormatException] when enum names, numbers, or the tile/joker
   /// invariants are out of range.
   Scan toEntity() {
-    final indicatorColor = _enumByName(TileColor.values, indicator.color);
-    if (indicatorColor == TileColor.joker ||
-        indicator.number < 1 ||
-        indicator.number > 13) {
-      throw FormatException(
-        'Malformed indicator: ${indicator.color} ${indicator.number}',
+    final indicatorDto = indicator;
+    Indicator? parsedIndicator;
+    if (indicatorDto != null) {
+      final indicatorColor = _enumByName(TileColor.values, indicatorDto.color);
+      if (indicatorColor == TileColor.joker ||
+          indicatorDto.number < 1 ||
+          indicatorDto.number > 13) {
+        throw FormatException(
+          'Malformed indicator: ${indicatorDto.color} ${indicatorDto.number}',
+        );
+      }
+      parsedIndicator = Indicator(
+        color: indicatorColor,
+        number: indicatorDto.number,
       );
     }
     return Scan(
@@ -155,7 +168,7 @@ class ScanDto {
       createdAt: DateTime.fromMillisecondsSinceEpoch(createdAtMs, isUtc: true),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(updatedAtMs, isUtc: true),
       tiles: [for (final tile in tiles) _tileDtoToTile(tile)],
-      indicator: Indicator(color: indicatorColor, number: indicator.number),
+      indicator: parsedIndicator,
       gameMode: _enumByName(GameMode.values, gameMode),
       summary: summary.toSummary(),
     );

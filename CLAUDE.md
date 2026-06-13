@@ -10,14 +10,18 @@ every tile by number + color** by sending the downscaled photo to **Gemini 3.1
 Flash-Lite** (vision, structured output) via **Firebase AI Logic**, lets the user
 review/correct
 the reading and **pick the indicator (gösterge)**, then runs a **solver** for the
-best legal arrangement. In **101 mode** it answers **"Açar / Açmaz"** (does the hand
-reach ≥101, or the 5-pairs open) with the score; in **Okey mode** it shows the best
-arrangement + tiles-to-win. Audience: Turkish Okey players (Turkish-first, English
+best legal arrangement. In **101 mode** it answers **"Biter / Açar / Açmaz"** — the
+hand **finishes** (all 21 playable tiles meld on a just-drawn 22-tile rack, beating
+the score requirement), **opens** (≥101 via melds or the 5-pairs path), or neither —
+with the score; in **Okey mode** it shows the best
+arrangement + tiles-to-win. A detected **face-down** tile renders as a **blank**
+okey (wild) and makes picking the indicator optional. Audience: Turkish Okey players
+(Turkish-first, English
 secondary). Stage: **greenfield**. Monetised with **AdMob** banner + rewarded ads and
 a **RevenueCat** "remove ads" subscription. The full spec — every flow, screen state,
 and the authoritative game rules — is in **`PRODUCT_SPEC.md`**; UI follows the design
 bundle in `docs/design/101-okey-acar-mi/`. UI-fidelity and **zero-overflow** on the
-variable-length rack (14–21 tiles, 2 rows) are hard constraints.
+variable-length rack (14–22 tiles, 2 rows) are hard constraints.
 
 **Bundle ID:** `com.okeyacarmi.okey_acar_mi`
 **Firebase project:** `okeyacarmi-dcb8c` — Auth + Firestore + Analytics + Crashlytics + **AI Logic** (Gemini detection).
@@ -212,8 +216,10 @@ for (final size in _matrix) {
     deps are removed). See memory `gemini-detection-pivot`.
 - **Solver:** pure-Dart in `domain/` (no Flutter imports). Computes the max-score
   legal arrangement (sets/runs + 5-pairs path); jokers/false-jokers are **wild**
-  and take the value/identity of the tile they substitute. 101 mode → Açar/Açmaz
-  @ ≥101; Okey mode → tiles-to-win. Memoized; runs off-isolate for large racks.
+  and take the value/identity of the tile they substitute. 101 mode → Biter (all
+  21 tiles meld on a 22-tile rack — ranks above opening, score-independent) /
+  Açar (≥101) / Açmaz; Okey mode → tiles-to-win. A 22-tile (or 15-tile okey) rack
+  also gets a suggested discard. Memoized; runs off-isolate for large racks.
 - **Monetization:** `purchases_flutter` (RevenueCat, entitlement `premium`) +
   `google_mobile_ads` (AdMob banner + rewarded). Ads/entitlement **only** via
   `SubscriptionBloc` / an `AdsService` interface — never an SDK call from a widget.
@@ -226,7 +232,7 @@ for (final size in _matrix) {
   permanently-denied → Open Settings), `flutter_secure_storage` (extra secrets).
 
 > **Authoritative game rules** (tiles, colors, indicator→okey `(n+1) mod 13`, wild
-> jokers, sets/runs, ≥101 / 5-pairs, rack 20–21 for 101 / 14–15 for Okey) live in
+> jokers, sets/runs, finish/≥101 / 5-pairs, rack 21–22 for 101 / 14–15 for Okey) in
 > `PRODUCT_SPEC.md` → *Domain rules*. The solver and all fakes must match them.
 
 ## Design reference
@@ -255,7 +261,7 @@ settings, plus a **tile-style** setting (classic / flat / minimal / bold) and th
 **accent** picker. See `styles.css` `[data-theme=...]` blocks.
 
 **Key components to port:** `Tile` (5 sizes × 4 styles, joker glyph), `Rack`
-(2 rows — must flex to **14–21 tiles** without overflow), `Meld` (bracketed group +
+(2 rows — must flex to **14–22 tiles** without overflow), `Meld` (bracketed group +
 score), pill, card, the verdict moment, the indicator picker (new — not in the
 prototype), and ad/paywall surfaces (new — not in the prototype).
 

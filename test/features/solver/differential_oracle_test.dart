@@ -87,6 +87,9 @@ void _check101AgainstOracle(
   final oraclePairs = _oracle.maxPairCount(tiles, indicator);
   final shouldOpen = expected >= 101 || oraclePairs >= 5;
   switch (result.verdict) {
+    case Finishes101():
+      // Finishing needs a 22-tile rack; these oracle racks are 5–11 tiles.
+      fail('$label: unexpected finish verdict on a sub-22-tile rack');
     case Opens101(:final score, :final via):
       check(because: '$label: opens', shouldOpen).isTrue();
       check(because: '$label: verdict score', score).equals(expected);

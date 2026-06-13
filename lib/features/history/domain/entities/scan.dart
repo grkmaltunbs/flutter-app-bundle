@@ -25,14 +25,15 @@ abstract class Scan with _$Scan {
     /// The confirmed tiles in rack order.
     required List<GameTile> tiles,
 
-    /// The indicator (gösterge) the user picked.
-    required Indicator indicator,
-
     /// The game the solver ran in.
     required GameMode gameMode,
 
     /// The solver verdict summary.
     required ScanSummary summary,
+
+    /// The indicator (gösterge) the user picked, or `null` when a face-down
+    /// (blank okey) tile let them skip it.
+    Indicator? indicator,
 
     /// Owning user id, or `null` for a guest-created scan.
     String? ownerId,

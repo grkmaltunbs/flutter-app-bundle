@@ -83,6 +83,10 @@ String reasoningStepText(AppLocalizations l10n, ReasoningStep step) =>
         l10n.resultReasonCountsClamped(formatGameTile(l10n, kind), dropped),
       MeldFormedStep(:final meld, :final runningTotal) =>
         l10n.resultReasonMeldFormed(describeMeld(l10n, meld), runningTotal),
+      FinishCheckedStep(:final tilesUsed, :final rackCount, :final finishes) =>
+        finishes
+            ? l10n.resultReasonFinishes(tilesUsed)
+            : l10n.resultReasonFinishShort(tilesUsed, rackCount),
       ThresholdCheckedStep(:final total, :final threshold, :final opens) =>
         opens
             ? l10n.resultReasonThresholdOpens(total, threshold)

@@ -292,6 +292,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get historyRetry => 'Try again';
 
   @override
+  String get scanCardFinished => 'Finished';
+
+  @override
   String get scanCardOpened => 'Opened';
 
   @override
@@ -521,6 +524,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reviewIndicatorChange => 'Change';
+
+  @override
+  String get reviewIndicatorOptionalNote =>
+      'You already hold an okey (a blank tile), so the indicator is optional.';
+
+  @override
+  String get reviewIndicatorDoubleCheck => 'Pick indicator (optional)';
 
   @override
   String reviewOkeyLabel(String color, int number) {
@@ -793,6 +803,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get resultClosesVerdict => 'No open.';
 
   @override
+  String get resultFinishesEyebrow => 'YOU CAN FINISH';
+
+  @override
+  String get resultFinishesVerdict => 'Finishes.';
+
+  @override
+  String get resultFinishesCaption => 'All 21 tiles fit — finish the round.';
+
+  @override
   String get resultScoreLabel => 'SCORE';
 
   @override
@@ -912,6 +931,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String resultReasonFinishes(int tilesUsed) {
+    return 'All $tilesUsed playable tiles meld — the hand finishes.';
+  }
+
+  @override
+  String resultReasonFinishShort(int tilesUsed, int rackCount) {
+    return '$tilesUsed of $rackCount tiles meld — not a finish.';
+  }
+
+  @override
   String resultReasonThresholdOpens(int total, int threshold) {
     return 'Total $total ≥ $threshold — opens.';
   }
@@ -1026,6 +1055,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jokerSemantics => 'Joker';
+
+  @override
+  String get tileFaceDownSemantics => 'Blank okey tile';
 
   @override
   String get tileColorRed => 'Red';

@@ -1,6 +1,17 @@
 import 'package:okey_acar_mi/features/solver/domain/engine/rack_normalizer.dart';
 import 'package:okey_acar_mi/features/solver/domain/engine/transition_tables.dart';
 
+/// What the meld DP maximizes.
+enum MeldObjective {
+  /// Total face-value points (each placed tile of value `n` scores `n`). Drives
+  /// the 101 open / does-not-open verdict and the displayed score.
+  score,
+
+  /// Total tiles covered by melds (each placed tile scores `1`). Drives the
+  /// 101 finish check (can all 21 playable tiles form valid melds?).
+  coverage,
+}
+
 /// One color's share of a column transition (reconstruction detail).
 class ColorPlan {
   /// Creates a [ColorPlan].
@@ -42,9 +53,14 @@ class MeldScoreDpResult {
     required this.initialKey,
     required this.values,
     required this.parents,
+    this.objective = MeldObjective.score,
   });
 
-  /// Best meld total over all legal partitions.
+  /// What [best] (and the parent chain) maximizes.
+  final MeldObjective objective;
+
+  /// Best meld total over all legal partitions, in [objective]'s unit (points
+  /// for [MeldObjective.score], tiles covered for [MeldObjective.coverage]).
   final int best;
 
   /// Winning terminal key at level 14 (smallest key on ties).
@@ -101,9 +117,13 @@ class MeldScoreDp {
     return w;
   }
 
-  /// Runs the DP and returns the best score plus the relaxation tables
-  /// needed for reconstruction.
-  MeldScoreDpResult run(NormalizedRack rack) {
+  /// Runs the DP and returns the best total plus the relaxation tables
+  /// needed for reconstruction. [objective] selects what is maximized: face
+  /// points (default) or tiles covered.
+  MeldScoreDpResult run(
+    NormalizedRack rack, {
+    MeldObjective objective = MeldObjective.score,
+  }) {
     final spaces = spacesFor(rack);
     final wMax = rack.wildCount;
     final zeroIdx = [for (final s in spaces) s.zeroIndex];
@@ -124,6 +144,7 @@ class MeldScoreDp {
           key: entry.key,
           value: entry.value,
           buildPlan: false,
+          objective: objective,
           visit: (newKey, newValue, _) {
             final existing = next[newKey];
             if (existing == null || newValue > existing) {
@@ -158,6 +179,7 @@ class MeldScoreDp {
       initialKey: initialKey,
       values: values,
       parents: parents,
+      objective: objective,
     );
   }
 
@@ -182,12 +204,14 @@ class MeldScoreDp {
     required int value,
     required bool buildPlan,
     required TransitionVisitor visit,
+    MeldObjective objective = MeldObjective.score,
   }) {
     _ColumnEnumerator(
       rack: rack,
       spaces: spaces,
       n: n,
       buildPlan: buildPlan,
+      objective: objective,
       visit: visit,
     ).enumerate(key, value);
   }
@@ -200,7 +224,9 @@ class _ColumnEnumerator {
     required this.n,
     required this.buildPlan,
     required this.visit,
-  }) : newIdx = List<int>.filled(4, 0),
+    required this.objective,
+  }) : cellWeight = objective == MeldObjective.coverage ? 1 : n,
+       newIdx = List<int>.filled(4, 0),
        sigmaBuf = List<int>.filled(4, 0),
        moveBuf = [
          for (var c = 0; c < 4; c++) List<int>.filled(spaces[c].slotCount, 0),
@@ -215,6 +241,10 @@ class _ColumnEnumerator {
   final int n;
   final bool buildPlan;
   final TransitionVisitor visit;
+  final MeldObjective objective;
+
+  /// Value added per placed cell at this column: `n` (score) or `1` (coverage).
+  final int cellWeight;
 
   final List<int> newIdx;
   final List<int> sigmaBuf;
@@ -271,7 +301,7 @@ class _ColumnEnumerator {
           wLeft - secUsed,
           sigmaSum + sigma,
           sigma > sigmaMax ? sigma : sigmaMax,
-          score + n * (physUsed + secUsed),
+          score + cellWeight * (physUsed + secUsed),
         );
       }
       return;
@@ -328,7 +358,7 @@ class _ColumnEnumerator {
         continue;
       }
       if (!setCloseFeasible(total, sigmaMax)) continue;
-      _emit(score + n * total, wLeft - ws, ws);
+      _emit(score + cellWeight * total, wLeft - ws, ws);
     }
   }
 

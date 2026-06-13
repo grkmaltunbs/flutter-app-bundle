@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$SolveRequest {
 
- List<GameTile> get tiles; Indicator get indicator; GameMode get mode;
+ List<GameTile> get tiles; GameMode get mode; Indicator? get indicator;
 /// Create a copy of SolveRequest
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $SolveRequestCopyWith<SolveRequest> get copyWith => _$SolveRequestCopyWithImpl<S
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SolveRequest&&const DeepCollectionEquality().equals(other.tiles, tiles)&&(identical(other.indicator, indicator) || other.indicator == indicator)&&(identical(other.mode, mode) || other.mode == mode));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SolveRequest&&const DeepCollectionEquality().equals(other.tiles, tiles)&&(identical(other.mode, mode) || other.mode == mode)&&(identical(other.indicator, indicator) || other.indicator == indicator));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(tiles),indicator,mode);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(tiles),mode,indicator);
 
 @override
 String toString() {
-  return 'SolveRequest(tiles: $tiles, indicator: $indicator, mode: $mode)';
+  return 'SolveRequest(tiles: $tiles, mode: $mode, indicator: $indicator)';
 }
 
 
@@ -45,11 +45,11 @@ abstract mixin class $SolveRequestCopyWith<$Res>  {
   factory $SolveRequestCopyWith(SolveRequest value, $Res Function(SolveRequest) _then) = _$SolveRequestCopyWithImpl;
 @useResult
 $Res call({
- List<GameTile> tiles, Indicator indicator, GameMode mode
+ List<GameTile> tiles, GameMode mode, Indicator? indicator
 });
 
 
-$IndicatorCopyWith<$Res> get indicator;
+$IndicatorCopyWith<$Res>? get indicator;
 
 }
 /// @nodoc
@@ -62,21 +62,24 @@ class _$SolveRequestCopyWithImpl<$Res>
 
 /// Create a copy of SolveRequest
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? tiles = null,Object? indicator = null,Object? mode = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? tiles = null,Object? mode = null,Object? indicator = freezed,}) {
   return _then(_self.copyWith(
 tiles: null == tiles ? _self.tiles : tiles // ignore: cast_nullable_to_non_nullable
-as List<GameTile>,indicator: null == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
-as Indicator,mode: null == mode ? _self.mode : mode // ignore: cast_nullable_to_non_nullable
-as GameMode,
+as List<GameTile>,mode: null == mode ? _self.mode : mode // ignore: cast_nullable_to_non_nullable
+as GameMode,indicator: freezed == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
+as Indicator?,
   ));
 }
 /// Create a copy of SolveRequest
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$IndicatorCopyWith<$Res> get indicator {
-  
-  return $IndicatorCopyWith<$Res>(_self.indicator, (value) {
+$IndicatorCopyWith<$Res>? get indicator {
+    if (_self.indicator == null) {
+    return null;
+  }
+
+  return $IndicatorCopyWith<$Res>(_self.indicator!, (value) {
     return _then(_self.copyWith(indicator: value));
   });
 }
@@ -161,10 +164,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<GameTile> tiles,  Indicator indicator,  GameMode mode)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<GameTile> tiles,  GameMode mode,  Indicator? indicator)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SolveRequest() when $default != null:
-return $default(_that.tiles,_that.indicator,_that.mode);case _:
+return $default(_that.tiles,_that.mode,_that.indicator);case _:
   return orElse();
 
 }
@@ -182,10 +185,10 @@ return $default(_that.tiles,_that.indicator,_that.mode);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<GameTile> tiles,  Indicator indicator,  GameMode mode)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<GameTile> tiles,  GameMode mode,  Indicator? indicator)  $default,) {final _that = this;
 switch (_that) {
 case _SolveRequest():
-return $default(_that.tiles,_that.indicator,_that.mode);case _:
+return $default(_that.tiles,_that.mode,_that.indicator);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -202,10 +205,10 @@ return $default(_that.tiles,_that.indicator,_that.mode);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<GameTile> tiles,  Indicator indicator,  GameMode mode)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<GameTile> tiles,  GameMode mode,  Indicator? indicator)?  $default,) {final _that = this;
 switch (_that) {
 case _SolveRequest() when $default != null:
-return $default(_that.tiles,_that.indicator,_that.mode);case _:
+return $default(_that.tiles,_that.mode,_that.indicator);case _:
   return null;
 
 }
@@ -217,7 +220,7 @@ return $default(_that.tiles,_that.indicator,_that.mode);case _:
 
 
 class _SolveRequest implements SolveRequest {
-  const _SolveRequest({required final  List<GameTile> tiles, required this.indicator, required this.mode}): _tiles = tiles;
+  const _SolveRequest({required final  List<GameTile> tiles, required this.mode, this.indicator}): _tiles = tiles;
   
 
  final  List<GameTile> _tiles;
@@ -227,8 +230,8 @@ class _SolveRequest implements SolveRequest {
   return EqualUnmodifiableListView(_tiles);
 }
 
-@override final  Indicator indicator;
 @override final  GameMode mode;
+@override final  Indicator? indicator;
 
 /// Create a copy of SolveRequest
 /// with the given fields replaced by the non-null parameter values.
@@ -240,16 +243,16 @@ _$SolveRequestCopyWith<_SolveRequest> get copyWith => __$SolveRequestCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SolveRequest&&const DeepCollectionEquality().equals(other._tiles, _tiles)&&(identical(other.indicator, indicator) || other.indicator == indicator)&&(identical(other.mode, mode) || other.mode == mode));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SolveRequest&&const DeepCollectionEquality().equals(other._tiles, _tiles)&&(identical(other.mode, mode) || other.mode == mode)&&(identical(other.indicator, indicator) || other.indicator == indicator));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_tiles),indicator,mode);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_tiles),mode,indicator);
 
 @override
 String toString() {
-  return 'SolveRequest(tiles: $tiles, indicator: $indicator, mode: $mode)';
+  return 'SolveRequest(tiles: $tiles, mode: $mode, indicator: $indicator)';
 }
 
 
@@ -260,11 +263,11 @@ abstract mixin class _$SolveRequestCopyWith<$Res> implements $SolveRequestCopyWi
   factory _$SolveRequestCopyWith(_SolveRequest value, $Res Function(_SolveRequest) _then) = __$SolveRequestCopyWithImpl;
 @override @useResult
 $Res call({
- List<GameTile> tiles, Indicator indicator, GameMode mode
+ List<GameTile> tiles, GameMode mode, Indicator? indicator
 });
 
 
-@override $IndicatorCopyWith<$Res> get indicator;
+@override $IndicatorCopyWith<$Res>? get indicator;
 
 }
 /// @nodoc
@@ -277,12 +280,12 @@ class __$SolveRequestCopyWithImpl<$Res>
 
 /// Create a copy of SolveRequest
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? tiles = null,Object? indicator = null,Object? mode = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? tiles = null,Object? mode = null,Object? indicator = freezed,}) {
   return _then(_SolveRequest(
 tiles: null == tiles ? _self._tiles : tiles // ignore: cast_nullable_to_non_nullable
-as List<GameTile>,indicator: null == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
-as Indicator,mode: null == mode ? _self.mode : mode // ignore: cast_nullable_to_non_nullable
-as GameMode,
+as List<GameTile>,mode: null == mode ? _self.mode : mode // ignore: cast_nullable_to_non_nullable
+as GameMode,indicator: freezed == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
+as Indicator?,
   ));
 }
 
@@ -290,9 +293,12 @@ as GameMode,
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$IndicatorCopyWith<$Res> get indicator {
-  
-  return $IndicatorCopyWith<$Res>(_self.indicator, (value) {
+$IndicatorCopyWith<$Res>? get indicator {
+    if (_self.indicator == null) {
+    return null;
+  }
+
+  return $IndicatorCopyWith<$Res>(_self.indicator!, (value) {
     return _then(_self.copyWith(indicator: value));
   });
 }

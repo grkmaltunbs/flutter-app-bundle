@@ -11,6 +11,7 @@ extension DetectedTileX on DetectedTile {
     color: color,
     number: number,
     lowConfidence: confidence < kLowConfidenceThreshold,
+    faceDown: faceDown,
   );
 }
 

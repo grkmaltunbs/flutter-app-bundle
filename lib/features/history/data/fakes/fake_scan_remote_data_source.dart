@@ -175,6 +175,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_r, 4),
           _t(_y, 4),
           _t(_b, 5),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 142, via: OpenPath.melds),
       ),
@@ -199,6 +200,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_l, 2),
           _t(_l, 5),
           _t(_l, 8),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _doesNotOpen(score: 87),
       ),
@@ -234,6 +236,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_y, 4),
           _t(_l, 3),
           _t(_b, 8),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 104, via: OpenPath.melds),
       ),
@@ -248,6 +251,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           for (final n in const [1, 2, 4, 5, 7, 8, 8]) _t(_b, n),
           for (final n in const [10, 11, 13]) _t(_y, n),
           for (final n in const [10, 11, 13]) _t(_l, n),
+          _t(_r, 2), // dead leftover pair → 21 tiles
         ],
         summary: _doesNotOpen(score: 0),
       ),
@@ -278,6 +282,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_b, 10),
           _t(_y, 12),
           _t(_l, 5),
+          _t(_b, 10), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 0, via: OpenPath.pairs),
       ),
@@ -317,6 +322,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_b, 4),
           _t(_y, 5),
           _t(_l, 6),
+          _t(_l, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 110, via: OpenPath.melds),
       ),
@@ -343,6 +349,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_l, 2),
           _t(_l, 5),
           _t(_l, 8),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _doesNotOpen(score: 66),
       ),
@@ -364,6 +371,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_b, 4),
           _t(_y, 4),
           _t(_y, 6),
+          _t(_b, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 116, via: OpenPath.melds),
       ),
@@ -402,6 +410,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_r, 6),
           _t(_b, 6),
           _t(_y, 5),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 101, via: OpenPath.melds),
       ),
@@ -428,6 +437,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_l, 10),
           _t(_l, 13),
           _t(_y, 5),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _doesNotOpen(score: 60),
       ),
@@ -449,6 +459,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_b, 4),
           _t(_l, 5),
           _t(_r, 7),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 122, via: OpenPath.melds),
       ),
@@ -473,6 +484,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_l, 2),
           _t(_l, 5),
           _t(_l, 8),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _doesNotOpen(score: 88),
       ),
@@ -532,6 +544,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_r, 7),
           _t(_b, 7),
           _t(_y, 5),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 107, via: OpenPath.melds),
       ),
@@ -558,6 +571,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_y, 11),
           _t(_l, 9),
           _t(_l, 11),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _doesNotOpen(score: 24),
       ),
@@ -579,6 +593,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_y, 4),
           _t(_l, 5),
           _t(_y, 2),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 119, via: OpenPath.melds),
       ),
@@ -603,6 +618,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_l, 7),
           _t(_b, 2),
           _t(_b, 5),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _doesNotOpen(score: 91),
       ),
@@ -624,6 +640,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_r, 4),
           _t(_b, 4),
           _t(_l, 5),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 113, via: OpenPath.melds),
       ),
@@ -645,6 +662,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_r, 4),
           _t(_b, 4),
           _t(_y, 5),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 125, via: OpenPath.melds),
       ),
@@ -671,6 +689,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_l, 5),
           _t(_l, 10),
           _t(_l, 13),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _doesNotOpen(score: 45),
       ),
@@ -692,6 +711,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_y, 4),
           _t(_l, 5),
           _t(_y, 6),
+          _t(_b, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 128, via: OpenPath.melds),
       ),
@@ -711,6 +731,7 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
           _t(_y, 1),
           _t(_l, 3),
           _t(_l, 5),
+          _t(_r, 1), // dead leftover pair → 21 tiles
         ],
         summary: _opens(score: 131, via: OpenPath.melds),
       ),

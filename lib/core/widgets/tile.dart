@@ -54,6 +54,7 @@ class Tile extends StatelessWidget {
     this.widthOverride,
     this.selected = false,
     this.faded = false,
+    this.faceDown = false,
     this.onTap,
     super.key,
   });
@@ -63,6 +64,10 @@ class Tile extends StatelessWidget {
 
   /// The tile color (one of the four, or joker).
   final TileColor color;
+
+  /// Whether this tile is a blank face-down (okey) tile — renders as a blank
+  /// wooden back with no numeral or joker glyph, regardless of [color]/[style].
+  final bool faceDown;
 
   /// The preset size; ignored when [widthOverride] is set.
   final TileSize size;
@@ -137,6 +142,7 @@ class Tile extends StatelessWidget {
 
   String _semanticsLabel(BuildContext context) {
     final l10n = context.l10n;
+    if (faceDown) return l10n.tileFaceDownSemantics;
     if (color == TileColor.joker) return l10n.jokerSemantics;
     final colorName = switch (color) {
       TileColor.red => l10n.tileColorRed,
@@ -165,6 +171,9 @@ class Tile extends StatelessWidget {
     required double radius,
     required double numeralSize,
   }) {
+    // A face-down tile shows its blank wooden back — the same regardless of the
+    // numbered/joker render style.
+    if (faceDown) return _blank(palette, width, height, radius);
     switch (tileStyle) {
       case TileStyle.classic:
         return _classic(palette, width, height, radius, numeralSize);
@@ -175,6 +184,49 @@ class Tile extends StatelessWidget {
       case TileStyle.bold:
         return _bold(palette, width, height, radius, numeralSize);
     }
+  }
+
+  /// The blank wooden back of a face-down (okey) tile: a plain tile face with a
+  /// faint center ring and no numeral or glyph.
+  Widget _blank(
+    AppPalette palette,
+    double width,
+    double height,
+    double radius,
+  ) {
+    final ringSize = width * 0.34;
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [palette.tileFace, palette.tileFaceEdge],
+        ),
+        border: selected
+            ? Border.all(color: palette.accent, width: 1.5)
+            : Border.all(color: palette.line),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: selected ? 0.18 : 0.08),
+            blurRadius: selected ? 10 : 2,
+            offset: Offset(0, selected ? 4 : 1),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Container(
+          width: ringSize,
+          height: ringSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: palette.line2, width: width * 0.04),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _classic(

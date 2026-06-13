@@ -15,9 +15,10 @@ T _$identity<T>(T value) => value;
 mixin _$ReviewOutcome {
 
 /// The confirmed tiles in rack order; jokers are `GameTile(joker, null)`.
- List<GameTile> get tiles;/// The indicator (gösterge) the user picked.
- Indicator get indicator;/// The game the solver should target.
- GameMode get gameMode;
+ List<GameTile> get tiles;/// The game the solver should target.
+ GameMode get gameMode;/// The indicator (gösterge) the user picked, or `null` when a face-down
+/// (blank okey) tile let them skip it.
+ Indicator? get indicator;
 /// Create a copy of ReviewOutcome
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +29,16 @@ $ReviewOutcomeCopyWith<ReviewOutcome> get copyWith => _$ReviewOutcomeCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ReviewOutcome&&const DeepCollectionEquality().equals(other.tiles, tiles)&&(identical(other.indicator, indicator) || other.indicator == indicator)&&(identical(other.gameMode, gameMode) || other.gameMode == gameMode));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ReviewOutcome&&const DeepCollectionEquality().equals(other.tiles, tiles)&&(identical(other.gameMode, gameMode) || other.gameMode == gameMode)&&(identical(other.indicator, indicator) || other.indicator == indicator));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(tiles),indicator,gameMode);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(tiles),gameMode,indicator);
 
 @override
 String toString() {
-  return 'ReviewOutcome(tiles: $tiles, indicator: $indicator, gameMode: $gameMode)';
+  return 'ReviewOutcome(tiles: $tiles, gameMode: $gameMode, indicator: $indicator)';
 }
 
 
@@ -48,11 +49,11 @@ abstract mixin class $ReviewOutcomeCopyWith<$Res>  {
   factory $ReviewOutcomeCopyWith(ReviewOutcome value, $Res Function(ReviewOutcome) _then) = _$ReviewOutcomeCopyWithImpl;
 @useResult
 $Res call({
- List<GameTile> tiles, Indicator indicator, GameMode gameMode
+ List<GameTile> tiles, GameMode gameMode, Indicator? indicator
 });
 
 
-$IndicatorCopyWith<$Res> get indicator;
+$IndicatorCopyWith<$Res>? get indicator;
 
 }
 /// @nodoc
@@ -65,21 +66,24 @@ class _$ReviewOutcomeCopyWithImpl<$Res>
 
 /// Create a copy of ReviewOutcome
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? tiles = null,Object? indicator = null,Object? gameMode = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? tiles = null,Object? gameMode = null,Object? indicator = freezed,}) {
   return _then(_self.copyWith(
 tiles: null == tiles ? _self.tiles : tiles // ignore: cast_nullable_to_non_nullable
-as List<GameTile>,indicator: null == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
-as Indicator,gameMode: null == gameMode ? _self.gameMode : gameMode // ignore: cast_nullable_to_non_nullable
-as GameMode,
+as List<GameTile>,gameMode: null == gameMode ? _self.gameMode : gameMode // ignore: cast_nullable_to_non_nullable
+as GameMode,indicator: freezed == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
+as Indicator?,
   ));
 }
 /// Create a copy of ReviewOutcome
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$IndicatorCopyWith<$Res> get indicator {
-  
-  return $IndicatorCopyWith<$Res>(_self.indicator, (value) {
+$IndicatorCopyWith<$Res>? get indicator {
+    if (_self.indicator == null) {
+    return null;
+  }
+
+  return $IndicatorCopyWith<$Res>(_self.indicator!, (value) {
     return _then(_self.copyWith(indicator: value));
   });
 }
@@ -164,10 +168,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<GameTile> tiles,  Indicator indicator,  GameMode gameMode)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<GameTile> tiles,  GameMode gameMode,  Indicator? indicator)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ReviewOutcome() when $default != null:
-return $default(_that.tiles,_that.indicator,_that.gameMode);case _:
+return $default(_that.tiles,_that.gameMode,_that.indicator);case _:
   return orElse();
 
 }
@@ -185,10 +189,10 @@ return $default(_that.tiles,_that.indicator,_that.gameMode);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<GameTile> tiles,  Indicator indicator,  GameMode gameMode)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<GameTile> tiles,  GameMode gameMode,  Indicator? indicator)  $default,) {final _that = this;
 switch (_that) {
 case _ReviewOutcome():
-return $default(_that.tiles,_that.indicator,_that.gameMode);case _:
+return $default(_that.tiles,_that.gameMode,_that.indicator);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -205,10 +209,10 @@ return $default(_that.tiles,_that.indicator,_that.gameMode);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<GameTile> tiles,  Indicator indicator,  GameMode gameMode)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<GameTile> tiles,  GameMode gameMode,  Indicator? indicator)?  $default,) {final _that = this;
 switch (_that) {
 case _ReviewOutcome() when $default != null:
-return $default(_that.tiles,_that.indicator,_that.gameMode);case _:
+return $default(_that.tiles,_that.gameMode,_that.indicator);case _:
   return null;
 
 }
@@ -220,7 +224,7 @@ return $default(_that.tiles,_that.indicator,_that.gameMode);case _:
 
 
 class _ReviewOutcome extends ReviewOutcome {
-  const _ReviewOutcome({required final  List<GameTile> tiles, required this.indicator, required this.gameMode}): _tiles = tiles,super._();
+  const _ReviewOutcome({required final  List<GameTile> tiles, required this.gameMode, this.indicator}): _tiles = tiles,super._();
   
 
 /// The confirmed tiles in rack order; jokers are `GameTile(joker, null)`.
@@ -232,10 +236,11 @@ class _ReviewOutcome extends ReviewOutcome {
   return EqualUnmodifiableListView(_tiles);
 }
 
-/// The indicator (gösterge) the user picked.
-@override final  Indicator indicator;
 /// The game the solver should target.
 @override final  GameMode gameMode;
+/// The indicator (gösterge) the user picked, or `null` when a face-down
+/// (blank okey) tile let them skip it.
+@override final  Indicator? indicator;
 
 /// Create a copy of ReviewOutcome
 /// with the given fields replaced by the non-null parameter values.
@@ -247,16 +252,16 @@ _$ReviewOutcomeCopyWith<_ReviewOutcome> get copyWith => __$ReviewOutcomeCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ReviewOutcome&&const DeepCollectionEquality().equals(other._tiles, _tiles)&&(identical(other.indicator, indicator) || other.indicator == indicator)&&(identical(other.gameMode, gameMode) || other.gameMode == gameMode));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ReviewOutcome&&const DeepCollectionEquality().equals(other._tiles, _tiles)&&(identical(other.gameMode, gameMode) || other.gameMode == gameMode)&&(identical(other.indicator, indicator) || other.indicator == indicator));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_tiles),indicator,gameMode);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_tiles),gameMode,indicator);
 
 @override
 String toString() {
-  return 'ReviewOutcome(tiles: $tiles, indicator: $indicator, gameMode: $gameMode)';
+  return 'ReviewOutcome(tiles: $tiles, gameMode: $gameMode, indicator: $indicator)';
 }
 
 
@@ -267,11 +272,11 @@ abstract mixin class _$ReviewOutcomeCopyWith<$Res> implements $ReviewOutcomeCopy
   factory _$ReviewOutcomeCopyWith(_ReviewOutcome value, $Res Function(_ReviewOutcome) _then) = __$ReviewOutcomeCopyWithImpl;
 @override @useResult
 $Res call({
- List<GameTile> tiles, Indicator indicator, GameMode gameMode
+ List<GameTile> tiles, GameMode gameMode, Indicator? indicator
 });
 
 
-@override $IndicatorCopyWith<$Res> get indicator;
+@override $IndicatorCopyWith<$Res>? get indicator;
 
 }
 /// @nodoc
@@ -284,12 +289,12 @@ class __$ReviewOutcomeCopyWithImpl<$Res>
 
 /// Create a copy of ReviewOutcome
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? tiles = null,Object? indicator = null,Object? gameMode = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? tiles = null,Object? gameMode = null,Object? indicator = freezed,}) {
   return _then(_ReviewOutcome(
 tiles: null == tiles ? _self._tiles : tiles // ignore: cast_nullable_to_non_nullable
-as List<GameTile>,indicator: null == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
-as Indicator,gameMode: null == gameMode ? _self.gameMode : gameMode // ignore: cast_nullable_to_non_nullable
-as GameMode,
+as List<GameTile>,gameMode: null == gameMode ? _self.gameMode : gameMode // ignore: cast_nullable_to_non_nullable
+as GameMode,indicator: freezed == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
+as Indicator?,
   ));
 }
 
@@ -297,9 +302,12 @@ as GameMode,
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$IndicatorCopyWith<$Res> get indicator {
-  
-  return $IndicatorCopyWith<$Res>(_self.indicator, (value) {
+$IndicatorCopyWith<$Res>? get indicator {
+    if (_self.indicator == null) {
+    return null;
+  }
+
+  return $IndicatorCopyWith<$Res>(_self.indicator!, (value) {
     return _then(_self.copyWith(indicator: value));
   });
 }

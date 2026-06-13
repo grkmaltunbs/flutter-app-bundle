@@ -20,11 +20,20 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
-  MigrationStrategy get migration =>
-      MigrationStrategy(onCreate: (m) => m.createAll());
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      // v2: the indicator columns became nullable (a face-down tile lets the
+      // user skip the indicator). TableMigration recreates the table,
+      // preserving every existing row's non-null values.
+      if (from < 2) {
+        await m.alterTable(TableMigration(scans));
+      }
+    },
+  );
 
   /// Deletes every scan row — test seam for resetting persisted demo state
   /// between integration-test runs.

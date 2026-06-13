@@ -10,6 +10,10 @@ part 'review_tile.freezed.dart';
 /// the dashed placeholder a "Taş ekle" adds, distinct from the joker) or
 /// **partially defined** (a real color with no [number] yet, e.g. right after
 /// switching a joker to a color). Only complete tiles convert to [GameTile]s.
+///
+/// A **face-down** tile ([faceDown] == true) is a wild (joker color, no number)
+/// that renders as a blank tile and is, by tradition, a guaranteed okey — its
+/// presence makes picking the indicator optional.
 @freezed
 abstract class ReviewTile with _$ReviewTile {
   /// Creates a [ReviewTile]. All-default creates an undefined placeholder.
@@ -17,12 +21,14 @@ abstract class ReviewTile with _$ReviewTile {
     TileColor? color,
     int? number,
     @Default(false) bool lowConfidence,
+    @Default(false) bool faceDown,
   }) = _ReviewTile;
 
   const ReviewTile._();
 
   /// Whether the tile is fully defined: a joker (joker color, no number) or a
-  /// numbered tile (real color, number 1–13).
+  /// numbered tile (real color, number 1–13). A face-down tile is a complete
+  /// joker.
   bool get isComplete => switch (color) {
     null => false,
     TileColor.joker => number == null,
