@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -45,6 +46,28 @@ class HomeView extends StatelessWidget {
     final palette = context.palette;
 
     return Scaffold(
+      // EXPERIMENTAL — playground entry points, shown in debug builds only.
+      floatingActionButton: kDebugMode
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                FloatingActionButton.extended(
+                  heroTag: 'mlkit-lab-temp',
+                  onPressed: () => context.push(AppRoutes.mlkitLab),
+                  icon: const Icon(Icons.science_outlined),
+                  label: const Text('ML Kit Lab'),
+                ),
+                const SizedBox(height: 12),
+                FloatingActionButton.extended(
+                  heroTag: 'solver-lab-temp',
+                  onPressed: () => context.push(AppRoutes.solverLab),
+                  icon: const Icon(Icons.calculate_outlined),
+                  label: const Text('Solver Lab'),
+                ),
+              ],
+            )
+          : null,
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(

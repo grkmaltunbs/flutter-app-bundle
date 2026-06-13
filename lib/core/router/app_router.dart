@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:injectable/injectable.dart';
 import 'package:okey_acar_mi/core/router/go_router_refresh_stream.dart';
 import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
+import 'package:okey_acar_mi/experimental/mlkit_lab_page.dart';
+import 'package:okey_acar_mi/experimental/solver_lab_page.dart';
 import 'package:okey_acar_mi/features/auth/presentation/blocs/auth_bloc.dart';
 import 'package:okey_acar_mi/features/auth/presentation/pages/login_page.dart';
 import 'package:okey_acar_mi/features/capture/domain/entities/capture_payload.dart';
@@ -54,6 +57,12 @@ abstract final class AppRoutes {
 
   /// Remove-ads paywall (placeholder until Step 11).
   static const String paywall = '/paywall';
+
+  /// EXPERIMENTAL — ML Kit playground (debug builds only).
+  static const String mlkitLab = '/mlkit-lab';
+
+  /// EXPERIMENTAL — manual solver playground (debug builds only).
+  static const String solverLab = '/solver-lab';
 }
 
 /// Declarative application router.
@@ -180,6 +189,17 @@ class AppRouter {
           builder: (context, state) =>
               const PlaceholderPage(screen: PlaceholderScreen.paywall),
         ),
+        // EXPERIMENTAL — playground routes, registered in debug builds only.
+        if (kDebugMode) ...[
+          GoRoute(
+            path: AppRoutes.mlkitLab,
+            builder: (context, state) => const MlkitLabPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.solverLab,
+            builder: (context, state) => const SolverLabPage(),
+          ),
+        ],
         StatefulShellRoute.indexedStack(
           restorationScopeId: 'shell',
           builder: (context, state, navigationShell) =>
