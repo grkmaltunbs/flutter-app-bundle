@@ -110,19 +110,29 @@ Only needed if you want Claude to implement the whole plan on its own with
 > grants instantly), so no AdMob account is needed for simulator verification — only
 > for `prod` builds and real-device ad checks.
 
-## On-device detection (ML Kit + OpenCV)
+## Tile detection — Gemini via Firebase AI Logic
 
-- [ ] iOS: run `pod install` in `ios/` after adding the ML Kit pods; bump
-      the iOS deployment target to **15.0** if a pod requires it. (OpenCV is
-      NOT a pod — `opencv_dart` 2.x builds via Dart native assets/hooks.)
-- [ ] Android: confirm `minSdkVersion 26` and (if needed) NDK/ABI filters for the
-      OpenCV binding build.
-- [ ] Export the OpenCV build cache dir in your shell profile so
-      `flutter clean` doesn't retrigger the long first OpenCV build per target
-      (the default cache lives under `.dart_tool/hooks_runner`, which clean
-      wipes):
-      `export DARTCV_CACHE_DIR="$HOME/.cache/dartcv"`
-- [ ] No API key needed — Google ML Kit on-device models ship with the app.
+Detection sends the rack photo to Gemini 3.1 Flash-Lite. **Prod-only** — the demo
+flavor uses a seeded fake, so none of this is needed for simulator verification.
+No API key ships in the app; auth is brokered through the Firebase app.
+
+- [x] **Firebase AI Logic** enabled for `okeyacarmi-dcb8c` with the **Vertex AI**
+      provider (matches `GeminiConfig.useVertexBackend = true`).
+- [x] **Billing (Blaze)** enabled (Vertex requires it; $300 free credits if
+      eligible). Flash-Lite is cheap — ~258 tokens per 768px image.
+- [x] **Gemini 3.1 Flash-Lite** reachable. On the Vertex backend it lives only in
+      the **`global`** location (set in `GeminiConfig.vertexLocation`); change
+      `GeminiConfig.modelId` if a call 404s on the model.
+- [ ] **App Check** registered + **enforced** for AI Logic before public release
+      (App Attest/DeviceCheck on iOS, Play Integrity on Android) to stop quota
+      abuse. Leave it unenforced during development.
+- [ ] iOS: `pod install` runs automatically on the first `prod` build for the
+      `firebase_ai` pods; the deployment target stays **15.0**.
+
+> Legacy: the old `opencv_dart` + `google_mlkit_text_recognition` pipeline is
+> retired but its files + deps are still present (Phase-5 removal pending), so the
+> ML Kit pods and the OpenCV build cache (`export DARTCV_CACHE_DIR="$HOME/.cache/dartcv"`)
+> still apply to prod builds until those are deleted.
 
 ## Permission usage strings (store-required)
 
@@ -141,7 +151,8 @@ Only needed if you want Claude to implement the whole plan on its own with
 ## Legal (store-required)
 
 - [ ] **Privacy Policy** URL published and added to Settings + store listings:
-      ___________________  (must disclose camera use + AdMob/Analytics data).
+      ___________________  (must disclose camera use, **rack photos sent to Google
+      (Vertex AI) for tile detection**, + AdMob/Analytics data).
 - [ ] **Terms of Service** URL published and added to Settings: _______________
 - [ ] **Replace placeholder legal URLs** in `lib/core/constants/legal_links.dart`
       (`https://okeyacarmi.com/privacy` / `https://okeyacarmi.com/terms` are

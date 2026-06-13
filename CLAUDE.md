@@ -5,9 +5,10 @@
 
 ## Project overview
 
-**101 Okey Açar Mı** lets a player photograph their rack (istaka) and, fully
-on-device, **detects every tile by number + color** (OpenCV segmentation + Google
-ML Kit recognition, exploiting the 2-row rack layout), lets the user review/correct
+**101 Okey Açar Mı** lets a player photograph their rack (istaka), then **detects
+every tile by number + color** by sending the downscaled photo to **Gemini 3.1
+Flash-Lite** (vision, structured output) via **Firebase AI Logic**, lets the user
+review/correct
 the reading and **pick the indicator (gösterge)**, then runs a **solver** for the
 best legal arrangement. In **101 mode** it answers **"Açar / Açmaz"** (does the hand
 reach ≥101, or the 5-pairs open) with the score; in **Okey mode** it shows the best
@@ -19,7 +20,7 @@ bundle in `docs/design/101-okey-acar-mi/`. UI-fidelity and **zero-overflow** on 
 variable-length rack (14–21 tiles, 2 rows) are hard constraints.
 
 **Bundle ID:** `com.okeyacarmi.okey_acar_mi`
-**Firebase project (if any):** _TBD — set after `flutterfire configure` (see HUMAN_SETUP.md)._
+**Firebase project:** `okeyacarmi-dcb8c` — Auth + Firestore + Analytics + Crashlytics + **AI Logic** (Gemini detection).
 
 ## Architecture
 
@@ -195,15 +196,20 @@ for (final size in _matrix) {
 
 **Project-specific dependencies & overrides**
 
-- **Tile detection (on-device, core):**
-  - `camera` — live photo/video capture (CameraX/AVFoundation).
+- **Tile detection (Gemini vision, core):** behind the `TileDetector` seam in
+  `features/detection/` — prod = Gemini, demo = seeded `FakeTileDetector`.
+  - `camera` — live photo capture (CameraX/AVFoundation).
   - `image_picker` — gallery import.
-  - `google_mlkit_text_recognition` (and/or `google_mlkit_object_detection`) —
-    read tile numerals.
-  - **OpenCV** via `opencv_dart` (or an FFI/platform-channel binding) — rack
-    segmentation using the **2-row baseline** assumption + per-tile color
-    classification in HSV.
-  - All detection runs **off the UI isolate**; results carry per-tile confidence.
+  - `firebase_ai` — sends the rack photo to **Gemini 3.1 Flash-Lite** (Firebase AI
+    Logic, **Vertex backend**, `global` location) constrained by a structured-output
+    schema → JSON of every tile (number+color, false-joker, face-down/okey). Tunables
+    (model id, 768px downscale, backend) in `core/env/gemini_config.dart`.
+  - Image prep runs **off the UI isolate**; results carry per-tile confidence. Real
+    Gemini is **prod-only** (Firebase inits only in prod); the `demo` flavor uses the
+    fake, so verification stays offline/deterministic.
+  - The legacy on-device `opencv_dart` + `google_mlkit_text_recognition` pipeline is
+    **retired** (still registered as a one-line-revert fallback until its files +
+    deps are removed). See memory `gemini-detection-pivot`.
 - **Solver:** pure-Dart in `domain/` (no Flutter imports). Computes the max-score
   legal arrangement (sets/runs + 5-pairs path); jokers/false-jokers are **wild**
   and take the value/identity of the tile they substitute. 101 mode → Açar/Açmaz
@@ -294,7 +300,7 @@ After implementing a feature, `/step` (via the `flutter-qa` agent) gates on:
 
 iOS 15+ and Android 8+ (API 26), **phone only**, **portrait-locked**. Tablets run
 the scaled phone layout (no dedicated tablet UI). No web/desktop. Min-OS floor is
-set by Google ML Kit, CameraX, and AdMob.
+set by Firebase, CameraX, and AdMob.
 
 ## Flutter & Dart rules
 

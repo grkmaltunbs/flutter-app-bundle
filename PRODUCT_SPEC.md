@@ -9,8 +9,8 @@
 
 **101 Okey Açar Mı** ("will it open?") is a camera-based **tile solver** for the
 Turkish tile games **101 Okey** and **Okey** (plain). The user points the phone
-at their rack (istaka), the app **detects every tile by number + color** on-device
-(OpenCV segmentation + Google ML Kit recognition), lets the user **review/correct**
+at their rack (istaka), the app **detects every tile by number + color** with a
+**Gemini 3.1 Flash-Lite** vision call (Firebase AI Logic), lets the user **review/correct**
 the reading and **pick the indicator tile (gösterge)**, then runs a **solver** that
 finds the best legal arrangement of sets/runs (and the 5-pairs path). In **101
 mode** it delivers the headline verdict — **"Açar." / "Açmaz."** — with the score
@@ -25,10 +25,10 @@ Geist Mono numerics; strict 4-color tile palette + joker).
 - **Platforms:** iOS, Android.
 - **Form factors:** phone only (tablets run the scaled phone layout) ·
   **Orientations:** portrait-locked.
-- **Min OS:** iOS 15 / Android 8 (API 26) — floor set by Google ML Kit, CameraX,
+- **Min OS:** iOS 15 / Android 8 (API 26) — floor set by Firebase, CameraX,
   and AdMob.
 - **Tech stack:** see `CLAUDE.md` (flutter_bloc, get_it/injectable, drift,
-  go_router, Firebase, RevenueCat, AdMob, google_mlkit_*, OpenCV).
+  go_router, Firebase, RevenueCat, AdMob, firebase_ai/Gemini).
 
 ## Domain rules (the games)
 
@@ -68,7 +68,7 @@ One row per feature. `Gate` = free or a paid entitlement. `Phase` = v1 or later.
 | ID | Feature | Description | Gate | Phase | Depends on |
 |----|---------|-------------|------|-------|-----------|
 | f-capture | Capture rack | Live camera **photo**, **video** (multi-frame), and **gallery import** of the rack. | free | v1 | — |
-| f-detect | Tile detection | On-device OpenCV segmentation + ML Kit number/color recognition; 2-row baseline; per-tile confidence. | free | v1 | f-capture |
+| f-detect | Tile detection | Gemini 3.1 Flash-Lite vision (Firebase AI Logic) → structured JSON of number/color per tile (+ false-joker, face-down/okey); per-tile confidence. Prod-only; demo uses a seeded fake. | free | v1 | f-capture |
 | f-review | Review & correct | Show detected tiles in a 2-row rack; tap to fix number/color; low-confidence flags; add/remove tile to match count. | free | v1 | f-detect |
 | f-indicator | Indicator (gösterge) picker | Select indicator number+color; app derives the okey; mark false jokers. | free | v1 | f-review |
 | f-solve-101 | 101 solver | Max-score legal arrangement; ≥101 / 5-pair open detection; Açar/Açmaz verdict + score. | free | v1 | f-review, f-indicator |
@@ -253,7 +253,7 @@ For **every** screen, define **all** states (no screen ships happy-path-only).
 - **Responsive notes:** full-bleed; safe-area insets for controls; portrait only.
 
 ### screen-analyzing: Detection in progress
-- **Purpose:** Run on-device detection with progress feedback.
+- **Purpose:** Run detection (a Gemini vision call) with progress feedback.
 - **States:** processing (staged messages) · per-tile reveal · success →
   auto-advance · **failure** (no tiles / error) → retry · cancel (back).
 - **Key widgets:** scan-line animation, detected-tile reveal w/ bounding boxes,
@@ -368,9 +368,9 @@ For **every** screen, define **all** states (no screen ships happy-path-only).
   textScale 2.0, respects reduce-motion (no scan-line/pulse).
 - **Localization:** **Turkish (default) + English**; **all** user-facing strings via
   ARB; `intl` for dates/numbers; no RTL.
-- **Performance:** OpenCV/ML Kit detection and the solver run **off the UI isolate**;
-  lazy history list; cached/resized thumbnails; solver memoized; camera released on
-  background.
+- **Performance:** the solver and the detection image-prep run **off the UI isolate**
+  (detection itself is a Gemini API call); lazy history list; cached/resized
+  thumbnails; solver memoized; camera released on background.
 - **Security:** Firebase-managed auth tokens (+ `flutter_secure_storage` for any
   extra secrets); **Firestore rules owner-scoped** (`ownerId == request.auth.uid`);
   **no secrets in repo** (RevenueCat public key + AdMob IDs via `--dart-define` /
