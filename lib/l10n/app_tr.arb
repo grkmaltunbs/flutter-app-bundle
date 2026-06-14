@@ -293,7 +293,7 @@
   "resultDetailUnlockCta": "Detayı aç",
 
   "resultReasonOkeyDerived": "Gösterge {indicator} → okey {okey}.",
-  "resultReasonWildsCounted": "{falseJokers} sahte okey, {okeyCopies} okey sayıldı.",
+  "resultReasonWildsCounted": "{faceDowns} kapalı, {okeyCopies} okey joker sayıldı.",
   "resultReasonRackCountNoted": "Istakada {count} taş ({mode}).",
   "resultReasonCountsClamped": "{kind} fazlasından {dropped} taş çıkarıldı.",
   "resultReasonMeldFormed": "{meld} kuruldu → toplam {runningTotal}.",

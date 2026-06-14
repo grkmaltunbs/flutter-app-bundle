@@ -22,7 +22,7 @@ const TileColor _r = TileColor.red;
 const TileColor _b = TileColor.black;
 const TileColor _y = TileColor.yellow;
 const TileColor _l = TileColor.blue;
-const GameTile _joker = GameTile(color: TileColor.joker);
+const GameTile _faceDown = GameTile(color: TileColor.joker, faceDown: true);
 
 ScanSummaryDto _opens({required int score, required OpenPath via}) =>
     ScanSummaryDto(
@@ -414,14 +414,14 @@ class FakeScanRemoteDataSource implements ScanRemoteDataSource {
         ],
         summary: _opens(score: 101, via: OpenPath.melds),
       ),
-      // 13 — a joker, but the hand still falls short.
+      // 13 — a face-down wild, but the hand still falls short.
       seed(
         age: const Duration(days: 17),
         mode: GameMode.oneZeroOne,
         indicatorColor: _l,
         indicatorNumber: 1,
         tiles: [
-          _joker,
+          _faceDown,
           _t(_r, 6),
           _t(_b, 6),
           ..._run(_y, 1, 3),

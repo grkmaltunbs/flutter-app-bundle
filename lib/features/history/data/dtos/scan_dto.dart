@@ -180,11 +180,13 @@ class ScanDto {
   static GameTile _tileDtoToTile(ScanTileDto dto) {
     final color = _enumByName(TileColor.values, dto.c);
     final number = dto.n;
+    final faceDown = dto.faceDown ?? false;
     if ((color == TileColor.joker) != (number == null) ||
-        (number != null && (number < 1 || number > 13))) {
+        (number != null && (number < 1 || number > 13)) ||
+        (faceDown && color != TileColor.joker)) {
       throw FormatException('Malformed tile: ${dto.c} ${dto.n}');
     }
-    return GameTile(color: color, number: number);
+    return GameTile(color: color, number: number, faceDown: faceDown);
   }
 }
 
@@ -213,15 +215,19 @@ class ScanIndicatorDto {
 @JsonSerializable()
 class ScanTileDto {
   /// Creates a [ScanTileDto].
-  const ScanTileDto({required this.c, this.n});
+  const ScanTileDto({required this.c, this.n, this.faceDown});
 
   /// Decodes [json].
   factory ScanTileDto.fromJson(Map<String, dynamic> json) =>
       _$ScanTileDtoFromJson(json);
 
-  /// Maps a domain tile to its wire shape.
-  factory ScanTileDto.fromTile(GameTile tile) =>
-      ScanTileDto(c: tile.color.name, n: tile.number);
+  /// Maps a domain tile to its wire shape. Only a face-down joker writes the
+  /// `fd` flag (omitted otherwise, keeping the array compact).
+  factory ScanTileDto.fromTile(GameTile tile) => ScanTileDto(
+    c: tile.color.name,
+    n: tile.number,
+    faceDown: tile.faceDown ? true : null,
+  );
 
   /// `TileColor.name` of the tile.
   final String c;
@@ -229,6 +235,11 @@ class ScanTileDto {
   /// Tile number (1–13), or `null` for the joker.
   @JsonKey(includeIfNull: false)
   final int? n;
+
+  /// Whether this is a face-down (wild) joker; `null`/absent means a regular
+  /// tile or a sahte okey (false joker).
+  @JsonKey(name: 'fd', includeIfNull: false)
+  final bool? faceDown;
 
   /// Encodes this tile.
   Map<String, dynamic> toJson() => _$ScanTileDtoToJson(this);

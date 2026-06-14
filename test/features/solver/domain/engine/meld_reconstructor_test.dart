@@ -10,7 +10,7 @@ import 'package:okey_acar_mi/features/solver/domain/entities/solved_meld.dart';
 import 'package:okey_acar_mi/features/solver/domain/entities/solved_spot.dart';
 
 GameTile _t(TileColor c, int n) => GameTile(color: c, number: n);
-const _joker = GameTile(color: TileColor.joker);
+const _joker = GameTile(color: TileColor.joker, faceDown: true);
 const _indicator = Indicator(color: TileColor.black, number: 1);
 
 MeldArrangement _arrange(List<GameTile> tiles) {

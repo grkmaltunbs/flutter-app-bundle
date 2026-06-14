@@ -911,8 +911,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String resultReasonWildsCounted(int falseJokers, int okeyCopies) {
-    return 'Counted $falseJokers false jokers, $okeyCopies okey tiles.';
+  String resultReasonWildsCounted(int faceDowns, int okeyCopies) {
+    return 'Counted $faceDowns face-down, $okeyCopies okey wild tiles.';
   }
 
   @override

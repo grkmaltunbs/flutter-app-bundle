@@ -11,7 +11,7 @@ import 'package:okey_acar_mi/features/solver/domain/entities/solve_verdict.dart'
 import 'package:okey_acar_mi/features/solver/domain/entities/solved_spot.dart';
 
 GameTile _t(TileColor c, int n) => GameTile(color: c, number: n);
-const _joker = GameTile(color: TileColor.joker);
+const _joker = GameTile(color: TileColor.joker, faceDown: true);
 const _engine = DpSolverEngine();
 
 /// Design §5 worked example: indicator Blue 3 → okey Blue 4, W = 2.

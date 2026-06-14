@@ -138,7 +138,7 @@ final SolveResult _result101 = SolveResult(
   totalScore: 104,
   verdict: const SolveVerdict.opens101(score: 104, via: OpenPath.melds),
   reasoning: const [
-    ReasoningStep.wildsCounted(falseJokers: 1, okeyCopies: 0),
+    ReasoningStep.wildsCounted(faceDowns: 1, okeyCopies: 0),
     ReasoningStep.rackCountNoted(count: 21, mode: GameMode.oneZeroOne),
     ReasoningStep.thresholdChecked(total: 104, threshold: 101, opens: true),
     ReasoningStep.pathChosen(via: OpenPath.melds),
@@ -169,7 +169,7 @@ final SolveResult _resultFinish = SolveResult(
   totalScore: 84,
   verdict: const SolveVerdict.finishes101(score: 84),
   reasoning: const [
-    ReasoningStep.wildsCounted(falseJokers: 1, okeyCopies: 0),
+    ReasoningStep.wildsCounted(faceDowns: 1, okeyCopies: 0),
     ReasoningStep.rackCountNoted(count: 22, mode: GameMode.oneZeroOne),
     ReasoningStep.finishChecked(tilesUsed: 21, rackCount: 22, finishes: true),
   ],

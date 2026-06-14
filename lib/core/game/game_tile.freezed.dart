@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$GameTile {
 
- TileColor get color; int? get number;
+ TileColor get color; int? get number; bool get faceDown;
 /// Create a copy of GameTile
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $GameTileCopyWith<GameTile> get copyWith => _$GameTileCopyWithImpl<GameTile>(thi
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is GameTile&&(identical(other.color, color) || other.color == color)&&(identical(other.number, number) || other.number == number));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is GameTile&&(identical(other.color, color) || other.color == color)&&(identical(other.number, number) || other.number == number)&&(identical(other.faceDown, faceDown) || other.faceDown == faceDown));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,color,number);
+int get hashCode => Object.hash(runtimeType,color,number,faceDown);
 
 @override
 String toString() {
-  return 'GameTile(color: $color, number: $number)';
+  return 'GameTile(color: $color, number: $number, faceDown: $faceDown)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $GameTileCopyWith<$Res>  {
   factory $GameTileCopyWith(GameTile value, $Res Function(GameTile) _then) = _$GameTileCopyWithImpl;
 @useResult
 $Res call({
- TileColor color, int? number
+ TileColor color, int? number, bool faceDown
 });
 
 
@@ -62,11 +62,12 @@ class _$GameTileCopyWithImpl<$Res>
 
 /// Create a copy of GameTile
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? color = null,Object? number = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? color = null,Object? number = freezed,Object? faceDown = null,}) {
   return _then(_self.copyWith(
 color: null == color ? _self.color : color // ignore: cast_nullable_to_non_nullable
 as TileColor,number: freezed == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
-as int?,
+as int?,faceDown: null == faceDown ? _self.faceDown : faceDown // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -151,10 +152,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( TileColor color,  int? number)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( TileColor color,  int? number,  bool faceDown)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _GameTile() when $default != null:
-return $default(_that.color,_that.number);case _:
+return $default(_that.color,_that.number,_that.faceDown);case _:
   return orElse();
 
 }
@@ -172,10 +173,10 @@ return $default(_that.color,_that.number);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( TileColor color,  int? number)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( TileColor color,  int? number,  bool faceDown)  $default,) {final _that = this;
 switch (_that) {
 case _GameTile():
-return $default(_that.color,_that.number);case _:
+return $default(_that.color,_that.number,_that.faceDown);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -192,10 +193,10 @@ return $default(_that.color,_that.number);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( TileColor color,  int? number)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( TileColor color,  int? number,  bool faceDown)?  $default,) {final _that = this;
 switch (_that) {
 case _GameTile() when $default != null:
-return $default(_that.color,_that.number);case _:
+return $default(_that.color,_that.number,_that.faceDown);case _:
   return null;
 
 }
@@ -207,11 +208,12 @@ return $default(_that.color,_that.number);case _:
 
 
 class _GameTile extends GameTile {
-  const _GameTile({required this.color, this.number}): assert((color == TileColor.joker) == (number == null), 'a joker carries no number; a numbered tile carries a real color'),assert(number == null || (number >= 1 && number <= 13), 'number must be 1–13'),super._();
+  const _GameTile({required this.color, this.number, this.faceDown = false}): assert((color == TileColor.joker) == (number == null), 'a joker carries no number; a numbered tile carries a real color'),assert(number == null || (number >= 1 && number <= 13), 'number must be 1–13'),assert(!faceDown || color == TileColor.joker, 'only a joker tile can be face-down'),super._();
   
 
 @override final  TileColor color;
 @override final  int? number;
+@override@JsonKey() final  bool faceDown;
 
 /// Create a copy of GameTile
 /// with the given fields replaced by the non-null parameter values.
@@ -223,16 +225,16 @@ _$GameTileCopyWith<_GameTile> get copyWith => __$GameTileCopyWithImpl<_GameTile>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _GameTile&&(identical(other.color, color) || other.color == color)&&(identical(other.number, number) || other.number == number));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _GameTile&&(identical(other.color, color) || other.color == color)&&(identical(other.number, number) || other.number == number)&&(identical(other.faceDown, faceDown) || other.faceDown == faceDown));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,color,number);
+int get hashCode => Object.hash(runtimeType,color,number,faceDown);
 
 @override
 String toString() {
-  return 'GameTile(color: $color, number: $number)';
+  return 'GameTile(color: $color, number: $number, faceDown: $faceDown)';
 }
 
 
@@ -243,7 +245,7 @@ abstract mixin class _$GameTileCopyWith<$Res> implements $GameTileCopyWith<$Res>
   factory _$GameTileCopyWith(_GameTile value, $Res Function(_GameTile) _then) = __$GameTileCopyWithImpl;
 @override @useResult
 $Res call({
- TileColor color, int? number
+ TileColor color, int? number, bool faceDown
 });
 
 
@@ -260,11 +262,12 @@ class __$GameTileCopyWithImpl<$Res>
 
 /// Create a copy of GameTile
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? color = null,Object? number = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? color = null,Object? number = freezed,Object? faceDown = null,}) {
   return _then(_GameTile(
 color: null == color ? _self.color : color // ignore: cast_nullable_to_non_nullable
 as TileColor,number: freezed == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
-as int?,
+as int?,faceDown: null == faceDown ? _self.faceDown : faceDown // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

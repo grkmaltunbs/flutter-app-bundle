@@ -23,8 +23,9 @@ class NormalizedRack {
     required this.okeyTile,
     required this.counts,
     required this.wildCount,
-    required this.falseJokerCount,
+    required this.faceDownCount,
     required this.okeyCopyCount,
+    required this.okeyValueJokerCount,
     required this.instanceQueues,
     required this.wildQueue,
     required this.scoreSlots,
@@ -45,19 +46,25 @@ class NormalizedRack {
   /// excluding wilds, clamped at 4 per kind. Index 0 unused.
   final List<List<int>> counts;
 
-  /// Total wilds: false jokers + physical okey copies.
+  /// Total wilds: face-down tiles + physical okey copies. (The sahte okey /
+  /// false joker is NOT wild — it counts as the okey-value tile, in [counts].)
   final int wildCount;
 
-  /// Physical joker tiles on the rack.
-  final int falseJokerCount;
+  /// Face-down (blank okey) tiles on the rack — wild.
+  final int faceDownCount;
 
-  /// Physical copies of the okey tile on the rack.
+  /// Physical copies of the okey tile on the rack — wild.
   final int okeyCopyCount;
 
-  /// `instanceQueues[c][n]` → rack indices of that kind, ascending.
+  /// Sahte okeys (false jokers) on the rack — each plays as the okey-value
+  /// tile (folded into [counts]); not wild.
+  final int okeyValueJokerCount;
+
+  /// `instanceQueues[c][n]` → rack indices of that kind, ascending. The
+  /// okey kind's queue also carries any sahte-okey indices (they play as it).
   final List<List<List<int>>> instanceQueues;
 
-  /// Wild rack indices: false jokers first, then okey copies, each ascending.
+  /// Wild rack indices: face-downs first, then okey copies, each ascending.
   final List<int> wildQueue;
 
   /// 101-DP slot widths per color, overflow-capped:
@@ -118,42 +125,59 @@ class RackNormalizer {
       4,
       (_) => List.generate(14, (_) => <int>[]),
     );
-    final jokerIndices = <int>[];
+    final faceDownIndices = <int>[];
     final okeyCopyIndices = <int>[];
     final forcedLeftovers = <int>[];
     final clamped = <ClampedKind>[];
+    var okeyValueJokerCount = 0;
+
+    // Bins a numbered [kindTile] (color, number) into counts/queues, clamping
+    // a degenerate 5th+ copy to a forced leftover.
+    void bin(int color, int number, int index, GameTile kindTile) {
+      if (counts[color][number] >= 4) {
+        forcedLeftovers.add(index);
+        final existing = clamped.indexWhere((c) => c.kind == kindTile);
+        if (existing >= 0) {
+          clamped[existing] = ClampedKind(
+            kind: kindTile,
+            dropped: clamped[existing].dropped + 1,
+          );
+        } else {
+          clamped.add(ClampedKind(kind: kindTile, dropped: 1));
+        }
+        return;
+      }
+      counts[color][number]++;
+      queues[color][number].add(index);
+    }
 
     for (var i = 0; i < tiles.length; i++) {
       final tile = tiles[i];
       if (tile.isJoker) {
-        jokerIndices.add(i);
+        if (tile.faceDown) {
+          // Face-down (blank okey) → wild.
+          faceDownIndices.add(i);
+        } else if (okeyTile != null) {
+          // Sahte okey (false joker) → plays as the okey-value tile (not wild).
+          okeyValueJokerCount++;
+          bin(okeyTile.color.index, okeyTile.number!, i, okeyTile);
+        } else {
+          // No okey identity to play as → unplaceable (canSolve forbids this).
+          forcedLeftovers.add(i);
+        }
         continue;
       }
       if (okeyTile != null && tile == okeyTile) {
+        // Real okey copy → wild.
         okeyCopyIndices.add(i);
         continue;
       }
       final number = tile.number;
       if (number == null || number < 1 || number > 13) continue;
-      final color = tile.color.index;
-      if (counts[color][number] >= 4) {
-        forcedLeftovers.add(i);
-        final existing = clamped.indexWhere((c) => c.kind == tile);
-        if (existing >= 0) {
-          clamped[existing] = ClampedKind(
-            kind: tile,
-            dropped: clamped[existing].dropped + 1,
-          );
-        } else {
-          clamped.add(ClampedKind(kind: tile, dropped: 1));
-        }
-        continue;
-      }
-      counts[color][number]++;
-      queues[color][number].add(i);
+      bin(tile.color.index, number, i, tile);
     }
 
-    final wildCount = jokerIndices.length + okeyCopyIndices.length;
+    final wildCount = faceDownIndices.length + okeyCopyIndices.length;
     final scoreSlots = <int>[];
     final okeySlots = <int>[];
     for (var c = 0; c < 4; c++) {
@@ -180,10 +204,11 @@ class RackNormalizer {
       okeyTile: okeyTile,
       counts: counts,
       wildCount: wildCount,
-      falseJokerCount: jokerIndices.length,
+      faceDownCount: faceDownIndices.length,
       okeyCopyCount: okeyCopyIndices.length,
+      okeyValueJokerCount: okeyValueJokerCount,
       instanceQueues: queues,
-      wildQueue: [...jokerIndices, ...okeyCopyIndices],
+      wildQueue: [...faceDownIndices, ...okeyCopyIndices],
       scoreSlots: scoreSlots,
       okeySlots: okeySlots,
       clamped: clamped,

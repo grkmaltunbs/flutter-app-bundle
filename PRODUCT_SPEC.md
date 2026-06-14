@@ -41,13 +41,16 @@ These rules govern detection, the solver, and all fixtures. They are authoritati
 - **Okey (real joker):** the tile of the **indicator's color**, number **(n + 1)
   mod 13** (13 → 1). Example: indicator **Blue 3 → okey = Blue 4**. The actual
   okey tiles are **fully wild** (may substitute for any tile).
-- **False jokers (2 unnumbered tiles):** represent the okey tile (e.g. Blue 4),
-  so they are played as the okey and are **also effectively wild**.
+- **False jokers / sahte okey (2 unnumbered tiles):** play **only as the okey
+  value** (e.g. Blue 4) — a normal numbered tile, **NOT wild**. They exist to
+  replace the numbered okey tile that got "promoted" to wild. Because a false
+  joker needs the okey value, holding one **requires** picking the indicator.
 - **Face-down tile (kapalı taş):** a tile flipped to its blank back, which by
   tradition **is the okey** (a wild). Rendered as a **blank** tile (not the joker
   glyph). Because it guarantees the player holds an okey, its presence makes
-  **picking the indicator optional** (still allowed, to identify face-up okey
-  copies). With no indicator, only explicit wilds are wild — no okey identity.
+  **picking the indicator optional** — but only when there is **no false joker**
+  (a false joker still needs the okey value). With no indicator, only explicit
+  wilds (face-downs + real okey copies) are wild — no okey identity.
 - **Set (per):** 3–4 tiles of the **same number, different colors**.
 - **Run (seri):** 3+ **consecutive** tiles of the **same color**. **1 is low
   only** — `12-13-1` is invalid; `13→1` does not wrap in a run.
@@ -403,7 +406,7 @@ Init is not complete until every row is Confirmed or Overridden.
 | 2 | Auth (3) | email+Google+Apple+guest; verification on; reset on; in-app account deletion; re-auth before delete; silent token refresh | **Confirmed** |
 | 3 | Data/sync (7) | guest local (drift); sync to Firestore on sign-in; offline-first; last-write-wins | **Confirmed** |
 | 4 | Rack counts (domain) | ~~14–15 tiles, 2 rows~~ → **101 Okey = 21–22** (22 = just drew, then discards), **Okey = 14–15**, 2 rows; rack UI renders 14–22 overflow-free | **Overridden** |
-| 5 | Joker (domain) | ~~joker = same color +1; false jokers act as okey~~ → indicator selected; **okey = color, (n+1) mod 13**; **okey AND false jokers fully wild** (false jokers locked to the okey tile) | **Overridden** |
+| 5 | Joker (domain) | indicator selected; **okey = color, (n+1) mod 13**; the **real okey tiles + face-downs are fully wild**; the **sahte okey (false joker) is NOT wild — it plays only as the okey value** | **Updated** |
 | 6 | Solver | max-score legal arrangement; 101 verdict finish (all 21 meld @ 22 tiles, score-independent) / ≥101 / 5-pair; Okey mode tiles-to-win; wild takes substituted value | **Updated** |
 | 7 | Detection errors (25) | no-tiles / wrong-count / blur / glare → retry + manual edit; never dead-end | **Confirmed** |
 | 8 | Navigation (5) | bottom nav 3 tabs; go_router; Android back → pop; no external deep links v1 | **Confirmed** |

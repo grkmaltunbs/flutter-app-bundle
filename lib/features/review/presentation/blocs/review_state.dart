@@ -47,6 +47,11 @@ abstract class ReviewState with _$ReviewState {
   /// picking the indicator optional — the user already holds an okey.
   bool get hasFaceDown => tiles.any((tile) => tile.faceDown);
 
+  /// Whether a sahte okey (false joker) is on the rack. It plays only as the
+  /// okey value, so it still requires the indicator to be picked.
+  bool get hasFalseJoker =>
+      tiles.any((tile) => tile.color == TileColor.joker && !tile.faceDown);
+
   /// Whether the capture as a whole read poorly (suggest a retake). Low
   /// confidence never blocks solving (D2).
   bool get lowOverallConfidence => overallConfidence < kLowConfidenceThreshold;
@@ -55,10 +60,13 @@ abstract class ReviewState with _$ReviewState {
   GameTile? get okeyTile => indicator?.okeyTile;
 
   /// Whether "Hesapla" is allowed: legal count, every tile complete (D2), and
-  /// either an indicator was picked or a face-down (blank okey) tile makes it
-  /// optional.
+  /// an indicator — unless a face-down (blank okey) tile makes it optional. A
+  /// sahte okey (false joker) still forces the indicator (it needs the okey
+  /// value), so a face-down only relaxes it when no false joker is present.
   bool get canSolve =>
-      (indicator != null || hasFaceDown) && countValid && allTilesComplete;
+      (indicator != null || (hasFaceDown && !hasFalseJoker)) &&
+      countValid &&
+      allTilesComplete;
 
   /// The tile being edited, or null when the panel is closed.
   ReviewTile? get editingTile =>

@@ -33,8 +33,10 @@ class IndicatorSection extends StatelessWidget {
       ReviewState,
       ({Indicator? indicator, bool optional})
     >(
-      selector: (state) =>
-          (indicator: state.indicator, optional: state.hasFaceDown),
+      selector: (state) => (
+        indicator: state.indicator,
+        optional: state.hasFaceDown && !state.hasFalseJoker,
+      ),
       builder: (context, data) {
         final l10n = context.l10n;
         final indicator = data.indicator;

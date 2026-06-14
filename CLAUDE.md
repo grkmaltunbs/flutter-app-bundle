@@ -215,8 +215,10 @@ for (final size in _matrix) {
     **retired** (still registered as a one-line-revert fallback until its files +
     deps are removed). See memory `gemini-detection-pivot`.
 - **Solver:** pure-Dart in `domain/` (no Flutter imports). Computes the max-score
-  legal arrangement (sets/runs + 5-pairs path); jokers/false-jokers are **wild**
-  and take the value/identity of the tile they substitute. 101 mode → Biter (all
+  legal arrangement (sets/runs + 5-pairs path); the **real okey tiles + face-downs
+  are wild** (take the value/identity of the tile they substitute), while the
+  **sahte okey (false joker) is NOT wild — it plays only as the okey value**.
+  101 mode → Biter (all
   21 tiles meld on a 22-tile rack — ranks above opening, score-independent) /
   Açar (≥101) / Açmaz; Okey mode → tiles-to-win. A 22-tile (or 15-tile okey) rack
   also gets a suggested discard. Memoized; runs off-isolate for large racks.

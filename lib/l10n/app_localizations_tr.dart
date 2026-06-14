@@ -907,8 +907,8 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
-  String resultReasonWildsCounted(int falseJokers, int okeyCopies) {
-    return '$falseJokers sahte okey, $okeyCopies okey sayıldı.';
+  String resultReasonWildsCounted(int faceDowns, int okeyCopies) {
+    return '$faceDowns kapalı, $okeyCopies okey joker sayıldı.';
   }
 
   @override

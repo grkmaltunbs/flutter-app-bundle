@@ -17,9 +17,10 @@ sealed class ReasoningStep with _$ReasoningStep {
     required GameTile okeyTile,
   }) = OkeyDerivedStep;
 
-  /// Wilds on the rack were counted (false jokers + physical okey copies).
+  /// Wilds on the rack were counted (face-down tiles + physical okey copies).
+  /// The sahte okey (false joker) is not wild — it plays as the okey value.
   const factory ReasoningStep.wildsCounted({
-    required int falseJokers,
+    required int faceDowns,
     required int okeyCopies,
   }) = WildsCountedStep;
 

@@ -45,7 +45,7 @@ class DpSolverEngine implements SolverEngine {
       if (indicator != null && okeyTile != null)
         ReasoningStep.okeyDerived(indicator: indicator, okeyTile: okeyTile),
       ReasoningStep.wildsCounted(
-        falseJokers: rack.falseJokerCount,
+        faceDowns: rack.faceDownCount,
         okeyCopies: rack.okeyCopyCount,
       ),
       ReasoningStep.rackCountNoted(
@@ -341,13 +341,20 @@ class DpSolverEngine implements SolverEngine {
     for (var i = 0; i < rack.tiles.length; i++) {
       if (used.contains(i)) continue;
       final tile = rack.tiles[i];
-      final isWild =
-          tile.isJoker || (rack.okeyTile != null && tile == rack.okeyTile);
-      spots.add(
-        isWild
-            ? SolvedSpot.wild(physical: tile, rackIndex: i, playsAs: tile)
-            : SolvedSpot.rackTile(physical: tile, rackIndex: i, playsAs: tile),
-      );
+      final okeyTile = rack.okeyTile;
+      final isWild = tile.faceDown || (okeyTile != null && tile == okeyTile);
+      if (isWild) {
+        spots.add(SolvedSpot.wild(physical: tile, rackIndex: i, playsAs: tile));
+      } else if (tile.isJoker && okeyTile != null) {
+        // A sahte okey (false joker) left unused plays as the okey value.
+        spots.add(
+          SolvedSpot.rackTile(physical: tile, rackIndex: i, playsAs: okeyTile),
+        );
+      } else {
+        spots.add(
+          SolvedSpot.rackTile(physical: tile, rackIndex: i, playsAs: tile),
+        );
+      }
     }
     return spots;
   }

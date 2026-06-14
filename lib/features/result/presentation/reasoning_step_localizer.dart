@@ -75,8 +75,8 @@ String reasoningStepText(AppLocalizations l10n, ReasoningStep step) =>
           formatIndicator(l10n, indicator),
           formatGameTile(l10n, okeyTile),
         ),
-      WildsCountedStep(:final falseJokers, :final okeyCopies) =>
-        l10n.resultReasonWildsCounted(falseJokers, okeyCopies),
+      WildsCountedStep(:final faceDowns, :final okeyCopies) =>
+        l10n.resultReasonWildsCounted(faceDowns, okeyCopies),
       RackCountNotedStep(:final count, :final mode) =>
         l10n.resultReasonRackCountNoted(count, gameModeLabel(l10n, mode)),
       CountsClampedStep(:final kind, :final dropped) =>

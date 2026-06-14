@@ -35,12 +35,15 @@ abstract class ReviewTile with _$ReviewTile {
     _ => number != null && number! >= 1 && number! <= 13,
   };
 
-  /// This tile as a solver input. Only valid when [isComplete].
+  /// This tile as a solver input. Only valid when [isComplete]. Preserves
+  /// [faceDown] so the solver can tell a face-down (wild) from a false joker
+  /// (which plays only as the okey value).
   GameTile get asGameTile {
     assert(isComplete, 'asGameTile is only valid on a complete tile');
     return GameTile(
       color: color!,
       number: color == TileColor.joker ? null : number,
+      faceDown: faceDown,
     );
   }
 }

@@ -42,11 +42,18 @@ ScanIndicatorDto _$ScanIndicatorDtoFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$ScanIndicatorDtoToJson(ScanIndicatorDto instance) =>
     <String, dynamic>{'color': instance.color, 'number': instance.number};
 
-ScanTileDto _$ScanTileDtoFromJson(Map<String, dynamic> json) =>
-    ScanTileDto(c: json['c'] as String, n: (json['n'] as num?)?.toInt());
+ScanTileDto _$ScanTileDtoFromJson(Map<String, dynamic> json) => ScanTileDto(
+  c: json['c'] as String,
+  n: (json['n'] as num?)?.toInt(),
+  faceDown: json['fd'] as bool?,
+);
 
 Map<String, dynamic> _$ScanTileDtoToJson(ScanTileDto instance) =>
-    <String, dynamic>{'c': instance.c, 'n': ?instance.n};
+    <String, dynamic>{
+      'c': instance.c,
+      'n': ?instance.n,
+      'fd': ?instance.faceDown,
+    };
 
 ScanSummaryDto _$ScanSummaryDtoFromJson(Map<String, dynamic> json) =>
     ScanSummaryDto(

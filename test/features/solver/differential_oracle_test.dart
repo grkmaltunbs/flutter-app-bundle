@@ -17,7 +17,7 @@ import 'package:okey_acar_mi/features/solver/domain/entities/solved_spot.dart';
 import 'oracle/brute_force_oracle.dart';
 
 GameTile _t(TileColor c, int n) => GameTile(color: c, number: n);
-const _joker = GameTile(color: TileColor.joker);
+const _joker = GameTile(color: TileColor.joker, faceDown: true);
 const _engine = DpSolverEngine();
 final _oracle = BruteForceOracle();
 

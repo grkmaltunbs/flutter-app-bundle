@@ -1748,11 +1748,11 @@ abstract class AppLocalizations {
   /// **'Indicator {indicator} → okey is {okey}.'**
   String resultReasonOkeyDerived(String indicator, String okey);
 
-  /// Reasoning step: wilds counted on the rack.
+  /// Reasoning step: wild tiles counted on the rack (face-downs + okey copies).
   ///
   /// In en, this message translates to:
-  /// **'Counted {falseJokers} false jokers, {okeyCopies} okey tiles.'**
-  String resultReasonWildsCounted(int falseJokers, int okeyCopies);
+  /// **'Counted {faceDowns} face-down, {okeyCopies} okey wild tiles.'**
+  String resultReasonWildsCounted(int faceDowns, int okeyCopies);
 
   /// Reasoning step: the rack size noted against the mode.
   ///

@@ -1051,11 +1051,11 @@
       "okey": { "type": "String", "example": "Red 6" }
     }
   },
-  "resultReasonWildsCounted": "Counted {falseJokers} false jokers, {okeyCopies} okey tiles.",
+  "resultReasonWildsCounted": "Counted {faceDowns} face-down, {okeyCopies} okey wild tiles.",
   "@resultReasonWildsCounted": {
-    "description": "Reasoning step: wilds counted on the rack.",
+    "description": "Reasoning step: wild tiles counted on the rack (face-downs + okey copies).",
     "placeholders": {
-      "falseJokers": { "type": "int", "example": "1" },
+      "faceDowns": { "type": "int", "example": "1" },
       "okeyCopies": { "type": "int", "example": "2" }
     }
   },

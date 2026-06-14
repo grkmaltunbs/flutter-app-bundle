@@ -143,13 +143,44 @@ void main() {
         ..._run(TileColor.blue, 7, 9),
         _t(TileColor.black, 11),
         _t(TileColor.black, 12),
-        const GameTile(color: TileColor.joker), // wild → black 13
+        // Face-down (blank okey) → wild → black 13. A sahte okey would need
+        // the indicator, which is why the face-down is what makes solving
+        // without one possible.
+        const GameTile(color: TileColor.joker, faceDown: true),
       ]; // 21 tiles
 
       final result = _solve(tiles); // no indicator picked
 
       check(result.verdict).isA<Opens101>();
       check(result.melds).isNotEmpty();
+    });
+  });
+
+  group('sahte okey (false joker) is not wild', () {
+    test('a false joker plays only as the okey value, never a high wild', () {
+      // okey = red 3. A wild here would complete blue 9-10-11-12-13 (+55); the
+      // sahte okey can only be red 3 (a lone leftover), so the best is the blue
+      // 9-10-11-12 run (+42). (This pins the reported bug: joker → blue 13.)
+      final tiles = <GameTile>[
+        _t(TileColor.blue, 9),
+        _t(TileColor.blue, 10),
+        _t(TileColor.blue, 11),
+        _t(TileColor.blue, 12),
+        const GameTile(color: TileColor.joker), // sahte okey → red 3
+      ];
+
+      final result = _solve(
+        tiles,
+        indicator: const Indicator(color: TileColor.red, number: 2),
+      );
+
+      check(result.totalScore).equals(42);
+      final playsAs = [
+        for (final m in result.melds) ...m.spots.map((s) => s.playsAs),
+      ];
+      check(
+        playsAs.any((t) => t.color == TileColor.blue && t.number == 13),
+      ).isFalse();
     });
   });
 }

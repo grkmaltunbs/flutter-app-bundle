@@ -255,8 +255,8 @@ class _SolverLabPageState extends State<SolverLabPage> {
   String _reasonStr(ReasoningStep s) => switch (s) {
     OkeyDerivedStep(:final okeyTile) =>
       'okey derived → ${_tileStr(okeyTile.color, okeyTile.number)}',
-    WildsCountedStep(:final falseJokers, :final okeyCopies) =>
-      'wilds: $falseJokers false-joker(s), $okeyCopies okey-copy',
+    WildsCountedStep(:final faceDowns, :final okeyCopies) =>
+      'wilds: $faceDowns face-down, $okeyCopies okey-copy',
     RackCountNotedStep(:final count, :final mode) =>
       'rack count $count (${mode.name})',
     CountsClampedStep(:final kind, :final dropped) =>
