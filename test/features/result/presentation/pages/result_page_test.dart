@@ -119,7 +119,7 @@ final SolveResult _opensMelds = SolveResult(
   totalScore: 104,
   verdict: const SolveVerdict.opens101(score: 104, via: OpenPath.melds),
   reasoning: const [
-    ReasoningStep.wildsCounted(falseJokers: 1, okeyCopies: 0),
+    ReasoningStep.wildsCounted(faceDowns: 1, okeyCopies: 0),
     ReasoningStep.thresholdChecked(total: 104, threshold: 101, opens: true),
     ReasoningStep.pathChosen(via: OpenPath.melds),
   ],
@@ -651,11 +651,12 @@ void main() {
 
     testWidgets('resolves its bloc via getIt(param1:) and solves the real '
         'outcome end-to-end', (tester) async {
-      // The §6 three-parallel-runs rack: the real engine opens it at 102.
+      // The §6 three-parallel-runs rack: the real engine opens it at 102 with
+      // a face-down wild completing the third run.
       final outcome = ReviewOutcome(
         tiles: [
           for (final n in [9, 10, 11, 11, 12, 12, 13, 13]) _t(TileColor.red, n),
-          _joker,
+          const GameTile(color: TileColor.joker, faceDown: true),
         ],
         indicator: const Indicator(color: TileColor.black, number: 1),
         gameMode: GameMode.oneZeroOne,

@@ -55,7 +55,7 @@ extension ReasoningStepPatterns on ReasoningStep {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( OkeyDerivedStep value)?  okeyDerived,TResult Function( WildsCountedStep value)?  wildsCounted,TResult Function( RackCountNotedStep value)?  rackCountNoted,TResult Function( CountsClampedStep value)?  countsClamped,TResult Function( MeldFormedStep value)?  meldFormed,TResult Function( ThresholdCheckedStep value)?  thresholdChecked,TResult Function( PairsCountedStep value)?  pairsCounted,TResult Function( PathChosenStep value)?  pathChosen,TResult Function( OkeyTemplateChosenStep value)?  okeyTemplateChosen,TResult Function( TilesNeededStep value)?  tilesNeeded,TResult Function( DiscardSuggestedStep value)?  discardSuggested,TResult Function( TilesToWinComputedStep value)?  tilesToWinComputed,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( OkeyDerivedStep value)?  okeyDerived,TResult Function( WildsCountedStep value)?  wildsCounted,TResult Function( RackCountNotedStep value)?  rackCountNoted,TResult Function( CountsClampedStep value)?  countsClamped,TResult Function( MeldFormedStep value)?  meldFormed,TResult Function( FinishCheckedStep value)?  finishChecked,TResult Function( ThresholdCheckedStep value)?  thresholdChecked,TResult Function( PairsCountedStep value)?  pairsCounted,TResult Function( PathChosenStep value)?  pathChosen,TResult Function( OkeyTemplateChosenStep value)?  okeyTemplateChosen,TResult Function( TilesNeededStep value)?  tilesNeeded,TResult Function( DiscardSuggestedStep value)?  discardSuggested,TResult Function( TilesToWinComputedStep value)?  tilesToWinComputed,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case OkeyDerivedStep() when okeyDerived != null:
@@ -63,7 +63,8 @@ return okeyDerived(_that);case WildsCountedStep() when wildsCounted != null:
 return wildsCounted(_that);case RackCountNotedStep() when rackCountNoted != null:
 return rackCountNoted(_that);case CountsClampedStep() when countsClamped != null:
 return countsClamped(_that);case MeldFormedStep() when meldFormed != null:
-return meldFormed(_that);case ThresholdCheckedStep() when thresholdChecked != null:
+return meldFormed(_that);case FinishCheckedStep() when finishChecked != null:
+return finishChecked(_that);case ThresholdCheckedStep() when thresholdChecked != null:
 return thresholdChecked(_that);case PairsCountedStep() when pairsCounted != null:
 return pairsCounted(_that);case PathChosenStep() when pathChosen != null:
 return pathChosen(_that);case OkeyTemplateChosenStep() when okeyTemplateChosen != null:
@@ -88,7 +89,7 @@ return tilesToWinComputed(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( OkeyDerivedStep value)  okeyDerived,required TResult Function( WildsCountedStep value)  wildsCounted,required TResult Function( RackCountNotedStep value)  rackCountNoted,required TResult Function( CountsClampedStep value)  countsClamped,required TResult Function( MeldFormedStep value)  meldFormed,required TResult Function( ThresholdCheckedStep value)  thresholdChecked,required TResult Function( PairsCountedStep value)  pairsCounted,required TResult Function( PathChosenStep value)  pathChosen,required TResult Function( OkeyTemplateChosenStep value)  okeyTemplateChosen,required TResult Function( TilesNeededStep value)  tilesNeeded,required TResult Function( DiscardSuggestedStep value)  discardSuggested,required TResult Function( TilesToWinComputedStep value)  tilesToWinComputed,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( OkeyDerivedStep value)  okeyDerived,required TResult Function( WildsCountedStep value)  wildsCounted,required TResult Function( RackCountNotedStep value)  rackCountNoted,required TResult Function( CountsClampedStep value)  countsClamped,required TResult Function( MeldFormedStep value)  meldFormed,required TResult Function( FinishCheckedStep value)  finishChecked,required TResult Function( ThresholdCheckedStep value)  thresholdChecked,required TResult Function( PairsCountedStep value)  pairsCounted,required TResult Function( PathChosenStep value)  pathChosen,required TResult Function( OkeyTemplateChosenStep value)  okeyTemplateChosen,required TResult Function( TilesNeededStep value)  tilesNeeded,required TResult Function( DiscardSuggestedStep value)  discardSuggested,required TResult Function( TilesToWinComputedStep value)  tilesToWinComputed,}){
 final _that = this;
 switch (_that) {
 case OkeyDerivedStep():
@@ -96,7 +97,8 @@ return okeyDerived(_that);case WildsCountedStep():
 return wildsCounted(_that);case RackCountNotedStep():
 return rackCountNoted(_that);case CountsClampedStep():
 return countsClamped(_that);case MeldFormedStep():
-return meldFormed(_that);case ThresholdCheckedStep():
+return meldFormed(_that);case FinishCheckedStep():
+return finishChecked(_that);case ThresholdCheckedStep():
 return thresholdChecked(_that);case PairsCountedStep():
 return pairsCounted(_that);case PathChosenStep():
 return pathChosen(_that);case OkeyTemplateChosenStep():
@@ -117,7 +119,7 @@ return tilesToWinComputed(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( OkeyDerivedStep value)?  okeyDerived,TResult? Function( WildsCountedStep value)?  wildsCounted,TResult? Function( RackCountNotedStep value)?  rackCountNoted,TResult? Function( CountsClampedStep value)?  countsClamped,TResult? Function( MeldFormedStep value)?  meldFormed,TResult? Function( ThresholdCheckedStep value)?  thresholdChecked,TResult? Function( PairsCountedStep value)?  pairsCounted,TResult? Function( PathChosenStep value)?  pathChosen,TResult? Function( OkeyTemplateChosenStep value)?  okeyTemplateChosen,TResult? Function( TilesNeededStep value)?  tilesNeeded,TResult? Function( DiscardSuggestedStep value)?  discardSuggested,TResult? Function( TilesToWinComputedStep value)?  tilesToWinComputed,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( OkeyDerivedStep value)?  okeyDerived,TResult? Function( WildsCountedStep value)?  wildsCounted,TResult? Function( RackCountNotedStep value)?  rackCountNoted,TResult? Function( CountsClampedStep value)?  countsClamped,TResult? Function( MeldFormedStep value)?  meldFormed,TResult? Function( FinishCheckedStep value)?  finishChecked,TResult? Function( ThresholdCheckedStep value)?  thresholdChecked,TResult? Function( PairsCountedStep value)?  pairsCounted,TResult? Function( PathChosenStep value)?  pathChosen,TResult? Function( OkeyTemplateChosenStep value)?  okeyTemplateChosen,TResult? Function( TilesNeededStep value)?  tilesNeeded,TResult? Function( DiscardSuggestedStep value)?  discardSuggested,TResult? Function( TilesToWinComputedStep value)?  tilesToWinComputed,}){
 final _that = this;
 switch (_that) {
 case OkeyDerivedStep() when okeyDerived != null:
@@ -125,7 +127,8 @@ return okeyDerived(_that);case WildsCountedStep() when wildsCounted != null:
 return wildsCounted(_that);case RackCountNotedStep() when rackCountNoted != null:
 return rackCountNoted(_that);case CountsClampedStep() when countsClamped != null:
 return countsClamped(_that);case MeldFormedStep() when meldFormed != null:
-return meldFormed(_that);case ThresholdCheckedStep() when thresholdChecked != null:
+return meldFormed(_that);case FinishCheckedStep() when finishChecked != null:
+return finishChecked(_that);case ThresholdCheckedStep() when thresholdChecked != null:
 return thresholdChecked(_that);case PairsCountedStep() when pairsCounted != null:
 return pairsCounted(_that);case PathChosenStep() when pathChosen != null:
 return pathChosen(_that);case OkeyTemplateChosenStep() when okeyTemplateChosen != null:
@@ -149,14 +152,15 @@ return tilesToWinComputed(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( Indicator indicator,  GameTile okeyTile)?  okeyDerived,TResult Function( int falseJokers,  int okeyCopies)?  wildsCounted,TResult Function( int count,  GameMode mode)?  rackCountNoted,TResult Function( GameTile kind,  int dropped)?  countsClamped,TResult Function( SolvedMeld meld,  int runningTotal)?  meldFormed,TResult Function( int total,  int threshold,  bool opens)?  thresholdChecked,TResult Function( int pairCount,  bool opens)?  pairsCounted,TResult Function( OpenPath via)?  pathChosen,TResult Function( OkeyPath via,  int matched,  int wildsUsed)?  okeyTemplateChosen,TResult Function( List<GameTile> needed)?  tilesNeeded,TResult Function( GameTile tile,  int rackIndex)?  discardSuggested,TResult Function( int tilesToWin)?  tilesToWinComputed,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( Indicator indicator,  GameTile okeyTile)?  okeyDerived,TResult Function( int faceDowns,  int okeyCopies)?  wildsCounted,TResult Function( int count,  GameMode mode)?  rackCountNoted,TResult Function( GameTile kind,  int dropped)?  countsClamped,TResult Function( SolvedMeld meld,  int runningTotal)?  meldFormed,TResult Function( int tilesUsed,  int rackCount,  bool finishes)?  finishChecked,TResult Function( int total,  int threshold,  bool opens)?  thresholdChecked,TResult Function( int pairCount,  bool opens)?  pairsCounted,TResult Function( OpenPath via)?  pathChosen,TResult Function( OkeyPath via,  int matched,  int wildsUsed)?  okeyTemplateChosen,TResult Function( List<GameTile> needed)?  tilesNeeded,TResult Function( GameTile tile,  int rackIndex)?  discardSuggested,TResult Function( int tilesToWin)?  tilesToWinComputed,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case OkeyDerivedStep() when okeyDerived != null:
 return okeyDerived(_that.indicator,_that.okeyTile);case WildsCountedStep() when wildsCounted != null:
-return wildsCounted(_that.falseJokers,_that.okeyCopies);case RackCountNotedStep() when rackCountNoted != null:
+return wildsCounted(_that.faceDowns,_that.okeyCopies);case RackCountNotedStep() when rackCountNoted != null:
 return rackCountNoted(_that.count,_that.mode);case CountsClampedStep() when countsClamped != null:
 return countsClamped(_that.kind,_that.dropped);case MeldFormedStep() when meldFormed != null:
-return meldFormed(_that.meld,_that.runningTotal);case ThresholdCheckedStep() when thresholdChecked != null:
+return meldFormed(_that.meld,_that.runningTotal);case FinishCheckedStep() when finishChecked != null:
+return finishChecked(_that.tilesUsed,_that.rackCount,_that.finishes);case ThresholdCheckedStep() when thresholdChecked != null:
 return thresholdChecked(_that.total,_that.threshold,_that.opens);case PairsCountedStep() when pairsCounted != null:
 return pairsCounted(_that.pairCount,_that.opens);case PathChosenStep() when pathChosen != null:
 return pathChosen(_that.via);case OkeyTemplateChosenStep() when okeyTemplateChosen != null:
@@ -181,14 +185,15 @@ return tilesToWinComputed(_that.tilesToWin);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( Indicator indicator,  GameTile okeyTile)  okeyDerived,required TResult Function( int falseJokers,  int okeyCopies)  wildsCounted,required TResult Function( int count,  GameMode mode)  rackCountNoted,required TResult Function( GameTile kind,  int dropped)  countsClamped,required TResult Function( SolvedMeld meld,  int runningTotal)  meldFormed,required TResult Function( int total,  int threshold,  bool opens)  thresholdChecked,required TResult Function( int pairCount,  bool opens)  pairsCounted,required TResult Function( OpenPath via)  pathChosen,required TResult Function( OkeyPath via,  int matched,  int wildsUsed)  okeyTemplateChosen,required TResult Function( List<GameTile> needed)  tilesNeeded,required TResult Function( GameTile tile,  int rackIndex)  discardSuggested,required TResult Function( int tilesToWin)  tilesToWinComputed,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( Indicator indicator,  GameTile okeyTile)  okeyDerived,required TResult Function( int faceDowns,  int okeyCopies)  wildsCounted,required TResult Function( int count,  GameMode mode)  rackCountNoted,required TResult Function( GameTile kind,  int dropped)  countsClamped,required TResult Function( SolvedMeld meld,  int runningTotal)  meldFormed,required TResult Function( int tilesUsed,  int rackCount,  bool finishes)  finishChecked,required TResult Function( int total,  int threshold,  bool opens)  thresholdChecked,required TResult Function( int pairCount,  bool opens)  pairsCounted,required TResult Function( OpenPath via)  pathChosen,required TResult Function( OkeyPath via,  int matched,  int wildsUsed)  okeyTemplateChosen,required TResult Function( List<GameTile> needed)  tilesNeeded,required TResult Function( GameTile tile,  int rackIndex)  discardSuggested,required TResult Function( int tilesToWin)  tilesToWinComputed,}) {final _that = this;
 switch (_that) {
 case OkeyDerivedStep():
 return okeyDerived(_that.indicator,_that.okeyTile);case WildsCountedStep():
-return wildsCounted(_that.falseJokers,_that.okeyCopies);case RackCountNotedStep():
+return wildsCounted(_that.faceDowns,_that.okeyCopies);case RackCountNotedStep():
 return rackCountNoted(_that.count,_that.mode);case CountsClampedStep():
 return countsClamped(_that.kind,_that.dropped);case MeldFormedStep():
-return meldFormed(_that.meld,_that.runningTotal);case ThresholdCheckedStep():
+return meldFormed(_that.meld,_that.runningTotal);case FinishCheckedStep():
+return finishChecked(_that.tilesUsed,_that.rackCount,_that.finishes);case ThresholdCheckedStep():
 return thresholdChecked(_that.total,_that.threshold,_that.opens);case PairsCountedStep():
 return pairsCounted(_that.pairCount,_that.opens);case PathChosenStep():
 return pathChosen(_that.via);case OkeyTemplateChosenStep():
@@ -209,14 +214,15 @@ return tilesToWinComputed(_that.tilesToWin);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( Indicator indicator,  GameTile okeyTile)?  okeyDerived,TResult? Function( int falseJokers,  int okeyCopies)?  wildsCounted,TResult? Function( int count,  GameMode mode)?  rackCountNoted,TResult? Function( GameTile kind,  int dropped)?  countsClamped,TResult? Function( SolvedMeld meld,  int runningTotal)?  meldFormed,TResult? Function( int total,  int threshold,  bool opens)?  thresholdChecked,TResult? Function( int pairCount,  bool opens)?  pairsCounted,TResult? Function( OpenPath via)?  pathChosen,TResult? Function( OkeyPath via,  int matched,  int wildsUsed)?  okeyTemplateChosen,TResult? Function( List<GameTile> needed)?  tilesNeeded,TResult? Function( GameTile tile,  int rackIndex)?  discardSuggested,TResult? Function( int tilesToWin)?  tilesToWinComputed,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( Indicator indicator,  GameTile okeyTile)?  okeyDerived,TResult? Function( int faceDowns,  int okeyCopies)?  wildsCounted,TResult? Function( int count,  GameMode mode)?  rackCountNoted,TResult? Function( GameTile kind,  int dropped)?  countsClamped,TResult? Function( SolvedMeld meld,  int runningTotal)?  meldFormed,TResult? Function( int tilesUsed,  int rackCount,  bool finishes)?  finishChecked,TResult? Function( int total,  int threshold,  bool opens)?  thresholdChecked,TResult? Function( int pairCount,  bool opens)?  pairsCounted,TResult? Function( OpenPath via)?  pathChosen,TResult? Function( OkeyPath via,  int matched,  int wildsUsed)?  okeyTemplateChosen,TResult? Function( List<GameTile> needed)?  tilesNeeded,TResult? Function( GameTile tile,  int rackIndex)?  discardSuggested,TResult? Function( int tilesToWin)?  tilesToWinComputed,}) {final _that = this;
 switch (_that) {
 case OkeyDerivedStep() when okeyDerived != null:
 return okeyDerived(_that.indicator,_that.okeyTile);case WildsCountedStep() when wildsCounted != null:
-return wildsCounted(_that.falseJokers,_that.okeyCopies);case RackCountNotedStep() when rackCountNoted != null:
+return wildsCounted(_that.faceDowns,_that.okeyCopies);case RackCountNotedStep() when rackCountNoted != null:
 return rackCountNoted(_that.count,_that.mode);case CountsClampedStep() when countsClamped != null:
 return countsClamped(_that.kind,_that.dropped);case MeldFormedStep() when meldFormed != null:
-return meldFormed(_that.meld,_that.runningTotal);case ThresholdCheckedStep() when thresholdChecked != null:
+return meldFormed(_that.meld,_that.runningTotal);case FinishCheckedStep() when finishChecked != null:
+return finishChecked(_that.tilesUsed,_that.rackCount,_that.finishes);case ThresholdCheckedStep() when thresholdChecked != null:
 return thresholdChecked(_that.total,_that.threshold,_that.opens);case PairsCountedStep() when pairsCounted != null:
 return pairsCounted(_that.pairCount,_that.opens);case PathChosenStep() when pathChosen != null:
 return pathChosen(_that.via);case OkeyTemplateChosenStep() when okeyTemplateChosen != null:
@@ -321,10 +327,10 @@ $GameTileCopyWith<$Res> get okeyTile {
 
 
 class WildsCountedStep implements ReasoningStep {
-  const WildsCountedStep({required this.falseJokers, required this.okeyCopies});
+  const WildsCountedStep({required this.faceDowns, required this.okeyCopies});
   
 
- final  int falseJokers;
+ final  int faceDowns;
  final  int okeyCopies;
 
 /// Create a copy of ReasoningStep
@@ -337,16 +343,16 @@ $WildsCountedStepCopyWith<WildsCountedStep> get copyWith => _$WildsCountedStepCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WildsCountedStep&&(identical(other.falseJokers, falseJokers) || other.falseJokers == falseJokers)&&(identical(other.okeyCopies, okeyCopies) || other.okeyCopies == okeyCopies));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WildsCountedStep&&(identical(other.faceDowns, faceDowns) || other.faceDowns == faceDowns)&&(identical(other.okeyCopies, okeyCopies) || other.okeyCopies == okeyCopies));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,falseJokers,okeyCopies);
+int get hashCode => Object.hash(runtimeType,faceDowns,okeyCopies);
 
 @override
 String toString() {
-  return 'ReasoningStep.wildsCounted(falseJokers: $falseJokers, okeyCopies: $okeyCopies)';
+  return 'ReasoningStep.wildsCounted(faceDowns: $faceDowns, okeyCopies: $okeyCopies)';
 }
 
 
@@ -357,7 +363,7 @@ abstract mixin class $WildsCountedStepCopyWith<$Res> implements $ReasoningStepCo
   factory $WildsCountedStepCopyWith(WildsCountedStep value, $Res Function(WildsCountedStep) _then) = _$WildsCountedStepCopyWithImpl;
 @useResult
 $Res call({
- int falseJokers, int okeyCopies
+ int faceDowns, int okeyCopies
 });
 
 
@@ -374,9 +380,9 @@ class _$WildsCountedStepCopyWithImpl<$Res>
 
 /// Create a copy of ReasoningStep
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? falseJokers = null,Object? okeyCopies = null,}) {
+@pragma('vm:prefer-inline') $Res call({Object? faceDowns = null,Object? okeyCopies = null,}) {
   return _then(WildsCountedStep(
-falseJokers: null == falseJokers ? _self.falseJokers : falseJokers // ignore: cast_nullable_to_non_nullable
+faceDowns: null == faceDowns ? _self.faceDowns : faceDowns // ignore: cast_nullable_to_non_nullable
 as int,okeyCopies: null == okeyCopies ? _self.okeyCopies : okeyCopies // ignore: cast_nullable_to_non_nullable
 as int,
   ));
@@ -605,6 +611,76 @@ $SolvedMeldCopyWith<$Res> get meld {
     return _then(_self.copyWith(meld: value));
   });
 }
+}
+
+/// @nodoc
+
+
+class FinishCheckedStep implements ReasoningStep {
+  const FinishCheckedStep({required this.tilesUsed, required this.rackCount, required this.finishes});
+  
+
+ final  int tilesUsed;
+ final  int rackCount;
+ final  bool finishes;
+
+/// Create a copy of ReasoningStep
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FinishCheckedStepCopyWith<FinishCheckedStep> get copyWith => _$FinishCheckedStepCopyWithImpl<FinishCheckedStep>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FinishCheckedStep&&(identical(other.tilesUsed, tilesUsed) || other.tilesUsed == tilesUsed)&&(identical(other.rackCount, rackCount) || other.rackCount == rackCount)&&(identical(other.finishes, finishes) || other.finishes == finishes));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,tilesUsed,rackCount,finishes);
+
+@override
+String toString() {
+  return 'ReasoningStep.finishChecked(tilesUsed: $tilesUsed, rackCount: $rackCount, finishes: $finishes)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FinishCheckedStepCopyWith<$Res> implements $ReasoningStepCopyWith<$Res> {
+  factory $FinishCheckedStepCopyWith(FinishCheckedStep value, $Res Function(FinishCheckedStep) _then) = _$FinishCheckedStepCopyWithImpl;
+@useResult
+$Res call({
+ int tilesUsed, int rackCount, bool finishes
+});
+
+
+
+
+}
+/// @nodoc
+class _$FinishCheckedStepCopyWithImpl<$Res>
+    implements $FinishCheckedStepCopyWith<$Res> {
+  _$FinishCheckedStepCopyWithImpl(this._self, this._then);
+
+  final FinishCheckedStep _self;
+  final $Res Function(FinishCheckedStep) _then;
+
+/// Create a copy of ReasoningStep
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? tilesUsed = null,Object? rackCount = null,Object? finishes = null,}) {
+  return _then(FinishCheckedStep(
+tilesUsed: null == tilesUsed ? _self.tilesUsed : tilesUsed // ignore: cast_nullable_to_non_nullable
+as int,rackCount: null == rackCount ? _self.rackCount : rackCount // ignore: cast_nullable_to_non_nullable
+as int,finishes: null == finishes ? _self.finishes : finishes // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+
 }
 
 /// @nodoc

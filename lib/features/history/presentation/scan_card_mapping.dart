@@ -15,6 +15,10 @@ import 'package:okey_acar_mi/l10n/app_localizations.dart';
   ScanSummary summary,
 ) {
   return switch (summary.kind) {
+    ScanVerdictKind.finishes101 => (
+      '${l10n.scanCardFinished} · ${summary.score}',
+      ScanCardTone.good,
+    ),
     ScanVerdictKind.opens101 => (
       '${l10n.scanCardOpened} · ${summary.score}',
       ScanCardTone.good,

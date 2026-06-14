@@ -71,6 +71,7 @@ class MeldReconstructor {
         key: keys[n],
         value: chainValues[n],
         buildPlan: true,
+        objective: result.objective,
         visit: (newKey, newValue, candidate) {
           if (newKey == keys[n + 1] && newValue == chainValues[n + 1]) {
             plan = candidate;
@@ -87,8 +88,18 @@ class MeldReconstructor {
     builder.flushAll(values);
 
     assert(
-      builder.melds.fold<int>(0, (sum, m) => sum + m.points) == result.best,
-      'reconstructed meld points must equal the DP value',
+      switch (result.objective) {
+            MeldObjective.score => builder.melds.fold<int>(
+              0,
+              (sum, m) => sum + m.points,
+            ),
+            MeldObjective.coverage => builder.melds.fold<int>(
+              0,
+              (sum, m) => sum + m.spots.length,
+            ),
+          } ==
+          result.best,
+      'reconstructed melds must equal the DP value for ${result.objective}',
     );
     assert(
       builder.melds.every(const MeldValidator().isValidMeld),

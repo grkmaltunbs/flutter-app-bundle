@@ -25,11 +25,12 @@ class Scans extends Table {
   /// `GameMode.name` of the solved mode (`oneZeroOne` | `okey`).
   TextColumn get gameMode => text()();
 
-  /// `TileColor.name` of the indicator (gösterge) tile.
-  TextColumn get indicatorColor => text()();
+  /// `TileColor.name` of the indicator (gösterge) tile, or `null` when none
+  /// was picked (a face-down tile let the user skip it).
+  TextColumn get indicatorColor => text().nullable()();
 
-  /// Number (1–13) of the indicator tile.
-  IntColumn get indicatorNumber => integer()();
+  /// Number (1–13) of the indicator tile, or `null` when none was picked.
+  IntColumn get indicatorNumber => integer().nullable()();
 
   /// Rack-order tile array as JSON: `[{"c":"red","n":5},{"c":"joker"},…]`
   /// (encoded/decoded by `ScanDto`).

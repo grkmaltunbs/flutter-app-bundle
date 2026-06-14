@@ -17,9 +17,10 @@ sealed class ReasoningStep with _$ReasoningStep {
     required GameTile okeyTile,
   }) = OkeyDerivedStep;
 
-  /// Wilds on the rack were counted (false jokers + physical okey copies).
+  /// Wilds on the rack were counted (face-down tiles + physical okey copies).
+  /// The sahte okey (false joker) is not wild — it plays as the okey value.
   const factory ReasoningStep.wildsCounted({
-    required int falseJokers,
+    required int faceDowns,
     required int okeyCopies,
   }) = WildsCountedStep;
 
@@ -40,6 +41,15 @@ sealed class ReasoningStep with _$ReasoningStep {
     required SolvedMeld meld,
     required int runningTotal,
   }) = MeldFormedStep;
+
+  /// The 101 finish check: [tilesUsed] of [rackCount] tiles form valid melds.
+  /// [finishes] is true when all 21 playable tiles meld with one tile left to
+  /// discard (rackCount 22, tilesUsed 21).
+  const factory ReasoningStep.finishChecked({
+    required int tilesUsed,
+    required int rackCount,
+    required bool finishes,
+  }) = FinishCheckedStep;
 
   /// The meld total was checked against the opening threshold.
   const factory ReasoningStep.thresholdChecked({
@@ -71,7 +81,7 @@ sealed class ReasoningStep with _$ReasoningStep {
     required List<GameTile> needed,
   }) = TilesNeededStep;
 
-  /// Suggested discard for a 15-tile okey rack.
+  /// Suggested discard for a just-drawn rack (22-tile 101 or 15-tile okey).
   const factory ReasoningStep.discardSuggested({
     required GameTile tile,
     required int rackIndex,

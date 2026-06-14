@@ -528,7 +528,7 @@ as double,
 /// @nodoc
 mixin _$DetectedTile {
 
- TileColor get color; TilePosition get position; double get confidence; int? get number; NormalizedRect? get bounds;
+ TileColor get color; TilePosition get position; double get confidence; int? get number; NormalizedRect? get bounds; bool get faceDown;
 /// Create a copy of DetectedTile
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -539,16 +539,16 @@ $DetectedTileCopyWith<DetectedTile> get copyWith => _$DetectedTileCopyWithImpl<D
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DetectedTile&&(identical(other.color, color) || other.color == color)&&(identical(other.position, position) || other.position == position)&&(identical(other.confidence, confidence) || other.confidence == confidence)&&(identical(other.number, number) || other.number == number)&&(identical(other.bounds, bounds) || other.bounds == bounds));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DetectedTile&&(identical(other.color, color) || other.color == color)&&(identical(other.position, position) || other.position == position)&&(identical(other.confidence, confidence) || other.confidence == confidence)&&(identical(other.number, number) || other.number == number)&&(identical(other.bounds, bounds) || other.bounds == bounds)&&(identical(other.faceDown, faceDown) || other.faceDown == faceDown));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,color,position,confidence,number,bounds);
+int get hashCode => Object.hash(runtimeType,color,position,confidence,number,bounds,faceDown);
 
 @override
 String toString() {
-  return 'DetectedTile(color: $color, position: $position, confidence: $confidence, number: $number, bounds: $bounds)';
+  return 'DetectedTile(color: $color, position: $position, confidence: $confidence, number: $number, bounds: $bounds, faceDown: $faceDown)';
 }
 
 
@@ -559,7 +559,7 @@ abstract mixin class $DetectedTileCopyWith<$Res>  {
   factory $DetectedTileCopyWith(DetectedTile value, $Res Function(DetectedTile) _then) = _$DetectedTileCopyWithImpl;
 @useResult
 $Res call({
- TileColor color, TilePosition position, double confidence, int? number, NormalizedRect? bounds
+ TileColor color, TilePosition position, double confidence, int? number, NormalizedRect? bounds, bool faceDown
 });
 
 
@@ -576,14 +576,15 @@ class _$DetectedTileCopyWithImpl<$Res>
 
 /// Create a copy of DetectedTile
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? color = null,Object? position = null,Object? confidence = null,Object? number = freezed,Object? bounds = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? color = null,Object? position = null,Object? confidence = null,Object? number = freezed,Object? bounds = freezed,Object? faceDown = null,}) {
   return _then(_self.copyWith(
 color: null == color ? _self.color : color // ignore: cast_nullable_to_non_nullable
 as TileColor,position: null == position ? _self.position : position // ignore: cast_nullable_to_non_nullable
 as TilePosition,confidence: null == confidence ? _self.confidence : confidence // ignore: cast_nullable_to_non_nullable
 as double,number: freezed == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
 as int?,bounds: freezed == bounds ? _self.bounds : bounds // ignore: cast_nullable_to_non_nullable
-as NormalizedRect?,
+as NormalizedRect?,faceDown: null == faceDown ? _self.faceDown : faceDown // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 /// Create a copy of DetectedTile
@@ -686,10 +687,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( TileColor color,  TilePosition position,  double confidence,  int? number,  NormalizedRect? bounds)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( TileColor color,  TilePosition position,  double confidence,  int? number,  NormalizedRect? bounds,  bool faceDown)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DetectedTile() when $default != null:
-return $default(_that.color,_that.position,_that.confidence,_that.number,_that.bounds);case _:
+return $default(_that.color,_that.position,_that.confidence,_that.number,_that.bounds,_that.faceDown);case _:
   return orElse();
 
 }
@@ -707,10 +708,10 @@ return $default(_that.color,_that.position,_that.confidence,_that.number,_that.b
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( TileColor color,  TilePosition position,  double confidence,  int? number,  NormalizedRect? bounds)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( TileColor color,  TilePosition position,  double confidence,  int? number,  NormalizedRect? bounds,  bool faceDown)  $default,) {final _that = this;
 switch (_that) {
 case _DetectedTile():
-return $default(_that.color,_that.position,_that.confidence,_that.number,_that.bounds);}
+return $default(_that.color,_that.position,_that.confidence,_that.number,_that.bounds,_that.faceDown);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -724,10 +725,10 @@ return $default(_that.color,_that.position,_that.confidence,_that.number,_that.b
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( TileColor color,  TilePosition position,  double confidence,  int? number,  NormalizedRect? bounds)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( TileColor color,  TilePosition position,  double confidence,  int? number,  NormalizedRect? bounds,  bool faceDown)?  $default,) {final _that = this;
 switch (_that) {
 case _DetectedTile() when $default != null:
-return $default(_that.color,_that.position,_that.confidence,_that.number,_that.bounds);case _:
+return $default(_that.color,_that.position,_that.confidence,_that.number,_that.bounds,_that.faceDown);case _:
   return null;
 
 }
@@ -739,7 +740,7 @@ return $default(_that.color,_that.position,_that.confidence,_that.number,_that.b
 
 
 class _DetectedTile implements DetectedTile {
-  const _DetectedTile({required this.color, required this.position, required this.confidence, this.number, this.bounds});
+  const _DetectedTile({required this.color, required this.position, required this.confidence, this.number, this.bounds, this.faceDown = false});
   
 
 @override final  TileColor color;
@@ -747,6 +748,7 @@ class _DetectedTile implements DetectedTile {
 @override final  double confidence;
 @override final  int? number;
 @override final  NormalizedRect? bounds;
+@override@JsonKey() final  bool faceDown;
 
 /// Create a copy of DetectedTile
 /// with the given fields replaced by the non-null parameter values.
@@ -758,16 +760,16 @@ _$DetectedTileCopyWith<_DetectedTile> get copyWith => __$DetectedTileCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DetectedTile&&(identical(other.color, color) || other.color == color)&&(identical(other.position, position) || other.position == position)&&(identical(other.confidence, confidence) || other.confidence == confidence)&&(identical(other.number, number) || other.number == number)&&(identical(other.bounds, bounds) || other.bounds == bounds));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DetectedTile&&(identical(other.color, color) || other.color == color)&&(identical(other.position, position) || other.position == position)&&(identical(other.confidence, confidence) || other.confidence == confidence)&&(identical(other.number, number) || other.number == number)&&(identical(other.bounds, bounds) || other.bounds == bounds)&&(identical(other.faceDown, faceDown) || other.faceDown == faceDown));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,color,position,confidence,number,bounds);
+int get hashCode => Object.hash(runtimeType,color,position,confidence,number,bounds,faceDown);
 
 @override
 String toString() {
-  return 'DetectedTile(color: $color, position: $position, confidence: $confidence, number: $number, bounds: $bounds)';
+  return 'DetectedTile(color: $color, position: $position, confidence: $confidence, number: $number, bounds: $bounds, faceDown: $faceDown)';
 }
 
 
@@ -778,7 +780,7 @@ abstract mixin class _$DetectedTileCopyWith<$Res> implements $DetectedTileCopyWi
   factory _$DetectedTileCopyWith(_DetectedTile value, $Res Function(_DetectedTile) _then) = __$DetectedTileCopyWithImpl;
 @override @useResult
 $Res call({
- TileColor color, TilePosition position, double confidence, int? number, NormalizedRect? bounds
+ TileColor color, TilePosition position, double confidence, int? number, NormalizedRect? bounds, bool faceDown
 });
 
 
@@ -795,14 +797,15 @@ class __$DetectedTileCopyWithImpl<$Res>
 
 /// Create a copy of DetectedTile
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? color = null,Object? position = null,Object? confidence = null,Object? number = freezed,Object? bounds = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? color = null,Object? position = null,Object? confidence = null,Object? number = freezed,Object? bounds = freezed,Object? faceDown = null,}) {
   return _then(_DetectedTile(
 color: null == color ? _self.color : color // ignore: cast_nullable_to_non_nullable
 as TileColor,position: null == position ? _self.position : position // ignore: cast_nullable_to_non_nullable
 as TilePosition,confidence: null == confidence ? _self.confidence : confidence // ignore: cast_nullable_to_non_nullable
 as double,number: freezed == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
 as int?,bounds: freezed == bounds ? _self.bounds : bounds // ignore: cast_nullable_to_non_nullable
-as NormalizedRect?,
+as NormalizedRect?,faceDown: null == faceDown ? _self.faceDown : faceDown // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

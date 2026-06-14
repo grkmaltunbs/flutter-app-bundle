@@ -18,10 +18,11 @@ mixin _$Scan {
  String get id;/// Creation instant (UTC, from the injected `Clock`).
  DateTime get createdAt;/// Last mutation instant (UTC) — the last-write-wins sync key.
  DateTime get updatedAt;/// The confirmed tiles in rack order.
- List<GameTile> get tiles;/// The indicator (gösterge) the user picked.
- Indicator get indicator;/// The game the solver ran in.
+ List<GameTile> get tiles;/// The game the solver ran in.
  GameMode get gameMode;/// The solver verdict summary.
- ScanSummary get summary;/// Owning user id, or `null` for a guest-created scan.
+ ScanSummary get summary;/// The indicator (gösterge) the user picked, or `null` when a face-down
+/// (blank okey) tile let them skip it.
+ Indicator? get indicator;/// Owning user id, or `null` for a guest-created scan.
  String? get ownerId;
 /// Create a copy of Scan
 /// with the given fields replaced by the non-null parameter values.
@@ -33,16 +34,16 @@ $ScanCopyWith<Scan> get copyWith => _$ScanCopyWithImpl<Scan>(this as Scan, _$ide
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Scan&&(identical(other.id, id) || other.id == id)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&const DeepCollectionEquality().equals(other.tiles, tiles)&&(identical(other.indicator, indicator) || other.indicator == indicator)&&(identical(other.gameMode, gameMode) || other.gameMode == gameMode)&&(identical(other.summary, summary) || other.summary == summary)&&(identical(other.ownerId, ownerId) || other.ownerId == ownerId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Scan&&(identical(other.id, id) || other.id == id)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&const DeepCollectionEquality().equals(other.tiles, tiles)&&(identical(other.gameMode, gameMode) || other.gameMode == gameMode)&&(identical(other.summary, summary) || other.summary == summary)&&(identical(other.indicator, indicator) || other.indicator == indicator)&&(identical(other.ownerId, ownerId) || other.ownerId == ownerId));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,createdAt,updatedAt,const DeepCollectionEquality().hash(tiles),indicator,gameMode,summary,ownerId);
+int get hashCode => Object.hash(runtimeType,id,createdAt,updatedAt,const DeepCollectionEquality().hash(tiles),gameMode,summary,indicator,ownerId);
 
 @override
 String toString() {
-  return 'Scan(id: $id, createdAt: $createdAt, updatedAt: $updatedAt, tiles: $tiles, indicator: $indicator, gameMode: $gameMode, summary: $summary, ownerId: $ownerId)';
+  return 'Scan(id: $id, createdAt: $createdAt, updatedAt: $updatedAt, tiles: $tiles, gameMode: $gameMode, summary: $summary, indicator: $indicator, ownerId: $ownerId)';
 }
 
 
@@ -53,11 +54,11 @@ abstract mixin class $ScanCopyWith<$Res>  {
   factory $ScanCopyWith(Scan value, $Res Function(Scan) _then) = _$ScanCopyWithImpl;
 @useResult
 $Res call({
- String id, DateTime createdAt, DateTime updatedAt, List<GameTile> tiles, Indicator indicator, GameMode gameMode, ScanSummary summary, String? ownerId
+ String id, DateTime createdAt, DateTime updatedAt, List<GameTile> tiles, GameMode gameMode, ScanSummary summary, Indicator? indicator, String? ownerId
 });
 
 
-$IndicatorCopyWith<$Res> get indicator;$ScanSummaryCopyWith<$Res> get summary;
+$ScanSummaryCopyWith<$Res> get summary;$IndicatorCopyWith<$Res>? get indicator;
 
 }
 /// @nodoc
@@ -70,16 +71,16 @@ class _$ScanCopyWithImpl<$Res>
 
 /// Create a copy of Scan
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? createdAt = null,Object? updatedAt = null,Object? tiles = null,Object? indicator = null,Object? gameMode = null,Object? summary = null,Object? ownerId = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? createdAt = null,Object? updatedAt = null,Object? tiles = null,Object? gameMode = null,Object? summary = null,Object? indicator = freezed,Object? ownerId = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,tiles: null == tiles ? _self.tiles : tiles // ignore: cast_nullable_to_non_nullable
-as List<GameTile>,indicator: null == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
-as Indicator,gameMode: null == gameMode ? _self.gameMode : gameMode // ignore: cast_nullable_to_non_nullable
+as List<GameTile>,gameMode: null == gameMode ? _self.gameMode : gameMode // ignore: cast_nullable_to_non_nullable
 as GameMode,summary: null == summary ? _self.summary : summary // ignore: cast_nullable_to_non_nullable
-as ScanSummary,ownerId: freezed == ownerId ? _self.ownerId : ownerId // ignore: cast_nullable_to_non_nullable
+as ScanSummary,indicator: freezed == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
+as Indicator?,ownerId: freezed == ownerId ? _self.ownerId : ownerId // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -87,19 +88,22 @@ as String?,
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$IndicatorCopyWith<$Res> get indicator {
+$ScanSummaryCopyWith<$Res> get summary {
   
-  return $IndicatorCopyWith<$Res>(_self.indicator, (value) {
-    return _then(_self.copyWith(indicator: value));
+  return $ScanSummaryCopyWith<$Res>(_self.summary, (value) {
+    return _then(_self.copyWith(summary: value));
   });
 }/// Create a copy of Scan
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$ScanSummaryCopyWith<$Res> get summary {
-  
-  return $ScanSummaryCopyWith<$Res>(_self.summary, (value) {
-    return _then(_self.copyWith(summary: value));
+$IndicatorCopyWith<$Res>? get indicator {
+    if (_self.indicator == null) {
+    return null;
+  }
+
+  return $IndicatorCopyWith<$Res>(_self.indicator!, (value) {
+    return _then(_self.copyWith(indicator: value));
   });
 }
 }
@@ -183,10 +187,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  DateTime createdAt,  DateTime updatedAt,  List<GameTile> tiles,  Indicator indicator,  GameMode gameMode,  ScanSummary summary,  String? ownerId)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  DateTime createdAt,  DateTime updatedAt,  List<GameTile> tiles,  GameMode gameMode,  ScanSummary summary,  Indicator? indicator,  String? ownerId)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Scan() when $default != null:
-return $default(_that.id,_that.createdAt,_that.updatedAt,_that.tiles,_that.indicator,_that.gameMode,_that.summary,_that.ownerId);case _:
+return $default(_that.id,_that.createdAt,_that.updatedAt,_that.tiles,_that.gameMode,_that.summary,_that.indicator,_that.ownerId);case _:
   return orElse();
 
 }
@@ -204,10 +208,10 @@ return $default(_that.id,_that.createdAt,_that.updatedAt,_that.tiles,_that.indic
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  DateTime createdAt,  DateTime updatedAt,  List<GameTile> tiles,  Indicator indicator,  GameMode gameMode,  ScanSummary summary,  String? ownerId)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  DateTime createdAt,  DateTime updatedAt,  List<GameTile> tiles,  GameMode gameMode,  ScanSummary summary,  Indicator? indicator,  String? ownerId)  $default,) {final _that = this;
 switch (_that) {
 case _Scan():
-return $default(_that.id,_that.createdAt,_that.updatedAt,_that.tiles,_that.indicator,_that.gameMode,_that.summary,_that.ownerId);case _:
+return $default(_that.id,_that.createdAt,_that.updatedAt,_that.tiles,_that.gameMode,_that.summary,_that.indicator,_that.ownerId);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -224,10 +228,10 @@ return $default(_that.id,_that.createdAt,_that.updatedAt,_that.tiles,_that.indic
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  DateTime createdAt,  DateTime updatedAt,  List<GameTile> tiles,  Indicator indicator,  GameMode gameMode,  ScanSummary summary,  String? ownerId)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  DateTime createdAt,  DateTime updatedAt,  List<GameTile> tiles,  GameMode gameMode,  ScanSummary summary,  Indicator? indicator,  String? ownerId)?  $default,) {final _that = this;
 switch (_that) {
 case _Scan() when $default != null:
-return $default(_that.id,_that.createdAt,_that.updatedAt,_that.tiles,_that.indicator,_that.gameMode,_that.summary,_that.ownerId);case _:
+return $default(_that.id,_that.createdAt,_that.updatedAt,_that.tiles,_that.gameMode,_that.summary,_that.indicator,_that.ownerId);case _:
   return null;
 
 }
@@ -239,7 +243,7 @@ return $default(_that.id,_that.createdAt,_that.updatedAt,_that.tiles,_that.indic
 
 
 class _Scan extends Scan {
-  const _Scan({required this.id, required this.createdAt, required this.updatedAt, required final  List<GameTile> tiles, required this.indicator, required this.gameMode, required this.summary, this.ownerId}): _tiles = tiles,super._();
+  const _Scan({required this.id, required this.createdAt, required this.updatedAt, required final  List<GameTile> tiles, required this.gameMode, required this.summary, this.indicator, this.ownerId}): _tiles = tiles,super._();
   
 
 /// Stable scan id (uuid v4); doubles as the Firestore doc id.
@@ -257,12 +261,13 @@ class _Scan extends Scan {
   return EqualUnmodifiableListView(_tiles);
 }
 
-/// The indicator (gösterge) the user picked.
-@override final  Indicator indicator;
 /// The game the solver ran in.
 @override final  GameMode gameMode;
 /// The solver verdict summary.
 @override final  ScanSummary summary;
+/// The indicator (gösterge) the user picked, or `null` when a face-down
+/// (blank okey) tile let them skip it.
+@override final  Indicator? indicator;
 /// Owning user id, or `null` for a guest-created scan.
 @override final  String? ownerId;
 
@@ -276,16 +281,16 @@ _$ScanCopyWith<_Scan> get copyWith => __$ScanCopyWithImpl<_Scan>(this, _$identit
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Scan&&(identical(other.id, id) || other.id == id)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&const DeepCollectionEquality().equals(other._tiles, _tiles)&&(identical(other.indicator, indicator) || other.indicator == indicator)&&(identical(other.gameMode, gameMode) || other.gameMode == gameMode)&&(identical(other.summary, summary) || other.summary == summary)&&(identical(other.ownerId, ownerId) || other.ownerId == ownerId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Scan&&(identical(other.id, id) || other.id == id)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&const DeepCollectionEquality().equals(other._tiles, _tiles)&&(identical(other.gameMode, gameMode) || other.gameMode == gameMode)&&(identical(other.summary, summary) || other.summary == summary)&&(identical(other.indicator, indicator) || other.indicator == indicator)&&(identical(other.ownerId, ownerId) || other.ownerId == ownerId));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,createdAt,updatedAt,const DeepCollectionEquality().hash(_tiles),indicator,gameMode,summary,ownerId);
+int get hashCode => Object.hash(runtimeType,id,createdAt,updatedAt,const DeepCollectionEquality().hash(_tiles),gameMode,summary,indicator,ownerId);
 
 @override
 String toString() {
-  return 'Scan(id: $id, createdAt: $createdAt, updatedAt: $updatedAt, tiles: $tiles, indicator: $indicator, gameMode: $gameMode, summary: $summary, ownerId: $ownerId)';
+  return 'Scan(id: $id, createdAt: $createdAt, updatedAt: $updatedAt, tiles: $tiles, gameMode: $gameMode, summary: $summary, indicator: $indicator, ownerId: $ownerId)';
 }
 
 
@@ -296,11 +301,11 @@ abstract mixin class _$ScanCopyWith<$Res> implements $ScanCopyWith<$Res> {
   factory _$ScanCopyWith(_Scan value, $Res Function(_Scan) _then) = __$ScanCopyWithImpl;
 @override @useResult
 $Res call({
- String id, DateTime createdAt, DateTime updatedAt, List<GameTile> tiles, Indicator indicator, GameMode gameMode, ScanSummary summary, String? ownerId
+ String id, DateTime createdAt, DateTime updatedAt, List<GameTile> tiles, GameMode gameMode, ScanSummary summary, Indicator? indicator, String? ownerId
 });
 
 
-@override $IndicatorCopyWith<$Res> get indicator;@override $ScanSummaryCopyWith<$Res> get summary;
+@override $ScanSummaryCopyWith<$Res> get summary;@override $IndicatorCopyWith<$Res>? get indicator;
 
 }
 /// @nodoc
@@ -313,16 +318,16 @@ class __$ScanCopyWithImpl<$Res>
 
 /// Create a copy of Scan
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? createdAt = null,Object? updatedAt = null,Object? tiles = null,Object? indicator = null,Object? gameMode = null,Object? summary = null,Object? ownerId = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? createdAt = null,Object? updatedAt = null,Object? tiles = null,Object? gameMode = null,Object? summary = null,Object? indicator = freezed,Object? ownerId = freezed,}) {
   return _then(_Scan(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,tiles: null == tiles ? _self._tiles : tiles // ignore: cast_nullable_to_non_nullable
-as List<GameTile>,indicator: null == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
-as Indicator,gameMode: null == gameMode ? _self.gameMode : gameMode // ignore: cast_nullable_to_non_nullable
+as List<GameTile>,gameMode: null == gameMode ? _self.gameMode : gameMode // ignore: cast_nullable_to_non_nullable
 as GameMode,summary: null == summary ? _self.summary : summary // ignore: cast_nullable_to_non_nullable
-as ScanSummary,ownerId: freezed == ownerId ? _self.ownerId : ownerId // ignore: cast_nullable_to_non_nullable
+as ScanSummary,indicator: freezed == indicator ? _self.indicator : indicator // ignore: cast_nullable_to_non_nullable
+as Indicator?,ownerId: freezed == ownerId ? _self.ownerId : ownerId // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -331,19 +336,22 @@ as String?,
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$IndicatorCopyWith<$Res> get indicator {
+$ScanSummaryCopyWith<$Res> get summary {
   
-  return $IndicatorCopyWith<$Res>(_self.indicator, (value) {
-    return _then(_self.copyWith(indicator: value));
+  return $ScanSummaryCopyWith<$Res>(_self.summary, (value) {
+    return _then(_self.copyWith(summary: value));
   });
 }/// Create a copy of Scan
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$ScanSummaryCopyWith<$Res> get summary {
-  
-  return $ScanSummaryCopyWith<$Res>(_self.summary, (value) {
-    return _then(_self.copyWith(summary: value));
+$IndicatorCopyWith<$Res>? get indicator {
+    if (_self.indicator == null) {
+    return null;
+  }
+
+  return $IndicatorCopyWith<$Res>(_self.indicator!, (value) {
+    return _then(_self.copyWith(indicator: value));
   });
 }
 }

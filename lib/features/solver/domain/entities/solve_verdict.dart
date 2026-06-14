@@ -23,6 +23,14 @@ enum OkeyPath {
 /// The solver's answer for the requested mode.
 @freezed
 sealed class SolveVerdict with _$SolveVerdict {
+  /// 101 mode: the hand **finishes** the round — all 21 playable tiles form
+  /// valid melds (22 detected, exactly one leftover = the discard). Ranks
+  /// above [Opens101] and holds regardless of [score] (using all 21 tiles
+  /// beats reaching ≥ 101). Always via melds.
+  const factory SolveVerdict.finishes101({
+    required int score,
+  }) = Finishes101;
+
   /// 101 mode: the hand opens (score ≥ 101 via melds, or ≥ 5 pairs).
   const factory SolveVerdict.opens101({
     required int score,

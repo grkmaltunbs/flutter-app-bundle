@@ -11,7 +11,7 @@ import 'package:okey_acar_mi/features/solver/domain/entities/solve_result.dart';
 import 'package:okey_acar_mi/features/solver/domain/entities/solve_verdict.dart';
 
 GameTile _t(TileColor c, int n) => GameTile(color: c, number: n);
-const _joker = GameTile(color: TileColor.joker);
+const _joker = GameTile(color: TileColor.joker, faceDown: true);
 const _engine = DpSolverEngine();
 
 /// Design §7.3 regression gate: every adversary must finish well inside the

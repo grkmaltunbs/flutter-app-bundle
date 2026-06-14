@@ -6,7 +6,7 @@ import 'package:okey_acar_mi/features/solver/domain/engine/meld_score_dp.dart';
 import 'package:okey_acar_mi/features/solver/domain/engine/rack_normalizer.dart';
 
 GameTile _t(TileColor c, int n) => GameTile(color: c, number: n);
-const _joker = GameTile(color: TileColor.joker);
+const _joker = GameTile(color: TileColor.joker, faceDown: true);
 
 // Okey = Black 2; tests avoid Black 2 unless wilds are intended.
 const _indicator = Indicator(color: TileColor.black, number: 1);

@@ -17,7 +17,7 @@ import 'package:okey_acar_mi/features/solver/domain/entities/solved_spot.dart';
 import 'oracle/brute_force_oracle.dart';
 
 GameTile _t(TileColor c, int n) => GameTile(color: c, number: n);
-const _joker = GameTile(color: TileColor.joker);
+const _joker = GameTile(color: TileColor.joker, faceDown: true);
 const _engine = DpSolverEngine();
 final _oracle = BruteForceOracle();
 
@@ -87,6 +87,9 @@ void _check101AgainstOracle(
   final oraclePairs = _oracle.maxPairCount(tiles, indicator);
   final shouldOpen = expected >= 101 || oraclePairs >= 5;
   switch (result.verdict) {
+    case Finishes101():
+      // Finishing needs a 22-tile rack; these oracle racks are 5–11 tiles.
+      fail('$label: unexpected finish verdict on a sub-22-tile rack');
     case Opens101(:final score, :final via):
       check(because: '$label: opens', shouldOpen).isTrue();
       check(because: '$label: verdict score', score).equals(expected);

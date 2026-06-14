@@ -28,25 +28,45 @@ class IndicatorSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocSelector<ReviewBloc, ReviewState, Indicator?>(
-      selector: (state) => state.indicator,
-      builder: (context, indicator) {
+    return BlocSelector<
+      ReviewBloc,
+      ReviewState,
+      ({Indicator? indicator, bool optional})
+    >(
+      selector: (state) => (
+        indicator: state.indicator,
+        optional: state.hasFaceDown && !state.hasFalseJoker,
+      ),
+      builder: (context, data) {
         final l10n = context.l10n;
+        final indicator = data.indicator;
+        final palette = context.palette;
         return AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Eyebrow(l10n.reviewIndicatorTitle),
               const SizedBox(height: 12),
-              if (indicator == null)
+              if (indicator == null) ...[
+                if (data.optional) ...[
+                  Text(
+                    l10n.reviewIndicatorOptionalNote,
+                    style: context.textTheme.bodySmall?.copyWith(
+                      color: palette.muted,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 SecondaryButton(
                   key: const ValueKey('review-pick-indicator'),
-                  label: l10n.reviewIndicatorPick,
+                  label: data.optional
+                      ? l10n.reviewIndicatorDoubleCheck
+                      : l10n.reviewIndicatorPick,
                   icon: Icons.touch_app_outlined,
                   fullWidth: true,
                   onPressed: () => _openPicker(context),
-                )
-              else
+                ),
+              ] else
                 _PickedIndicator(
                   indicator: indicator,
                   onChange: () => _openPicker(context),

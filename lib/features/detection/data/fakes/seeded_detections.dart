@@ -142,8 +142,50 @@ abstract final class SeededDetections {
     return [frame1, frame2, frame3];
   }
 
+  /// A 22-tile 101 rack (11 + 11) that **finishes**: 21 tiles form seven valid
+  /// melds — one run completed by a face-down (blank okey) standing in for
+  /// black 2 — with a single tile (yellow 1) left to discard. Exercises the
+  /// blank render, the optional-indicator path, and the FINISHES verdict in the
+  /// demo flavor.
+  static List<DetectedTile> rackFinishFaceDown() => _rack(
+    const [
+      [
+        (TileColor.red, 1, 0.93),
+        (TileColor.red, 2, 0.95),
+        (TileColor.red, 3, 0.91),
+        (TileColor.red, 4, 0.92),
+        (TileColor.red, 5, 0.9),
+        (TileColor.red, 6, 0.93),
+        (TileColor.blue, 7, 0.94),
+        (TileColor.blue, 8, 0.9),
+        (TileColor.blue, 9, 0.92),
+        (TileColor.blue, 10, 0.9),
+        (TileColor.blue, 11, 0.93),
+      ],
+      [
+        (TileColor.blue, 12, 0.91),
+        (TileColor.black, 1, 0.9),
+        (TileColor.joker, null, 0.9), // face-down → black 2
+        (TileColor.black, 3, 0.92),
+        (TileColor.yellow, 11, 0.9),
+        (TileColor.yellow, 12, 0.93),
+        (TileColor.yellow, 13, 0.91),
+        (TileColor.red, 9, 0.9),
+        (TileColor.yellow, 9, 0.92),
+        (TileColor.black, 9, 0.9),
+        (TileColor.yellow, 1, 0.9), // the discard
+      ],
+    ],
+    faceDownPositions: const {(1, 2)},
+  );
+
   /// Builds a rack from per-row specs, fabricating 2-row normalized bounds.
-  static List<DetectedTile> _rack(List<List<_Spec>> rows) {
+  /// Positions in [faceDownPositions] (as `(row, index)`) are marked face-down
+  /// (their spec must be a joker candidate).
+  static List<DetectedTile> _rack(
+    List<List<_Spec>> rows, {
+    Set<(int, int)> faceDownPositions = const {},
+  }) {
     const rowTops = [0.12, 0.54];
     const rowHeight = 0.34;
     final tiles = <DetectedTile>[];
@@ -157,6 +199,7 @@ abstract final class SeededDetections {
             color: color,
             number: number,
             confidence: confidence,
+            faceDown: faceDownPositions.contains((row, index)),
             position: TilePosition(row: row, index: index),
             bounds: NormalizedRect(
               left: 0.03 + index * slotWidth,

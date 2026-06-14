@@ -39,6 +39,11 @@ sealed class NormalizedRect with _$NormalizedRect {
 /// the cell). An *unreadable* numeral never produces a null [number] with a
 /// real color: the pipeline emits its best guess with near-zero [confidence]
 /// instead, so the review step always has a concrete tile to correct.
+///
+/// A **face-down** tile ([faceDown] == true) is a special joker candidate: a
+/// tile flipped to its blank back, which by tradition is the okey (a wild). It
+/// carries [TileColor.joker] (wild for the solver) but renders as a blank tile,
+/// distinct from a printed false joker ([faceDown] == false).
 @freezed
 sealed class DetectedTile with _$DetectedTile {
   /// Creates a [DetectedTile].
@@ -48,5 +53,6 @@ sealed class DetectedTile with _$DetectedTile {
     required double confidence,
     int? number,
     NormalizedRect? bounds,
+    @Default(false) bool faceDown,
   }) = _DetectedTile;
 }

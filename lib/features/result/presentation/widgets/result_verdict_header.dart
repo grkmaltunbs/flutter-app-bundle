@@ -18,6 +18,7 @@ class ResultVerdictHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ScaleIn(
       child: switch (verdict) {
+        Finishes101(:final score) => _VerdictFinish(score: score),
         Opens101(:final score, :final via) => _Verdict101(
           opens: true,
           score: score,
@@ -78,6 +79,37 @@ class _Verdict101 extends StatelessWidget {
           suffix: l10n.resultScoreOutOf,
         ),
         if (caption != null) _VerdictCaption(text: caption!),
+      ],
+    );
+  }
+}
+
+/// The 101-mode FINISH verdict: "Biter." — the strongest outcome (all 21
+/// playable tiles meld). Shown in the good color; the score is informational
+/// (finishing beats reaching ≥ 101).
+class _VerdictFinish extends StatelessWidget {
+  const _VerdictFinish({required this.score});
+
+  final int score;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final palette = context.palette;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Eyebrow(l10n.resultFinishesEyebrow, color: palette.good),
+        const SizedBox(height: 6),
+        _BigVerdictText(text: l10n.resultFinishesVerdict, color: palette.good),
+        const SizedBox(height: 14),
+        _MonoFigureRow(
+          label: l10n.resultScoreLabel,
+          value: '$score',
+          valueColor: palette.good,
+        ),
+        _VerdictCaption(text: l10n.resultFinishesCaption),
       ],
     );
   }

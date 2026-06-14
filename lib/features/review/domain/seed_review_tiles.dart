@@ -6,8 +6,8 @@ import 'package:okey_acar_mi/features/review/domain/entities/review_tile.dart';
 /// Maps a finished [DetectionResult] to the editable review rack.
 ///
 /// Preserves rack order, flags tiles whose confidence is **strictly below**
-/// [kLowConfidenceThreshold] (exactly 0.75 is not flagged), and maps joker
-/// candidates to `(joker, null)`.
+/// [kLowConfidenceThreshold] (exactly 0.75 is not flagged), maps joker
+/// candidates to `(joker, null)`, and carries the face-down (blank okey) flag.
 List<ReviewTile> seedReviewTiles(DetectionResult result) {
   return List.unmodifiable([
     for (final tile in result.tiles)
@@ -15,6 +15,7 @@ List<ReviewTile> seedReviewTiles(DetectionResult result) {
         color: tile.color,
         number: tile.color == TileColor.joker ? null : tile.number,
         lowConfidence: tile.confidence < kLowConfidenceThreshold,
+        faceDown: tile.faceDown,
       ),
   ]);
 }

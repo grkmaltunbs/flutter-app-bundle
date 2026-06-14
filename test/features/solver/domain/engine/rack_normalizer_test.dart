@@ -5,7 +5,8 @@ import 'package:okey_acar_mi/core/game/tile_color.dart';
 import 'package:okey_acar_mi/features/solver/domain/engine/rack_normalizer.dart';
 
 GameTile _t(TileColor c, int n) => GameTile(color: c, number: n);
-const _joker = GameTile(color: TileColor.joker);
+const _joker = GameTile(color: TileColor.joker); // sahte okey → okey value
+const _faceDown = GameTile(color: TileColor.joker, faceDown: true); // wild
 
 void main() {
   const normalizer = RackNormalizer();
@@ -14,10 +15,10 @@ void main() {
     const indicator = Indicator(color: TileColor.blue, number: 3);
     final tiles = <GameTile>[
       _t(TileColor.red, 9),
-      _joker,
+      _faceDown,
       _t(TileColor.blue, 4), // okey copy → wild
       _t(TileColor.red, 9),
-      _joker,
+      _faceDown,
     ];
     final rack = normalizer.normalize(tiles, indicator);
 
@@ -25,9 +26,9 @@ void main() {
     expect(rack.counts[TileColor.red.index][9], 2);
     expect(rack.counts[TileColor.blue.index][4], 0);
     expect(rack.wildCount, 3);
-    expect(rack.falseJokerCount, 2);
+    expect(rack.faceDownCount, 2);
     expect(rack.okeyCopyCount, 1);
-    // False jokers first (rack order), then okey copies.
+    // Face-downs first (rack order), then okey copies.
     expect(rack.wildQueue, [1, 4, 2]);
     expect(rack.instanceQueues[TileColor.red.index][9], [0, 3]);
     // T_red = 2, W = 3 → min(max(2, ⌊5/3⌋), T_red) = 2; colors with no
@@ -36,6 +37,28 @@ void main() {
     expect(rack.okeySlots, [2, 2, 2, 2]);
     expect(rack.clamped, isEmpty);
     expect(rack.forcedLeftoverIndices, isEmpty);
+  });
+
+  test('sahte okey (false joker) plays as the okey value, not wild', () {
+    const indicator = Indicator(color: TileColor.red, number: 2); // okey red 3
+    final rack = normalizer.normalize([
+      _joker, // sahte okey → red 3 (counts, not wild)
+      _t(TileColor.red, 3), // real okey copy → wild
+      _faceDown, // face-down → wild
+      _t(TileColor.blue, 7),
+    ], indicator);
+
+    expect(rack.okeyTile, _t(TileColor.red, 3));
+    // The sahte okey is counted as a red 3, not a wild.
+    expect(rack.counts[TileColor.red.index][3], 1);
+    expect(rack.okeyValueJokerCount, 1);
+    expect(rack.instanceQueues[TileColor.red.index][3], [0]);
+    // Wilds = the face-down + the real okey copy (not the sahte okey).
+    expect(rack.faceDownCount, 1);
+    expect(rack.okeyCopyCount, 1);
+    expect(rack.wildCount, 2);
+    // Face-downs first (index 2), then okey copies (index 1).
+    expect(rack.wildQueue, [2, 1]);
   });
 
   test('indicator 13 wraps: okey is number 1 of the same color', () {
@@ -64,7 +87,7 @@ void main() {
     // Three-parallel-runs shape: T_red = 8 + 1 wild → slots(red) = 3.
     final tiles = <GameTile>[
       for (final n in [9, 10, 11, 11, 12, 12, 13, 13]) _t(TileColor.red, n),
-      _joker,
+      _faceDown,
     ];
     final rack = normalizer.normalize(tiles, indicator);
     expect(rack.scoreSlots[TileColor.red.index], 3);
@@ -72,7 +95,7 @@ void main() {
     // All-wild garbage: wilds alone never widen slots — only the
     // designated color keeps 1 slot for the (single possible) pure-wild
     // run once W ≥ 5.
-    final garbage = List<GameTile>.filled(40, _joker);
+    final garbage = List<GameTile>.filled(40, _faceDown);
     final wide = normalizer.normalize(garbage, indicator);
     expect(wide.scoreSlots, [1, 0, 0, 0]);
     expect(wide.wildCount, 40);
@@ -88,14 +111,14 @@ void main() {
 
   test('designated color gains the pure-wild run slot only at W ≥ 5', () {
     const indicator = Indicator(color: TileColor.black, number: 1);
-    final four = normalizer.normalize(List.filled(4, _joker), indicator);
+    final four = normalizer.normalize(List.filled(4, _faceDown), indicator);
     expect(four.scoreSlots, [0, 0, 0, 0]);
-    final five = normalizer.normalize(List.filled(5, _joker), indicator);
+    final five = normalizer.normalize(List.filled(5, _faceDown), indicator);
     expect(five.scoreSlots, [1, 0, 0, 0]);
     // Real tiles in the designated color stack on top of the bonus slot
     // only up to the disjoint-cells bound.
     final mixed = normalizer.normalize(
-      [_t(TileColor.red, 13), ...List.filled(5, _joker)],
+      [_t(TileColor.red, 13), ...List.filled(5, _faceDown)],
       indicator,
     );
     // Red: min(max(2, ⌊6/3⌋), 1 + 1) = 2.

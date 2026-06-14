@@ -138,11 +138,43 @@ final SolveResult _result101 = SolveResult(
   totalScore: 104,
   verdict: const SolveVerdict.opens101(score: 104, via: OpenPath.melds),
   reasoning: const [
-    ReasoningStep.wildsCounted(falseJokers: 1, okeyCopies: 0),
+    ReasoningStep.wildsCounted(faceDowns: 1, okeyCopies: 0),
     ReasoningStep.rackCountNoted(count: 21, mode: GameMode.oneZeroOne),
     ReasoningStep.thresholdChecked(total: 104, threshold: 101, opens: true),
     ReasoningStep.pathChosen(via: OpenPath.melds),
   ],
+);
+
+/// The worst-case 101 FINISH board: 22 tiles — 21 across seven groups (ring
+/// cycle wraps twice) with one wild, plus the single discard leftover — and a
+/// FINISHES verdict, the most cells the spaced rack layout ever lays out.
+final SolveResult _resultFinish = SolveResult(
+  melds: [
+    for (var i = 0; i < 7; i++)
+      SolvedMeld(
+        kind: i.isEven ? MeldKind.run : MeldKind.set,
+        spots: [
+          _rack(TileColor.red, i + 1, 3 * i),
+          if (i == 2)
+            _wild(TileColor.blue, i + 1, 3 * i + 1)
+          else
+            _rack(TileColor.blue, i + 1, 3 * i + 1),
+          _rack(TileColor.black, i + 1, 3 * i + 2),
+        ],
+        points: 3 * (i + 1),
+      ),
+  ],
+  pairs: const [],
+  leftovers: [_rack(TileColor.yellow, 7, 21)],
+  totalScore: 84,
+  verdict: const SolveVerdict.finishes101(score: 84),
+  reasoning: const [
+    ReasoningStep.wildsCounted(faceDowns: 1, okeyCopies: 0),
+    ReasoningStep.rackCountNoted(count: 22, mode: GameMode.oneZeroOne),
+    ReasoningStep.finishChecked(tilesUsed: 21, rackCount: 22, finishes: true),
+  ],
+  discardSuggested: _t(TileColor.yellow, 7),
+  discardRackIndex: 21,
 );
 
 /// The worst-case okey board: needed phantoms, a wild, the final pair, a
@@ -241,6 +273,12 @@ void main() {
           )
           ..add(const ResultEvent.layoutToggled(ResultLayout.list))
           ..add(const ResultEvent.detailUnlockGranted()),
+    '22-tile 101 finish, 7 spaced groups, rack layout': () => ResultBloc(
+      _FixedSolveRack(_resultFinish),
+      const _NoopSaveScan(),
+      logger,
+      ResultArgs.fresh(_outcome(GameMode.oneZeroOne, 22)),
+    ),
     '15-tile okey, neededs + discard, detail unlocked': () => ResultBloc(
       _FixedSolveRack(_resultOkey),
       const _NoopSaveScan(),

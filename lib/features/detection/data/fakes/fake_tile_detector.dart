@@ -25,6 +25,10 @@ enum FakeDetectionMode {
   /// A 19-tile reading (wrong for both game modes) for review's count flow.
   wrongCount,
 
+  /// A 22-tile 101 rack with a face-down (blank okey) tile that finishes the
+  /// round — drives the blank render, optional-indicator, and FINISHES flows.
+  faceDownFinish,
+
   /// Stages, then `Failure.detectionFailed('fake-detection-error')`.
   error,
 }
@@ -123,6 +127,7 @@ class FakeTileDetector implements TileDetector {
       case FakeDetectionMode.fromFixture:
       case FakeDetectionMode.lowConfidence:
       case FakeDetectionMode.wrongCount:
+      case FakeDetectionMode.faceDownFinish:
         return _successScript(payload);
     }
   }
@@ -171,6 +176,8 @@ class FakeTileDetector implements TileDetector {
         return (SeededDetections.lowConfidenceRack(), 1);
       case FakeDetectionMode.wrongCount:
         return (SeededDetections.rackWrongCount(), 1);
+      case FakeDetectionMode.faceDownFinish:
+        return (SeededDetections.rackFinishFaceDown(), 1);
       case FakeDetectionMode.fromFixture:
       case FakeDetectionMode.noTiles:
       case FakeDetectionMode.error:

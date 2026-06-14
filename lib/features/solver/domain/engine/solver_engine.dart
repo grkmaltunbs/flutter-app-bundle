@@ -38,13 +38,14 @@ class DpSolverEngine implements SolverEngine {
     const normalizer = RackNormalizer();
     final rack = normalizer.normalize(request.tiles, request.indicator);
 
+    final indicator = request.indicator;
+    final okeyTile = rack.okeyTile;
     final reasoning = <ReasoningStep>[
-      ReasoningStep.okeyDerived(
-        indicator: request.indicator,
-        okeyTile: rack.okeyTile,
-      ),
+      // No indicator (a face-down tile) ⇒ no okey identity to derive.
+      if (indicator != null && okeyTile != null)
+        ReasoningStep.okeyDerived(indicator: indicator, okeyTile: okeyTile),
       ReasoningStep.wildsCounted(
-        falseJokers: rack.falseJokerCount,
+        faceDowns: rack.faceDownCount,
         okeyCopies: rack.okeyCopyCount,
       ),
       ReasoningStep.rackCountNoted(
@@ -68,12 +69,34 @@ class DpSolverEngine implements SolverEngine {
     MeldScoreDpResult dpResult,
     List<ReasoningStep> reasoning,
   ) {
+    final rackCount = rack.tiles.length;
+
+    // Finish check (22-tile racks only): can all 21 playable tiles form valid
+    // melds, leaving exactly one tile to discard? Coverage maximizes tiles used
+    // (not score) because finishing the round beats reaching ≥ 101, so it ranks
+    // above opening and holds regardless of the meld total.
+    final coverage = rackCount == 22
+        ? const MeldScoreDp().run(rack, objective: MeldObjective.coverage)
+        : null;
+    if (coverage != null && coverage.best >= 21) {
+      return _finish101(rack, coverage, reasoning);
+    }
+
     final arrangement = const MeldReconstructor().reconstruct(rack, dpResult);
     var runningTotal = 0;
     for (final meld in arrangement.melds) {
       runningTotal += meld.points;
       reasoning.add(
         ReasoningStep.meldFormed(meld: meld, runningTotal: runningTotal),
+      );
+    }
+    if (coverage != null) {
+      reasoning.add(
+        ReasoningStep.finishChecked(
+          tilesUsed: coverage.best,
+          rackCount: rackCount,
+          finishes: false,
+        ),
       );
     }
     final opensViaMelds = dpResult.best >= _openingThreshold;
@@ -98,16 +121,33 @@ class DpSolverEngine implements SolverEngine {
       final via = opensViaMelds ? OpenPath.melds : OpenPath.pairs;
       reasoning.add(ReasoningStep.pathChosen(via: via));
       final useMelds = via == OpenPath.melds;
+      final leftovers = _leftovers(
+        rack,
+        useMelds ? arrangement.usedRackIndices : pairsEval.usedRackIndices,
+      );
+      // A 22-tile opener still ends the turn with a discard.
+      final discard = _suggestDiscard(
+        rack,
+        leftovers,
+        enabled: rackCount == 22,
+      );
+      if (discard != null) {
+        reasoning.add(
+          ReasoningStep.discardSuggested(
+            tile: discard.physical,
+            rackIndex: discard.rackIndex,
+          ),
+        );
+      }
       return SolveResult(
         melds: useMelds ? arrangement.melds : const [],
         pairs: useMelds ? const [] : pairsEval.pairs,
-        leftovers: _leftovers(
-          rack,
-          useMelds ? arrangement.usedRackIndices : pairsEval.usedRackIndices,
-        ),
+        leftovers: leftovers,
         totalScore: dpResult.best,
         verdict: SolveVerdict.opens101(score: dpResult.best, via: via),
         reasoning: reasoning,
+        discardSuggested: discard?.physical,
+        discardRackIndex: discard?.rackIndex,
       );
     }
     return SolveResult(
@@ -120,6 +160,50 @@ class DpSolverEngine implements SolverEngine {
         pointsShort: _openingThreshold - dpResult.best,
       ),
       reasoning: reasoning,
+    );
+  }
+
+  /// Builds the FINISHES verdict from the coverage-optimal (max-tiles) meld
+  /// arrangement: all 21 playable tiles melded, the single leftover discarded.
+  SolveResult _finish101(
+    NormalizedRack rack,
+    MeldScoreDpResult coverage,
+    List<ReasoningStep> reasoning,
+  ) {
+    final arrangement = const MeldReconstructor().reconstruct(rack, coverage);
+    var runningTotal = 0;
+    for (final meld in arrangement.melds) {
+      runningTotal += meld.points;
+      reasoning.add(
+        ReasoningStep.meldFormed(meld: meld, runningTotal: runningTotal),
+      );
+    }
+    reasoning.add(
+      ReasoningStep.finishChecked(
+        tilesUsed: coverage.best,
+        rackCount: rack.tiles.length,
+        finishes: true,
+      ),
+    );
+    final leftovers = _leftovers(rack, arrangement.usedRackIndices);
+    final discard = _suggestDiscard(rack, leftovers, enabled: true);
+    if (discard != null) {
+      reasoning.add(
+        ReasoningStep.discardSuggested(
+          tile: discard.physical,
+          rackIndex: discard.rackIndex,
+        ),
+      );
+    }
+    return SolveResult(
+      melds: arrangement.melds,
+      pairs: const [],
+      leftovers: leftovers,
+      totalScore: runningTotal,
+      verdict: SolveVerdict.finishes101(score: runningTotal),
+      reasoning: reasoning,
+      discardSuggested: discard?.physical,
+      discardRackIndex: discard?.rackIndex,
     );
   }
 
@@ -176,7 +260,11 @@ class DpSolverEngine implements SolverEngine {
     }
 
     final leftovers = _leftovers(rack, used);
-    final discard = _suggestDiscard(rack, leftovers);
+    final discard = _suggestDiscard(
+      rack,
+      leftovers,
+      enabled: rack.tiles.length >= 15,
+    );
     if (discard != null) {
       reasoning.add(
         ReasoningStep.discardSuggested(
@@ -253,23 +341,33 @@ class DpSolverEngine implements SolverEngine {
     for (var i = 0; i < rack.tiles.length; i++) {
       if (used.contains(i)) continue;
       final tile = rack.tiles[i];
-      final isWild = tile.isJoker || tile == rack.okeyTile;
-      spots.add(
-        isWild
-            ? SolvedSpot.wild(physical: tile, rackIndex: i, playsAs: tile)
-            : SolvedSpot.rackTile(physical: tile, rackIndex: i, playsAs: tile),
-      );
+      final okeyTile = rack.okeyTile;
+      final isWild = tile.faceDown || (okeyTile != null && tile == okeyTile);
+      if (isWild) {
+        spots.add(SolvedSpot.wild(physical: tile, rackIndex: i, playsAs: tile));
+      } else if (tile.isJoker && okeyTile != null) {
+        // A sahte okey (false joker) left unused plays as the okey value.
+        spots.add(
+          SolvedSpot.rackTile(physical: tile, rackIndex: i, playsAs: okeyTile),
+        );
+      } else {
+        spots.add(
+          SolvedSpot.rackTile(physical: tile, rackIndex: i, playsAs: tile),
+        );
+      }
     }
     return spots;
   }
 
-  /// Discard rule (15+-tile okey racks): lowest-face non-wild leftover,
-  /// tie → lowest rack index; all-wild leftovers → lowest rack index.
+  /// Discard rule for a just-drawn rack ([enabled]; 22-tile 101 or 15-tile
+  /// okey): lowest-face non-wild leftover, tie → lowest rack index; all-wild
+  /// leftovers → lowest rack index.
   ({GameTile physical, int rackIndex})? _suggestDiscard(
     NormalizedRack rack,
-    List<SolvedSpot> leftovers,
-  ) {
-    if (rack.tiles.length < 15 || leftovers.isEmpty) return null;
+    List<SolvedSpot> leftovers, {
+    required bool enabled,
+  }) {
+    if (!enabled || leftovers.isEmpty) return null;
     RackSpot? best;
     for (final spot in leftovers) {
       if (spot is! RackSpot) continue;

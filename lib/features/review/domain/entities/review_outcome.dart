@@ -15,15 +15,16 @@ abstract class ReviewOutcome with _$ReviewOutcome {
     /// The confirmed tiles in rack order; jokers are `GameTile(joker, null)`.
     required List<GameTile> tiles,
 
-    /// The indicator (gösterge) the user picked.
-    required Indicator indicator,
-
     /// The game the solver should target.
     required GameMode gameMode,
+
+    /// The indicator (gösterge) the user picked, or `null` when a face-down
+    /// (blank okey) tile let them skip it.
+    Indicator? indicator,
   }) = _ReviewOutcome;
 
   const ReviewOutcome._();
 
-  /// The okey tile derived from [indicator].
-  GameTile get okeyTile => indicator.okeyTile;
+  /// The okey tile derived from [indicator], or `null` when none was picked.
+  GameTile? get okeyTile => indicator?.okeyTile;
 }

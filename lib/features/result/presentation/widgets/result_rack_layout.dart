@@ -39,8 +39,12 @@ class ResultRackLayout extends StatelessWidget {
   /// The arranged display model.
   final ResultArrangement arrangement;
 
-  /// Horizontal gap between tiles, in logical pixels (matches [Rack]).
+  /// Horizontal gap between tiles within a meld group (matches [Rack]).
   static const double _gap = 3;
+
+  /// Wider horizontal gap between distinct groups (and before leftovers), so
+  /// the meaningful tile groups read as separate at a glance.
+  static const double _groupGap = 13;
 
   /// Slack inside each row so rings/badges that extend past the tile bounds
   /// are not clipped (mirrors the review rack's slack padding).
@@ -49,10 +53,18 @@ class ResultRackLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cells = arrangement.allCells;
-    final splitAt = (cells.length / 2).ceil();
+    // Split the two rows at the group boundary nearest the midpoint so a group
+    // is not torn across rows when it can be avoided.
+    final splitAt = _groupAlignedSplit(cells);
     final row1 = cells.sublist(0, splitAt);
     final row2 = cells.sublist(splitAt);
     final perRow = math.max(row1.length, row2.length);
+    // Widest run of inter-group gaps in a single row, to reserve their extra
+    // width so tiles keep a uniform size (the FittedBox stays the safety net).
+    final maxGroupGaps = math.max(
+      _groupBoundaries(row1),
+      _groupBoundaries(row2),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,7 +81,8 @@ class ResultRackLayout extends StatelessWidget {
                 pad.horizontal -
                 RackFrame.borderWidth * 2 -
                 _slack * 2 -
-                math.max(0, perRow - 1) * _gap;
+                math.max(0, perRow - 1) * _gap -
+                maxGroupGaps * (_groupGap - _gap);
             final rawWidth = perRow == 0
                 ? TileSize.sm.width
                 : (available / perRow).clamp(14.0, TileSize.sm.width);
@@ -99,6 +112,34 @@ class ResultRackLayout extends StatelessWidget {
     );
   }
 
+  /// The index to split [cells] into two rows: the group boundary nearest the
+  /// midpoint, or the plain midpoint when the cells are one contiguous group.
+  static int _groupAlignedSplit(List<ResultCell> cells) {
+    final mid = (cells.length / 2).ceil();
+    if (cells.length < 2) return cells.length;
+    var best = mid;
+    var bestDist = cells.length;
+    for (var i = 1; i < cells.length; i++) {
+      if (cells[i].groupIndex == cells[i - 1].groupIndex) continue;
+      final dist = (i - mid).abs();
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  /// How many adjacent cells in [row] belong to different groups (the number
+  /// of wider [_groupGap]s the row will draw).
+  static int _groupBoundaries(List<ResultCell> row) {
+    var count = 0;
+    for (var i = 1; i < row.length; i++) {
+      if (row[i].groupIndex != row[i - 1].groupIndex) count++;
+    }
+    return count;
+  }
+
   Widget _row(List<ResultCell> row, double tileWidth) {
     return FittedBox(
       fit: BoxFit.scaleDown,
@@ -111,7 +152,12 @@ class ResultRackLayout extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (var i = 0; i < row.length; i++) ...[
-              if (i > 0) const SizedBox(width: _gap),
+              if (i > 0)
+                SizedBox(
+                  width: row[i].groupIndex != row[i - 1].groupIndex
+                      ? _groupGap
+                      : _gap,
+                ),
               _ArrangedRackCell(
                 cell: row[i],
                 width: tileWidth,

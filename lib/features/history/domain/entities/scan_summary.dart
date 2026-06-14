@@ -7,6 +7,9 @@ part 'scan_summary.freezed.dart';
 /// Which solver verdict a stored scan carries (the persisted, flat mirror of
 /// the sealed [SolveVerdict]).
 enum ScanVerdictKind {
+  /// 101 mode: the hand finishes the round (all 21 playable tiles meld).
+  finishes101,
+
   /// 101 mode: the hand opens.
   opens101,
 
@@ -53,6 +56,12 @@ abstract class ScanSummary with _$ScanSummary {
   /// a winning-now okey hand; `score` is always [SolveResult.totalScore].
   factory ScanSummary.fromResult(SolveResult result) {
     return switch (result.verdict) {
+      Finishes101() => ScanSummary(
+        kind: ScanVerdictKind.finishes101,
+        opened: true,
+        score: result.totalScore,
+        openPath: OpenPath.melds,
+      ),
       Opens101(:final via) => ScanSummary(
         kind: ScanVerdictKind.opens101,
         opened: true,

@@ -174,13 +174,13 @@ void main() {
   group('5. tileColorChanged joker to real color', () {
     blocTest<ReviewBloc, ReviewState>(
       'keeps the null numeral, blocking canSolve despite indicator + count',
-      build: () => _bloc(_tiles(20, lastIsJoker: true)),
+      build: () => _bloc(_tiles(22, lastIsJoker: true)),
       act: (bloc) => bloc
         ..add(const ReviewEvent.indicatorPicked(TileColor.blue, 5))
-        ..add(const ReviewEvent.tileTapped(19))
+        ..add(const ReviewEvent.tileTapped(21))
         ..add(const ReviewEvent.tileColorChanged(TileColor.red)),
       verify: (bloc) {
-        final tile = bloc.state.tiles[19];
+        final tile = bloc.state.tiles[21];
         check(tile.color).equals(TileColor.red);
         check(tile.number).isNull();
         check(tile.isComplete).isFalse();
@@ -194,22 +194,22 @@ void main() {
 
   group('6. tileAdded', () {
     blocTest<ReviewBloc, ReviewState>(
-      'is a no-op at the 101 maximum (21)',
-      build: () => _bloc(_tiles(21)),
+      'is a no-op at the 101 maximum (22)',
+      build: () => _bloc(_tiles(22)),
       act: (bloc) => bloc.add(const ReviewEvent.tileAdded()),
       expect: () => const <ReviewState>[],
     );
 
     blocTest<ReviewBloc, ReviewState>(
       'below max: appends an undefined placeholder and opens its editor (D3)',
-      build: () => _bloc(_tiles(20)),
+      build: () => _bloc(_tiles(21)),
       act: (bloc) => bloc
         ..add(const ReviewEvent.indicatorPicked(TileColor.red, 1))
         ..add(const ReviewEvent.tileAdded()),
       verify: (bloc) {
-        check(bloc.state.tileCount).equals(21);
+        check(bloc.state.tileCount).equals(22);
         check(bloc.state.tiles.last).equals(const ReviewTile());
-        check(bloc.state.editingIndex).equals(20);
+        check(bloc.state.editingIndex).equals(21);
         check(bloc.state.countValid).isTrue();
         check(bloc.state.canSolve).isFalse();
       },
@@ -218,8 +218,8 @@ void main() {
 
   group('7. tileRemoved', () {
     blocTest<ReviewBloc, ReviewState>(
-      'is a no-op at the 101 minimum (20)',
-      build: () => _bloc(_tiles(20)),
+      'is a no-op at the 101 minimum (21)',
+      build: () => _bloc(_tiles(21)),
       act: (bloc) => bloc
         ..add(const ReviewEvent.tileTapped(0))
         ..add(const ReviewEvent.tileRemoved()),
@@ -228,14 +228,14 @@ void main() {
 
     blocTest<ReviewBloc, ReviewState>(
       'above min: removes the edited tile and closes the editor',
-      build: () => _bloc(_tiles(21)),
+      build: () => _bloc(_tiles(22)),
       act: (bloc) => bloc
         ..add(const ReviewEvent.tileTapped(0))
         ..add(const ReviewEvent.tileRemoved()),
       verify: (bloc) {
-        check(bloc.state.tileCount).equals(20);
+        check(bloc.state.tileCount).equals(21);
         check(bloc.state.editingIndex).isNull();
-        // _tiles(21)[1] is black 2 — it shifted into slot 0.
+        // _tiles(22)[1] is black 2 — it shifted into slot 0.
         check(bloc.state.tiles[0]).equals(
           const ReviewTile(color: TileColor.black, number: 2),
         );
@@ -244,7 +244,7 @@ void main() {
 
     blocTest<ReviewBloc, ReviewState>(
       'is a no-op while nothing is being edited',
-      build: () => _bloc(_tiles(21)),
+      build: () => _bloc(_tiles(22)),
       act: (bloc) => bloc.add(const ReviewEvent.tileRemoved()),
       expect: () => const <ReviewState>[],
     );
@@ -291,12 +291,13 @@ void main() {
 
   group('9. canSolve + outcome()', () {
     test('canSolve requires indicator + valid count + complete tiles', () {
-      final bloc = _bloc(_tiles(20, lastIsJoker: true));
+      final bloc = _bloc(_tiles(21, lastIsJoker: true));
       addTearDown(bloc.close);
 
-      // Valid count, complete tiles — but no indicator yet.
+      // Valid count, complete tiles — but no indicator and no face-down yet.
       check(bloc.state.countValid).isTrue();
       check(bloc.state.allTilesComplete).isTrue();
+      check(bloc.state.hasFaceDown).isFalse();
       check(bloc.state.canSolve).isFalse();
     });
 
@@ -313,7 +314,7 @@ void main() {
 
     blocTest<ReviewBloc, ReviewState>(
       'outcome() carries tiles in order, jokers as GameTile(joker, null)',
-      build: () => _bloc(_tiles(20, lastIsJoker: true)),
+      build: () => _bloc(_tiles(21, lastIsJoker: true)),
       act: (bloc) =>
           bloc.add(const ReviewEvent.indicatorPicked(TileColor.black, 12)),
       verify: (bloc) {
@@ -326,7 +327,7 @@ void main() {
         check(outcome.okeyTile).equals(
           const GameTile(color: TileColor.black, number: 13),
         );
-        check(outcome.tiles.length).equals(20);
+        check(outcome.tiles.length).equals(21);
         check(outcome.tiles.first).equals(
           const GameTile(color: TileColor.red, number: 1),
         );
@@ -339,7 +340,7 @@ void main() {
 
     test('low confidence never blocks solving (D2)', () async {
       final bloc = _bloc(
-        _tiles(20, confidence: 0.3),
+        _tiles(21, confidence: 0.3),
         overallConfidence: 0.3,
       )..add(const ReviewEvent.indicatorPicked(TileColor.red, 1));
       addTearDown(bloc.close);
@@ -348,6 +349,38 @@ void main() {
       check(bloc.state.lowOverallConfidence).isTrue();
       check(bloc.state.tiles.first.lowConfidence).isTrue();
       check(bloc.state.canSolve).isTrue();
+    });
+  });
+
+  group('11. face-down makes the indicator optional', () {
+    List<DetectedTile> tilesWithFaceDown() => [
+      ..._tiles(20),
+      const DetectedTile(
+        color: TileColor.joker,
+        faceDown: true,
+        position: TilePosition(row: 1, index: 20),
+        confidence: 0.9,
+      ),
+    ];
+
+    test('canSolve without an indicator when a face-down tile is present', () {
+      final bloc = _bloc(tilesWithFaceDown());
+      addTearDown(bloc.close);
+
+      check(bloc.state.hasFaceDown).isTrue();
+      check(bloc.state.indicator).isNull();
+      check(bloc.state.countValid).isTrue(); // 21 tiles
+      check(bloc.state.allTilesComplete).isTrue();
+      check(bloc.state.canSolve).isTrue();
+      check(bloc.state.outcome().indicator).isNull();
+    });
+
+    test('a false joker alone still requires the indicator', () {
+      final bloc = _bloc(_tiles(21, lastIsJoker: true));
+      addTearDown(bloc.close);
+
+      check(bloc.state.hasFaceDown).isFalse();
+      check(bloc.state.canSolve).isFalse();
     });
   });
 

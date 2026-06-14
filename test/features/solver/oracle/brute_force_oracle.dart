@@ -10,8 +10,9 @@ import 'package:okey_acar_mi/core/game/tile_color.dart';
 ///
 /// Semantics encoded here:
 /// - Tiles 1–13 × {red, black, yellow, blue}; wilds = rack tiles equal to
-///   `indicator.okeyTile` plus unnumbered jokers; wilds are fully wild and
-///   take the value + identity of the tile they substitute.
+///   `indicator.okeyTile` plus face-down tiles; wilds are fully wild and take
+///   the value + identity of the tile they substitute. A sahte okey (false
+///   joker, not face-down) is NOT wild — it counts as the okey-value tile.
 /// - Set: 3–4 tiles, same number, all-distinct colors. Run: 3+ consecutive,
 ///   same color, 1 low only (no 12-13-1 / 13-1-2 wrap), max length 13.
 /// - Meld score = sum of substituted face values.
@@ -64,9 +65,18 @@ class BruteForceOracle {
     final counts = List<int>.filled(52, 0);
     var wilds = 0;
     final okey = indicator.okeyTile;
+    final okeyKind = okey.color.index * 13 + okey.number! - 1;
     for (final tile in tiles) {
-      if (tile.isJoker || tile == okey) {
-        wilds++;
+      if (tile.isJoker) {
+        if (tile.faceDown) {
+          wilds++; // face-down → wild
+        } else {
+          counts[okeyKind]++; // sahte okey → plays as the okey value
+        }
+        continue;
+      }
+      if (tile == okey) {
+        wilds++; // real okey copy → wild
         continue;
       }
       counts[tile.color.index * 13 + tile.number! - 1]++;

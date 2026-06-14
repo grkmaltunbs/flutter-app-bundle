@@ -43,6 +43,15 @@ abstract class ReviewState with _$ReviewState {
   /// Whether every tile is fully defined.
   bool get allTilesComplete => tiles.every((tile) => tile.isComplete);
 
+  /// Whether a face-down (blank okey) tile is on the rack. Its presence makes
+  /// picking the indicator optional — the user already holds an okey.
+  bool get hasFaceDown => tiles.any((tile) => tile.faceDown);
+
+  /// Whether a sahte okey (false joker) is on the rack. It plays only as the
+  /// okey value, so it still requires the indicator to be picked.
+  bool get hasFalseJoker =>
+      tiles.any((tile) => tile.color == TileColor.joker && !tile.faceDown);
+
   /// Whether the capture as a whole read poorly (suggest a retake). Low
   /// confidence never blocks solving (D2).
   bool get lowOverallConfidence => overallConfidence < kLowConfidenceThreshold;
@@ -50,9 +59,14 @@ abstract class ReviewState with _$ReviewState {
   /// The okey tile derived from [indicator], or null while unset.
   GameTile? get okeyTile => indicator?.okeyTile;
 
-  /// Whether "Hesapla" is allowed: indicator set, legal count, every tile
-  /// complete (D2).
-  bool get canSolve => indicator != null && countValid && allTilesComplete;
+  /// Whether "Hesapla" is allowed: legal count, every tile complete (D2), and
+  /// an indicator — unless a face-down (blank okey) tile makes it optional. A
+  /// sahte okey (false joker) still forces the indicator (it needs the okey
+  /// value), so a face-down only relaxes it when no false joker is present.
+  bool get canSolve =>
+      (indicator != null || (hasFaceDown && !hasFalseJoker)) &&
+      countValid &&
+      allTilesComplete;
 
   /// The tile being edited, or null when the panel is closed.
   ReviewTile? get editingTile =>
@@ -63,7 +77,7 @@ abstract class ReviewState with _$ReviewState {
     assert(canSolve, 'outcome() is only valid when canSolve');
     return ReviewOutcome(
       tiles: List.unmodifiable([for (final tile in tiles) tile.asGameTile]),
-      indicator: indicator!,
+      indicator: indicator,
       gameMode: gameMode,
     );
   }

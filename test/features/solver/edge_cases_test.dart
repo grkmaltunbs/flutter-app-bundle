@@ -13,7 +13,7 @@ import 'package:okey_acar_mi/features/solver/domain/entities/solve_verdict.dart'
 import 'package:okey_acar_mi/features/solver/domain/entities/solved_spot.dart';
 
 GameTile _t(TileColor c, int n) => GameTile(color: c, number: n);
-const _joker = GameTile(color: TileColor.joker);
+const _joker = GameTile(color: TileColor.joker, faceDown: true);
 const _engine = DpSolverEngine();
 const _noWildIndicator = Indicator(color: TileColor.blue, number: 1);
 
@@ -119,7 +119,7 @@ void main() {
         (result.reasoning.first as OkeyDerivedStep).okeyTile,
       ).equals(_t(TileColor.yellow, 1));
       check(result.reasoning.whereType<WildsCountedStep>().single).equals(
-        const ReasoningStep.wildsCounted(falseJokers: 0, okeyCopies: 2)
+        const ReasoningStep.wildsCounted(faceDowns: 0, okeyCopies: 2)
             as WildsCountedStep,
       );
       // Best: 4-set {R5 B5 ◦5 ◦5}? No — distinct colors, so {R5 B5 ◦Y5 ◦Bl5}.

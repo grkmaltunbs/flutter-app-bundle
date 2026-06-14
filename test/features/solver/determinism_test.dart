@@ -10,7 +10,7 @@ import 'package:okey_acar_mi/features/solver/domain/entities/solve_verdict.dart'
 import 'package:okey_acar_mi/features/solver/domain/usecases/solve_rack.dart';
 
 GameTile _t(TileColor c, int n) => GameTile(color: c, number: n);
-const _joker = GameTile(color: TileColor.joker);
+const _joker = GameTile(color: TileColor.joker, faceDown: true);
 const _engine = DpSolverEngine();
 
 /// §5 worked example — ties everywhere (multiple optimal arrangements), so

@@ -26,10 +26,11 @@ void main() {
       expect(tiles[0].confidence, 0.9);
       expect(tiles[0].bounds, isNull);
 
-      // row 0, index 1 — false joker → wild
+      // row 0, index 1 — false joker → wild, but NOT face-down (keeps glyph)
       expect(tiles[1].color, TileColor.joker);
       expect(tiles[1].number, isNull);
       expect(tiles[1].position.index, 1);
+      expect(tiles[1].faceDown, isFalse);
 
       // row 1, index 0 — blue 12
       expect(tiles[2].color, TileColor.blue);
@@ -37,11 +38,12 @@ void main() {
       expect(tiles[2].position.row, 1);
       expect(tiles[2].position.index, 0);
 
-      // row 1, index 1 — face-down → wild (okey by tradition)
+      // row 1, index 1 — face-down → wild (okey by tradition), rendered blank
       expect(tiles[3].color, TileColor.joker);
       expect(tiles[3].number, isNull);
       expect(tiles[3].position.row, 1);
       expect(tiles[3].position.index, 1);
+      expect(tiles[3].faceDown, isTrue);
     });
 
     test('all four colors map correctly', () {

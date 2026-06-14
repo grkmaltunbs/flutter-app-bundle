@@ -62,9 +62,18 @@ abstract final class GeminiRackParser {
     final confidence = _confidence(cell['confidence']);
 
     switch (cell['kind']) {
-      case 'false_joker':
       case 'face_down':
-        // Both are wild for the solver — a joker carries no number.
+        // A blank-back tile: wild for the solver, but rendered as a blank
+        // tile (distinct from a printed false joker) and a guaranteed okey.
+        return DetectedTile(
+          color: TileColor.joker,
+          position: position,
+          confidence: confidence,
+          faceDown: true,
+        );
+      case 'false_joker':
+        // The printed sahte okey: wild for the solver — a joker carries no
+        // number. Keeps the joker glyph (not blank).
         return DetectedTile(
           color: TileColor.joker,
           position: position,

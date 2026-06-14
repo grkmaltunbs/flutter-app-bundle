@@ -179,8 +179,8 @@ class ScanLocalDataSource {
       createdAtMs: dto.createdAtMs,
       updatedAtMs: dto.updatedAtMs,
       gameMode: dto.gameMode,
-      indicatorColor: dto.indicator.color,
-      indicatorNumber: dto.indicator.number,
+      indicatorColor: Value(dto.indicator?.color),
+      indicatorNumber: Value(dto.indicator?.number),
       // Same shape as ScanDto.encodeTiles by construction (the DTO owns the
       // per-tile JSON shape).
       tilesJson: jsonEncode([for (final tile in dto.tiles) tile.toJson()]),
@@ -214,10 +214,13 @@ class ScanLocalDataSource {
         createdAtMs: row.createdAtMs,
         updatedAtMs: row.updatedAtMs,
         gameMode: row.gameMode,
-        indicator: ScanIndicatorDto(
-          color: row.indicatorColor,
-          number: row.indicatorNumber,
-        ),
+        indicator: switch ((row.indicatorColor, row.indicatorNumber)) {
+          (final String color, final int number) => ScanIndicatorDto(
+            color: color,
+            number: number,
+          ),
+          _ => null,
+        },
         tiles: [
           for (final tile in ScanDto.decodeTiles(row.tilesJson))
             ScanTileDto.fromTile(tile),

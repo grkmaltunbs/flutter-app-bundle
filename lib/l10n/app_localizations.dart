@@ -656,6 +656,12 @@ abstract class AppLocalizations {
   /// **'Try again'**
   String get historyRetry;
 
+  /// Scan-card pill label for a 101 hand that finishes the round (composed as 'label · score' in-widget).
+  ///
+  /// In en, this message translates to:
+  /// **'Finished'**
+  String get scanCardFinished;
+
   /// Scan-card pill label for a 101 hand that opened (composed as 'label · score' in-widget).
   ///
   /// In en, this message translates to:
@@ -1057,6 +1063,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Change'**
   String get reviewIndicatorChange;
+
+  /// Note shown when a face-down tile makes picking the indicator optional.
+  ///
+  /// In en, this message translates to:
+  /// **'You already hold an okey (a blank tile), so the indicator is optional.'**
+  String get reviewIndicatorOptionalNote;
+
+  /// CTA that opens the indicator picker when it is optional (a face-down tile is present).
+  ///
+  /// In en, this message translates to:
+  /// **'Pick indicator (optional)'**
+  String get reviewIndicatorDoubleCheck;
 
   /// The okey derived from the picked indicator.
   ///
@@ -1562,6 +1580,24 @@ abstract class AppLocalizations {
   /// **'No open.'**
   String get resultClosesVerdict;
 
+  /// Eyebrow above the verdict when the 101 hand finishes the round.
+  ///
+  /// In en, this message translates to:
+  /// **'YOU CAN FINISH'**
+  String get resultFinishesEyebrow;
+
+  /// The big serif verdict when the 101 hand finishes (TR 'Biter.').
+  ///
+  /// In en, this message translates to:
+  /// **'Finishes.'**
+  String get resultFinishesVerdict;
+
+  /// Caption under the finish verdict explaining why it finishes.
+  ///
+  /// In en, this message translates to:
+  /// **'All 21 tiles fit — finish the round.'**
+  String get resultFinishesCaption;
+
   /// Mono label before the meld score on the verdict header.
   ///
   /// In en, this message translates to:
@@ -1712,11 +1748,11 @@ abstract class AppLocalizations {
   /// **'Indicator {indicator} → okey is {okey}.'**
   String resultReasonOkeyDerived(String indicator, String okey);
 
-  /// Reasoning step: wilds counted on the rack.
+  /// Reasoning step: wild tiles counted on the rack (face-downs + okey copies).
   ///
   /// In en, this message translates to:
-  /// **'Counted {falseJokers} false jokers, {okeyCopies} okey tiles.'**
-  String resultReasonWildsCounted(int falseJokers, int okeyCopies);
+  /// **'Counted {faceDowns} face-down, {okeyCopies} okey wild tiles.'**
+  String resultReasonWildsCounted(int faceDowns, int okeyCopies);
 
   /// Reasoning step: the rack size noted against the mode.
   ///
@@ -1735,6 +1771,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Formed {meld} → running total {runningTotal}.'**
   String resultReasonMeldFormed(String meld, int runningTotal);
+
+  /// Reasoning step: every playable tile melds, so the hand finishes.
+  ///
+  /// In en, this message translates to:
+  /// **'All {tilesUsed} playable tiles meld — the hand finishes.'**
+  String resultReasonFinishes(int tilesUsed);
+
+  /// Reasoning step: not all tiles meld, so the hand cannot finish.
+  ///
+  /// In en, this message translates to:
+  /// **'{tilesUsed} of {rackCount} tiles meld — not a finish.'**
+  String resultReasonFinishShort(int tilesUsed, int rackCount);
 
   /// Reasoning step: the meld total reaches the opening threshold.
   ///
@@ -1883,6 +1931,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Joker'**
   String get jokerSemantics;
+
+  /// Accessibility label for a face-down (blank back) okey tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Blank okey tile'**
+  String get tileFaceDownSemantics;
 
   /// No description provided for @tileColorRed.
   ///

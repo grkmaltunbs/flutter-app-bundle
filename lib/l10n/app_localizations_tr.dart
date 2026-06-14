@@ -293,6 +293,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get historyRetry => 'Tekrar dene';
 
   @override
+  String get scanCardFinished => 'Bitirdi';
+
+  @override
   String get scanCardOpened => 'Açtı';
 
   @override
@@ -515,6 +518,13 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get reviewIndicatorChange => 'Değiştir';
+
+  @override
+  String get reviewIndicatorOptionalNote =>
+      'Zaten bir okeyin var (boş taş), bu yüzden gösterge isteğe bağlı.';
+
+  @override
+  String get reviewIndicatorDoubleCheck => 'Gösterge seç (isteğe bağlı)';
 
   @override
   String reviewOkeyLabel(String color, int number) {
@@ -790,6 +800,15 @@ class AppLocalizationsTr extends AppLocalizations {
   String get resultClosesVerdict => 'Açmaz.';
 
   @override
+  String get resultFinishesEyebrow => 'BİTİREBİLİRSİN';
+
+  @override
+  String get resultFinishesVerdict => 'Biter.';
+
+  @override
+  String get resultFinishesCaption => '21 taşın tümü uyuyor — eli bitirirsin.';
+
+  @override
   String get resultScoreLabel => 'PUAN';
 
   @override
@@ -888,8 +907,8 @@ class AppLocalizationsTr extends AppLocalizations {
   }
 
   @override
-  String resultReasonWildsCounted(int falseJokers, int okeyCopies) {
-    return '$falseJokers sahte okey, $okeyCopies okey sayıldı.';
+  String resultReasonWildsCounted(int faceDowns, int okeyCopies) {
+    return '$faceDowns kapalı, $okeyCopies okey joker sayıldı.';
   }
 
   @override
@@ -905,6 +924,16 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String resultReasonMeldFormed(String meld, int runningTotal) {
     return '$meld kuruldu → toplam $runningTotal.';
+  }
+
+  @override
+  String resultReasonFinishes(int tilesUsed) {
+    return 'Oynanabilir $tilesUsed taşın tümü diziye giriyor — el biter.';
+  }
+
+  @override
+  String resultReasonFinishShort(int tilesUsed, int rackCount) {
+    return '$rackCount taşın $tilesUsed tanesi diziye giriyor — bitmez.';
   }
 
   @override
@@ -1021,6 +1050,9 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get jokerSemantics => 'Okey';
+
+  @override
+  String get tileFaceDownSemantics => 'Boş okey taşı';
 
   @override
   String get tileColorRed => 'Kırmızı';

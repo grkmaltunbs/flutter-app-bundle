@@ -31,7 +31,7 @@ final Map<String, ReasoningStep> _steps = {
     okeyTile: _t(TileColor.yellow, 1),
   ),
   'wildsCounted': const ReasoningStep.wildsCounted(
-    falseJokers: 1,
+    faceDowns: 1,
     okeyCopies: 2,
   ),
   'rackCountNoted (101)': const ReasoningStep.rackCountNoted(

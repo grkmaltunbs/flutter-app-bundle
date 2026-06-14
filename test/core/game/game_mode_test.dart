@@ -4,9 +4,9 @@ import 'package:okey_acar_mi/core/game/game_mode.dart';
 
 void main() {
   group('GameMode rack limits', () {
-    test('101 mode allows 20-21 tiles', () {
-      check(GameMode.oneZeroOne.minTiles).equals(20);
-      check(GameMode.oneZeroOne.maxTiles).equals(21);
+    test('101 mode allows 21-22 tiles', () {
+      check(GameMode.oneZeroOne.minTiles).equals(21);
+      check(GameMode.oneZeroOne.maxTiles).equals(22);
     });
 
     test('okey mode allows 14-15 tiles', () {

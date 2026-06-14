@@ -2,7 +2,7 @@
 // kDebugMode in the router + home page); safe to delete with its route + home
 // button once no longer needed.
 //
-// Pick a mode + indicator, hand-build a 20–21 (or 14–15) tile rack, then run
+// Pick a mode + indicator, hand-build a 21–22 (or 14–15) tile rack, then run
 // the real DpSolverEngine and dump the full SolveResult. No DI: instantiates
 // the const engine and runs it off the UI isolate, exactly like SolveRack.
 //
@@ -67,7 +67,7 @@ class _SolverLabPageState extends State<SolverLabPage> {
   ];
 
   void _addNumbered() {
-    if (_rack.length >= 21) return;
+    if (_rack.length >= _mode.maxTiles) return;
     setState(() {
       _rack.add(GameTile(color: _pickColor, number: _pickNumber));
       _sortRack();
@@ -75,7 +75,7 @@ class _SolverLabPageState extends State<SolverLabPage> {
   }
 
   void _addJoker() {
-    if (_rack.length >= 21) return;
+    if (_rack.length >= _mode.maxTiles) return;
     setState(() {
       _rack.add(const GameTile(color: TileColor.joker));
       _sortRack();
@@ -155,17 +155,18 @@ class _SolverLabPageState extends State<SolverLabPage> {
   // ---- Rendering of the SolveResult -------------------------------------
 
   String _dump(SolveResult r, SolveRequest req, int micros) {
+    final ind = req.indicator;
+    final indicatorStr = ind == null
+        ? '(none)'
+        : _tileStr(ind.color, ind.number);
+    final okeyStr = ind == null
+        ? '(none)'
+        : _tileStr(ind.color, ind.okeyNumber);
     final buf = StringBuffer()
       ..writeln('=== SOLVE (${(micros / 1000).toStringAsFixed(2)} ms) ===')
       ..writeln('mode: ${req.mode.name}   rack: ${req.tiles.length} tiles')
-      ..writeln(
-        'indicator: '
-        '${_tileStr(req.indicator.color, req.indicator.number)}',
-      )
-      ..writeln(
-        'okey (wild target): '
-        '${_tileStr(req.indicator.color, req.indicator.okeyNumber)}',
-      )
+      ..writeln('indicator: $indicatorStr')
+      ..writeln('okey (wild target): $okeyStr')
       ..writeln()
       ..writeln('VERDICT: ${_verdictStr(r.verdict)}')
       ..writeln('totalScore: ${r.totalScore}')
@@ -218,6 +219,7 @@ class _SolverLabPageState extends State<SolverLabPage> {
   }
 
   String _verdictStr(SolveVerdict v) => switch (v) {
+    Finishes101(:final score) => 'BİTER — finishes (score $score)',
     Opens101(:final score, :final via) =>
       'AÇAR — opens 101 (score $score via ${via.name})',
     DoesNotOpen101(:final score, :final pointsShort) =>
@@ -253,14 +255,16 @@ class _SolverLabPageState extends State<SolverLabPage> {
   String _reasonStr(ReasoningStep s) => switch (s) {
     OkeyDerivedStep(:final okeyTile) =>
       'okey derived → ${_tileStr(okeyTile.color, okeyTile.number)}',
-    WildsCountedStep(:final falseJokers, :final okeyCopies) =>
-      'wilds: $falseJokers false-joker(s), $okeyCopies okey-copy',
+    WildsCountedStep(:final faceDowns, :final okeyCopies) =>
+      'wilds: $faceDowns face-down, $okeyCopies okey-copy',
     RackCountNotedStep(:final count, :final mode) =>
       'rack count $count (${mode.name})',
     CountsClampedStep(:final kind, :final dropped) =>
       'clamped ${_tileStr(kind.color, kind.number)} ×$dropped',
     MeldFormedStep(:final meld, :final runningTotal) =>
       'meld ${meld.kind.name} +${meld.points} → total $runningTotal',
+    FinishCheckedStep(:final tilesUsed, :final rackCount, :final finishes) =>
+      'finish check $tilesUsed/$rackCount → ${finishes ? "finishes" : "no finish"}',
     ThresholdCheckedStep(:final total, :final threshold, :final opens) =>
       'threshold $total/$threshold → ${opens ? "opens" : "short"}',
     PairsCountedStep(:final pairCount, :final opens) =>
@@ -416,12 +420,12 @@ class _SolverLabPageState extends State<SolverLabPage> {
         _numberDropdown(_pickNumber, (n) => setState(() => _pickNumber = n)),
         const SizedBox(width: 8),
         FilledButton.tonal(
-          onPressed: _rack.length >= 21 ? null : _addNumbered,
+          onPressed: _rack.length >= _mode.maxTiles ? null : _addNumbered,
           child: const Text('+ tile'),
         ),
         const SizedBox(width: 8),
         OutlinedButton(
-          onPressed: _rack.length >= 21 ? null : _addJoker,
+          onPressed: _rack.length >= _mode.maxTiles ? null : _addJoker,
           child: const Text('+ 🃏'),
         ),
       ],

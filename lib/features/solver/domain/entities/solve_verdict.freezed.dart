@@ -55,10 +55,11 @@ extension SolveVerdictPatterns on SolveVerdict {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( Opens101 value)?  opens101,TResult Function( DoesNotOpen101 value)?  doesNotOpen101,TResult Function( OkeyOutcome value)?  okeyOutcome,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( Finishes101 value)?  finishes101,TResult Function( Opens101 value)?  opens101,TResult Function( DoesNotOpen101 value)?  doesNotOpen101,TResult Function( OkeyOutcome value)?  okeyOutcome,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
-case Opens101() when opens101 != null:
+case Finishes101() when finishes101 != null:
+return finishes101(_that);case Opens101() when opens101 != null:
 return opens101(_that);case DoesNotOpen101() when doesNotOpen101 != null:
 return doesNotOpen101(_that);case OkeyOutcome() when okeyOutcome != null:
 return okeyOutcome(_that);case _:
@@ -79,10 +80,11 @@ return okeyOutcome(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( Opens101 value)  opens101,required TResult Function( DoesNotOpen101 value)  doesNotOpen101,required TResult Function( OkeyOutcome value)  okeyOutcome,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( Finishes101 value)  finishes101,required TResult Function( Opens101 value)  opens101,required TResult Function( DoesNotOpen101 value)  doesNotOpen101,required TResult Function( OkeyOutcome value)  okeyOutcome,}){
 final _that = this;
 switch (_that) {
-case Opens101():
+case Finishes101():
+return finishes101(_that);case Opens101():
 return opens101(_that);case DoesNotOpen101():
 return doesNotOpen101(_that);case OkeyOutcome():
 return okeyOutcome(_that);}
@@ -99,10 +101,11 @@ return okeyOutcome(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( Opens101 value)?  opens101,TResult? Function( DoesNotOpen101 value)?  doesNotOpen101,TResult? Function( OkeyOutcome value)?  okeyOutcome,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( Finishes101 value)?  finishes101,TResult? Function( Opens101 value)?  opens101,TResult? Function( DoesNotOpen101 value)?  doesNotOpen101,TResult? Function( OkeyOutcome value)?  okeyOutcome,}){
 final _that = this;
 switch (_that) {
-case Opens101() when opens101 != null:
+case Finishes101() when finishes101 != null:
+return finishes101(_that);case Opens101() when opens101 != null:
 return opens101(_that);case DoesNotOpen101() when doesNotOpen101 != null:
 return doesNotOpen101(_that);case OkeyOutcome() when okeyOutcome != null:
 return okeyOutcome(_that);case _:
@@ -122,9 +125,10 @@ return okeyOutcome(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int score,  OpenPath via)?  opens101,TResult Function( int score,  int pointsShort)?  doesNotOpen101,TResult Function( int tilesToWin,  OkeyPath via)?  okeyOutcome,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( int score)?  finishes101,TResult Function( int score,  OpenPath via)?  opens101,TResult Function( int score,  int pointsShort)?  doesNotOpen101,TResult Function( int tilesToWin,  OkeyPath via)?  okeyOutcome,required TResult orElse(),}) {final _that = this;
 switch (_that) {
-case Opens101() when opens101 != null:
+case Finishes101() when finishes101 != null:
+return finishes101(_that.score);case Opens101() when opens101 != null:
 return opens101(_that.score,_that.via);case DoesNotOpen101() when doesNotOpen101 != null:
 return doesNotOpen101(_that.score,_that.pointsShort);case OkeyOutcome() when okeyOutcome != null:
 return okeyOutcome(_that.tilesToWin,_that.via);case _:
@@ -145,9 +149,10 @@ return okeyOutcome(_that.tilesToWin,_that.via);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int score,  OpenPath via)  opens101,required TResult Function( int score,  int pointsShort)  doesNotOpen101,required TResult Function( int tilesToWin,  OkeyPath via)  okeyOutcome,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( int score)  finishes101,required TResult Function( int score,  OpenPath via)  opens101,required TResult Function( int score,  int pointsShort)  doesNotOpen101,required TResult Function( int tilesToWin,  OkeyPath via)  okeyOutcome,}) {final _that = this;
 switch (_that) {
-case Opens101():
+case Finishes101():
+return finishes101(_that.score);case Opens101():
 return opens101(_that.score,_that.via);case DoesNotOpen101():
 return doesNotOpen101(_that.score,_that.pointsShort);case OkeyOutcome():
 return okeyOutcome(_that.tilesToWin,_that.via);}
@@ -164,9 +169,10 @@ return okeyOutcome(_that.tilesToWin,_that.via);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int score,  OpenPath via)?  opens101,TResult? Function( int score,  int pointsShort)?  doesNotOpen101,TResult? Function( int tilesToWin,  OkeyPath via)?  okeyOutcome,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( int score)?  finishes101,TResult? Function( int score,  OpenPath via)?  opens101,TResult? Function( int score,  int pointsShort)?  doesNotOpen101,TResult? Function( int tilesToWin,  OkeyPath via)?  okeyOutcome,}) {final _that = this;
 switch (_that) {
-case Opens101() when opens101 != null:
+case Finishes101() when finishes101 != null:
+return finishes101(_that.score);case Opens101() when opens101 != null:
 return opens101(_that.score,_that.via);case DoesNotOpen101() when doesNotOpen101 != null:
 return doesNotOpen101(_that.score,_that.pointsShort);case OkeyOutcome() when okeyOutcome != null:
 return okeyOutcome(_that.tilesToWin,_that.via);case _:
@@ -174,6 +180,72 @@ return okeyOutcome(_that.tilesToWin,_that.via);case _:
 
 }
 }
+
+}
+
+/// @nodoc
+
+
+class Finishes101 implements SolveVerdict {
+  const Finishes101({required this.score});
+  
+
+ final  int score;
+
+/// Create a copy of SolveVerdict
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$Finishes101CopyWith<Finishes101> get copyWith => _$Finishes101CopyWithImpl<Finishes101>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Finishes101&&(identical(other.score, score) || other.score == score));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,score);
+
+@override
+String toString() {
+  return 'SolveVerdict.finishes101(score: $score)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $Finishes101CopyWith<$Res> implements $SolveVerdictCopyWith<$Res> {
+  factory $Finishes101CopyWith(Finishes101 value, $Res Function(Finishes101) _then) = _$Finishes101CopyWithImpl;
+@useResult
+$Res call({
+ int score
+});
+
+
+
+
+}
+/// @nodoc
+class _$Finishes101CopyWithImpl<$Res>
+    implements $Finishes101CopyWith<$Res> {
+  _$Finishes101CopyWithImpl(this._self, this._then);
+
+  final Finishes101 _self;
+  final $Res Function(Finishes101) _then;
+
+/// Create a copy of SolveVerdict
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? score = null,}) {
+  return _then(Finishes101(
+score: null == score ? _self.score : score // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
 
 }
 
