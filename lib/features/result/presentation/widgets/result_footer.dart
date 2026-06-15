@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:okey_acar_mi/core/ads/ad_placement.dart';
+import 'package:okey_acar_mi/core/ads/presentation/ad_banner.dart';
 import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
 import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/widgets/app_buttons.dart';
@@ -26,31 +28,37 @@ class ResultFooter extends StatelessWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          // TODO(step-11): banner-ad seam — mount the AdMob banner (gated
-          // through SubscriptionBloc / AdsService) directly above this row
-          // for free users.
-          child: Row(
+          // Banner self-hides for premium and reserves a fixed height, so it
+          // never overlaps the CTAs below.
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                flex: 10,
-                child: SecondaryButton(
-                  key: const ValueKey('result-again'),
-                  label: l10n.resultAgain,
-                  icon: Icons.refresh,
-                  fullWidth: true,
-                  onPressed: () => context.go(AppRoutes.camera),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 14,
-                child: PrimaryButton(
-                  key: const ValueKey('result-done'),
-                  label: l10n.resultDone,
-                  icon: Icons.check,
-                  fullWidth: true,
-                  onPressed: () => context.go(AppRoutes.home),
-                ),
+              const AdBanner(placement: AdPlacement.result),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 10,
+                    child: SecondaryButton(
+                      key: const ValueKey('result-again'),
+                      label: l10n.resultAgain,
+                      icon: Icons.refresh,
+                      fullWidth: true,
+                      onPressed: () => context.go(AppRoutes.camera),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 14,
+                    child: PrimaryButton(
+                      key: const ValueKey('result-done'),
+                      label: l10n.resultDone,
+                      icon: Icons.check,
+                      fullWidth: true,
+                      onPressed: () => context.go(AppRoutes.home),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

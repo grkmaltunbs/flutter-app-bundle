@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
+import 'package:okey_acar_mi/core/payments/subscription_bloc.dart';
 import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
 import 'package:okey_acar_mi/features/auth/presentation/blocs/auth_bloc.dart';
@@ -27,14 +28,46 @@ class App extends StatelessWidget {
           lazy: false,
           create: (_) => getIt<AuthBloc>()..add(const AuthEvent.started()),
         ),
+        BlocProvider<SubscriptionBloc>(
+          lazy: false,
+          create: (_) =>
+              getIt<SubscriptionBloc>()..add(const SubscriptionEvent.started()),
+        ),
       ],
       child: const _AppView(),
     );
   }
 }
 
-class _AppView extends StatelessWidget {
+class _AppView extends StatefulWidget {
   const _AppView();
+
+  @override
+  State<_AppView> createState() => _AppViewState();
+}
+
+class _AppViewState extends State<_AppView> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // Re-read the entitlement when the app regains the foreground: a renewal,
+    // restore, or cancellation may have happened while backgrounded (e.g. via
+    // the system subscription-management sheet) without the live stream
+    // delivering it.
+    _lifecycle = AppLifecycleListener(
+      onResume: () => context.read<SubscriptionBloc>().add(
+        const SubscriptionEvent.refreshRequested(),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

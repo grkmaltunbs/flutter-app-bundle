@@ -13,6 +13,7 @@ import 'package:okey_acar_mi/core/game/game_tile.dart';
 import 'package:okey_acar_mi/core/game/indicator.dart';
 import 'package:okey_acar_mi/core/game/tile_color.dart';
 import 'package:okey_acar_mi/core/logging/app_logger.dart';
+import 'package:okey_acar_mi/core/payments/subscription_bloc.dart';
 import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
@@ -107,11 +108,17 @@ void main() {
       routes: [
         GoRoute(
           path: AppRoutes.history,
-          builder: (context, state) => BlocProvider<HistoryBloc>(
-            create: (_) =>
-                HistoryBloc(watchScans, watchCounts, logger)
-                  ..add(const HistoryEvent.started()),
-            child: const HistoryView(),
+          builder: (context, state) => BlocProvider<SubscriptionBloc>(
+            // The history list's footer ad banner reads the app-scoped
+            // subscription bloc; free (the demo default) mounts the banner.
+            create: (_) => getIt<SubscriptionBloc>()
+              ..add(const SubscriptionEvent.started()),
+            child: BlocProvider<HistoryBloc>(
+              create: (_) =>
+                  HistoryBloc(watchScans, watchCounts, logger)
+                    ..add(const HistoryEvent.started()),
+              child: const HistoryView(),
+            ),
           ),
         ),
         GoRoute(

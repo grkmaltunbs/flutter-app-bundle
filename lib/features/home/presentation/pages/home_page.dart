@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,6 +14,7 @@ import 'package:okey_acar_mi/core/time/clock.dart';
 import 'package:okey_acar_mi/core/widgets/circle_icon_button.dart';
 import 'package:okey_acar_mi/core/widgets/eyebrow.dart';
 import 'package:okey_acar_mi/core/widgets/scan_card.dart';
+import 'package:okey_acar_mi/features/consent/domain/repositories/consent_service.dart';
 import 'package:okey_acar_mi/features/history/domain/entities/scan.dart';
 import 'package:okey_acar_mi/features/history/domain/entities/scan_stats.dart';
 import 'package:okey_acar_mi/features/history/presentation/scan_card_mapping.dart';
@@ -30,9 +33,38 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<HomeCubit>(
       create: (_) => getIt<HomeCubit>(),
-      child: const HomeView(),
+      child: const _ConsentGate(child: HomeView()),
     );
   }
+}
+
+/// Requests consent (UMP + ATT) once after the first frame. Idempotent at the
+/// service level, and guarded here so it fires a single time per mount. The
+/// demo fake no-ops, so simulator runs see zero prompts.
+class _ConsentGate extends StatefulWidget {
+  const _ConsentGate({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ConsentGate> createState() => _ConsentGateState();
+}
+
+class _ConsentGateState extends State<_ConsentGate> {
+  bool _requested = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_requested) return;
+      _requested = true;
+      unawaited(getIt<ConsentService>().ensureRequested());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// The home screen view (assumes a [HomeCubit] is provided above it).

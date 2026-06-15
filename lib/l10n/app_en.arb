@@ -1264,5 +1264,130 @@
   "tileColorRed": "Red",
   "tileColorBlack": "Black",
   "tileColorYellow": "Yellow",
-  "tileColorBlue": "Blue"
+  "tileColorBlue": "Blue",
+
+  "adPlaceholderLabel": "Ad (demo)",
+  "@adPlaceholderLabel": {
+    "description": "Label shown inside the demo-flavor banner-ad placeholder (no real ad is loaded)."
+  },
+  "paywallEyebrow": "PREMIUM",
+  "@paywallEyebrow": {
+    "description": "Small eyebrow label above the paywall headline."
+  },
+  "paywallHeadline": "Remove ads",
+  "@paywallHeadline": {
+    "description": "Paywall headline."
+  },
+  "paywallSubtitle": "Unlock detailed reasoning, no ads.",
+  "@paywallSubtitle": {
+    "description": "Paywall subtitle describing premium benefits."
+  },
+  "paywallPlanMonthly": "Monthly",
+  "@paywallPlanMonthly": {
+    "description": "Label for the monthly subscription plan."
+  },
+  "paywallPlanAnnual": "Annual",
+  "@paywallPlanAnnual": {
+    "description": "Label for the annual subscription plan."
+  },
+  "paywallBestValue": "Best value",
+  "@paywallBestValue": {
+    "description": "Badge on the most cost-effective subscription plan."
+  },
+  "paywallTrialBadge": "7-day free trial",
+  "@paywallTrialBadge": {
+    "description": "Badge indicating a 7-day free trial is available."
+  },
+  "paywallSubscribeCta": "Start free trial",
+  "@paywallSubscribeCta": {
+    "description": "Primary subscribe button when a free trial is offered."
+  },
+  "paywallSubscribeCtaNoTrial": "Subscribe",
+  "@paywallSubscribeCtaNoTrial": {
+    "description": "Primary subscribe button when no trial is offered."
+  },
+  "paywallRestore": "Restore purchases",
+  "@paywallRestore": {
+    "description": "Button to restore previous purchases (App Store requirement)."
+  },
+  "paywallTerms": "Terms & Privacy",
+  "@paywallTerms": {
+    "description": "Link to the terms of service and privacy policy."
+  },
+  "paywallCloseSemantics": "Close paywall",
+  "@paywallCloseSemantics": {
+    "description": "Accessibility label for the paywall close button."
+  },
+  "paywallSuccess": "Premium active. Ads removed.",
+  "@paywallSuccess": {
+    "description": "Confirmation shown after a successful purchase."
+  },
+  "paywallErrorGeneric": "Something went wrong. Try again.",
+  "@paywallErrorGeneric": {
+    "description": "Generic purchase error message."
+  },
+  "paywallErrorPayment": "Payment couldn't be completed.",
+  "@paywallErrorPayment": {
+    "description": "Error shown when a payment fails."
+  },
+  "paywallErrorPending": "Purchase is pending.",
+  "@paywallErrorPending": {
+    "description": "Message shown when a purchase is awaiting external approval."
+  },
+  "paywallOfflineTitle": "You're offline",
+  "@paywallOfflineTitle": {
+    "description": "Title of the offline state on the paywall."
+  },
+  "paywallOfflineBody": "Connect to subscribe or restore.",
+  "@paywallOfflineBody": {
+    "description": "Body of the offline state on the paywall."
+  },
+  "paywallRetry": "Retry",
+  "@paywallRetry": {
+    "description": "Button to retry a failed paywall operation."
+  },
+  "restoreNothingToRestore": "No purchases to restore.",
+  "@restoreNothingToRestore": {
+    "description": "Message shown when restore finds no prior purchases."
+  },
+  "restoreSuccess": "Purchases restored.",
+  "@restoreSuccess": {
+    "description": "Confirmation shown after a successful restore."
+  },
+  "detailUnlockSheetTitle": "Unlock the reasoning",
+  "@detailUnlockSheetTitle": {
+    "description": "Title of the sheet offering to unlock detailed reasoning."
+  },
+  "detailUnlockWatchAd": "Watch a short ad",
+  "@detailUnlockWatchAd": {
+    "description": "Option to unlock reasoning by watching a rewarded ad."
+  },
+  "detailUnlockGoPremium": "Go premium",
+  "@detailUnlockGoPremium": {
+    "description": "Option to unlock reasoning by subscribing to premium."
+  },
+  "detailUnlockAdFailed": "Ad couldn't load. Try again.",
+  "@detailUnlockAdFailed": {
+    "description": "Error shown when a rewarded ad fails to load."
+  },
+  "detailUnlockAdDismissed": "Ad closed early — still locked.",
+  "@detailUnlockAdDismissed": {
+    "description": "Message shown when the user closed a rewarded ad before earning the reward."
+  },
+  "detailUnlockOffline": "No connection. Go premium instead?",
+  "@detailUnlockOffline": {
+    "description": "Message shown when a rewarded-ad unlock can't run offline, offering premium."
+  },
+  "settingsRemoveAds": "Remove ads",
+  "@settingsRemoveAds": {
+    "description": "Settings row that opens the paywall to remove ads."
+  },
+  "settingsPremiumActive": "Premium active",
+  "@settingsPremiumActive": {
+    "description": "Settings row label shown when premium is active."
+  },
+  "settingsManageSubscriptionOpening": "Opening subscription settings…",
+  "@settingsManageSubscriptionOpening": {
+    "description": "Transient message while the system subscription-management screen opens."
+  }
 }

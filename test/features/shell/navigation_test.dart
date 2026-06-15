@@ -5,14 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:okey_acar_mi/app.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/router/app_router.dart';
-import 'package:okey_acar_mi/core/widgets/circle_icon_button.dart';
-import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
 import 'package:okey_acar_mi/features/auth/data/fakes/fake_auth_repository.dart';
 import 'package:okey_acar_mi/features/auth/domain/repositories/auth_repository.dart';
 import 'package:okey_acar_mi/features/auth/presentation/pages/login_page.dart';
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
+import 'package:okey_acar_mi/features/paywall/presentation/pages/paywall_page.dart';
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:okey_acar_mi/features/settings/presentation/pages/settings_page.dart';
 import 'package:okey_acar_mi/features/tutorial/presentation/pages/tutorial_page.dart';
@@ -95,7 +94,7 @@ void main() {
       check(tester.takeException()).isNull();
     });
 
-    testWidgets('deep locations build; stranded placeholder escapes home', (
+    testWidgets('deep locations build; the real paywall route renders', (
       tester,
     ) async {
       await tester.pumpWidget(const App());
@@ -116,15 +115,15 @@ void main() {
         check(tester.takeException()).isNull();
       }
 
-      // A directly-addressed placeholder (empty back stack ⇒ cannot pop, and it
-      // sits outside the bottom-nav shell) must still offer an escape to Home.
+      // Step 11 replaced the paywall placeholder with the real screen: a
+      // directly-addressed /paywall builds the PaywallPage (it requests the
+      // seeded demo offering and lays out the plan cards without throwing).
       router.go(AppRoutes.paywall);
       await tester.pumpAndSettle();
-      check(find.byType(PlaceholderPage).evaluate()).length.equals(1);
-
-      await tester.tap(find.byType(CircleIconButton));
-      await tester.pumpAndSettle();
-      check(find.byType(HomePage).evaluate()).length.equals(1);
+      check(find.byType(PaywallPage).evaluate()).length.equals(1);
+      check(
+        find.byKey(const ValueKey('paywall-plan-annual')).evaluate(),
+      ).isNotEmpty();
       check(tester.takeException()).isNull();
     });
 

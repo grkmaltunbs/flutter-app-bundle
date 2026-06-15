@@ -45,6 +45,16 @@ Future<void> pumpUntilFound(WidgetTester tester, Finder finder) async {
   }
 }
 
+/// Pumps until [finder] no longer matches, up to ~10s. Used to await a
+/// dismissed route fully tearing down (e.g. a modal bottom sheet and its
+/// barrier) before the next hit-test — a settle alone can race the barrier's
+/// removal, so a subsequent tap would land on the offstage sheet.
+Future<void> pumpUntilGone(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 100 && finder.evaluate().isNotEmpty; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 /// Splash → guest entry → Home.
 Future<void> goHomeAsGuest(WidgetTester tester) async {
   await tapKey(tester, 'splash-guest');
@@ -171,14 +181,28 @@ void main() {
         find.byKey(const ValueKey('result-done')).evaluate(),
       ).length.equals(1);
 
-      // The reasoning is locked behind the unlock CTA stub; tapping it
+      // The reasoning is locked (free user). Tapping the unlock CTA opens the
+      // unlock sheet; watching the (fake) rewarded ad grants the reward and
       // reveals the numbered steps.
       check(find.text(l10n.resultWhyThis).evaluate()).isEmpty();
       await tapKey(tester, 'result-detail-unlock');
+      await tapKey(tester, 'detail-unlock-watch-ad');
+      await pumpUntilFound(tester, find.text(l10n.resultWhyThis));
       check(find.text(l10n.resultWhyThis).evaluate()).length.equals(1);
       check(
         find.byKey(const ValueKey('result-detail-unlock')).evaluate(),
       ).isEmpty();
+
+      // `detail-unlock-watch-ad` popped the unlock sheet; wait for the sheet
+      // route AND its modal barrier to fully tear down before the next tap,
+      // otherwise the dismissed sheet's offstage barrier eats the hit-test and
+      // `result-again` never fires.
+      await pumpUntilGone(
+        tester,
+        find.byKey(const ValueKey('detail-unlock-watch-ad')),
+      );
+      await pumpUntilGone(tester, find.byType(ModalBarrier));
+      await tester.pumpAndSettle();
 
       // Rack ⇄ list layout toggle.
       await tapKey(tester, 'result-layout-list');

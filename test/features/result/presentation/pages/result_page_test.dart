@@ -12,6 +12,8 @@ import 'package:okey_acar_mi/core/game/game_tile.dart';
 import 'package:okey_acar_mi/core/game/indicator.dart';
 import 'package:okey_acar_mi/core/game/tile_color.dart';
 import 'package:okey_acar_mi/core/logging/app_logger.dart';
+import 'package:okey_acar_mi/core/payments/data/fakes/fake_purchase_repository.dart';
+import 'package:okey_acar_mi/core/payments/subscription_bloc.dart';
 import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
@@ -36,6 +38,8 @@ import 'package:okey_acar_mi/features/solver/domain/entities/solved_pair.dart';
 import 'package:okey_acar_mi/features/solver/domain/entities/solved_spot.dart';
 import 'package:okey_acar_mi/features/solver/domain/usecases/solve_rack.dart';
 import 'package:okey_acar_mi/l10n/app_localizations.dart';
+
+import '../../../../support/payments_test_support.dart';
 
 class _MockSolveRack extends Mock implements SolveRack {}
 
@@ -308,8 +312,18 @@ void main() {
       ResultBloc(solveRack, saveScan, logger, ResultArgs.fresh(_outcome));
 
   /// `ResultView` on the result route, with stub home + camera routes so
-  /// the footer/top-bar navigation is observable.
-  Widget harness(ResultBloc bloc, {bool disableAnimations = false}) {
+  /// the footer/top-bar navigation is observable. The app-scoped
+  /// [SubscriptionBloc] (free by default; premium when [premium] is set) is
+  /// provided above the route so the ad banner + detail gate resolve it.
+  Widget harness(
+    ResultBloc bloc, {
+    bool disableAnimations = false,
+    bool premium = false,
+  }) {
+    final subscription = buildSubscriptionBloc(
+      mode: premium ? FakePurchaseMode.premium : FakePurchaseMode.free,
+    );
+    addTearDown(subscription.close);
     final router = GoRouter(
       initialLocation: AppRoutes.result,
       routes: [
@@ -332,6 +346,11 @@ void main() {
             child: const ResultView(),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.paywall,
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('paywall-stub'))),
+        ),
       ],
     );
     return MaterialApp.router(
@@ -340,22 +359,29 @@ void main() {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('tr'), Locale('en')],
       routerConfig: router,
-      builder: disableAnimations
-          ? (context, child) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(disableAnimations: true),
-              child: child!,
-            )
-          : null,
+      builder: (context, child) => BlocProvider<SubscriptionBloc>.value(
+        value: subscription,
+        child: disableAnimations
+            ? MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: true),
+                child: child!,
+              )
+            : child!,
+      ),
     );
   }
 
   /// Builds the screen-scoped bloc on a stubbed solver and settles on the
   /// solved frame.
-  Future<ResultBloc> pumpResult(WidgetTester tester, SolveResult result) async {
+  Future<ResultBloc> pumpResult(
+    WidgetTester tester,
+    SolveResult result, {
+    bool premium = false,
+  }) async {
     when(() => solveRack(any())).thenAnswer((_) async => result);
     final bloc = buildBloc();
     addTearDown(bloc.close);
-    await tester.pumpWidget(harness(bloc));
+    await tester.pumpWidget(harness(bloc, premium: premium));
     await tester.pumpAndSettle();
     return bloc;
   }
@@ -575,17 +601,41 @@ void main() {
     });
   });
 
-  group('detail unlock', () {
-    testWidgets('locked: no reasoning rows, just the CTA; unlocking reveals '
-        'the localized steps', (tester) async {
+  group('detail unlock gate', () {
+    testWidgets('free + locked: no reasoning rows, only the unlock CTA', (
+      tester,
+    ) async {
       await pumpResult(tester, _opensMelds);
 
       check(key('result-detail-unlock').evaluate()).length.equals(1);
       check(find.text(_l10n.resultWhyThis).evaluate()).isEmpty();
       final firstStep = reasoningStepText(_l10n, _opensMelds.reasoning.first);
       check(find.text(firstStep).evaluate()).isEmpty();
+      check(tester.takeException()).isNull();
+    });
 
-      await tap(tester, key('result-detail-unlock'));
+    testWidgets('an in-bloc detailUnlockGranted reveals the localized steps '
+        'and drops the CTA', (tester) async {
+      final bloc = await pumpResult(tester, _opensMelds);
+
+      bloc.add(const ResultEvent.detailUnlockGranted());
+      await tester.pumpAndSettle();
+
+      check(key('result-detail-unlock').evaluate()).isEmpty();
+      check(find.text(_l10n.resultWhyThis).evaluate()).length.equals(1);
+      for (final step in _opensMelds.reasoning) {
+        check(
+          find.text(reasoningStepText(_l10n, step)).evaluate(),
+        ).length.equals(1);
+      }
+      check(tester.takeException()).isNull();
+    });
+
+    testWidgets('premium shows the reasoning immediately, never the lock CTA', (
+      tester,
+    ) async {
+      await pumpResult(tester, _opensMelds, premium: true);
+
       check(key('result-detail-unlock').evaluate()).isEmpty();
       check(find.text(_l10n.resultWhyThis).evaluate()).length.equals(1);
       for (final step in _opensMelds.reasoning) {
@@ -682,6 +732,12 @@ void main() {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: const [Locale('tr'), Locale('en')],
             routerConfig: pageRouter,
+            // The footer ad banner reads the app-scoped subscription bloc.
+            builder: (context, child) => BlocProvider<SubscriptionBloc>(
+              create: (_) => getIt<SubscriptionBloc>()
+                ..add(const SubscriptionEvent.started()),
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
         final bloc = BlocProvider.of<ResultBloc>(

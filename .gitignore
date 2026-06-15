@@ -13,6 +13,18 @@ runner/.venv/
 .claude/scheduled_tasks.lock
 
 # ------------------------------------------------------------------------------
+# Store / monetization secrets — NEVER commit (App Store / Play / RevenueCat)
+# ------------------------------------------------------------------------------
+# Apple In-App Purchase, App Store Connect API & APNs auth keys (always private)
+*.p8
+# RevenueCat Google Play service-account key + any other GCP service-account JSON
+revenuecat-key.json
+**/*service-account*.json
+# Dart-define secret bundles (RevenueCat/AdMob keys); keep *.example.json templates
+dart_defines/*.json
+!dart_defines/*.example.json
+
+# ------------------------------------------------------------------------------
 # Flutter / Dart / Pub
 # ------------------------------------------------------------------------------
 # Miscellaneous

@@ -20,9 +20,9 @@ sealed class ResultEvent with _$ResultEvent {
   const factory ResultEvent.layoutToggled(ResultLayout layout) =
       ResultLayoutToggled;
 
-  /// The detail-unlock was granted (fired directly by the locked CTA for
-  /// now).
-  // TODO(step-11): route the grant through the rewarded-ad /
-  // SubscriptionBloc gate instead of firing it directly from the CTA.
+  /// The detail-unlock was granted — fired by the rewarded-ad reward callback
+  /// in the result detail section. Premium users bypass this entirely (the
+  /// section reads entitlement from `SubscriptionBloc` and shows the reasoning
+  /// directly).
   const factory ResultEvent.detailUnlockGranted() = ResultDetailUnlockGranted;
 }

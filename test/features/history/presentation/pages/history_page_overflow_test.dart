@@ -9,6 +9,7 @@ import 'package:okey_acar_mi/core/game/game_tile.dart';
 import 'package:okey_acar_mi/core/game/indicator.dart';
 import 'package:okey_acar_mi/core/game/tile_color.dart';
 import 'package:okey_acar_mi/core/logging/app_logger.dart';
+import 'package:okey_acar_mi/core/payments/subscription_bloc.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
@@ -167,9 +168,15 @@ void main() {
           size: size,
           textScaler: TextScaler.linear(textScale),
         ),
-        child: BlocProvider<HistoryBloc>(
-          create: (_) => buildBloc()..add(const HistoryEvent.started()),
-          child: const HistoryView(),
+        // Free entitlement (the demo default): the footer ad banner is
+        // mounted at its worst-case height beneath the list.
+        child: BlocProvider<SubscriptionBloc>(
+          create: (_) => getIt<SubscriptionBloc>()
+            ..add(const SubscriptionEvent.started()),
+          child: BlocProvider<HistoryBloc>(
+            create: (_) => buildBloc()..add(const HistoryEvent.started()),
+            child: const HistoryView(),
+          ),
         ),
       ),
     );

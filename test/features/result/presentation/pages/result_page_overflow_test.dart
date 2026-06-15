@@ -8,6 +8,7 @@ import 'package:okey_acar_mi/core/game/game_tile.dart';
 import 'package:okey_acar_mi/core/game/indicator.dart';
 import 'package:okey_acar_mi/core/game/tile_color.dart';
 import 'package:okey_acar_mi/core/logging/app_logger.dart';
+import 'package:okey_acar_mi/core/payments/subscription_bloc.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
@@ -27,6 +28,8 @@ import 'package:okey_acar_mi/features/solver/domain/entities/solved_pair.dart';
 import 'package:okey_acar_mi/features/solver/domain/entities/solved_spot.dart';
 import 'package:okey_acar_mi/features/solver/domain/usecases/solve_rack.dart';
 import 'package:okey_acar_mi/l10n/app_localizations.dart';
+
+import '../../../../support/payments_test_support.dart';
 
 /// Responsive size matrix from `CLAUDE.md`: smallest phone, typical phone,
 /// largest phone, tablet — each at textScale 1.0 and 2.0, in both locales.
@@ -298,6 +301,7 @@ void main() {
     required double textScale,
     required Locale locale,
     required ResultBloc bloc,
+    required SubscriptionBloc subscription,
   }) {
     return MaterialApp(
       theme: AppTheme.light(AppAccent.sage, TileStyle.classic),
@@ -309,9 +313,14 @@ void main() {
           size: size,
           textScaler: TextScaler.linear(textScale),
         ),
-        child: BlocProvider<ResultBloc>.value(
-          value: bloc,
-          child: const ResultView(),
+        // Free entitlement: the footer ad banner is mounted (its worst-case
+        // height), pinned above the CTAs.
+        child: BlocProvider<SubscriptionBloc>.value(
+          value: subscription,
+          child: BlocProvider<ResultBloc>.value(
+            value: bloc,
+            child: const ResultView(),
+          ),
         ),
       ),
     );
@@ -332,6 +341,8 @@ void main() {
 
               final bloc = buildBloc();
               addTearDown(bloc.close);
+              final subscription = buildSubscriptionBloc();
+              addTearDown(subscription.close);
 
               await tester.pumpWidget(
                 harness(
@@ -339,6 +350,7 @@ void main() {
                   textScale: textScale,
                   locale: locale,
                   bloc: bloc,
+                  subscription: subscription,
                 ),
               );
               await tester.pumpAndSettle();

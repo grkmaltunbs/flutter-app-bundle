@@ -1961,6 +1961,192 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Blue'**
   String get tileColorBlue;
+
+  /// Label shown inside the demo-flavor banner-ad placeholder (no real ad is loaded).
+  ///
+  /// In en, this message translates to:
+  /// **'Ad (demo)'**
+  String get adPlaceholderLabel;
+
+  /// Small eyebrow label above the paywall headline.
+  ///
+  /// In en, this message translates to:
+  /// **'PREMIUM'**
+  String get paywallEyebrow;
+
+  /// Paywall headline.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove ads'**
+  String get paywallHeadline;
+
+  /// Paywall subtitle describing premium benefits.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock detailed reasoning, no ads.'**
+  String get paywallSubtitle;
+
+  /// Label for the monthly subscription plan.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get paywallPlanMonthly;
+
+  /// Label for the annual subscription plan.
+  ///
+  /// In en, this message translates to:
+  /// **'Annual'**
+  String get paywallPlanAnnual;
+
+  /// Badge on the most cost-effective subscription plan.
+  ///
+  /// In en, this message translates to:
+  /// **'Best value'**
+  String get paywallBestValue;
+
+  /// Badge indicating a 7-day free trial is available.
+  ///
+  /// In en, this message translates to:
+  /// **'7-day free trial'**
+  String get paywallTrialBadge;
+
+  /// Primary subscribe button when a free trial is offered.
+  ///
+  /// In en, this message translates to:
+  /// **'Start free trial'**
+  String get paywallSubscribeCta;
+
+  /// Primary subscribe button when no trial is offered.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscribe'**
+  String get paywallSubscribeCtaNoTrial;
+
+  /// Button to restore previous purchases (App Store requirement).
+  ///
+  /// In en, this message translates to:
+  /// **'Restore purchases'**
+  String get paywallRestore;
+
+  /// Link to the terms of service and privacy policy.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms & Privacy'**
+  String get paywallTerms;
+
+  /// Accessibility label for the paywall close button.
+  ///
+  /// In en, this message translates to:
+  /// **'Close paywall'**
+  String get paywallCloseSemantics;
+
+  /// Confirmation shown after a successful purchase.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium active. Ads removed.'**
+  String get paywallSuccess;
+
+  /// Generic purchase error message.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Try again.'**
+  String get paywallErrorGeneric;
+
+  /// Error shown when a payment fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment couldn\'t be completed.'**
+  String get paywallErrorPayment;
+
+  /// Message shown when a purchase is awaiting external approval.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase is pending.'**
+  String get paywallErrorPending;
+
+  /// Title of the offline state on the paywall.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re offline'**
+  String get paywallOfflineTitle;
+
+  /// Body of the offline state on the paywall.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to subscribe or restore.'**
+  String get paywallOfflineBody;
+
+  /// Button to retry a failed paywall operation.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get paywallRetry;
+
+  /// Message shown when restore finds no prior purchases.
+  ///
+  /// In en, this message translates to:
+  /// **'No purchases to restore.'**
+  String get restoreNothingToRestore;
+
+  /// Confirmation shown after a successful restore.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchases restored.'**
+  String get restoreSuccess;
+
+  /// Title of the sheet offering to unlock detailed reasoning.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock the reasoning'**
+  String get detailUnlockSheetTitle;
+
+  /// Option to unlock reasoning by watching a rewarded ad.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch a short ad'**
+  String get detailUnlockWatchAd;
+
+  /// Option to unlock reasoning by subscribing to premium.
+  ///
+  /// In en, this message translates to:
+  /// **'Go premium'**
+  String get detailUnlockGoPremium;
+
+  /// Error shown when a rewarded ad fails to load.
+  ///
+  /// In en, this message translates to:
+  /// **'Ad couldn\'t load. Try again.'**
+  String get detailUnlockAdFailed;
+
+  /// Message shown when the user closed a rewarded ad before earning the reward.
+  ///
+  /// In en, this message translates to:
+  /// **'Ad closed early — still locked.'**
+  String get detailUnlockAdDismissed;
+
+  /// Message shown when a rewarded-ad unlock can't run offline, offering premium.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection. Go premium instead?'**
+  String get detailUnlockOffline;
+
+  /// Settings row that opens the paywall to remove ads.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove ads'**
+  String get settingsRemoveAds;
+
+  /// Settings row label shown when premium is active.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium active'**
+  String get settingsPremiumActive;
+
+  /// Transient message while the system subscription-management screen opens.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening subscription settings…'**
+  String get settingsManageSubscriptionOpening;
 }
 
 class _AppLocalizationsDelegate

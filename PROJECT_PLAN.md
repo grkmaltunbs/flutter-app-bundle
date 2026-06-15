@@ -334,7 +334,7 @@ from them.
 ---
 
 ## Step 11 — Monetization: RevenueCat subscription + AdMob ads + consent
-- [ ]
+- [x]
 - id: monetization
 - depends_on: settings, result
 - spec_refs: flow-purchase, flow-detail, flow-consent, screen-paywall, Monetization spec

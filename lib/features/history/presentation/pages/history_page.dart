@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:okey_acar_mi/core/ads/ad_placement.dart';
+import 'package:okey_acar_mi/core/ads/presentation/ad_banner.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
 import 'package:okey_acar_mi/core/format/scan_timestamp.dart';
@@ -80,6 +82,12 @@ class HistoryView extends StatelessWidget {
                       };
                     },
                   ),
+            ),
+            // Banner self-hides for premium and reserves a fixed height, so it
+            // never overlaps the list above.
+            const SafeArea(
+              top: false,
+              child: AdBanner(placement: AdPlacement.history),
             ),
           ],
         ),

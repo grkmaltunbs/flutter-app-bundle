@@ -1,0 +1,9 @@
+{
+  "APP_ENV": "prod",
+  "REVENUECAT_IOS_KEY": "appl_xxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "REVENUECAT_ANDROID_KEY": "goog_xxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "ADMOB_IOS_BANNER": "",
+  "ADMOB_ANDROID_BANNER": "",
+  "ADMOB_IOS_REWARDED": "",
+  "ADMOB_ANDROID_REWARDED": ""
+}

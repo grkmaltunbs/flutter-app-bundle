@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:injectable/injectable.dart';
 import 'package:okey_acar_mi/core/router/go_router_refresh_stream.dart';
-import 'package:okey_acar_mi/core/widgets/placeholder_page.dart';
 import 'package:okey_acar_mi/experimental/gemini_detection_lab_page.dart';
 import 'package:okey_acar_mi/experimental/solver_lab_page.dart';
 import 'package:okey_acar_mi/features/auth/presentation/blocs/auth_bloc.dart';
@@ -15,6 +14,7 @@ import 'package:okey_acar_mi/features/detection/presentation/pages/analyzing_pag
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
+import 'package:okey_acar_mi/features/paywall/presentation/pages/paywall_page.dart';
 import 'package:okey_acar_mi/features/result/domain/entities/result_args.dart';
 import 'package:okey_acar_mi/features/result/presentation/pages/result_page.dart';
 import 'package:okey_acar_mi/features/review/presentation/pages/review_page.dart';
@@ -55,7 +55,7 @@ abstract final class AppRoutes {
   /// Result / verdict (`extra` must be a `ResultArgs` — fresh or replay).
   static const String result = '/result';
 
-  /// Remove-ads paywall (placeholder until Step 11).
+  /// Remove-ads paywall.
   static const String paywall = '/paywall';
 
   /// EXPERIMENTAL — Gemini detection playground (debug builds only).
@@ -186,8 +186,7 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.paywall,
-          builder: (context, state) =>
-              const PlaceholderPage(screen: PlaceholderScreen.paywall),
+          builder: (context, state) => const PaywallPage(),
         ),
         // EXPERIMENTAL — playground routes, registered in debug builds only.
         if (kDebugMode) ...[

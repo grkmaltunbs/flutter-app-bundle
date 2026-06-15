@@ -1070,4 +1070,98 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tileColorBlue => 'Blue';
+
+  @override
+  String get adPlaceholderLabel => 'Ad (demo)';
+
+  @override
+  String get paywallEyebrow => 'PREMIUM';
+
+  @override
+  String get paywallHeadline => 'Remove ads';
+
+  @override
+  String get paywallSubtitle => 'Unlock detailed reasoning, no ads.';
+
+  @override
+  String get paywallPlanMonthly => 'Monthly';
+
+  @override
+  String get paywallPlanAnnual => 'Annual';
+
+  @override
+  String get paywallBestValue => 'Best value';
+
+  @override
+  String get paywallTrialBadge => '7-day free trial';
+
+  @override
+  String get paywallSubscribeCta => 'Start free trial';
+
+  @override
+  String get paywallSubscribeCtaNoTrial => 'Subscribe';
+
+  @override
+  String get paywallRestore => 'Restore purchases';
+
+  @override
+  String get paywallTerms => 'Terms & Privacy';
+
+  @override
+  String get paywallCloseSemantics => 'Close paywall';
+
+  @override
+  String get paywallSuccess => 'Premium active. Ads removed.';
+
+  @override
+  String get paywallErrorGeneric => 'Something went wrong. Try again.';
+
+  @override
+  String get paywallErrorPayment => 'Payment couldn\'t be completed.';
+
+  @override
+  String get paywallErrorPending => 'Purchase is pending.';
+
+  @override
+  String get paywallOfflineTitle => 'You\'re offline';
+
+  @override
+  String get paywallOfflineBody => 'Connect to subscribe or restore.';
+
+  @override
+  String get paywallRetry => 'Retry';
+
+  @override
+  String get restoreNothingToRestore => 'No purchases to restore.';
+
+  @override
+  String get restoreSuccess => 'Purchases restored.';
+
+  @override
+  String get detailUnlockSheetTitle => 'Unlock the reasoning';
+
+  @override
+  String get detailUnlockWatchAd => 'Watch a short ad';
+
+  @override
+  String get detailUnlockGoPremium => 'Go premium';
+
+  @override
+  String get detailUnlockAdFailed => 'Ad couldn\'t load. Try again.';
+
+  @override
+  String get detailUnlockAdDismissed => 'Ad closed early — still locked.';
+
+  @override
+  String get detailUnlockOffline => 'No connection. Go premium instead?';
+
+  @override
+  String get settingsRemoveAds => 'Remove ads';
+
+  @override
+  String get settingsPremiumActive => 'Premium active';
+
+  @override
+  String get settingsManageSubscriptionOpening =>
+      'Opening subscription settings…';
 }

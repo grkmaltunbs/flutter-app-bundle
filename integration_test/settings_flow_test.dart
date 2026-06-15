@@ -111,8 +111,8 @@ void main() {
       check(tester.takeException()).isNull();
     });
 
-    testWidgets('purchases + about sections: rows present, restore shows the '
-        'coming-soon SnackBar, version row carries AppInfo', (tester) async {
+    testWidgets('purchases + about sections: free rows present, restore '
+        'surfaces a SnackBar, version row carries AppInfo', (tester) async {
       await tester.pumpWidget(const App());
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('splash-guest')));
@@ -132,14 +132,18 @@ void main() {
       await tester.scrollUntilVisible(terms, 120, scrollable: scrollable);
       await tester.pumpAndSettle();
 
-      // All four new rows are present. The legal links are NOT tapped: they
-      // would launch an external browser intent on the device.
+      // Step 11 rewired the purchases rows onto RevenueCat: a free user sees
+      // remove-ads + restore (never the premium-only manage row). The legal
+      // links are NOT tapped: they would launch an external browser intent.
+      check(
+        find.byKey(const ValueKey('settings-remove-ads')).evaluate(),
+      ).length.equals(1);
       check(
         find.byKey(const ValueKey('settings-restore-purchases')).evaluate(),
       ).length.equals(1);
       check(
         find.byKey(const ValueKey('settings-manage-subscription')).evaluate(),
-      ).length.equals(1);
+      ).isEmpty();
       check(
         find.byKey(const ValueKey('settings-privacy-policy')).evaluate(),
       ).length.equals(1);
@@ -148,14 +152,15 @@ void main() {
       // The version row renders the real on-device package version.
       check(find.text(getIt<AppInfo>().label).evaluate()).length.equals(1);
 
-      // Restore purchases → the Step-11 placeholder SnackBar.
+      // Restore purchases → the demo fake re-emits the (free) entitlement and
+      // the restore-success SnackBar is shown.
       final l10n = tester.element(find.byType(SettingsPage)).l10n;
       await tapKey(tester, 'settings-restore-purchases');
       check(
         find
             .descendant(
               of: find.byType(SnackBar),
-              matching: find.text(l10n.settingsComingSoon),
+              matching: find.text(l10n.restoreSuccess),
             )
             .evaluate(),
       ).length.equals(1);

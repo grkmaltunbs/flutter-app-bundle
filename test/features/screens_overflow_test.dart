@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:okey_acar_mi/core/camera/viewfinder_service.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/error/failure.dart';
+import 'package:okey_acar_mi/core/payments/subscription_bloc.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/app_theme.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
@@ -31,6 +32,7 @@ import 'package:okey_acar_mi/features/detection/presentation/pages/analyzing_pag
 import 'package:okey_acar_mi/features/history/presentation/pages/history_page.dart';
 import 'package:okey_acar_mi/features/home/presentation/pages/home_page.dart';
 import 'package:okey_acar_mi/features/onboarding/presentation/pages/splash_page.dart';
+import 'package:okey_acar_mi/features/paywall/presentation/pages/paywall_page.dart';
 import 'package:okey_acar_mi/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:okey_acar_mi/features/settings/presentation/pages/settings_page.dart';
 import 'package:okey_acar_mi/features/shell/presentation/widgets/app_bottom_nav.dart';
@@ -54,13 +56,21 @@ const _textScales = <double>[1, 2];
 /// the longer TR labels must also be asserted overflow-free.
 const _locales = <Locale>[Locale('tr'), Locale('en')];
 
-/// The blocs every screen may read: [SettingsCubit] plus the app-scoped
-/// [AuthBloc] (Settings' account section, the shell banner).
+/// The blocs every screen may read: [SettingsCubit], the app-scoped [AuthBloc]
+/// (Settings' account section, the shell banner), and the app-scoped
+/// [SubscriptionBloc] (Step 11's ad banner, the result detail gate, and the
+/// settings purchases section). All resolve from the demo container — the
+/// subscription bloc defaults to the free entitlement, the correct overflow
+/// baseline.
 MultiBlocProvider _withProviders(Widget child) => MultiBlocProvider(
   providers: [
     BlocProvider<SettingsCubit>(create: (_) => SettingsCubit()),
     BlocProvider<AuthBloc>(
       create: (_) => getIt<AuthBloc>()..add(const AuthEvent.started()),
+    ),
+    BlocProvider<SubscriptionBloc>(
+      create: (_) =>
+          getIt<SubscriptionBloc>()..add(const SubscriptionEvent.started()),
     ),
   ],
   child: child,
@@ -187,6 +197,11 @@ void main() {
     prepare: () => _fakeAuth().mode = FakeAuthMode.seededUnverified,
   );
   _matrixTest('LoginPage', () => const LoginPage(), router: true);
+
+  // The remove-ads paywall: both plan cards stack, the CTA cluster is pinned.
+  // Free entitlement (the demo default) so the loaded plan body renders — the
+  // demo fake returns the seeded monthly + annual offering on first build.
+  _matrixTest('PaywallPage', () => const PaywallPage(), router: true);
 
   // The session-expired banner above the tab content (the AppShell layout).
   _matrixTest(

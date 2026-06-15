@@ -5,11 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:okey_acar_mi/app.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/env/app_env.dart';
+import 'package:okey_acar_mi/core/env/revenuecat_config.dart';
 import 'package:okey_acar_mi/core/logging/app_logger.dart';
 import 'package:okey_acar_mi/firebase_options.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// Performs all pre-`runApp` initialization and starts the app.
 ///
@@ -61,6 +64,25 @@ Future<void> bootstrap() async {
       }
 
       await configureDependencies(env.name);
+
+      // Prod-only SDK init. Demo never touches RevenueCat/AdMob (the fakes
+      // resolve instead), so this whole block is skipped under demo. Each init
+      // is independently guarded so a failure logs but never aborts boot
+      // (mirrors the Firebase guard above).
+      if (env == AppEnv.prod) {
+        try {
+          await Purchases.configure(
+            PurchasesConfiguration(RevenueCatConfig.apiKey),
+          );
+        } on Object catch (error, stackTrace) {
+          debugPrint('Purchases.configure failed: $error\n$stackTrace');
+        }
+        try {
+          await MobileAds.instance.initialize();
+        } on Object catch (error, stackTrace) {
+          debugPrint('MobileAds.initialize failed: $error\n$stackTrace');
+        }
+      }
 
       final logger = getIt<AppLogger>();
       final previousOnError = FlutterError.onError;

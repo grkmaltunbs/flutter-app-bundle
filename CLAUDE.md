@@ -23,7 +23,7 @@ and the authoritative game rules — is in **`PRODUCT_SPEC.md`**; UI follows the
 bundle in `docs/design/101-okey-acar-mi/`. UI-fidelity and **zero-overflow** on the
 variable-length rack (14–22 tiles, 2 rows) are hard constraints.
 
-**Bundle ID:** `com.okeyacarmi.okey_acar_mi`
+**Bundle IDs (differ by platform):** iOS = `com.okeyacarmi.okeyAcarMi`, Android `applicationId` = `com.okeyacarmi.okey_acar_mi` (Apple forbids underscores in bundle IDs, so iOS is camelCased while Android keeps them — Xcode, the per-platform Firebase apps, signing, and the store records each use their own platform's exact string).
 **Firebase project:** `okeyacarmi-dcb8c` — Auth + Firestore + Analytics + Crashlytics + **AI Logic** (Gemini detection).
 
 ## Architecture

@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:okey_acar_mi/core/app_info/app_info.dart';
 import 'package:okey_acar_mi/core/constants/legal_links.dart';
 import 'package:okey_acar_mi/core/di/injection.dart';
 import 'package:okey_acar_mi/core/extensions/context_extensions.dart';
+import 'package:okey_acar_mi/core/payments/purchase_failure.dart';
+import 'package:okey_acar_mi/core/payments/subscription_bloc.dart';
+import 'package:okey_acar_mi/core/router/app_router.dart';
 import 'package:okey_acar_mi/core/theme/app_accent.dart';
 import 'package:okey_acar_mi/core/theme/tile_style.dart';
 import 'package:okey_acar_mi/core/widgets/eyebrow.dart';
@@ -116,20 +121,7 @@ class SettingsPage extends StatelessWidget {
 
                 _SettingsSection(
                   title: l10n.settingsPurchasesLabel,
-                  children: [
-                    // Step 11 rewires these two rows onto RevenueCat (via
-                    // SubscriptionBloc) — they are the single purchase seams.
-                    _ActionRow(
-                      key: const ValueKey('settings-restore-purchases'),
-                      label: l10n.settingsRestorePurchases,
-                      onTap: () => _showComingSoon(context),
-                    ),
-                    _ActionRow(
-                      key: const ValueKey('settings-manage-subscription'),
-                      label: l10n.settingsManageSubscription,
-                      onTap: () => _showComingSoon(context),
-                    ),
-                  ],
+                  children: const [_PurchasesSection()],
                 ),
 
                 _SettingsSection(
@@ -197,13 +189,6 @@ class SettingsPage extends StatelessWidget {
     GameMode.okey => l10n.gameModeOkeyTitle,
   };
 
-  /// Placeholder feedback for the purchase rows until Step 11 lands.
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(context.l10n.settingsComingSoon)));
-  }
-
   /// Opens [url] in the external browser; a refusal or failure surfaces as a
   /// localized SnackBar instead of an exception.
   Future<void> _openLegalLink(BuildContext context, String url) async {
@@ -224,6 +209,133 @@ class SettingsPage extends StatelessWidget {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(errorText)));
     }
+  }
+}
+
+/// The purchases rows, wired to [SubscriptionBloc].
+///
+/// Free users see "remove ads" (→ paywall) + restore. Premium users see a
+/// "premium active" indicator, "manage subscription" (opens the platform store
+/// page via url_launcher — never the purchase SDK), and restore. Restore /
+/// purchase feedback is surfaced as SnackBars by the listener.
+class _PurchasesSection extends StatelessWidget {
+  const _PurchasesSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return BlocConsumer<SubscriptionBloc, SubscriptionState>(
+      listenWhen: (a, b) => a.flow != b.flow,
+      listener: (context, state) => _onFlow(context, state.flow),
+      buildWhen: (a, b) => a.isPremium != b.isPremium,
+      builder: (context, state) {
+        final bloc = context.read<SubscriptionBloc>();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (state.isPremium) ...[
+              _PremiumActiveRow(label: l10n.settingsPremiumActive),
+              _ActionRow(
+                key: const ValueKey('settings-manage-subscription'),
+                label: l10n.settingsManageSubscription,
+                trailingIcon: Icons.open_in_new,
+                onTap: () => unawaited(_openManagement(context)),
+              ),
+            ] else
+              _ActionRow(
+                key: const ValueKey('settings-remove-ads'),
+                label: l10n.settingsRemoveAds,
+                onTap: () => context.push(AppRoutes.paywall),
+              ),
+            _ActionRow(
+              key: const ValueKey('settings-restore-purchases'),
+              label: l10n.settingsRestorePurchases,
+              onTap: () => bloc.add(const SubscriptionEvent.restoreRequested()),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _onFlow(BuildContext context, SubscriptionFlow flow) {
+    final l10n = context.l10n;
+    String? text;
+    switch (flow) {
+      case SubscriptionFlowRestoreSucceeded():
+        text = l10n.restoreSuccess;
+      case SubscriptionFlowError(:final failure):
+        text = failure is PurchaseRestoreNothing
+            ? l10n.restoreNothingToRestore
+            : l10n.paywallErrorGeneric;
+      case SubscriptionFlowIdle():
+      case SubscriptionFlowOfferingsLoading():
+      case SubscriptionFlowPurchasing():
+      case SubscriptionFlowRestoring():
+      case SubscriptionFlowPurchaseSucceeded():
+      case SubscriptionFlowOffline():
+        text = null;
+    }
+    if (text == null) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// Opens the platform subscription-management page (App Store / Play). Keeps
+  /// the purchase SDK out of the widget layer.
+  Future<void> _openManagement(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(l10n.settingsManageSubscriptionOpening)),
+      );
+    final url = Platform.isIOS
+        ? 'https://apps.apple.com/account/subscriptions'
+        : 'https://play.google.com/store/account/subscriptions';
+    var opened = false;
+    try {
+      opened = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+    } on Exception {
+      opened = false;
+    }
+    if (!opened) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.settingsLinkError)));
+    }
+  }
+}
+
+/// A non-interactive "premium active" indicator row.
+class _PremiumActiveRow extends StatelessWidget {
+  const _PremiumActiveRow({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
+      child: Row(
+        children: [
+          Icon(Icons.verified_outlined, size: 18, color: palette.good),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: context.textTheme.bodyMedium?.copyWith(color: palette.ink),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

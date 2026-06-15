@@ -1065,4 +1065,97 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get tileColorBlue => 'Mavi';
+
+  @override
+  String get adPlaceholderLabel => 'Reklam (demo)';
+
+  @override
+  String get paywallEyebrow => 'PREMIUM';
+
+  @override
+  String get paywallHeadline => 'Reklamları kaldır';
+
+  @override
+  String get paywallSubtitle => 'Detaylı açıklama, reklamsız deneyim.';
+
+  @override
+  String get paywallPlanMonthly => 'Aylık';
+
+  @override
+  String get paywallPlanAnnual => 'Yıllık';
+
+  @override
+  String get paywallBestValue => 'En avantajlı';
+
+  @override
+  String get paywallTrialBadge => '7 gün ücretsiz';
+
+  @override
+  String get paywallSubscribeCta => 'Ücretsiz başla';
+
+  @override
+  String get paywallSubscribeCtaNoTrial => 'Abone ol';
+
+  @override
+  String get paywallRestore => 'Satın alımları geri yükle';
+
+  @override
+  String get paywallTerms => 'Koşullar ve Gizlilik';
+
+  @override
+  String get paywallCloseSemantics => 'Kapat';
+
+  @override
+  String get paywallSuccess => 'Premium etkin. Reklamlar kaldırıldı.';
+
+  @override
+  String get paywallErrorGeneric => 'Bir şey ters gitti. Tekrar dene.';
+
+  @override
+  String get paywallErrorPayment => 'Ödeme tamamlanamadı.';
+
+  @override
+  String get paywallErrorPending => 'Satın alma beklemede.';
+
+  @override
+  String get paywallOfflineTitle => 'Bağlantı yok';
+
+  @override
+  String get paywallOfflineBody => 'Abone olmak için bağlan.';
+
+  @override
+  String get paywallRetry => 'Tekrar dene';
+
+  @override
+  String get restoreNothingToRestore => 'Geri yüklenecek satın alma yok.';
+
+  @override
+  String get restoreSuccess => 'Satın alımlar geri yüklendi.';
+
+  @override
+  String get detailUnlockSheetTitle => 'Açıklamayı aç';
+
+  @override
+  String get detailUnlockWatchAd => 'Kısa reklam izle';
+
+  @override
+  String get detailUnlockGoPremium => 'Premium\'a geç';
+
+  @override
+  String get detailUnlockAdFailed => 'Reklam yüklenemedi. Tekrar dene.';
+
+  @override
+  String get detailUnlockAdDismissed => 'Reklam erken kapandı — kilitli kaldı.';
+
+  @override
+  String get detailUnlockOffline => 'Bağlantı yok. Premium\'a geçilsin mi?';
+
+  @override
+  String get settingsRemoveAds => 'Reklamları kaldır';
+
+  @override
+  String get settingsPremiumActive => 'Premium etkin';
+
+  @override
+  String get settingsManageSubscriptionOpening => 'Abonelik ayarları açılıyor…';
 }

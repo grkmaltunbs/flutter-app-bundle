@@ -33,7 +33,11 @@ dependencies:
   bloc_concurrency: ^0.3.0
   camera: ^0.12.0+1
   cloud_firestore: ^6.5.0
-  connectivity_plus: ^7.1.1
+  # Pinned to 7.0.0 (not 7.1.x): 7.1.0+ references the iOS 26 SDK symbol
+  # NWPath.isUltraConstrained unconditionally, which fails to compile against
+  # the iOS 18.1 SDK (Xcode 16.1). 7.0.0 keeps the same Dart online/offline
+  # API. Re-raise once the toolchain ships the iOS 26 SDK (Xcode 26+).
+  connectivity_plus: 7.0.0
   cupertino_icons: ^1.0.8
   drift: ^2.33.0
   firebase_ai: ^3.12.2

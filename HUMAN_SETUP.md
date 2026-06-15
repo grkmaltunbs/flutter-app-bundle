@@ -27,7 +27,7 @@ Items that don't apply should be struck through: `- [x] ~~item~~ _(not needed)_`
       — Apple Sign-In is mandatory because Google is offered).
 - [x] Google sign-in: OAuth client + (Android) **SHA-1/SHA-256** added; (iOS)
       reversed-client-ID URL scheme added to `Info.plist`.
-- [ ] The `_googleServerClientId` constant in
+- [x] The `_googleServerClientId` constant in
       `lib/features/auth/data/repositories/firebase_auth_repository.dart` must
       equal the `client_type: 3` (web) OAuth client in
       `android/app/google-services.json` — re-check after any
@@ -67,7 +67,11 @@ Suggested product IDs (keep consistent across stores + RevenueCat + `.storekit`)
 ## Apple Developer (if shipping to iOS)
 
 - [ ] Apple Developer Program enrolled.
-- [ ] App ID created with bundle ID.
+- [ ] App ID created with the **iOS bundle ID** `com.okeyacarmi.okeyAcarMi` (camelCase). NOTE:
+      this differs from the **Android `applicationId`** `com.okeyacarmi.okey_acar_mi` — Apple
+      forbids underscores, so iOS is camelCased while Android keeps them. Register the iOS one at
+      developer.apple.com → Certificates, Identifiers & Profiles → Identifiers, then reference it
+      when creating the App Store Connect app record.
 - [ ] Xcode auto-signing configured (Runner → Signing & Capabilities → select team).
 
 ## Android signing (if shipping to Play Store)

@@ -12,6 +12,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as _i974;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
+import 'package:okey_acar_mi/core/ads/admob_ads_service.dart' as _i690;
+import 'package:okey_acar_mi/core/ads/ads_service.dart' as _i770;
+import 'package:okey_acar_mi/core/ads/fakes/fake_ads_service.dart' as _i1027;
 import 'package:okey_acar_mi/core/app_info/app_info.dart' as _i50;
 import 'package:okey_acar_mi/core/camera/viewfinder_service.dart' as _i381;
 import 'package:okey_acar_mi/core/db/app_database.dart' as _i483;
@@ -20,6 +23,13 @@ import 'package:okey_acar_mi/core/game/game_mode.dart' as _i970;
 import 'package:okey_acar_mi/core/logging/app_logger.dart' as _i856;
 import 'package:okey_acar_mi/core/network/connectivity_cubit.dart' as _i928;
 import 'package:okey_acar_mi/core/network/connectivity_service.dart' as _i854;
+import 'package:okey_acar_mi/core/payments/data/fakes/fake_purchase_repository.dart'
+    as _i105;
+import 'package:okey_acar_mi/core/payments/data/revenuecat_purchase_repository.dart'
+    as _i1069;
+import 'package:okey_acar_mi/core/payments/domain/repositories/purchase_repository.dart'
+    as _i1001;
+import 'package:okey_acar_mi/core/payments/subscription_bloc.dart' as _i278;
 import 'package:okey_acar_mi/core/router/app_router.dart' as _i126;
 import 'package:okey_acar_mi/core/storage/preferences_module.dart' as _i824;
 import 'package:okey_acar_mi/core/storage/preferences_store.dart' as _i339;
@@ -76,6 +86,12 @@ import 'package:okey_acar_mi/features/capture/domain/usecases/pick_from_gallery.
     as _i729;
 import 'package:okey_acar_mi/features/capture/presentation/blocs/camera_bloc.dart'
     as _i437;
+import 'package:okey_acar_mi/features/consent/data/fakes/fake_consent_service.dart'
+    as _i451;
+import 'package:okey_acar_mi/features/consent/data/platform_consent_service.dart'
+    as _i174;
+import 'package:okey_acar_mi/features/consent/domain/repositories/consent_service.dart'
+    as _i872;
 import 'package:okey_acar_mi/features/detection/data/detection_bindings.dart'
     as _i386;
 import 'package:okey_acar_mi/features/detection/data/fakes/fake_tile_detector.dart'
@@ -174,6 +190,15 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       preResolve: true,
     );
+    gh.lazySingleton<_i872.ConsentService>(
+      () => _i451.FakeConsentService(),
+      registerFor: {_demo},
+      dispose: _i451.disposeFakeConsentService,
+    );
+    gh.lazySingleton<_i872.ConsentService>(
+      () => _i174.PlatformConsentService(gh<_i856.AppLogger>()),
+      registerFor: {_prod},
+    );
     gh.lazySingleton<_i510.FakeCaptureService>(
       () => captureBindings.fakeCaptureService,
       registerFor: {_demo},
@@ -182,6 +207,11 @@ extension GetItInjectableX on _i174.GetIt {
       () => historyBindings.fakeScanRemoteDataSource,
       registerFor: {_demo},
       dispose: _i867.disposeFakeScanRemoteDataSource,
+    );
+    gh.lazySingleton<_i770.AdsService>(
+      () => _i1027.FakeAdsService(),
+      registerFor: {_demo},
+      dispose: _i1027.disposeFakeAdsService,
     );
     gh.lazySingleton<_i92.Clock>(
       () => const _i92.FakeClock(),
@@ -245,6 +275,11 @@ extension GetItInjectableX on _i174.GetIt {
       () => const _i92.SystemClock(),
       registerFor: {_prod},
     );
+    gh.lazySingleton<_i1001.PurchaseRepository>(
+      () => _i1069.RevenueCatPurchaseRepository(),
+      registerFor: {_prod},
+      dispose: _i1069.disposeRevenueCatPurchaseRepository,
+    );
     gh.lazySingleton<_i1068.ScanRemoteDataSource>(
       () => historyBindings.demoScanRemoteDataSource(
         gh<_i661.FakeScanRemoteDataSource>(),
@@ -282,6 +317,18 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i502.SolveRack>(
       () => _i502.SolveRack(gh<_i641.SolverEngine>()),
     );
+    gh.lazySingleton<_i770.AdsService>(
+      () => _i690.AdMobAdsService(
+        gh<_i872.ConsentService>(),
+        gh<_i856.AppLogger>(),
+      ),
+      registerFor: {_prod},
+    );
+    gh.lazySingleton<_i1001.PurchaseRepository>(
+      () => _i105.FakePurchaseRepository(gh<_i92.Clock>()),
+      registerFor: {_demo},
+      dispose: _i105.disposeFakePurchaseRepository,
+    );
     gh.factory<_i1033.GetTemplateItems>(
       () => _i1033.GetTemplateItems(gh<_i434.TemplateRepository>()),
     );
@@ -299,6 +346,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i856.AppLogger>(),
       ),
       registerFor: {_prod},
+    );
+    gh.lazySingleton<_i278.SubscriptionBloc>(
+      () => _i278.SubscriptionBloc(gh<_i1001.PurchaseRepository>()),
     );
     gh.factory<_i928.ConnectivityCubit>(
       () => _i928.ConnectivityCubit(
