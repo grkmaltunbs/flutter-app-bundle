@@ -7,8 +7,9 @@ metadata:
 ---
 # Testing and Mocking Dart Applications
 
-> This bundle standardizes on `package:mocktail` for mocks. Per
-> `docs/flutter-rules.md` (the authoritative rule set), prefer fakes or stubs
+> This kit standardizes on `package:mocktail` for mocks. Per
+> `${CLAUDE_PLUGIN_ROOT}/reference/flutter-rules.md` (the authoritative rule
+> set), prefer fakes or stubs
 > over mocks, and **avoid code generation for mocks**. `mocktail` needs no
 > `build_runner` step — you declare mocks as plain classes.
 

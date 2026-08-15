@@ -3,41 +3,18 @@
 *.swp
 *~
 
-# Dart / Flutter build artifacts and tool caches
-.dart_tool/
-.packages
-build/
-.flutter-plugins
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-coverage/
-
 # IDE
 *.iml
 .idea/
+.vscode/
 
-# iOS / macOS
-ios/Pods/
-ios/.symlinks/
-ios/Flutter/ephemeral/
-macos/Pods/
-
-# Android
-android/.gradle/
-android/local.properties
-
-# Secrets — never commit
-android/key.properties
-*.keystore
-*.jks
-**/*service-account*.json
-*.env
-
-# Autobuild runner — generated at runtime in the target project
+# Parked autobuild runner — local venv and generated artifacts
+runner/__pycache__/
+runner/.venv/
 autobuild.log
 .autobuild-stop
 AUTOBUILD_NEEDS_HUMAN.md
-runner/__pycache__/
-runner/.venv/
-.claude/.analyze-queue
+
+# Never commit
+*.env
+**/*service-account*.json

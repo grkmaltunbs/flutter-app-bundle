@@ -100,42 +100,7 @@
       "Read(**/*.p8)",
       "Read(**/*service-account*.json)"
     ],
-    "ask": [
-
-    ]
-  },
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/analyze-queue.sh"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/analyze-check.sh"
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/analyze-check.sh"
-          }
-        ]
-      }
-    ]
+    "ask": []
   },
   "enabledPlugins": {
     "firebase@claude-plugins-official": true

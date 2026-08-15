@@ -310,6 +310,11 @@ driven, zero unhandled exceptions to pass.
 @docs/flutter-rules.md
 
 The `@`-import above loads the full rule set into context on every session.
+`docs/flutter-rules.md` is shipped by the **flutter-kit** plugin and copied into
+this project at init (an `@`-import can't reach the plugin directory). Run
+`/kit-sync` to refresh it after a plugin update; edits you make here are
+project-local and will be flagged before any refresh overwrites them.
+
 `docs/flutter-rules.md` is the **primary, authoritative rule set** — it wins
 over agents, commands, and skills wherever they conflict. It covers SOLID
 principles, code quality, Dart best practices, testing, theming, accessibility,

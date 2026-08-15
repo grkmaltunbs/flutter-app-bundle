@@ -1,70 +1,54 @@
-# Flutter App Bundle for Claude Code
+# flutter-kit
 
-A starter kit for building Flutter apps with Claude Code. Human-in-the-loop
-workflow — you direct, Claude Code implements.
+A Claude Code plugin for building Flutter apps. Human-in-the-loop — you direct,
+Claude Code implements, and every step is gated on the app actually running.
 
-## What's included
+## Install
 
-```
-.claude/
-├── commands/       Slash commands (/init-app, /step, /qa, /plan-status, etc.)
-├── agents/         9 specialist agents (architect, developer, debugger, qa, …)
-├── skills/         Official Dart + Flutter skills
-├── hooks/          PostToolUse analyze gate
-└── settings.json   Permissions (allow/ask/deny lists)
-templates/          CLAUDE.md, PRODUCT_SPEC, PROJECT_PLAN, HUMAN_SETUP, ci.yml templates
-runner/             autobuild.py — headless autonomous build loop (Agent SDK)
-docs/
-├── requirements-checklist.md  29-category intake coverage engine
-├── flutter-rules.md           Primary, authoritative Flutter/Dart rules
-├── autobuild.md               Unattended autonomous builds (setup + safety)
-└── lessons-learned.md         Known pitfalls and fixes
+```bash
+/plugin marketplace add grkmaltunbs/flutter-app-bundle
+/plugin install flutter-kit@flutter-app-bundle
 ```
 
-## Quick start
+Then, one-time setup:
 
-1. **Clone into your project directory:**
-   ```bash
-   mkdir my-app && cd my-app
-   git clone https://github.com/grkmaltunbs/flutter-app-bundle.git .
-   ```
-   Then make it yours: `rm -rf .git && git init` (recommended — fresh history
-   for your app) or `git remote set-url origin <your-repo-url>`. The autobuild
-   runner refuses to push while origin still points at the bundle repo.
+```bash
+claude mcp add dart -- dart mcp-server     # restart Claude Code afterwards
+```
 
-2. **Set up MCP (one-time):**
-   ```bash
-   claude mcp add dart -- dart mcp-server
-   ```
-   Restart Claude Code. Verify: `claude mcp list` shows `dart: ✓ Connected`.
+Verify with `claude mcp list` — `dart: ✓ Connected`.
 
-3. **Run init:**
-   ```bash
-   claude
-   /init-app
-   ```
-   This walks you through: app idea → design intake → a **29-category
-   requirements interview** → an **assumptions gate** (confirm/override every
-   default so nothing is forgotten) → writes `PRODUCT_SPEC.md` → derives
-   `PROJECT_PLAN.md` from it → `flutter create` → setup walkthrough → smoke test.
+## Use it on a new app
 
-4. **Build step by step:**
-   ```bash
-   /step           # implement next pending step
-   /step auth      # implement a specific step by id
-   /plan-status    # see progress
-   ```
+```bash
+mkdir my-app && cd my-app && claude
+/init-app
+```
 
-5. **Or build the whole plan unattended** with the Agent SDK runner:
-   ```bash
-   python3 -m venv runner/.venv
-   runner/.venv/bin/pip install -r runner/requirements.txt
-   runner/.venv/bin/python runner/autobuild.py --dry-run        # smoke test
-   caffeinate -i runner/.venv/bin/python runner/autobuild.py    # touch .autobuild-stop to halt
-   ```
-   It runs `/step` end-to-end for every pending step — implement, test, verify on
-   the iOS simulator, commit, push — stopping only when done, blocked
-   on a human-only task, or a guardrail/budget trips. See `docs/autobuild.md`.
+`/init-app` walks you through: app idea → design intake → a **29-category
+requirements interview** → an **assumptions gate** (confirm or override every
+default, so nothing is forgotten) → writes `PRODUCT_SPEC.md` → derives
+`PROJECT_PLAN.md` from it → `flutter create` → setup walkthrough → smoke test.
+
+Then build:
+
+```
+/step           # implement the next pending step
+/step auth      # implement a specific step by id
+/plan-status    # see progress
+```
+
+## Use it on an existing app
+
+```bash
+cd my-existing-app && claude
+/kit-sync       # installs permissions + the Flutter rules doc
+```
+
+Commands that don't depend on `PROJECT_PLAN.md` — `/feature`, `/fix`,
+`/refactor`, `/app-review`, `/test`, `/qa`, `/codegen`, `/deps`, `/clean`,
+`/ship` — work immediately. `/step` and `/plan-status` need a plan; run
+`/init-app` in an adopted project to generate the spec and plan for it.
 
 ## Commands
 
@@ -79,18 +63,19 @@ docs/
 | `/refactor <desc>` | Refactor with tests |
 | `/app-review [files]` | Code review (read-only findings; asks before routing fixes) |
 | `/test [files]` | Add or improve tests |
-| `/qa [scope]` | Run/observe the app on the iOS simulator (emulators; Android on request) |
+| `/qa [scope]` | Run/observe the app on the iOS simulator (Android on request) |
 | `/ship [args]` | Prepare a release |
 | `/codegen [args]` | Run build_runner / gen-l10n |
 | `/clean` | Clean and rebuild |
 | `/deps [args]` | Manage dependencies |
+| `/kit-sync` | Refresh the kit files pinned into this project |
 
-Project commands can shadow Claude Code built-ins with the same name; the
-bundle's review command is namespaced as `/app-review` for that reason.
+Commands are also reachable namespaced (`/flutter-kit:step`) when a bare name
+collides with a built-in or another plugin.
 
 ## Agents
 
-Specialist agents invoked automatically by commands:
+Specialist agents invoked automatically by the commands:
 
 - **flutter-architect** — Plans features (no code, just design)
 - **flutter-developer** — Implements features (Bloc + clean architecture)
@@ -100,10 +85,38 @@ Specialist agents invoked automatically by commands:
 - **flutter-reviewer** — Reviews code (read-only findings)
 - **flutter-tester** — Writes unit/bloc/widget/integration tests
 - **flutter-qa** — Runs the app on the iOS simulator by default (Android only
-  when the caller explicitly requests it), drives every flow, reports runtime
-  errors and overflow (read-only)
+  when explicitly requested), drives every flow, reports runtime errors and
+  overflow (read-only)
 - **flutter-ui-designer** — Builds polished UI components (routed to by `/step`
   and `/feature` for screens and visual polish)
+
+## What the plugin ships
+
+```
+commands/     15 slash commands
+agents/       9 specialist agents
+skills/       19 Dart + Flutter skills
+hooks/        batched `dart analyze` gate (queue on edit, check at turn end)
+reference/    flutter-rules.md · requirements-checklist.md · lessons-learned.md
+templates/    CLAUDE.md · PRODUCT_SPEC · PROJECT_PLAN · HUMAN_SETUP · ci.yml
+              · settings.json · gitignore
+```
+
+### Two files get pinned into your project
+
+Plugins can't ship permissions, and a `CLAUDE.md` `@`-import can't reach the
+plugin directory. So `/init-app` copies these into the project, where they then
+go stale:
+
+- `.claude/settings.json` — the allow/deny lists the build loop runs under
+- `docs/flutter-rules.md` — the authoritative rule set, `@`-imported by `CLAUDE.md`
+
+**`/kit-sync` re-syncs both.** Run it after a plugin update. It merges rather
+than overwrites, and asks before replacing rules you've customised.
+
+The permissions list is deliberately broad — it includes `rm`, `git push`, and
+`git reset --hard` so long build loops don't stall on prompts. Read it and trim
+what you don't want; `/kit-sync` reports the broad entries it adds.
 
 ## Requirements
 
@@ -112,6 +125,9 @@ Specialist agents invoked automatically by commands:
 - Dart MCP: `claude mcp add dart -- dart mcp-server`
 - Firebase CLI + Java 11+ (if using Firebase — the dev flavor runs the local
   Emulator Suite): `npm install -g firebase-tools`
+- Optional: the official `firebase` plugin. The settings template enables it;
+  add its marketplace with
+  `/plugin marketplace add anthropics/claude-plugins-official`.
 
 ## Verification approach
 
@@ -155,16 +171,34 @@ Default stack (customizable during `/init-app`):
 Clean architecture with vertical feature slices:
 `domain/` (pure Dart) → `data/` (infrastructure + `fakes/`) → `presentation/` (Flutter + Bloc)
 
+## Local development
+
+To work on the plugin itself without reinstalling:
+
+```bash
+claude --plugin-dir /path/to/flutter-app-bundle
+```
+
+Loads the plugin from the working tree for that session, so edits take effect
+on restart rather than on publish.
+
 ## Lessons learned
 
-See `docs/lessons-learned.md` for known pitfalls:
-- Firebase emulators: avoiding the classic pitfalls
-- Firebase bootstrap order
-- iOS cold build times
-- CocoaPods conflicts
-- APNS on the iOS simulator
-- And more
+`reference/lessons-learned.md` collects known pitfalls: Firebase emulator
+gotchas, bootstrap order, iOS cold build times, CocoaPods conflicts, APNS on
+the iOS simulator, and more.
+
+## Autobuild runner (parked)
+
+`runner/` holds `autobuild.py`, a headless Agent SDK driver that ran the whole
+plan unattended. It is **not wired up in the plugin build** — it invoked `/step`
+via `setting_sources=["project"]`, which no longer finds the command now that it
+lives in a plugin. The code is kept for reference pending a rework. See
+`runner/autobuild.md`.
 
 ## License
 
 MIT
+
+The 19 skills under `skills/` are derived from Google's official Dart and
+Flutter skills, with local modifications noting this kit's conventions.

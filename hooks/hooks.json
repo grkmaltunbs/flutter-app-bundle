@@ -1,0 +1,36 @@
+{
+  "description": "Batched dart analyze gate — queue edited .dart paths on each Write/Edit, run one analyzer pass at turn end and block only on errors in files edited this turn.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/analyze-queue.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/analyze-check.sh\""
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/analyze-check.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

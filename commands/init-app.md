@@ -6,9 +6,8 @@ disable-model-invocation: true
 # /init-app — Project initialization
 
 You are running the initialization flow for a new Flutter app. Your job is to
-take the user from "empty directory with this bundle cloned" to "ready to build
-features step by step — with a spec complete enough that nothing important was
-forgotten."
+take the user from "empty directory" to "ready to build features step by step —
+with a spec complete enough that nothing important was forgotten."
 
 Your output is four filled files plus a scaffold:
 `PRODUCT_SPEC.md`, `CLAUDE.md`, `PROJECT_PLAN.md`, `HUMAN_SETUP.md`, and a working
@@ -18,7 +17,8 @@ Flutter project.
 
 - **Completeness is the goal.** The deliverable is a spec so thorough that after
   the plan steps finish, the only work left is the external/store setup in
-  `HUMAN_SETUP.md`. Use `docs/requirements-checklist.md` as the coverage engine.
+  `HUMAN_SETUP.md`. Use `${CLAUDE_PLUGIN_ROOT}/reference/requirements-checklist.md`
+  as the coverage engine.
 - **Be opinionated.** Propose specific takes on flows, monetisation, screens,
   tech-stack overrides. Cite trade-offs. When the user has no opinion, propose a
   default and record it as an **assumption** (don't stall).
@@ -30,13 +30,21 @@ Flutter project.
   no real Firebase project needed). Optional `demo`-flavor fakes cover states
   the emulator can't simulate (offline, injected errors). Real (staging)
   Firebase is touched only in the **Backend integration pass**.
-- **Verify file existence before editing.** Templates live in `templates/`.
+- **Kit files vs. project files.** Everything under `${CLAUDE_PLUGIN_ROOT}/` is
+  read-only reference shipped by the plugin — never edit it. Everything you
+  write goes in the user's project directory (the cwd).
+- **Verify file existence before editing.** Templates live in
+  `${CLAUDE_PLUGIN_ROOT}/templates/`.
 
 ## Workflow
 
 ### Stage 1 — Idea capture
 Greet briefly. Ask the user to describe the app in ~1 paragraph: who it's for,
 the core loop, what v1 looks like.
+
+Confirm the working directory is empty (or contains only a `.git`). If it
+already holds a Flutter project, say so and ask whether to adopt it (skip
+Stage 5) or stop.
 
 ### Stage 2 — Design intake
 Ask for the design source:
@@ -48,7 +56,8 @@ Ask for the design source:
 Summarise what you see in 5–10 bullets.
 
 ### Stage 3 — Requirements interview (the core of init)
-Walk **`docs/requirements-checklist.md`** category by category (1→29). For each:
+Walk **`${CLAUDE_PLUGIN_ROOT}/reference/requirements-checklist.md`** category by
+category (1→29). For each:
 - Ask one focused question (`AskUserQuestion`) eliciting the user's decision.
 - If they have no opinion, state the category's **default**, record it as an
   **assumption**, and move on — do not block.
@@ -66,13 +75,22 @@ checklist). Require the user to confirm or change each one. **Init may not
 proceed until this list is cleared.** This is the "warn me about what I forgot"
 step — do not skip or soft-pedal it.
 
-### Stage 5 — Write the spec and derived files
-Copy templates to the project root:
+### Stage 5 — Create the Flutter project
+Run `flutter create` NOW (before writing any project files), so setup items that
+need `ios/` and `android/` can be completed immediately and so the generated
+`.gitignore` / `README.md` land before Stage 6 writes on top of them:
 ```bash
-cp templates/PRODUCT_SPEC.md.template PRODUCT_SPEC.md
-cp templates/CLAUDE.md.template CLAUDE.md
-cp templates/PROJECT_PLAN.md.template PROJECT_PLAN.md
-cp templates/HUMAN_SETUP.md.template HUMAN_SETUP.md
+flutter create . --org <org> --project-name <name> --platforms ios,android
+```
+Then, if the directory is not already a git repo, `git init`.
+
+### Stage 6 — Write the spec and derived files
+Copy templates from the plugin into the project root:
+```bash
+cp "${CLAUDE_PLUGIN_ROOT}/templates/PRODUCT_SPEC.md.template" PRODUCT_SPEC.md
+cp "${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md.template"       CLAUDE.md
+cp "${CLAUDE_PLUGIN_ROOT}/templates/PROJECT_PLAN.md.template"  PROJECT_PLAN.md
+cp "${CLAUDE_PLUGIN_ROOT}/templates/HUMAN_SETUP.md.template"   HUMAN_SETUP.md
 ```
 Then, in order:
 1. **`PRODUCT_SPEC.md`** — fill it completely from Stages 1–4: feature inventory,
@@ -92,12 +110,35 @@ Then, in order:
    external/store items (RevenueCat dashboard + products, App Store Connect /
    Play Console IAP products, signing, API keys, legal URLs). These are the
    irreducibly-human tasks — make each one exact and copy-pasteable.
-5. **CI workflow** —
-   `mkdir -p .github/workflows && cp templates/ci.yml.template .github/workflows/ci.yml`
-   (CI runs analyze + test; simulator verification stays local).
-6. **Build journal** — create `docs/BUILD_NOTES.md` with the one-line header:
+5. **Permissions** — write the project's Claude Code permissions so the build
+   loop doesn't stall on prompts:
+   ```bash
+   mkdir -p .claude && cp "${CLAUDE_PLUGIN_ROOT}/templates/settings.json.template" .claude/settings.json
+   ```
+   If `.claude/settings.json` already exists, **merge** rather than overwrite:
+   union the `allow`/`deny` lists, keep the user's existing entries. Show the
+   user the allow list and let them trim it — it is deliberately broad (it
+   includes `rm`, `git push`, `git reset --hard`) so unattended loops don't
+   block; that is their call to make, not yours.
+6. **Flutter rules** — copy the authoritative rule set into the project, because
+   `CLAUDE.md` `@`-imports it and `@`-imports cannot reach the plugin directory:
+   ```bash
+   mkdir -p docs && cp "${CLAUDE_PLUGIN_ROOT}/reference/flutter-rules.md" docs/flutter-rules.md
+   ```
+   This is the one kit file that gets pinned into the project. `/kit-sync`
+   refreshes it after a plugin update.
+7. **`.gitignore`** — `flutter create` generated one in Stage 5. **Append** the
+   kit's additions (secrets, the analyze-gate scratch queue) without duplicating
+   lines already present:
+   `${CLAUDE_PLUGIN_ROOT}/templates/gitignore.template`
+8. **CI workflow** —
+   ```bash
+   mkdir -p .github/workflows && cp "${CLAUDE_PLUGIN_ROOT}/templates/ci.yml.template" .github/workflows/ci.yml
+   ```
+   (CI runs analyze + test; simulator verification stays local.)
+9. **Build journal** — create `docs/BUILD_NOTES.md` with the one-line header:
    `Per-project build journal — appended by /step and /qa; read at the start of every step.`
-7. **Emulator config** — write these files directly (no interactive
+10. **Emulator config** — write these files directly (no interactive
    `firebase init`):
    - `firebase.json` — emulator suite on non-default ports: ui 4040, hub 4441,
      auth 9199, firestore 8181, database 9100, storage 9299; rules file
@@ -106,24 +147,8 @@ Then, in order:
      treats `demo-*` as needing no real project).
    - `firestore.rules` — a stub ruleset (deny-by-default) for plan steps to
      grow; the emulators exercise it continuously.
-
-### Stage 6 — Create the Flutter project
-Run `flutter create` NOW (not deferred), so setup items that need `ios/` and
-`android/` can be completed immediately:
-```bash
-flutter create . --org <org> --project-name <name> --platforms ios,android
-```
-Note: `flutter create` does NOT overwrite the existing `.gitignore` or
-`README.md` — the bundle ships a full Flutter `.gitignore`. In this stage,
-replace the bundle `README.md` with a short app-specific one.
-
-### Stage 6.5 — Make the repo yours
-The cloned bundle's `.git` history and `origin` remote still point at
-`flutter-app-bundle`. Walk the user through one of:
-- **Fresh history (recommended):** `rm -rf .git && git init`
-- **Keep history:** `git remote set-url origin <their-repo-url>`
-
-Note: autobuild refuses to push while `origin` points at the bundle repo.
+11. **App README** — replace the `flutter create` boilerplate `README.md` with a
+    short app-specific one.
 
 ### Stage 7 — Walk through HUMAN_SETUP.md live
 For each `- [ ]` item:
@@ -144,6 +169,10 @@ flutter test
 ```
 Diagnose and fix any failures.
 
+Note: the analyze gate installed by this plugin runs `dart analyze` at the end
+of every turn and blocks on errors in files edited that turn. If it fires during
+init, fix the reported errors — don't work around it.
+
 ### Stage 9 — Handoff
 Print:
 ```
@@ -154,6 +183,7 @@ Files ready:
 - CLAUDE.md
 - PROJECT_PLAN.md  (<N> steps, derived from the spec)
 - HUMAN_SETUP.md   (external/store items — the only human work left)
+- .claude/settings.json  (build-loop permissions)
 
 Flutter project created and compiling.
 
@@ -163,27 +193,18 @@ states) — checking every flow + dependent flows
 for bugs, exceptions, and overflow (size-matrix widget tests). /qa runs the
 full iOS sweep anytime (add "android" to the scope for an Android sweep).
 
-To start building — step by step yourself:
+To start building:
     /step
     /step <step-id>
     /plan-status
-
-…or hand the whole plan to the autonomous runner (set up the venv per
-HUMAN_SETUP.md → "Autobuild runner", then):
-    runner/.venv/bin/python runner/autobuild.py --dry-run    # smoke-test the wiring first
-    caffeinate -i runner/.venv/bin/python runner/autobuild.py
 ```
-
-In Stage 7, when you reach the optional "Autobuild runner" section of
-HUMAN_SETUP.md, ask whether the user wants unattended builds; if yes, walk them
-through creating the virtual environment and installing the SDK then and there.
 
 ## What you must NOT do
 - Don't wire emulators anywhere except under the dev environment guard, and
   never point dev at a real project.
 - Don't write `pubspec.yaml` beyond what `flutter create` generates — Step 0
   (bootstrap) handles the full dependency set.
-- Don't commit or push; the repo re-point/re-init in the "Make the repo yours"
-  stage is expected.
-- Don't edit `.claude/`, `docs/lessons-learned.md`, or `docs/requirements-checklist.md`.
+- Don't commit or push — leave the initial commit to the user.
+- Don't edit anything under `${CLAUDE_PLUGIN_ROOT}/` — the plugin is read-only
+  reference; changes there are wiped on the next plugin update.
 - Don't finish init while any assumption is still unconfirmed.

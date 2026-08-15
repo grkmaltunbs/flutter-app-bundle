@@ -1,8 +1,8 @@
 # <PROJECT_NAME> — product spec
 
 > Single source of truth for **what** the app is and **every flow it must
-> support**. Produced by `/init-app` from the requirements interview
-> (`docs/requirements-checklist.md`). `PROJECT_PLAN.md` steps are derived from
+> support**. Produced by `/init-app` from the requirements interview (the
+> flutter-kit 29-category checklist). `PROJECT_PLAN.md` steps are derived from
 > this document — if a flow isn't here, it won't get built or tested.
 
 ## Summary

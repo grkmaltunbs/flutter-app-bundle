@@ -1,0 +1,36 @@
+{
+  "name": "flutter-app-bundle",
+  "owner": {
+    "name": "grkmaltunbs",
+    "url": "https://github.com/grkmaltunbs"
+  },
+  "metadata": {
+    "description": "Flutter development kit for Claude Code",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "flutter-kit",
+      "source": "./",
+      "description": "Human-in-the-loop Flutter development kit — spec-driven init, step-by-step build, simulator-gated QA against local Firebase emulators",
+      "version": "1.0.0",
+      "author": {
+        "name": "grkmaltunbs",
+        "url": "https://github.com/grkmaltunbs"
+      },
+      "homepage": "https://github.com/grkmaltunbs/flutter-app-bundle",
+      "repository": "https://github.com/grkmaltunbs/flutter-app-bundle",
+      "license": "MIT",
+      "keywords": [
+        "flutter",
+        "dart",
+        "bloc",
+        "firebase",
+        "testing",
+        "mobile"
+      ],
+      "category": "development",
+      "tags": ["flutter", "dart", "mobile", "testing"]
+    }
+  ]
+}

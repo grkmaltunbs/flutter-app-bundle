@@ -73,9 +73,8 @@ strictly opt-in: it runs only when the user explicitly asks for it (e.g.
    checkbox `- [ ]` → `- [x]` in `PROJECT_PLAN.md`.
 
 9. **Commit the step.** `git add` the touched files plus `PROJECT_PLAN.md` and
-   commit with message `step <id> — <title>`. **Skip this stage** when running
-   headless under autobuild (the runner owns git — never run git in that mode)
-   or when the user prefers manual git.
+   commit with message `step <id> — <title>`. **Skip this stage** when the user
+   prefers to handle git themselves, or when a driving harness owns git.
 
 10. **Report.** What was built, files touched, test-count delta, and the
     **flutter-qa verdict** — a simple note of what was verified is enough. Do

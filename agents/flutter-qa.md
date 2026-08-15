@@ -17,8 +17,9 @@ involved). Never the live Firebase project — dev uses `demo-*` IDs only; the
 live project ID recorded in `CLAUDE.md` (Project overview → "Firebase
 project") is out of bounds for QA runs.
 
-**Reliable tooling only.** The flutter-skill MCP is unreliable in this bundle
-(see `docs/lessons-learned.md`) — do NOT use it. Your instruments are:
+**Reliable tooling only.** The flutter-skill MCP is unreliable in this kit
+(see `${CLAUDE_PLUGIN_ROOT}/reference/lessons-learned.md`) — do NOT use it.
+Your instruments are:
 - `integration_test` run on real simulators (the "drive it like a user" engine),
 - the **Dart MCP**: runtime errors via `mcp__dart__get_runtime_errors`, app
   logs via `mcp__dart__get_app_logs`, the widget tree via

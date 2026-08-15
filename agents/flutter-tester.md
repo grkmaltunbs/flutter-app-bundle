@@ -27,7 +27,8 @@ Workflow:
 
    **Assertions:** use `package:checks` (`check(x).equals(...)`,
    `check(x).isNotNull()`, etc.) rather than `expect`/matchers — per
-   `docs/flutter-rules.md`. The `dart-migrate-to-checks-package` skill covers the
+   `${CLAUDE_PLUGIN_ROOT}/reference/flutter-rules.md`. The
+   `dart-migrate-to-checks-package` skill covers the
    API. Note: `bloc_test`'s own `expect:` parameter is part of its API and stays
    as-is; this rule is about assertion calls inside test bodies.
 

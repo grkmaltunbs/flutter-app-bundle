@@ -1,0 +1,20 @@
+{
+  "name": "flutter-kit",
+  "version": "1.0.0",
+  "description": "Human-in-the-loop Flutter development kit — spec-driven init, step-by-step build, simulator-gated QA against local Firebase emulators",
+  "author": {
+    "name": "grkmaltunbs",
+    "url": "https://github.com/grkmaltunbs"
+  },
+  "homepage": "https://github.com/grkmaltunbs/flutter-app-bundle",
+  "repository": "https://github.com/grkmaltunbs/flutter-app-bundle",
+  "license": "MIT",
+  "keywords": [
+    "flutter",
+    "dart",
+    "bloc",
+    "firebase",
+    "testing",
+    "mobile"
+  ]
+}

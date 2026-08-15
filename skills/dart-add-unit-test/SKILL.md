@@ -27,7 +27,7 @@ Utilize `package:test` as the standard testing library for Dart applications.
 * Import `package:test/test.dart` (or `package:flutter_test/flutter_test.dart` for Flutter).
 * Group related tests using the `group()` function to provide shared context.
 * Define individual test cases using the `test()` function.
-* Validate outcomes using `package:checks` — e.g. `check(actual).equals(expected)`, `check(actual).isNotNull()`, `await check(future).throws<Exception>()` — rather than `expect`/matchers, per `docs/flutter-rules.md`. Import `package:checks/checks.dart`. The `dart-migrate-to-checks-package` skill covers the full API.
+* Validate outcomes using `package:checks` — e.g. `check(actual).equals(expected)`, `check(actual).isNotNull()`, `await check(future).throws<Exception>()` — rather than `expect`/matchers, per `${CLAUDE_PLUGIN_ROOT}/reference/flutter-rules.md`. Import `package:checks/checks.dart`. The `dart-migrate-to-checks-package` skill covers the full API.
 * Write asynchronous tests using standard `async`/`await` syntax. The test runner automatically waits for the `Future` to complete.
 * Manage test setup and teardown using `setUp()` and `tearDown()` callbacks.
 * If testing code that relies on dependency injection, use `package:mocktail` alongside `package:test` to define mock objects (no code generation), configure fixed scenarios, and verify interactions. See the `dart-define-test-mocks` skill.

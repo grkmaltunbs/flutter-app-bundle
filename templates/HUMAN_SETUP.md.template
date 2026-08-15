@@ -27,12 +27,8 @@ Items that don't apply should be struck through: `- [x] ~~item~~ _(not needed)_`
 
 ## Git & repository
 
-- [ ] Repo detached from the bundle: either `rm -rf .git && git init`, or
-      `git remote set-url origin <your-repo>`.
+- [ ] Git repo initialised (`git init` if `/init-app` didn't already).
 - [ ] Your own remote created and `git remote -v` shows it.
-
-> The autobuild runner refuses to push while `origin` still points at
-> `flutter-app-bundle` — it downgrades push to off and tells you.
 
 ## Firebase (if using Firebase)
 
@@ -77,28 +73,6 @@ are needed **before the "Backend integration pass" plan step** and release:
 - [ ] `android/key.properties` created.
 - [ ] SHA fingerprints added to Firebase project.
 
-## Autobuild runner (optional — unattended builds)
-
-Only needed if you want Claude to implement the whole plan on its own with
-`runner/autobuild.py` (instead of running `/step` yourself). See `docs/autobuild.md`.
-
-- [ ] Python 3.10+ available (`python3 --version`).
-- [ ] **Create & activate a virtual environment, then install the SDK:**
-  ```bash
-  python3 -m venv runner/.venv
-  source runner/.venv/bin/activate        # Windows: runner\.venv\Scripts\activate
-  pip install -r runner/requirements.txt  # installs claude-agent-sdk
-  ```
-- [ ] Claude Code CLI installed + authenticated (`claude login`) — the SDK spawns it.
-- [ ] Java + firebase CLI installed (agents start the emulators).
-- [ ] An iOS simulator can boot (the runner drives it).
-- [ ] (Only if a step configures real Firebase) service-account key exported:
-      `export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json`
-- [ ] Smoke-test the wiring before a real run (no commits, leaves changes in tree):
-  ```bash
-  runner/.venv/bin/python runner/autobuild.py --dry-run
-  ```
-
 ## Project-specific items
 
 <INIT_APP_WILL_ADD_MORE_HERE>
@@ -111,8 +85,4 @@ When all items are `[x]`, you're ready to start building — either step by step
 /step
 ```
 
-…or hand the whole plan to the autonomous runner (each step gets a fresh context):
-
-```
-caffeinate -i runner/.venv/bin/python runner/autobuild.py
-```
+Then `/plan-status` any time to see where you are.
