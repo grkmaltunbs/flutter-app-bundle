@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_kit/kit.dart';
 import 'package:test/test.dart';
 
@@ -45,6 +47,16 @@ code <here>
   });
 
   group('board', () {
+    // The page embeds its own source (for Send to Claude); assertions that
+    // count things look at the page proper.
+    // The boundary is unique: inside the embedded copy every `</script>` is escaped.
+    const boundary = '</script>\n<script type="text/plain" id="kit-src">';
+    String pageOnly(String html) => html.substring(0, html.indexOf(boundary) + '</script>\n'.length);
+    String sourceOnly(String html) {
+      final start = html.indexOf(boundary) + boundary.length;
+      return html.substring(start, html.lastIndexOf('</script>'));
+    }
+
     Plan sample() {
       final steps = [
         Step(id: 'g2', number: 'G2', title: 'Engine', rank: 1, status: StepStatus.active, gates: {'qa': Gate('qa', status: GateStatus.passed)}),
@@ -67,8 +79,18 @@ code <here>
     }
 
     test('two tabs: bubbles with a panel per step, and the grouped work', () {
-      final html = renderBoardHtml(sample(), today: '2026-08-27');
+      final full = renderBoardHtml(sample(), today: '2026-08-27');
+      final html = pageOnly(full);
       expect(html, startsWith('<title>Nahmatik Kit Board</title>'));
+      // The embedded source is the page itself, escaped so it cannot end early.
+      final src = sourceOnly(full);
+      expect(src.contains('<'), isFalse);
+      expect(utf8.decode(base64.decode(src)), html);
+      // Controls: every open item gets a tick row; the closed one does not.
+      expect(html, contains('<div class="act" data-item="push">'));
+      expect(html, isNot(contains('data-item="closed"')));
+      expect(html, contains('id="sendbar"'));
+      expect(html, contains('data-opt="A"'));
       expect(html, contains('data-tab="steps"'));
       expect(html, contains('data-tab="work"'));
       // Every step is a bubble in the full graph; done ones drop out of "only what's left".
@@ -105,7 +127,7 @@ code <here>
     });
 
     test('theme tokens: every colour is defined on bare :root and overridden for dark both ways', () {
-      final html = renderBoardHtml(sample(), today: '2026-08-27');
+      final html = pageOnly(renderBoardHtml(sample(), today: '2026-08-27'));
       expect(html, contains('--accent: #1E5BFF;'));
       expect(html, contains(':root:not([data-theme="light"]) {'));
       expect(html, contains(':root[data-theme="dark"] {'));
@@ -127,6 +149,11 @@ code <here>
       expect(left.nodes.containsKey('old'), isFalse);
       expect(left.nodes['g2']!.col, 0);
       expect(left.width, greaterThan(left.height));
+    });
+
+    test('a pending outbox is rendered into the page for the reload to show', () {
+      final html = pageOnly(renderBoardHtml(sample(), today: '2026-08-27', outbox: '{"entries":[{"kind":"item","id":"push","action":"done"}]}'));
+      expect(html, contains('<script type="application/json" id="kit-outbox">{"entries"'));
     });
 
     test('is self-contained: no external scripts, no remote images', () {
