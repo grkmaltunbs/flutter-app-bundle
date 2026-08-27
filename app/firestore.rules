@@ -1,9 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Placeholder until the relay's rules are written: nobody reads or writes.
+    // One user, one tool. Everything under the relay belongs to that uid;
+    // nobody else — including another signed-in account — reads or writes.
+    // The uid is the Email/Password user created in the console on
+    // 2026-08-28. Change it here if the account is ever recreated.
+    function isOwner() {
+      return request.auth != null && request.auth.uid == 'I8XBZsWr9sScTrDAiOK2LSZ5qFZ2';
+    }
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if isOwner();
     }
   }
 }

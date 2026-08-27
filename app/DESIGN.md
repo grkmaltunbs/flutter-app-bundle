@@ -70,8 +70,11 @@ page cannot do: drive the user's own Claude Code.
 ## Open — nothing blocking
 
 The two earlier questions are answered (Android first; the phone may do
-everything, via Remote Control). Firestore rules for `flutterappbundle`
-still need writing once the uid exists — the placeholder denies everything.
+everything, via Remote Control — **proven on the user's Android phone on
+2026-08-28**: `claude --remote-control` in the Nahmatik folder, `/plan-status`
+answered in the Claude app). The relay user exists
+(`grkmaltunbs@gmail.com`, uid `I8XBZsWr9sScTrDAiOK2LSZ5qFZ2`) and
+`firestore.rules` — owner-only on that uid — is deployed to `flutterappbundle`.
 
 ## Spike list (do these before any screen)
 
