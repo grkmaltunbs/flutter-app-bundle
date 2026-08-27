@@ -162,6 +162,10 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
               ? (widget.source.error != null ? EmptyNote(widget.source.error!) : const Center(child: CircularProgressIndicator()))
               : TabBarView(
                   controller: _tabs,
+                  // No swipe between tabs: a horizontal drag belongs to the
+                  // bubble canvas, and on a phone the TabBarView was taking
+                  // it first. The tab strip switches tabs.
+                  physics: const NeverScrollableScrollPhysics(),
                   children: [
                     wide
                         ? Row(
