@@ -27,7 +27,7 @@ kit — the plan engine behind flutter-kit
   kit item new --id <id> --title <t> [--needs a,b] [--blocks s1,s2] [--from <step>]
                                        [--deadline YYYY-MM-DD] [--body <md> | --body-file <path>]
   kit inbox <batch.json> [--dry-run]     apply a batch of ticks/answers/notes sent from the board
-  kit render plan|board [--out <path>|-]
+  kit render plan|board [--out <path>|-] [--outbox <batch.json>]   (--outbox: keep a sent, unapplied batch visible)
   kit import --plan-md <PROJECT_PLAN.md> [--journal <file>] --out <plan dir>
              --name <project> [--release-step <id>] [--active <id,id>] [--firebase <project>]
   kit init --name <project> [--out <plan dir>]
@@ -52,6 +52,7 @@ void main(List<String> argv) {
     ..addOption('deadline')
     ..addOption('body')
     ..addOption('body-file')
+    ..addOption('outbox')
     ..addOption('plan-md')
     ..addOption('journal')
     ..addOption('name')
@@ -116,7 +117,8 @@ void main(List<String> argv) {
       case 'inbox':
         exit(_inbox(PlanStore(planDir), _abs(project, _arg(rest, 1, 'inbox needs a batch file')), dryRun: args['dry-run'] as bool));
       case 'render':
-        _render(PlanStore(planDir), project, _arg(rest, 1, 'render needs plan|board'), args['out'] as String?);
+        _render(PlanStore(planDir), project, _arg(rest, 1, 'render needs plan|board'), args['out'] as String?,
+            outboxFile: args['outbox'] == null ? null : _abs(project, args['outbox'] as String));
       case 'import':
         _import(project, args);
       case 'init':
@@ -140,6 +142,9 @@ void main(List<String> argv) {
     exit(1);
   } on ArgumentError catch (e) {
     stderr.writeln(e.message);
+    exit(1);
+  } on IOException catch (e) {
+    stderr.writeln(e.toString());
     exit(1);
   }
 }
@@ -412,7 +417,7 @@ int _inbox(PlanStore store, String file, {required bool dryRun}) {
   return skipped == 0 ? 0 : 1;
 }
 
-void _render(PlanStore store, String project, String what, String? out) {
+void _render(PlanStore store, String project, String what, String? out, {String? outboxFile}) {
   final plan = store.load();
   String content;
   String defaultOut;
@@ -421,7 +426,10 @@ void _render(PlanStore store, String project, String what, String? out) {
       content = renderPlanMarkdown(plan);
       defaultOut = plan.manifest.planMarkdown;
     case 'board':
-      content = renderBoardHtml(plan, today: _today);
+      // A batch the user sent but nobody has applied yet stays on the page,
+      // so the cards keep saying "sent" rather than silently reopening.
+      final outbox = outboxFile == null ? null : jsonEncode(jsonDecode(File(outboxFile).readAsStringSync()));
+      content = renderBoardHtml(plan, today: _today, outbox: outbox);
       defaultOut = plan.manifest.boardOutput;
     default:
       throw _Usage('render needs plan|board');

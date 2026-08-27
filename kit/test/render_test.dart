@@ -90,6 +90,10 @@ code <here>
       expect(html, contains('<div class="act" data-item="push">'));
       expect(html, isNot(contains('data-item="closed"')));
       expect(html, contains('id="sendbar"'));
+      // The batch insertion point is a marker that appears exactly once in the
+      // page proper and precedes `</main>`; the script must not spell it out.
+      expect('<!-- kit:outbox -->'.allMatches(html).length, 1);
+      expect(html.indexOf('<!-- kit:outbox -->'), lessThan(html.indexOf('</main>')));
       expect(html, contains('data-opt="A"'));
       expect(html, contains('data-tab="steps"'));
       expect(html, contains('data-tab="work"'));
