@@ -27,6 +27,28 @@ Sign in with the relay user on both. On the Mac: **Open folder** → pick a
 project with `plan/kit.yaml`. The Session tab starts Remote Control; the
 Claude app on the phone then lists the environment on its own.
 
+## macOS signing (once per Mac)
+
+Firebase Auth keeps its session in the data-protection keychain, and an
+unsandboxed app may only touch that with a `keychain-access-groups`
+entitlement — which needs a real signing team. The Xcode project therefore
+signs with `DEVELOPMENT_TEAM = 8J4ASHVDQ5` ("Apple Development"), and the
+entitlements carry the group. Without it every sign-in fails with *"An error
+occurred when accessing the keychain"* (seen 2026-08-28).
+
+`flutter build macos` cannot create the provisioning profile itself. On a
+Mac that has never built this app, run once:
+
+```
+cd app/macos
+xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Debug \
+  -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+  -derivedDataPath ../build/macos build
+```
+
+That registers the Mac in the developer account and caches a "Mac Team
+Provisioning Profile"; `flutter run -d macos` works from then on.
+
 ## What the host needs from a project
 
 - `plan/` — from `kit import` or `kit init`.

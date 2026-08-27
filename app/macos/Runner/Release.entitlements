@@ -2,8 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- No sandbox — see DebugProfile.entitlements. -->
+	<!-- No sandbox: the host spawns the user's own `claude` binary, reads
+	     ~/.claude.json for workspace trust and reads plan/ in any folder the
+	     user opens. A sandboxed child would inherit the sandbox and lose all
+	     three. This app is personal and never goes to the Mac App Store. -->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
+	<!-- Firebase Auth stores its session in the data-protection keychain,
+	     which an unsandboxed app may only touch with a keychain access group
+	     — and that entitlement needs a real signing team, hence
+	     DEVELOPMENT_TEAM in the Xcode project. Without it, every sign-in
+	     fails with "An error occurred when accessing the keychain". -->
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)dev.flutterkit.kitApp</string>
+	</array>
 </dict>
 </plist>

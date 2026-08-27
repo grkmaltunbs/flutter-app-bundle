@@ -8,6 +8,15 @@
 	     three. This app is personal and never goes to the Mac App Store. -->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
+	<!-- Firebase Auth stores its session in the data-protection keychain,
+	     which an unsandboxed app may only touch with a keychain access group
+	     — and that entitlement needs a real signing team, hence
+	     DEVELOPMENT_TEAM in the Xcode project. Without it, every sign-in
+	     fails with "An error occurred when accessing the keychain". -->
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)dev.flutterkit.kitApp</string>
+	</array>
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
 </dict>
