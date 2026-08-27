@@ -1,5 +1,5 @@
 {
-  "description": "Batched dart analyze gate — queue edited .dart paths on each Write/Edit, run one analyzer pass at turn end and block only on errors in files edited this turn.",
+  "description": "Two things: the batched dart analyze gate (queue edited .dart paths on each Write/Edit, one analyzer pass at turn end, block only on errors in files edited this turn), and `kit hook`, which spools every event for the flutter-kit app so a phone can see what the session is doing.",
   "hooks": {
     "PostToolUse": [
       {
@@ -8,6 +8,14 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/analyze-queue.sh\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/kit/kit.sh\" hook"
           }
         ]
       }
@@ -20,6 +28,14 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/analyze-check.sh\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/kit/kit.sh\" hook"
+          }
+        ]
       }
     ],
     "SubagentStop": [
@@ -28,6 +44,54 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/analyze-check.sh\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/kit/kit.sh\" hook"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/kit/kit.sh\" hook"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/kit/kit.sh\" hook"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/kit/kit.sh\" hook"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/kit/kit.sh\" hook"
           }
         ]
       }

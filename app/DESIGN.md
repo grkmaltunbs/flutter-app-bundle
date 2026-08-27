@@ -76,18 +76,69 @@ answered in the Claude app). The relay user exists
 (`grkmaltunbs@gmail.com`, uid `I8XBZsWr9sScTrDAiOK2LSZ5qFZ2`) and
 `firestore.rules` — owner-only on that uid — is deployed to `flutterappbundle`.
 
-## Spike list (do these before any screen)
+## Spikes — answered 2026-08-28
 
-1. **Spawn Remote Control from a Flutter macOS app**: `Process.start('claude',
-   ['--remote-control', '--name', 'nahmatik'], workingDirectory: <project>)`
-   — does it need a pty? does `claude remote-control` (the subcommand) run
-   without a terminal? Does the output contain a session URL to deep-link the
-   phone to? Does the spawned process find the user's login (keychain, PATH)?
-2. **Hooks → Firestore**: a `Stop`/`PostToolUse` hook in the project's
-   `.claude/settings.json` that posts a small JSON to the host over a local
-   socket; the host writes it to Firestore; the phone shows it.
-3. **Inbox via Firestore**: the phone writes a batch to
-   `projects/{id}/inbox/{sentAt}`; the host applies it with the library and
-   regenerates. Same JSON shape as the board's `#kit-outbox`.
-4. **Android build**: `flutter build apk --release`, install on the phone,
-   sign in with the one Email/Password user, see the Nahmatik snapshot.
+1. **Spawn Remote Control without a terminal — yes, and no pty.**
+   `claude remote-control --name <n> --debug-file <f>` was run with stdin
+   from `/dev/null` and stdout to a file: it registered an environment,
+   created a session, polled work and printed `·✔︎· Connected · nahmatik ·
+   main`, the session link (`https://claude.ai/code/session_…`) and the
+   environment link (`https://claude.ai/code?environment=env_…`). It found
+   the login on its own. SIGTERM shuts it down cleanly and **preserves the
+   environment** (`-c` / `--continue` reattaches). Two facts the host is
+   built on:
+   - it **refuses an untrusted folder** with `Error: Workspace not trusted.
+     Please run \`claude\` in <dir> first…` — the host checks
+     `~/.claude.json` → `projects[dir].hasTrustDialogAccepted` before
+     spawning and says the same thing;
+   - it writes `~/.claude/projects/<slug>/bridge-pointer.json`
+     (`sessionId`, `environmentId`, `pid`, `procStart`) — the ids without
+     parsing a TUI. The slug is the path with every non-alphanumeric
+     character replaced by `-`.
+   A GUI app's PATH is bare, so the host asks the login shell for the real
+   one once and hands it to the child (the hooks need `dart`).
+2. **Hooks → the app: a spool, not a socket.** `kit hook` reads the hook
+   payload from stdin and writes one JSON file under
+   `~/.flutter_kit/events/<slug>/`, named so lexical order is arrival order.
+   The host watches the directory; nothing is lost when the app is closed. The
+   host coalesces `PostToolUse` into the project document's `now` line (one
+   write a second at most) and keeps only milestones — prompts, turn ends,
+   notifications — as an `events` history.
+3. **Inbox via Firestore** — `projects/{slug}/inbox/{auto}` with the board's
+   batch shape; the host applies it with `applyInbox` (the same function `kit
+   inbox` calls, moved into the library), stamps `appliedAt`, regenerates
+   `PROJECT_PLAN.md` and the board HTML, and the plan watcher republishes the
+   changed documents.
+4. **Android build** — `flutter build apk --release`; see README.
+
+## What was built (2026-08-28)
+
+`app/` is a Flutter project (macOS + Android targets, `dev.flutterkit`), with
+`../kit` as a path dependency and Firebase registered on `flutterappbundle`
+(`lib/firebase_options.dart`). The macOS sandbox is off — the host spawns
+`claude`, reads `~/.claude.json` and any folder the user opens; a sandboxed
+child would inherit the sandbox and lose all three. This app never goes to
+the Mac App Store. The kit library gained `inbox.dart`, `hook_spool.dart`
+and `snapshot.dart` (56 tests); the CLI gained `kit hook`.
+
+Screens: sign-in (the one relay user) → projects (host: folders opened;
+phone: what the relay holds) → project with **Steps** (bubbles on a
+pannable canvas, tap → detail panel beside it on a wide window, a sheet on a
+phone), **Your work** (sittings by need, cards with runbooks, tick / not
+doing / answer / note into a device-local draft, **Send to Claude** at the
+bottom) and, on the host, **Session** (start/stop/reattach Remote Control,
+links, trust and hook checks, what the phone sent, hook activity, process
+output). The "now" line under the title is the latest hook event.
+
+Smoke-tested over Nahmatik's real plan (73 steps, 199 items) at phone width:
+every card and the code-complete step's detail render without overflow. The
+one overflow it found was the same shape Nahmatik has hit four times — a
+`Row` with `mainAxisSize.min` around a bare `Text` (a gate note inside a
+pill); the pill's text is loose now.
+
+## Open
+
+- Nothing needs a decision. The phone side is verified only by the widget
+  tests until the APK is installed and signed in.
+- Fonts: the app uses the platform faces; `board.fonts` is not applied yet.
+- Windows host: same code, untested.

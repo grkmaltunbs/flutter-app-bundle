@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- No sandbox: the host spawns the user's own `claude` binary, reads
+	     ~/.claude.json for workspace trust and reads plan/ in any folder the
+	     user opens. A sandboxed child would inherit the sandbox and lose all
+	     three. This app is personal and never goes to the Mac App Store. -->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+</dict>
+</plist>

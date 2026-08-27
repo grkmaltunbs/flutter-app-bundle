@@ -162,7 +162,9 @@ kit gate <step> <gate> passed|failed|pending [--note]
 kit step start|done <step> [--force]
 kit done|drop|reopen <item> [--note]
 kit item new --id --title [--needs] [--blocks] [--from <step>] [--deadline] [--body|--body-file]
-kit render plan|board [--out]
+kit render plan|board [--out] [--outbox batch.json]
+kit inbox batch.json [--dry-run]     apply ticks/answers/notes sent from the board or the app
+kit hook                             (a Claude Code hook) spool the event on stdin for the app
 kit import --plan-md PROJECT_PLAN.md [--journal file] --out plan --name N [--release-step id] [--active a,b]
 kit init --name N
 ```

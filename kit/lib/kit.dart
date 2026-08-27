@@ -10,3 +10,6 @@ export 'src/render_text.dart';
 export 'src/render_board.dart';
 export 'src/mini_md.dart';
 export 'src/dag_layout.dart';
+export 'src/inbox.dart';
+export 'src/hook_spool.dart';
+export 'src/snapshot.dart';

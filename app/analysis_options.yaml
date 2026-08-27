@@ -1,0 +1,7 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # SwiftPM checks Firebase's Dart examples out under build/ on macOS.
+    - build/**
+    - lib/firebase_options.dart

@@ -26,7 +26,8 @@ kit — the plan engine behind flutter-kit
   kit reopen <item-id>
   kit item new --id <id> --title <t> [--needs a,b] [--blocks s1,s2] [--from <step>]
                                        [--deadline YYYY-MM-DD] [--body <md> | --body-file <path>]
-  kit inbox <batch.json> [--dry-run]     apply a batch of ticks/answers/notes sent from the board
+  kit inbox <batch.json> [--dry-run]     apply a batch of ticks/answers/notes sent from the board or the app
+  kit hook                             (a Claude Code hook) spool the event on stdin for the app
   kit render plan|board [--out <path>|-] [--outbox <batch.json>]   (--outbox: keep a sent, unapplied batch visible)
   kit import --plan-md <PROJECT_PLAN.md> [--journal <file>] --out <plan dir>
              --name <project> [--release-step <id>] [--active <id,id>] [--firebase <project>]
@@ -114,6 +115,8 @@ void main(List<String> argv) {
         _reopen(PlanStore(planDir), _arg(rest, 1, 'reopen needs an item id'));
       case 'item':
         _itemCmd(PlanStore(planDir), rest, args);
+      case 'hook':
+        exit(_hook());
       case 'inbox':
         exit(_inbox(PlanStore(planDir), _abs(project, _arg(rest, 1, 'inbox needs a batch file')), dryRun: args['dry-run'] as bool));
       case 'render':
@@ -332,89 +335,50 @@ void _itemCmd(PlanStore store, List<String> rest, ArgResults args) {
   stdout.writeln('items/$id.yaml written.');
 }
 
-/// Applies a batch the board sent: `{sentAt, entries:[{kind:item,id,action,answer,note}|{kind:step,id,note}]}`.
+/// Applies a batch the board or the phone sent — see `applyInbox`.
 int _inbox(PlanStore store, String file, {required bool dryRun}) {
   final raw = jsonDecode(File(file).readAsStringSync());
-  if (raw is! Map || raw['entries'] is! List) throw _Usage('inbox: expected {"entries": [...]}');
-  final sentAt = raw['sentAt']?.toString();
-  final plan = store.load();
-  var applied = 0;
-  var skipped = 0;
-  for (final e in raw['entries'] as List) {
-    if (e is! Map) continue;
-    final kind = e['kind']?.toString();
-    final id = e['id']?.toString() ?? '';
-    final note = e['note']?.toString();
-    final stamp = sentAt == null ? '' : ' (sent $sentAt)';
-    if (kind == 'item') {
-      final i = plan.item(id);
-      if (i == null) {
-        stdout.writeln('skip  item $id: unknown');
-        skipped++;
-        continue;
-      }
-      final action = e['action']?.toString();
-      final answer = e['answer']?.toString();
-      final f = store.itemPath(id);
-      final what = <String>[];
-      if (!dryRun) {
-        if (answer != null && answer.isNotEmpty) {
-          store.patch(f, ['question', 'answer'], answer);
-          what.add('answer: $answer');
-        }
-        if (note != null && note.isNotEmpty) {
-          final existing = i.note;
-          store.patch(f, ['note'], existing == null || existing.isEmpty ? '$note$stamp' : '$existing\n$note$stamp');
-          what.add('note');
-        }
-        if (action == 'drop') {
-          if (i.isOpen) {
-            store.patch(f, ['status'], 'dropped');
-            store.patch(f, ['done_at'], _today);
-          }
-          what.add('dropped');
-        } else if (action == 'done' || (answer != null && answer.isNotEmpty)) {
-          if (i.isOpen) {
-            store.patch(f, ['status'], 'done');
-            store.patch(f, ['done_at'], _today);
-          }
-          what.add('done');
-        }
-      } else {
-        if (answer != null && answer.isNotEmpty) what.add('answer: $answer');
-        if (note != null && note.isNotEmpty) what.add('note');
-        if (action != null) what.add(action);
-      }
-      stdout.writeln('${dryRun ? 'would ' : ''}item  $id: ${what.isEmpty ? 'nothing to apply' : what.join(', ')}');
-      applied++;
-    } else if (kind == 'step') {
-      final s = plan.step(id);
-      if (s == null) {
-        stdout.writeln('skip  step $id: unknown');
-        skipped++;
-        continue;
-      }
-      if (note != null && note.isNotEmpty) {
-        if (!dryRun) {
-          store.appendTo(store.stepPath(id), ['history'], {'at': _today, 'event': 'note from user', 'note': note});
-        }
-        stdout.writeln('${dryRun ? 'would ' : ''}step  $id: note recorded');
-        applied++;
-      }
-    } else {
-      stdout.writeln('skip  entry of kind "$kind"');
-      skipped++;
-    }
+  if (raw is! Map) throw _Usage('inbox: expected {"entries": [...]}');
+  final InboxResult r;
+  try {
+    r = applyInbox(store, {for (final e in raw.entries) e.key.toString(): e.value}, today: _today, dryRun: dryRun);
+  } on FormatException catch (e) {
+    throw _Usage(e.message);
   }
-  stdout.writeln('$applied applied, $skipped skipped${dryRun ? ' (dry run — nothing written)' : ''}.');
-  if (!dryRun && applied > 0) {
-    final after = store.load();
-    final g = Graph(after);
-    for (final v in g.views()) {
-      if (v.state == StepState.flippable) stdout.writeln('  ${v.step.id} has nothing left in the way — `kit step done ${v.step.id}`.');
-    }
+  for (final l in r.lines) {
+    stdout.writeln(l.skipped ? 'skip  ${l.kind} ${l.id}: ${l.text}' : '${dryRun ? 'would ' : ''}${l.kind.padRight(5)} ${l.id}: ${l.text}');
   }
-  return skipped == 0 ? 0 : 1;
+  stdout.writeln(r.summary);
+  for (final id in r.flippable) {
+    stdout.writeln('  $id has nothing left in the way — `kit step done $id`.');
+  }
+  return r.skipped == 0 ? 0 : 1;
+}
+
+List<int> _readAll(Stdin input) {
+  final out = <int>[];
+  while (true) {
+    final b = input.readByteSync();
+    if (b < 0) break;
+    out.add(b);
+  }
+  return out;
+}
+
+/// `kit hook` — a Claude Code hook command. Reads the hook payload from
+/// stdin and spools it for the host app. Never fails the hook: a broken
+/// spool must not block Claude.
+int _hook() {
+  try {
+    final text = utf8.decode(_readAll(stdin));
+    if (text.trim().isEmpty) return 0;
+    final raw = jsonDecode(text);
+    if (raw is! Map) return 0;
+    spoolHookEvent({for (final e in raw.entries) e.key.toString(): e.value});
+  } on Object catch (e) {
+    stderr.writeln('kit hook: $e');
+  }
+  return 0;
 }
 
 void _render(PlanStore store, String project, String what, String? out, {String? outboxFile}) {
