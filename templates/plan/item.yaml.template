@@ -1,0 +1,26 @@
+# plan/items/<id>.yaml — one unit of the human's work.
+# The file name must equal `id`.
+id: <kebab-id>
+title: <What to do, as an imperative sentence>
+status: open                  # open | done | dropped
+needs: [console]              # console | device | read | look | decision | store | money | secret
+blocks: []                    # step ids that cannot close while this is open (leave empty if it gates nothing)
+step: <origin-step-id>        # provenance: which step produced it
+added: <YYYY-MM-DD>
+# deadline: <YYYY-MM-DD>      # only when the world imposes one (a runtime cut-off, a review window)
+
+body: |
+  Why this exists and what Claude cannot do about it. Where the detail lives.
+
+runbook:                      # exact steps, with what success and failure look like
+  - do: Open <console> → <section> → <button>.
+    expect: <what the screen shows when it worked>
+    if_fails: <the one likely reason, and what to do>
+    # verify: <shell command whose output proves it — kit can run it before closing>
+
+# question:                   # for a decision; exactly one option is recommended
+#   ask: <the question>
+#   options:
+#     - { label: <option A>, recommended: true, why: <one sentence> }
+#     - { label: <option B>, why: <one sentence> }
+#   answer: null

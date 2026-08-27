@@ -1,0 +1,46 @@
+# plan/kit.yaml — the project manifest for flutter-kit.
+#
+# Everything a command used to hard-code about *this* project lives here so
+# the commands stay generic. `kit validate` reads it; the board is themed
+# from it. Schema: ${CLAUDE_PLUGIN_ROOT}/schema/README.md
+kit: 2
+
+project:
+  name: <PROJECT_NAME>
+  slug: <project-slug>
+
+firebase:
+  project: <firebase-project-id>      # every firebase/flutterfire call targets this
+
+qa:
+  runtime: ios-simulator              # the only runtime QA target
+  backend: emulators                  # emulators | live  (live = disposable qa- accounts, never real users)
+  screenshots: false
+  test_account_prefix: qa-
+
+platforms: [ios, android]
+
+# The step whose blockers count as launch blockers. Items that gate it, or a
+# step it depends on, sort ahead of everything else on the board.
+release_step: release-prep
+
+board:
+  title: <PROJECT_NAME> Launch Board
+  output: docs/board/launch_board.html
+  # artifact_url: <filled in by /board on first publish — keeps one URL>
+  # fonts:                             # Google Fonts family names
+  #   display: Bricolage Grotesque
+  #   body: Instrument Sans
+  #   mono: JetBrains Mono
+  # colors:                            # token overrides; see schema/README.md
+  #   light: { accent: "#2F5BEA" }
+  #   dark:  { accent: "#7FA3FF" }
+
+plan_markdown: PROJECT_PLAN.md        # generated view; never edited by hand
+
+# journal: docs/BUILD_NOTES.md        # the append-only prose journal, if any
+
+# Extra vocabulary for what an item can need, beyond the built-in eight
+# (console, device, read, look, decision, store, money, secret).
+# needs:
+#   lawyer: { label: "A lawyer", description: "Terms, privacy policy, consent copy." }

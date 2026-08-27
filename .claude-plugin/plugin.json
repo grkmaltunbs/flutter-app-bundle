@@ -1,7 +1,7 @@
 {
   "name": "flutter-kit",
-  "version": "1.0.0",
-  "description": "Human-in-the-loop Flutter development kit — spec-driven init, step-by-step build, simulator-gated QA against local Firebase emulators",
+  "version": "2.0.0-dev.1",
+  "description": "Human-in-the-loop Flutter development kit \u2014 spec-driven init, a plan with human items and computed state, step-by-step build, simulator-gated QA, and a generated board of what is waiting on you",
   "author": {
     "name": "grkmaltunbs",
     "url": "https://github.com/grkmaltunbs"

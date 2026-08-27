@@ -1,96 +1,136 @@
 ---
-description: Implement the next pending PROJECT_PLAN.md step and verify it on the iOS simulator
+description: Implement the next plan step and verify it on the iOS simulator
 argument-hint: [step-id]
 ---
 
 # /step — Implement the next plan step
 
-Implement a step from PROJECT_PLAN.md. If `$ARGUMENTS` is provided, use it as the
-step id. Otherwise, find the next pending step (first step whose dependencies are
-all `[x]` and that isn't itself complete).
+The plan lives in `plan/` (see `${CLAUDE_PLUGIN_ROOT}/schema/README.md`).
+`PROJECT_PLAN.md` is a generated view of it — read it if you like, never edit
+it. State is computed by `kit`, so start there:
 
-A step is **not done when the code compiles** — it's done when the feature has
-been **verified running on the iOS simulator** with every flow (its own and
-dependent ones) exercised and zero runtime errors or overflow. Android is
-strictly opt-in: it runs only when the user explicitly asks for it (e.g.
-`/qa android`) — never as part of this command's default loop.
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" next --step     # the id to work
+bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" show <id>       # the step, as markdown
+bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" blocks <id>     # what it waits on
+```
+
+If `$ARGUMENTS` names a step, use that id; `kit blocks <id>` tells you whether
+it can start. Otherwise `kit next --step` is the one to work: the active step
+if there is one, else the first ready step in rank order. An empty answer
+means every pending step is blocked — say by what (`kit status`) and stop.
+
+A step is **not done when the code compiles.** It is done when it has been
+**verified running on the iOS simulator** with every flow (its own and the
+dependent ones) exercised and zero runtime errors or overflow — and when
+every human item that names it in `blocks:` is closed. `kit step done`
+refuses otherwise, and that refusal is correct. Android is opt-in: it runs
+only when the user asks (`/qa android`), never in this loop.
 
 ## Workflow
 
-1. **Read context.** Read `CLAUDE.md`, `PRODUCT_SPEC.md`, `PROJECT_PLAN.md`, and
+1. **Read context.** `CLAUDE.md`, `PRODUCT_SPEC.md` if it exists,
    `docs/BUILD_NOTES.md` if it exists (the per-project journal of quirks and
-   decisions). Find the target step and its `spec_refs` (the flows/screens it
-   implements).
+   decisions), and the step from `kit show <id>` — its Description,
+   Acceptance and QA walkthrough sections are the spec. `plan/kit.yaml` says
+   which Firebase project and QA policy apply.
 
-2. **Check dependencies.** Verify each `depends_on` step is `[x]`. If not, tell
-   the user and stop.
+2. **Check it can start.** `kit blocks <id>` must show no missing
+   dependencies. If it does, tell the user and stop — do not skip ahead.
+   Then `kit step start <id>`.
 
-3. **Implement.** Architect first if the step is a large/greenfield feature.
-   Route screen/widget construction and visual polish to **flutter-ui-designer**
+3. **Implement.** Architect first if the step is large or greenfield. Route
+   screen/widget construction and visual polish to **flutter-ui-designer**
    and Bloc/data wiring to **flutter-developer**. Follow the architecture and
-   hard rules in `CLAUDE.md` and the spec's flows/states exactly. Build the
-   `prod` impls (in dev they run against the local emulators) and add
-   `demo`-flavor fakes only where a flow needs states the emulator can't
-   produce (offline, injected errors).
+   hard rules in `CLAUDE.md` and the step's spec exactly.
 
-4. **Write tests.** Delegate to **flutter-tester**: unit/bloc tests, widget
-   tests, the **integration test(s) for each spec flow** (happy + every error/
-   edge path, against the dev flavor and the emulators; states the emulator
-   can't simulate are covered at the widget/bloc layer, or via demo fakes
-   where they exist), and the **responsive overflow-guard** test for any
-   new/changed screens.
+4. **Write tests — before QA, not after.** Delegate to **flutter-tester**:
+   unit/bloc tests, widget tests, the integration test(s) for the step's
+   flows (happy path plus the error/edge paths reachable against the
+   project's backend policy in `kit.yaml`), and the **responsive
+   overflow-guard** test for any new or changed screen. A guard written after
+   the gate means defects found after the gate, which means running the gate
+   twice.
 
-5. **Static quality gates** (all must pass, run after the tests exist):
+5. **Static gates.** Run, then record each:
    - `dart run build_runner build --delete-conflicting-outputs` (if codegen changed)
-   - `dart format .`
-   - `flutter analyze` — clean
-   - `flutter test` — all unit/bloc/widget tests pass. This is the workflow's
-     **single full-suite run**; inner agents run only the affected test files.
+   - `dart format lib test integration_test`
+   - `flutter analyze` — clean → `kit gate <id> analyze passed`
+   - `flutter test` — the workflow's **single full-suite run**; inner agents
+     run only affected files → `kit gate <id> tests passed --note "<count> tests"`
 
-6. **Runtime verification (gating).** Delegate to **flutter-qa** on the **iOS
-   simulator** with the step's `spec_refs` and the **regression set** — the
-   flows that depend on the same Blocs, routes, repositories, or data this step
-   touched. flutter-qa boots the iOS simulator, drives the new flow +
-   dependent flows on the dev flavor against the running Emulator Suite
-   (it health-checks the hub and starts the emulators if down), and sweeps
-   the Dart MCP runtime-error log. No screenshots on PASS; on FAIL it captures one screenshot of the
-   failing screen as defect evidence. (The multi-size visual pass lives in
-   `/qa`, not here — per-step overflow protection is the overflow-guard tests +
-   the runtime-error sweep.) It returns **PASS** or **FAIL** with routed
-   defects. If the step touched `android/` or platform channels, add a
-   one-line note to the report: recommend an explicit Android `/qa` sweep —
-   a suggestion, never a gate.
+   A failed gate is recorded too (`kit gate <id> tests failed --note "…"`) so
+   the board tells the truth while you fix it.
 
-7. **Resolve & re-verify.** If flutter-qa returns FAIL, route each defect:
-   `→ flutter-debugger` (bugs), `→ flutter-developer` (missing behaviour),
-   `→ flutter-tester` (missing/flaky tests). After each fix, re-run **only** the
-   failed test/flow on the iOS simulator plus `flutter analyze` and the
-   affected unit tests. When all defects are individually green, run **one**
-   final full step-6 pass. **Do not mark the step complete while any defect or
-   runtime error remains.**
+6. **Runtime verification (gating).** Delegate to **flutter-qa** on the iOS
+   simulator with the step's spec and the **regression set** — the flows
+   sharing Blocs, routes, repositories or data with what this step touched.
+   Full suite only when the step touched shared infrastructure. flutter-qa
+   runs the integration tests, sweeps the Dart MCP runtime-error log, and
+   returns **PASS** or **FAIL** with routed defects. No screenshots. Record
+   it: `kit gate <id> qa passed --note "<n>/<m> integration, 0 runtime errors"`.
 
-8. **Mark complete.** Only after flutter-qa returns PASS, flip the step's
-   checkbox `- [ ]` → `- [x]` in `PROJECT_PLAN.md`.
+7. **Resolve and re-verify.** On FAIL route each defect — `→ flutter-debugger`
+   (bugs), `→ flutter-developer` (missing behaviour), `→ flutter-tester`
+   (missing/flaky tests) — re-run only the failed flow plus `flutter analyze`
+   and the affected unit tests, then **one** final full step-6 pass. Never
+   record `qa passed` while any defect or runtime error remains.
 
-9. **Commit the step.** `git add` the touched files plus `PROJECT_PLAN.md` and
-   commit with message `step <id> — <title>`. **Skip this stage** when the user
-   prefers to handle git themselves, or when a driving harness owns git.
+8. **Human items.** Anything the step produced that needs the user's hands,
+   accounts or judgement — a console setting, a physical device, copy to
+   read, a decision — is an **item**, not a paragraph:
 
-10. **Report.** What was built, files touched, test-count delta, and the
-    **flutter-qa verdict** — a simple note of what was verified is enough. Do
-    NOT capture or open screenshots here — it's slow; report with what's
-    already available and at most list the paths of any screenshots flutter-qa
-    saved. Append durable findings — new fake seeds/toggles, environment
-    quirks, defect root causes — to `docs/BUILD_NOTES.md`.
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" item new --id <step>-<slug> \
+     --title "<what to do, as an imperative>" --needs <console|device|read|look|decision|store|money|secret> \
+     --blocks <id> --from <id> --body-file <path to the runbook markdown>
+   ```
+
+   Use `--blocks <id>` only if the step genuinely cannot be called done
+   without it (a store product that must exist, a push that must be seen on
+   a phone). Everything else is provenance only (`--from`), and gates nothing.
+   Give every item a **runbook** — `do` / `expect` / `if_fails` — and a
+   `verify:` command wherever a machine can read the result back. A decision
+   gets a `question:` with exactly one `recommended: true` option. Write the
+   runbook YAML by hand if the CLI flags are too coarse; `kit validate` checks
+   it. Also append the durable finding to `docs/BUILD_NOTES.md` as before —
+   the journal keeps the story, the item carries the work.
+
+9. **Mark complete.**
+
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" step done <id>
+   ```
+
+   If it refuses because human items are open, the step is **code complete**
+   and that is the honest state: leave it, tell the user which items (the
+   refusal lists them), and point at `/next`. Never `--force`.
+
+10. **Render and commit.**
+
+    ```bash
+    bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" validate
+    bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" render plan
+    bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" render board
+    ```
+
+    Then `git add` the touched files plus `plan/`, `PROJECT_PLAN.md` and the
+    board, and commit `step <id> — <title>`. Skip the commit when the user
+    prefers manual git. If `plan/kit.yaml` has `board.artifact_url`,
+    republish the board with the Artifact tool passing that URL.
+
+11. **Report.** What was built, files touched, test-count delta, the
+    flutter-qa verdict, the step's state (`done` or `code complete — waiting
+    on <items>`), and the items created — each with what it needs.
 
 ## Rules
 - Do NOT skip ahead to other steps.
-- Do NOT mark a step complete if any quality gate, integration test, or QA check
-  fails — no "minor" runtime errors or overflows.
-- Verification runs the **dev flavor against the LOCAL Emulator Suite**
-  (health-check the hub at `http://localhost:4441`, start if down) — never the
-  live project; the only step that touches real Firebase is the Backend
-  integration pass (staging).
+- Do NOT record a gate as passed that did not pass — no "minor" runtime
+  errors or overflows.
+- Verification targets are whatever `plan/kit.yaml` says (`qa.backend`:
+  `live` with disposable `qa-` accounts, or `emulators`); never real user
+  data, and never a deploy as a side effect — deploys happen only when the
+  step's Description says so.
 - If you hit a wall, tell the user what's blocking and stop.
 - Follow the architecture and hard rules in `CLAUDE.md` strictly.
 - Prefer editing existing files over creating new ones.

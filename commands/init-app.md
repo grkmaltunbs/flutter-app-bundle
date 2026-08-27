@@ -9,9 +9,9 @@ You are running the initialization flow for a new Flutter app. Your job is to
 take the user from "empty directory" to "ready to build features step by step —
 with a spec complete enough that nothing important was forgotten."
 
-Your output is four filled files plus a scaffold:
-`PRODUCT_SPEC.md`, `CLAUDE.md`, `PROJECT_PLAN.md`, `HUMAN_SETUP.md`, and a working
-Flutter project.
+Your output is a spec, a plan, and a scaffold:
+`PRODUCT_SPEC.md`, `CLAUDE.md`, `plan/` (the step ladder and the human items —
+`PROJECT_PLAN.md` is rendered from it), and a working Flutter project.
 
 ## Operating rules
 
@@ -89,8 +89,9 @@ Copy templates from the plugin into the project root:
 ```bash
 cp "${CLAUDE_PLUGIN_ROOT}/templates/PRODUCT_SPEC.md.template" PRODUCT_SPEC.md
 cp "${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md.template"       CLAUDE.md
-cp "${CLAUDE_PLUGIN_ROOT}/templates/PROJECT_PLAN.md.template"  PROJECT_PLAN.md
 cp "${CLAUDE_PLUGIN_ROOT}/templates/HUMAN_SETUP.md.template"   HUMAN_SETUP.md
+mkdir -p plan/steps plan/items
+cp "${CLAUDE_PLUGIN_ROOT}/templates/plan/kit.yaml.template"    plan/kit.yaml
 ```
 Then, in order:
 1. **`PRODUCT_SPEC.md`** — fill it completely from Stages 1–4: feature inventory,
@@ -99,18 +100,36 @@ Then, in order:
    the **Assumptions log** with each row marked Confirmed/Overridden.
 2. **`CLAUDE.md`** — replace every `<PLACEHOLDER>`. Reflect the chosen stack and
    any overrides.
-3. **`PROJECT_PLAN.md`** — **derive the step ladder from `PRODUCT_SPEC.md`**:
-   every flow and screen in the spec maps to a step (or part of one). Each step
-   is sized for one Claude Code session and carries Acceptance criteria taken
-   from the spec's flows/states. Include a final responsive/accessibility pass
-   step, a **Backend integration pass (staging)** step — prod flavor against a
-   real **staging** project, never production — immediately before release
-   prep, and a release-prep step with `depends_on` the integration pass.
-4. **`HUMAN_SETUP.md`** — remove items that don't apply; add the project's
-   external/store items (RevenueCat dashboard + products, App Store Connect /
-   Play Console IAP products, signing, API keys, legal URLs). These are the
-   irreducibly-human tasks — make each one exact and copy-pasteable.
-5. **Permissions** — write the project's Claude Code permissions so the build
+3. **`plan/kit.yaml`** — replace every `<PLACEHOLDER>`: project name, the
+   Firebase project id, the QA policy (`backend: emulators` unless the user
+   chose otherwise), and `release_step` (the id of the release-prep step you
+   are about to write). Schema: `${CLAUDE_PLUGIN_ROOT}/schema/README.md`.
+4. **`plan/steps/*.yaml`** — **derive the step ladder from `PRODUCT_SPEC.md`**:
+   every flow and screen in the spec maps to a step (or part of one). One
+   file per step, from `${CLAUDE_PLUGIN_ROOT}/templates/plan/step.yaml.template`;
+   `rank` in tens in work order; `depends_on` by id. Each step is sized for
+   one Claude Code session and carries Acceptance criteria taken from the
+   spec's flows/states. Include a final responsive/accessibility pass step, a
+   **Backend integration pass (staging)** step — prod flavor against a real
+   **staging** project, never production — immediately before release prep,
+   and a release-prep step with `depends_on` the integration pass. Then:
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" validate      # must be clean
+   bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" render plan   # writes PROJECT_PLAN.md
+   ```
+5. **`HUMAN_SETUP.md` → items.** Remove the checklist entries that don't
+   apply; add the project's external/store items (RevenueCat dashboard +
+   products, App Store Connect / Play Console IAP products, signing, API keys,
+   legal URLs), each exact and copy-pasteable. Then turn every entry into an
+   **item** so it gates the step it belongs to — one file each under
+   `plan/items/`, from `${CLAUDE_PLUGIN_ROOT}/templates/plan/item.yaml.template`
+   or via `kit item new --id <id> --title "<…>" --needs <kind> --blocks <step-id> --from bootstrap`
+   — giving every one a runbook (`do` / `expect` / `if_fails`). Signing and
+   store products block release-prep; a Firebase project blocks the backend
+   integration pass; toolchain items block nothing. Run `kit validate`, then
+   delete `HUMAN_SETUP.md` — the board (`/board`) is where the user reads
+   their work from now on.
+6. **Permissions** — write the project's Claude Code permissions so the build
    loop doesn't stall on prompts:
    ```bash
    mkdir -p .claude && cp "${CLAUDE_PLUGIN_ROOT}/templates/settings.json.template" .claude/settings.json
@@ -120,14 +139,14 @@ Then, in order:
    user the allow list and let them trim it — it is deliberately broad (it
    includes `rm`, `git push`, `git reset --hard`) so unattended loops don't
    block; that is their call to make, not yours.
-6. **Flutter rules** — copy the authoritative rule set into the project, because
+7. **Flutter rules** — copy the authoritative rule set into the project, because
    `CLAUDE.md` `@`-imports it and `@`-imports cannot reach the plugin directory:
    ```bash
    mkdir -p docs && cp "${CLAUDE_PLUGIN_ROOT}/reference/flutter-rules.md" docs/flutter-rules.md
    ```
    This is the one kit file that gets pinned into the project. `/kit-sync`
    refreshes it after a plugin update.
-7. **`.gitignore`** — `flutter create` generated one in Stage 5. **Append** the
+8. **`.gitignore`** — `flutter create` generated one in Stage 5. **Append** the
    kit's additions (secrets, the analyze-gate scratch queue) without duplicating
    lines already present:
    `${CLAUDE_PLUGIN_ROOT}/templates/gitignore.template`
@@ -181,8 +200,8 @@ Print:
 Files ready:
 - PRODUCT_SPEC.md  (full spec; assumptions all resolved)
 - CLAUDE.md
-- PROJECT_PLAN.md  (<N> steps, derived from the spec)
-- HUMAN_SETUP.md   (external/store items — the only human work left)
+- plan/            (<N> steps, <M> human items — derived from the spec)
+- PROJECT_PLAN.md  (rendered from plan/; regenerated by every command)
 - .claude/settings.json  (build-loop permissions)
 
 Flutter project created and compiling.

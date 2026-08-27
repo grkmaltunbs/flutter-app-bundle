@@ -1,0 +1,39 @@
+# plan/steps/<id>.yaml — one unit of Claude's work.
+# The file name must equal `id`. Ids never change; `number` (the display
+# number) and `rank` (the work order) may.
+id: <kebab-id>
+number: "<N>"                 # display only — "12", "G4", "H9"
+title: <Title>
+status: pending               # pending | active | done   (everything else is computed)
+rank: <integer>               # work order; leave gaps (…, 120, 130, …)
+depends_on: []                # step ids
+
+meta:                         # free-form; passed through to the rendered plan
+  qa_required: true
+
+gates:                        # what Claude proves; `kit gate <id> <gate> passed` records it
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+
+sections:                     # rendered in order as `### Title`
+  - title: Description
+    body: |
+      What to build, and why. Flows, states, edge paths. Design references.
+
+      Anything the user must do goes in an *item* (`plan/items/`), not here —
+      an item names this step in `blocks:` and the step cannot close while it
+      is open.
+  - title: Acceptance
+    body: |
+      - Verifiable outcomes: happy path, every error/edge path, every state.
+      - Responsive across the size matrix at 1.0x, 2.0x and 3.12x text.
+      - Zero runtime errors in the Dart MCP sweep.
+  - title: QA walkthrough
+    body: |
+      1. The flow, as a tester would drive it on the iOS simulator.
+  - title: Touchpoints
+    body: |
+      - `lib/features/<feature>/**`
+
+history: []

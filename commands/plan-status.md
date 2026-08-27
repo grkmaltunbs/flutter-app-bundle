@@ -1,17 +1,29 @@
 ---
-description: Show PROJECT_PLAN.md progress and the next step to implement
+description: Show plan progress — every step's state, what each waits on, and the next step
+allowed-tools: Bash
 ---
 
 # /plan-status — Show plan progress
 
-Read PROJECT_PLAN.md and show the current status of each step.
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" status
+```
 
-For each step, show:
-- Step number and title
-- Status: `[x]` done or `[ ]` pending
-- Dependencies and whether they're satisfied
+Show the table as printed. The **state** column is computed from the files,
+not stored, so it cannot be stale:
 
-Format as a table. At the end, show:
-- Total steps: N
-- Completed: M
-- Next step to implement: <step-id> (<title>)
+| state | meaning |
+|---|---|
+| `done` | finished |
+| `ready` | every dependency done — Claude can start it |
+| `blocked` | a dependency is not done |
+| `active` | being worked; a gate is still pending |
+| `code complete` | every gate passed; only human items remain — **the user's move** |
+| `FLIP ME` | gates passed, nothing blocks it — run `kit step done <id>` |
+
+Then one sentence: the next step for Claude (the last line of the output),
+and how many steps are code-complete waiting on the user, if any — those are
+the ones to point at `/next`.
+
+If the project has no `plan/` directory, say so and point at `/init-app`
+(new project) or `kit import` (a project with a hand-written `PROJECT_PLAN.md`).

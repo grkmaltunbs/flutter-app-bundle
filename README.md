@@ -35,8 +35,40 @@ Then build:
 ```
 /step           # implement the next pending step
 /step auth      # implement a specific step by id
-/plan-status    # see progress
+/plan-status    # every step's state, computed — never stale
+/next           # what *you* can do right now, grouped by what it needs
+/blocks <id>    # everything between a step and done, and whose move it is
+/done <item>    # close a human item; see what it unblocked
+/board          # regenerate the board and republish it at its standing URL
 ```
+
+## The plan is data, and the human is in it
+
+v2's one structural change: `PROJECT_PLAN.md` is no longer the source of
+truth — `plan/` is. Steps are `plan/steps/<id>.yaml`; the work only *you* can
+do (a console, a physical phone, copy to read, a decision) is
+`plan/items/<id>.yaml`, each saying what it **needs** and which step it
+**blocks**. A step whose code is finished but whose items are open is *code
+complete*, not done, and the tool refuses to say otherwise.
+
+Everything you read is generated from that directory: `PROJECT_PLAN.md`,
+and a board that groups your open items into sittings by what they need.
+`kit validate` keeps the graph honest; `kit next` answers "what now" for both
+of you. Schema: [`schema/README.md`](schema/README.md).
+
+Migrating a project with a hand-written plan and a journal of `- [ ]` boxes:
+
+```bash
+bash "$PLUGIN/kit/kit.sh" import --plan-md PROJECT_PLAN.md --journal things_for_human_eye.md \
+  --out plan --name "My App" --release-step store-submission
+bash "$PLUGIN/kit/kit.sh" validate && bash "$PLUGIN/kit/kit.sh" render plan
+```
+
+The import is lossless on prose and heuristic on what nobody wrote down;
+what it could not classify lands on the board under "could not sort".
+
+The `kit` CLI is a Dart package under `kit/` (`dart test` there), compiled
+to a native binary on first use.
 
 ## Use it on an existing app
 
@@ -56,8 +88,12 @@ Commands that don't depend on `PROJECT_PLAN.md` — `/feature`, `/fix`,
 |---|---|
 | `/init-app` | Full project initialization (idea → design → setup → scaffold) |
 | `/step [id]` | Implement the next (or named) step from the plan |
-| `/plan-status` | Show progress on all plan steps |
-| `/plan-extend` | Add, split, or remove plan steps |
+| `/plan-status` | Every step's computed state and what it waits on |
+| `/plan-extend` | Add, split, remove, reorder steps; add human items |
+| `/next [id]` | What you can do right now, grouped by what it needs |
+| `/blocks <id>` | Everything between a step and done |
+| `/done <item>` | Close a human item and see what it unblocked |
+| `/board` | Regenerate and republish the board |
 | `/feature <desc>` | Implement a feature outside the plan |
 | `/fix <desc>` | Debug and fix a bug |
 | `/refactor <desc>` | Refactor with tests |
