@@ -33,7 +33,7 @@ $ARGUMENTS
      `plan/items/<id>.yaml`, or run
      `kit item new --id <id> --title "<title>" --needs <a,b> --blocks <step> --from <origin>`.
      Every item says what it **needs** (`console`, `device`, `read`, `look`,
-     `decision`, `store`, `money`, `secret`) and, if it gates a step, names it
+     `decision`, `store`, `money`, `secret`, `know`) and, if it gates a step, names it
      in `blocks:`. A runbook is `do` / `expect` / `if_fails` lines, with an
      optional `verify:` shell command. A decision carries a `question:` with
      exactly one `recommended: true` option.

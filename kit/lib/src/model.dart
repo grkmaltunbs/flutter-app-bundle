@@ -35,6 +35,8 @@ const Map<String, NeedKind> builtinNeeds = {
       'A purchase, a domain, a paid plan, a card on file.'),
   'secret': NeedKind('secret', 'Keys and credentials',
       'API keys, certificates, tokens — things that must never be in the repo.'),
+  'know': NeedKind('know', 'Worth knowing',
+      'A finding to read once and acknowledge. Nothing to do unless it changes your mind.'),
 };
 
 class NeedKind {

@@ -82,7 +82,7 @@ only when the user asks (`/qa android`), never in this loop.
 
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" item new --id <step>-<slug> \
-     --title "<what to do, as an imperative>" --needs <console|device|read|look|decision|store|money|secret> \
+     --title "<what to do, as an imperative>" --needs <console|device|read|look|decision|store|money|secret|know> \
      --blocks <id> --from <id> --body-file <path to the runbook markdown>
    ```
 

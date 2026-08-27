@@ -3,7 +3,7 @@
 id: <kebab-id>
 title: <What to do, as an imperative sentence>
 status: open                  # open | done | dropped
-needs: [console]              # console | device | read | look | decision | store | money | secret
+needs: [console]              # console | device | read | look | decision | store | money | secret | know
 blocks: []                    # step ids that cannot close while this is open (leave empty if it gates nothing)
 step: <origin-step-id>        # provenance: which step produced it
 added: <YYYY-MM-DD>

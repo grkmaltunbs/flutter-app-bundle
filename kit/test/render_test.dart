@@ -66,12 +66,34 @@ code <here>
       );
     }
 
-    test('sections, anchors, chips, and the recommended option first', () {
+    test('two tabs: bubbles with a panel per step, and the grouped work', () {
       final html = renderBoardHtml(sample(), today: '2026-08-27');
       expect(html, startsWith('<title>Nahmatik Kit Board</title>'));
+      expect(html, contains('data-tab="steps"'));
+      expect(html, contains('data-tab="work"'));
+      // Every step is a bubble in the full graph; done ones drop out of "only what's left".
+      expect(RegExp(r'<g class="node st-\w+" data-step="').allMatches(html).length, 4 + 3);
+      expect(html, contains('class="node st-codeComplete" data-step="g2"'));
+      expect(html, contains('class="node st-done" data-step="old"'));
+      expect(html, contains('class="node st-blocked" data-step="g12"'));
+      // A blocked-by-humans bubble carries a badge with the open count.
+      expect(html, contains('data-step="g2" tabindex="0"'));
+      expect(html, contains('<text class="badge-n" x="16" y="-12.5">1</text>'));
+      // Edges run from dependency to dependent.
+      expect(html, contains('data-from="g2" data-to="g12"'));
+      // The panel for G12 says it comes after G2, which is waiting on you.
+      final g12 = html.substring(html.indexOf('id="step-g12"'));
+      expect(g12, contains('Comes after'));
+      expect(g12, contains('data-step="g2">Step G2</a>'));
+      expect(g12, contains('(waiting on you)'));
+      expect(g12, contains('Unlocks'));
+      // The panel for G2 shows the push item as the thing to do, flipping it.
+      final g2 = html.substring(html.indexOf('id="step-g2"'), html.indexOf('id="step-g12"'));
+      expect(g2, contains('What you should do'));
+      expect(g2, contains('id="item-push"'));
+      expect(g2, contains('flips Step G2'));
+      // The work tab.
       expect(html, contains('<h2>Would flip a step today</h2>'));
-      expect(html, contains('id="item-push"'));
-      expect(html, contains('flips Step G2'));
       expect(html, contains('<h2>Decisions that come back to Claude</h2>'));
       final a = html.indexOf('<span class="opt-label">A</span>');
       final b = html.indexOf('<span class="opt-label">B</span>');
@@ -79,11 +101,7 @@ code <here>
       expect(html, contains('by 2026-10-30'));
       expect(html, contains('gates Step 26'));
       expect(html, contains('<h2>1 Claude could not sort</h2>'));
-      expect(html, contains('id="item-mystery"'));
       expect(html, isNot(contains('id="item-closed"')));
-      expect(html, contains('<h2>3 steps left</h2>'));
-      expect(html, contains('waiting on you: push'));
-      expect(html, contains('1 step done'));
     });
 
     test('theme tokens: every colour is defined on bare :root and overridden for dark both ways', () {
@@ -94,6 +112,21 @@ code <here>
       expect('--accent: #93AEFF;'.allMatches(html).length, 2);
       expect(html, contains('family=Archivo+Black'));
       expect(html, contains('body { margin: 0; background: var(--bg);'));
+    });
+
+    test('layout: columns by dependency depth, rows centred, edges from dep to dependent', () {
+      final p = sample();
+      final lay = layoutDag(p.steps);
+      expect(lay.nodes['old']!.col, 0);
+      expect(lay.nodes['g2']!.col, 0);
+      expect(lay.nodes['g12']!.col, 1);
+      expect(lay.nodes['ship']!.col, 2);
+      expect(lay.nodes['old']!.y, lessThan(lay.nodes['g2']!.y)); // rank order inside a column
+      expect(lay.edges, containsAll([('g2', 'g12'), ('g12', 'ship')]));
+      final left = layoutDag(p.steps, include: (s) => s.status != StepStatus.done);
+      expect(left.nodes.containsKey('old'), isFalse);
+      expect(left.nodes['g2']!.col, 0);
+      expect(left.width, greaterThan(left.height));
     });
 
     test('is self-contained: no external scripts, no remote images', () {

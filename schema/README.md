@@ -43,7 +43,7 @@ board:
     dark:  { bg: "#0E0B0A", accent: "#93AEFF", … }
 plan_markdown: PROJECT_PLAN.md
 journal: things_for_human_eye.md    # optional: the append-only prose journal
-needs:                              # optional: extra kinds beyond the built-in eight
+needs:                              # optional: extra kinds beyond the built-in nine
   lawyer: { label: A lawyer, description: Terms, privacy policy, consent copy. }
 ```
 
@@ -126,6 +126,7 @@ note: …
 | `store` | listings, TestFlight, review submissions, data-safety forms |
 | `money` | a purchase, a domain, a paid plan |
 | `secret` | keys and credentials that must never be in the repo |
+| `know` | a finding to read once and acknowledge — nothing to do unless it changes your mind |
 
 ## Derived states
 

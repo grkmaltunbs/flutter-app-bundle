@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Placeholder until the relay's rules are written: nobody reads or writes.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

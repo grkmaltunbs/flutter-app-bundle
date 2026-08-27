@@ -40,7 +40,7 @@ plan_markdown: PROJECT_PLAN.md        # generated view; never edited by hand
 
 # journal: docs/BUILD_NOTES.md        # the append-only prose journal, if any
 
-# Extra vocabulary for what an item can need, beyond the built-in eight
-# (console, device, read, look, decision, store, money, secret).
+# Extra vocabulary for what an item can need, beyond the built-in nine
+# (console, device, read, look, decision, store, money, secret, know).
 # needs:
 #   lawyer: { label: "A lawyer", description: "Terms, privacy policy, consent copy." }
