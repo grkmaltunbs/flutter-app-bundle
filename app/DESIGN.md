@@ -136,9 +136,17 @@ one overflow it found was the same shape Nahmatik has hit four times — a
 `Row` with `mainAxisSize.min` around a bare `Text` (a gate note inside a
 pill); the pill's text is loose now.
 
+## Verified by the user (2026-08-28, 02:30)
+
+- Mac: signed in (after the keychain/signing fix), opened Nahmatik; the
+  mirror was read back from the relay — 73 steps, 199 items, revision 1.
+- Phone: APK installed, signed in, Nahmatik listed with its bubbles. Tab
+  swiping was stealing the canvas drag; tabs no longer swipe.
+
 ## Open
 
-- Nothing needs a decision. The phone side is verified only by the widget
-  tests until the APK is installed and signed in.
+- Not yet tried from the app: Session tab → Start, then a `/step` from the
+  Claude app with the "now" line moving; and a tick on the phone → Send →
+  "From the phone" on the Mac. Both proven in tests, not on the devices.
 - Fonts: the app uses the platform faces; `board.fonts` is not applied yet.
 - Windows host: same code, untested.
