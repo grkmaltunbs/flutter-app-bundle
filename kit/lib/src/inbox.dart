@@ -8,7 +8,7 @@
 /// ```json
 /// {"sentAt": "2026-08-28T09:00:00Z",
 ///  "entries": [
-///    {"kind": "item", "id": "…", "action": "done|drop|null", "answer": "…|null", "note": "…|null"},
+///    {"kind": "item", "id": "…", "action": "done|drop|reopen|null", "answer": "…|null", "note": "…|null"},
 ///    {"kind": "step", "id": "…", "note": "…"}
 ///  ]}
 /// ```
@@ -81,13 +81,21 @@ InboxResult applyInbox(PlanStore store, Map<String, Object?> batch, {required St
         }
         what.add('note');
       }
-      if (action == 'drop') {
+      if (action == 'reopen') {
+        // The undo: a tick sent by mistake comes back as an open item, the
+        // same way `kit reopen` does it.
+        if (!dryRun && !i.isOpen) {
+          store.patch(f, ['status'], 'open');
+          store.patch(f, ['done_at'], null);
+        }
+        what.add(i.isOpen ? 'already open' : 'reopened');
+      } else if (action == 'drop') {
         if (!dryRun && i.isOpen) {
           store.patch(f, ['status'], 'dropped');
           store.patch(f, ['done_at'], today);
         }
         what.add('dropped');
-      } else if (action == 'done' || (answer != null && answer.isNotEmpty)) {
+      } else if (action == 'done' || (answer != null && answer.isNotEmpty && i.isOpen)) {
         if (!dryRun && i.isOpen) {
           store.patch(f, ['status'], 'done');
           store.patch(f, ['done_at'], today);

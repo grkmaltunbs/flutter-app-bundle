@@ -69,6 +69,19 @@ void main() {
     expect(i1.doneAt, '2026-08-01');
   });
 
+  test('reopen undoes a tick, and an answer on a closed decision changes it without closing again', () {
+    applyInbox(store, {'entries': [{'kind': 'item', 'id': 'i1', 'action': 'done'}, {'kind': 'item', 'id': 'q1', 'answer': 'x'}]}, today: '2026-08-01');
+    final r = applyInbox(store, {'entries': [{'kind': 'item', 'id': 'i1', 'action': 'reopen'}, {'kind': 'item', 'id': 'q1', 'answer': 'y'}]}, today: '2026-08-28');
+    final plan = store.load();
+    expect(plan.item('i1')!.isOpen, isTrue);
+    expect(plan.item('i1')!.doneAt, isNull);
+    expect(plan.item('q1')!.question!.answer, 'y');
+    expect(plan.item('q1')!.status, ItemStatus.done);
+    expect(plan.item('q1')!.doneAt, '2026-08-01', reason: 'changing an answer is not a second closing');
+    expect(r.lines.map((l) => l.text), ['reopened', 'answer: y']);
+    expect(r.flippable, isEmpty, reason: 'a reopened blocker takes the step back to code complete');
+  });
+
   test('a malformed batch is a FormatException, not a crash', () {
     expect(() => applyInbox(store, {'entries': 'x'}, today: '2026-08-28'), throwsFormatException);
   });

@@ -63,6 +63,22 @@ void main() {
     }
   });
 
+  testWidgets('the Done list shows every closed item with its record, without overflow', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_app(WorkTab(plan: plan, graph: graph, draft: Draft('test'), initialDone: true)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Done · '), findsOneWidget);
+    expect(find.text('Reopen'), findsWidgets);
+    final list = find.byType(Scrollable).first;
+    for (var i = 0; i < 40; i++) {
+      await tester.drag(list, const Offset(0, -700));
+      await tester.pump();
+      expect(tester.takeException(), isNull, reason: 'page $i');
+    }
+  });
+
   testWidgets('a code-complete step opens with its blockers as runbooks', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;

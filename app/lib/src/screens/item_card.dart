@@ -46,7 +46,7 @@ class _ItemCardState extends State<ItemCard> {
     final d = widget.draft.items[i.id];
     final drafted = d != null && !d.isEmpty;
     final blocks = [for (final id in i.blocks) widget.plan.step(id)].whereType<Step>().toList();
-    final longBody = i.body.length > 280 || i.runbook.length > 3;
+    final longBody = !i.isOpen || i.body.length > 280 || i.runbook.length > 3;
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: drafted ? t.accent : t.line, width: drafted ? 1.5 : 1)),
       child: Padding(
@@ -55,7 +55,8 @@ class _ItemCardState extends State<ItemCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              if (i.deadline != null) Pill('by ${i.deadline}', color: t.critical, icon: Icons.schedule),
+              if (!i.isOpen) Pill(i.status == ItemStatus.dropped ? 'not doing${i.doneAt != null ? ' · ${i.doneAt}' : ''}' : 'done${i.doneAt != null ? ' · ${i.doneAt}' : ''}', color: i.status == ItemStatus.dropped ? t.muted : t.good, icon: i.status == ItemStatus.dropped ? Icons.remove_circle_outline : Icons.check_circle),
+              if (i.isOpen && i.deadline != null) Pill('by ${i.deadline}', color: t.critical, icon: Icons.schedule),
               if (widget.decisive) Pill('flips ${blocks.map((s) => s.number ?? s.id).join(', ')}', color: t.warn, icon: Icons.bolt),
               for (final n in i.needs) Pill(widget.needs[n]?.label ?? n, color: t.muted),
               if (!widget.decisive) for (final s in blocks) Pill('blocks ${s.number ?? s.id}', color: t.muted),
@@ -92,13 +93,21 @@ class _ItemCardState extends State<ItemCard> {
               const SizedBox(height: 4),
               for (final o in _ordered(i.question!.options)) _Option(option: o, selected: (d?.answer ?? i.question!.answer) == o.label, onTap: () => _set((x) => x.answer = o.label)),
             ],
+            if (i.note != null && i.note!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(i.note!, style: TextStyle(fontSize: 12.5, color: t.muted, fontStyle: FontStyle.italic)),
+            ],
             Divider(height: 18, color: t.line),
             Row(
-              children: [
-                _Tick(label: 'Done', value: d?.action == 'done', color: t.good, onChanged: (v) => _set((x) => x.action = v ? 'done' : null)),
-                const SizedBox(width: 12),
-                _Tick(label: 'Not doing', value: d?.action == 'drop', color: t.muted, onChanged: (v) => _set((x) => x.action = v ? 'drop' : null)),
-              ],
+              children: i.isOpen
+                  ? [
+                      _Tick(label: 'Done', value: d?.action == 'done', color: t.good, onChanged: (v) => _set((x) => x.action = v ? 'done' : null)),
+                      const SizedBox(width: 12),
+                      _Tick(label: 'Not doing', value: d?.action == 'drop', color: t.muted, onChanged: (v) => _set((x) => x.action = v ? 'drop' : null)),
+                    ]
+                  : [
+                      _Tick(label: 'Reopen', value: d?.action == 'reopen', color: t.warn, onChanged: (v) => _set((x) => x.action = v ? 'reopen' : null)),
+                    ],
             ),
             const SizedBox(height: 6),
             TextField(

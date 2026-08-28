@@ -26,6 +26,8 @@ class StepDetail extends StatelessWidget {
     final decisive = graph.decisiveItemIds();
     final needs = plan.manifest.needs;
     final itemsFrom = [for (final i in plan.items) if (i.isOpen && !i.blocks.contains(step.id) && i.step == step.id) i];
+    final closed = [for (final i in plan.items) if (!i.isOpen && (i.blocks.contains(step.id) || i.step == step.id)) i]
+      ..sort((a, b) => (b.doneAt ?? '').compareTo(a.doneAt ?? ''));
 
     return ListView(
       controller: controller,
@@ -79,6 +81,10 @@ class StepDetail extends StatelessWidget {
         if (itemsFrom.isNotEmpty) ...[
           SectionHead('Also from this step', sub: 'Open, but not gating it.'),
           for (final i in itemsFrom) Padding(padding: const EdgeInsets.only(bottom: 10), child: ItemCard(item: i, plan: plan, graph: graph, draft: draft, needs: needs, decisive: false)),
+        ],
+        if (closed.isNotEmpty) ...[
+          SectionHead('Done for this step', sub: '${closed.length} closed. Reopen one if it was ticked by mistake.'),
+          for (final i in closed) Padding(padding: const EdgeInsets.only(bottom: 10), child: ItemCard(item: i, plan: plan, graph: graph, draft: draft, needs: needs, decisive: false)),
         ],
         const SectionHead('Note to Claude', sub: 'Stays here until you press Send.'),
         _StepNote(draft: draft, stepId: step.id),
