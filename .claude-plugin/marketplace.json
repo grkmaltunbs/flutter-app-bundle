@@ -5,15 +5,15 @@
     "url": "https://github.com/grkmaltunbs"
   },
   "metadata": {
-    "description": "Flutter development kit for Claude Code",
-    "version": "1.0.0"
+    "description": "Human-in-the-loop Flutter development kit for Claude Code — the plan is data, the human is in it",
+    "version": "2.0.0-dev.1"
   },
   "plugins": [
     {
       "name": "flutter-kit",
       "source": "./",
-      "description": "Human-in-the-loop Flutter development kit — spec-driven init, step-by-step build, simulator-gated QA against local Firebase emulators",
-      "version": "1.0.0",
+      "description": "Human-in-the-loop Flutter development kit — spec-driven init, a plan with human items and computed state, step-by-step build, runtime-gated QA under the project’s own policy, and an app that shows what is waiting on you",
+      "version": "2.0.0-dev.1",
       "author": {
         "name": "grkmaltunbs",
         "url": "https://github.com/grkmaltunbs"
@@ -30,7 +30,12 @@
         "mobile"
       ],
       "category": "development",
-      "tags": ["flutter", "dart", "mobile", "testing"]
+      "tags": [
+        "flutter",
+        "dart",
+        "mobile",
+        "testing"
+      ]
     }
   ]
 }

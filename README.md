@@ -18,6 +18,28 @@ claude mcp add dart -- dart mcp-server     # restart Claude Code afterwards
 
 Verify with `claude mcp list` — `dart: ✓ Connected`.
 
+## Installing into a project (v2, while in development)
+
+```
+claude plugin marketplace add ~/StudioProjects/flutter-app-bundle-2   # once per machine
+cd <project> && claude plugin install flutter-kit@flutter-app-bundle --scope project
+```
+
+Two things to know:
+
+- **Commands are namespaced** (`/flutter-kit:step`). A project that wants the
+  bare names keeps one-line shims in `.claude/commands/` that forward to the
+  plugin (see Nahmatik's). The project's own policy — QA runtime, backend,
+  text scales, format paths — lives in `plan/kit.yaml` → `qa` and in
+  `CLAUDE.md`; the plugin's commands and agents read it from there, so a
+  project never copies a command to adapt it.
+- **Claude Code copies an installed plugin** into `~/.claude/plugins/cache/`
+  and refreshes the copy only on a version bump. While this branch changes
+  daily, replace that copy with a symlink to the checkout:
+  `rm -rf ~/.claude/plugins/cache/flutter-app-bundle/flutter-kit/<version> &&
+  ln -s <checkout> ~/.claude/plugins/cache/flutter-app-bundle/flutter-kit/<version>`.
+  Edits then apply on the next session.
+
 ## Use it on a new app
 
 ```bash

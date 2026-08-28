@@ -40,8 +40,7 @@ doing") and/or a short note. If no id is given, run `kit next` and ask which.
    bash "${CLAUDE_PLUGIN_ROOT}/kit/kit.sh" render board
    ```
 
-   If the manifest has `board.artifact_url`, republish the board with the
-   Artifact tool passing that URL as `url` (same link, new version). Offer to
-   commit `plan/` and the rendered files.
+   The flutter-kit app shows the change as soon as `plan/` changes; the
+   artifact page is republished only on demand with `/board`.
 
 Never close an item the user did not name. Never `--force` a step.

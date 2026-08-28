@@ -36,26 +36,25 @@ Workflow:
 
 6. **Runtime verification (gating).** Delegate to the **flutter-qa** agent on
    the **iOS simulator** with the feature's flows and the dependent-flow
-   regression set. It boots the iOS simulator, drives the new flow + dependent
-   flows on the dev flavor against the local Emulator Suite (health-check the
-   hub, start if down), and sweeps runtime errors — no screenshots on
-   PASS, one screenshot of the failing screen on FAIL (the multi-size visual
-   pass lives in `/qa`). If it returns FAIL, route defects (`→ debugger` /
-   `→ developer` / `→ tester`); after each fix re-run only the failed flow on
-   the iOS simulator plus analyze + affected unit tests, then run one final
-   full pass when all defects are green. Do not declare done while any runtime
-   error or overflow remains. If the work touched `android/` or platform
-   channels, recommend an explicit Android `/qa` sweep — a suggestion, never
-   a gate.
+   regression set. It boots the iOS simulator, runs the flow's integration
+   tests plus the regression set under the project's `qa` policy
+   (`plan/kit.yaml`: runtime, backend, test-account prefix), and sweeps
+   runtime errors — screenshots only where `qa.screenshots` allows; evidence
+   is verbatim errors and test output. If it returns FAIL,
+   route defects (`→ debugger` / `→ developer` / `→ tester`); after each fix
+   re-run only the failed flow on the iOS simulator plus analyze + affected
+   unit tests, then run one final full pass when all defects are green. Do
+   not declare done while any runtime error or overflow remains. QA never
+   touches Android; if the work changed `android/` or platform channels, note
+   it for the user's manual device testing.
 
 7. Summarize:
    - What was built (one short paragraph)
    - Files added/modified
    - Test count delta
-   - flutter-qa verdict, flows exercised, and any FAIL screenshots
+   - flutter-qa verdict and flows exercised
    - Anything left as TODO and why
 
 8. Record it in the plan: append the shipped feature to `PROJECT_PLAN.md` as a
-   completed `[x]` step (id, spec_refs, one-line description) so the plan stays
-   the source of truth for regression sets. Offer to update `PRODUCT_SPEC.md`
-   with the new flow/screens.
+   completed `[x]` step (id, one-line description) so the plan stays the
+   source of truth for regression sets.

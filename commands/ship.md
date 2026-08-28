@@ -15,10 +15,10 @@ Workflow:
 
 2. Run the full test suite. Block on failure.
 
-3. Run the full **iOS** `/qa` sweep — all flows plus the multi-size visual
-   pass (this is the pre-release home of the checks the per-step gates skip).
-   Block on FAIL. If the app ships to Google Play, recommend running an
-   explicit Android `/qa` sweep first — a suggestion, never a gate.
+3. Run the full **iOS** `/qa` sweep — all flows plus the overflow-guard size
+   matrix (this is the pre-release home of the checks the per-step gates
+   skip). Block on FAIL. QA never runs on Android; remind the user to do a
+   manual pass on their Android device before the Play upload.
 
 4. Delegate to the **flutter-releaser** agent. They will:
    - Run pre-flight Firebase + signing guardrail checks (project ID is the

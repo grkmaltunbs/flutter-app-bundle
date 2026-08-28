@@ -16,13 +16,25 @@ After the agent finishes:
 - Surface any production-code defects discovered during test writing —
   do NOT silently fix them; let the user route them to the debugger.
 
-Integration tests run the **dev flavor against the local Emulator Suite** on a
-simulator. Health-check the hub first (`curl http://localhost:4441`); if down,
-start it (`firebase emulators:start --project demo-<app> --import .firebase/seed
---export-on-exit .firebase/seed`) or run headless via `firebase emulators:exec`.
-States the emulator can't simulate (offline, injected errors) are covered at
-the widget/bloc layer, or via demo-flavor fakes where they exist. NEVER the
-live project (the Firebase project ID recorded in CLAUDE.md, Project overview →
-"Firebase project"; verify at runtime via `firebase use`) — live project access
-is reserved for the Backend integration pass against staging:
-`flutter test integration_test/ --dart-define=APP_ENV=dev -d <device>`
+**Runtime policy comes from the project, not this file.** `plan/kit.yaml` →
+`qa.runtime` names the device class (`ios-simulator` is the default; Android
+only when it says so), `qa.screenshots` says whether evidence may be an image
+(default no — evidence is verbatim errors, test output and widget-inspector
+dumps), `qa.text_scales` lists the text scales the overflow matrix must cover
+(default `[1.0, 2.0, 3.12]` — 3.12 is iOS's real largest setting), and
+`CLAUDE.md`'s QA policy adds the project's own rules. Where they and this text
+disagree, they win.
+
+**Firebase guardrail (every agent in this kit):** the project is
+`plan/kit.yaml` → `firebase.project`, verified at runtime with `firebase use`
+or an explicit `--project <id>`; refuse any other project. `qa.backend`
+decides the rest. **`live`** — every run (the app, the integration tests, QA)
+hits that project: only accounts carrying the `qa.test_account_prefix`
+prefix, never real user data, never destructive scripts, **no emulator wiring
+anywhere**, and never a rules/functions/indexes deploy as a side effect of a
+step — deploys happen only where a step says so. **`emulator`** — day-to-day
+work targets the local Emulator Suite under a `demo-<app>` project id behind
+the dev environment guard; the live project is for the backend integration
+pass and releases. Either way, states the backend cannot produce on demand
+(offline, injected errors) are covered at the bloc/widget layer with mocked
+repositories — never with flavor fakes unless the project already has them.

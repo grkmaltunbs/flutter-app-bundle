@@ -75,14 +75,24 @@ class ClaudeCli {
     }
   }
 
-  /// True when a hook command that spools for this app is configured for
-  /// the project (`kit.sh hook` / `kit hook` in either settings file).
+  /// True when a hook command that spools for this app reaches the project:
+  /// either written into a settings file (`kit.sh hook` / `kit hook`) or via
+  /// the flutter-kit plugin, whose hooks.json carries it.
   static bool hooksInstalled(String dir) {
     for (final name in const ['settings.json', 'settings.local.json']) {
       final f = File(p.join(dir, '.claude', name));
       if (!f.existsSync()) continue;
       final text = f.readAsStringSync();
       if (text.contains('kit.sh" hook') || text.contains('kit.sh hook') || text.contains('kit hook')) return true;
+      try {
+        final m = jsonDecode(text) as Map;
+        final plugins = m['enabledPlugins'] as Map? ?? const {};
+        for (final e in plugins.entries) {
+          if (e.key.toString().startsWith('flutter-kit@') && e.value == true) return true;
+        }
+      } on Object {
+        // Not JSON we can read — fall through to the other file.
+      }
     }
     return false;
   }

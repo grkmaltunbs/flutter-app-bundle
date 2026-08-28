@@ -52,6 +52,27 @@ Colour tokens: `bg surface ink ink2 muted line accent accent_soft good
 good_soft warn warn_soft critical critical_soft`; any you omit keep the kit
 default.
 
+### `qa:` — the policy the commands and agents read
+
+Free-form, but these keys are what `/step`, `/qa`, `/test`, `/fix`,
+`/feature` and the agents quote. Anything project-specific about *how* to
+verify belongs here (or in `CLAUDE.md`), never in a copied command.
+
+```yaml
+qa:
+  runtime: ios-simulator        # device class QA may use: ios-simulator | android | both
+  backend: live                 # live → firebase.project with test accounts; emulator → local Emulator Suite
+  screenshots: false            # may evidence be an image? default false
+  test_account_prefix: qa-      # the only accounts a run may create or sign in as (backend: live)
+  test_accounts: integration_test/helpers/qa_identity.dart   # a fixed roster, if the project keeps one
+  runner: integration_test/all_tests.dart                     # single-launch runner for the edit-run loop
+  text_scales: [1.0, 2.0, 3.12] # the overflow matrix; 3.12 is iOS's real largest setting
+  narrowest_locale: tr          # run this locale on the narrowest screen
+  format: lib test integration_test   # the only paths `dart format` may touch
+  design_export: docs/design/<app>/   # the visual source of truth
+  note: >-                      # one paragraph a human reads first
+```
+
 ## `steps/<id>.yaml`
 
 ```yaml
