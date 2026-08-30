@@ -151,13 +151,17 @@ Specialist agents invoked automatically by the commands:
 ## What the plugin ships
 
 ```
-commands/     15 slash commands
+commands/     19 slash commands
 agents/       9 specialist agents
 skills/       19 Dart + Flutter skills
+kit/          the plan engine — the `kit` CLI and the library behind it
+schema/       what a plan/ directory is, field by field
 hooks/        batched `dart analyze` gate (queue on edit, check at turn end)
+              · `kit hook`, which spools session events for the app
 reference/    flutter-rules.md · requirements-checklist.md · lessons-learned.md
 templates/    CLAUDE.md · PRODUCT_SPEC · PROJECT_PLAN · HUMAN_SETUP · ci.yml
-              · settings.json · gitignore
+              · settings.json · gitignore · plan/ (kit.yaml · step · item)
+app/          the desk-and-phone app over the same plan — see below
 ```
 
 ### Two files get pinned into your project
@@ -181,37 +185,44 @@ what you don't want; `/kit-sync` reports the broad entries it adds.
 - Flutter SDK (stable channel)
 - Claude Code CLI (`claude login`)
 - Dart MCP: `claude mcp add dart -- dart mcp-server`
-- Firebase CLI + Java 11+ (if using Firebase — the dev flavor runs the local
-  Emulator Suite): `npm install -g firebase-tools`
+- Firebase CLI + Java 11+ (if using Firebase, and Java only where
+  `qa.backend: emulator` runs the local Emulator Suite):
+  `npm install -g firebase-tools`
 - Optional: the official `firebase` plugin. The settings template enables it;
   add its marketplace with
   `/plugin marketplace add anthropics/claude-plugins-official`.
 
 ## Verification approach
 
-**Local Firebase emulators, no flutter-skill dependency.** Development
-verification runs the **dev flavor** (`--dart-define=APP_ENV=dev`) — the real
-Firebase repository impls pointed at the **local Firebase Emulator Suite** with
-a `demo-*` project ID (offline-only, no real project needed) — on real
-simulators, so the prod impls **and security rules** are exercised continuously.
-Optional **demo-flavor fakes** cover what the emulator can't simulate (offline
-mode, injected errors).
+**The project sets the policy; the commands read it.** `plan/kit.yaml` → `qa`
+is what `/step`, `/qa`, `/test`, `/fix` and `/feature` obey: `runtime` (the
+device class), `backend` (`live` → runs hit the project's real Firebase with
+`test_account_prefix` accounts and nothing else; `emulator` → the local
+Emulator Suite under a `demo-*` id, offline, no real project needed),
+`text_scales`, `narrowest_locale`, `format`, `runner`, `screenshots`. Where a
+project's `kit.yaml` and this README disagree, the project wins. Where a
+project says nothing, the defaults are the iOS simulator, `[1.0, 2.0, 3.12]`
+and no screenshots.
 
 Each `/step` is gated by the **flutter-qa** agent before it counts as done:
 
 1. `flutter analyze` + `flutter test` — static + unit/bloc/widget tests
 2. The new flow **and its dependent flows** driven via `integration_test` on
-   the **iOS simulator** against the running Emulator Suite
+   `qa.runtime`, against whatever `qa.backend` names
 3. Dart MCP runtime-error sweep — zero unhandled exceptions
 4. Render safety — zero overflow via the widget-test size matrix
-   (320-wide → iPad; small/Pixel/tablet Android) at textScale 1.0 & 2.0
-5. On FAIL only: a screenshot of the failing screen as defect evidence
+   (320-wide → iPad; small/Pixel/tablet Android) at every `qa.text_scales`
+5. On FAIL only, and only where `qa.screenshots` allows: a screenshot of the
+   failing screen as defect evidence
 
-The full iOS + multi-size visual sweep lives in `/qa` (run it anytime) and runs
+Every result is recorded — `kit gate <step> <gate> passed|failed` — so the
+board tells the truth while a failure is being fixed. A passing gate is still
+not *done*: a step whose human items are open is **code complete**, and `kit
+step done` refuses to close it.
+
+The full multi-size visual sweep lives in `/qa` (run it anytime) and runs
 before every `/ship`; Android verification is available on explicit request
-(e.g. `/qa android`). The **Backend integration pass** plan step (prod flavor
-against a **staging** Firebase project) is the final real-backend checkpoint
-before release.
+(e.g. `/qa android`) unless `qa.runtime` already says so.
 
 ## Architecture
 
@@ -228,6 +239,24 @@ Default stack (customizable during `/init-app`):
 
 Clean architecture with vertical feature slices:
 `domain/` (pure Dart) → `data/` (infrastructure + `fakes/`) → `presentation/` (Flutter + Bloc)
+
+## The desk-and-phone app (`app/`)
+
+`app/` is a Flutter app over the same `plan/`: a **macOS host** that opens a
+project folder, mirrors it, applies what the phone sends, watches Claude
+Code's hooks and starts `claude remote-control` in the folder — and an
+**Android remote** that shows the same two screens (Steps as bubbles, Your
+work as sittings) and batches ticks, answers and notes behind *Send to
+Claude*. Both link `kit/` directly, so a bubble is the same colour on both and
+no derived state is stored anywhere. Build and layout: `app/README.md`; the
+decisions behind it: `app/DESIGN.md`.
+
+**It runs on the author's own relay** — one Firebase project
+(`flutterappbundle`), owner-only rules pinned to a single uid in
+`app/firestore.rules`. Installing the plugin copies these files but nothing
+runs them: the commands, the board and `kit` all work with `app/` ignored. To
+run it yourself, point `app/lib/firebase_options.dart` and those rules at a
+Firebase project of your own.
 
 ## Local development
 
