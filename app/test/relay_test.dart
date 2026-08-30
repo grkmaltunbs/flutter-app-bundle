@@ -91,4 +91,61 @@ void main() {
     expect(mirrored.data()!['status'], 'done');
     listener.dispose();
   });
+
+  test('an ask reaches the phone; its answer comes back as a command; the host stamps both', () async {
+    final pub = RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test');
+    await pub.publish(store.load());
+    final ask = Ask(
+      requestId: 'req_1',
+      toolName: 'Bash',
+      toolUseId: 'toolu_1',
+      input: {'command': 'touch /tmp/kit-ask', 'description': 'A marker'},
+      at: DateTime.utc(2026, 8, 30, 12),
+      description: 'Create a marker file',
+      suggestions: [
+        {'type': 'addRules', 'rules': [{'toolName': 'Bash', 'ruleContent': 'touch:*'}], 'behavior': 'allow', 'destination': 'localSettings'}
+      ],
+    );
+    await pub.publishAsk(ask);
+    final doc = await db.collection('projects').doc('demo').collection('asks').doc('req_1').get();
+    expect(doc.data()!['answeredAt'], isNull);
+    final back = Ask.fromMap(doc.data()!);
+    expect(back.summary, 'touch /tmp/kit-ask');
+    expect(back.suggestions.single['behavior'], 'allow');
+
+    final applied = <Map<String, Object?>>[];
+    final listener = CommandListener(db, 'demo', apply: (cmd) async {
+      applied.add(cmd);
+      return 'answered';
+    })..start();
+    await CommandSender(db, 'demo').answer(ask, AskAnswer.deny('The user declined from the phone.'), from: 'phone');
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(applied.single['type'], 'answer');
+    expect(applied.single['requestId'], 'req_1');
+    expect(applied.single['from'], 'phone');
+    expect(applied.single['remember'], isFalse);
+    final a = AskAnswer.fromMap(applied.single);
+    expect(a.response['behavior'], 'deny');
+    expect(a.allowed, isFalse);
+    final cmds = await db.collection('projects').doc('demo').collection('commands').get();
+    expect(cmds.docs.single.data()['doneAt'], isNotNull);
+    expect(cmds.docs.single.data()['result'], 'answered');
+
+    await pub.resolveAsk('req_1', summary: a.summary, by: 'phone');
+    final after = await db.collection('projects').doc('demo').collection('asks').doc('req_1').get();
+    expect(after.data()!['answeredAt'], isNotNull);
+    expect(after.data()!['by'], 'phone');
+    expect(after.data()!['answer'], 'Denied');
+
+    // A host that starts later never re-runs a stamped command.
+    var again = 0;
+    final l2 = CommandListener(db, 'demo', apply: (_) async {
+      again++;
+      return '';
+    })..start();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(again, 0);
+    listener.dispose();
+    l2.dispose();
+  });
 }

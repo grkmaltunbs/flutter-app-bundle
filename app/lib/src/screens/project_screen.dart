@@ -12,6 +12,7 @@ import '../relay.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'deck_tab.dart';
+import 'remote_asks.dart';
 import 'session_tab.dart';
 import 'step_detail.dart';
 import 'steps_tab.dart';
@@ -188,10 +189,15 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                     if (widget.isHost) SessionTab(host: widget.host!),
                   ],
                 ),
-          bottomNavigationBar: _draft.count == 0
-              ? null
-              : SafeArea(
-                  child: Container(
+          // The bottom of a phone's project: what Claude is asking, then the
+          // draft bar. The host answers asks on its Deck.
+          bottomNavigationBar: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!widget.isHost) RemoteAskPanel(db: FirebaseFirestore.instance, slug: widget.slug),
+                if (_draft.count > 0)
+                  Container(
                     padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
                     decoration: BoxDecoration(color: t.surface, border: Border(top: BorderSide(color: t.line))),
                     child: Row(
@@ -203,7 +209,9 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                       ],
                     ),
                   ),
-                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -234,7 +242,10 @@ class _NowLine extends StatelessWidget {
       }
     } else {
       final now = summary?.now;
-      live = summary?.sessionState == 'connected';
+      live = summary?.live ?? false;
+      if ((summary?.pendingAsks ?? 0) > 0) {
+        return _line(t, color: t.warn, text: 'Claude is asking — see below', at: null);
+      }
       if (now != null && now.isNotEmpty) {
         text = (now['summary'] ?? '').toString();
         needsYou = now['needsYou'] == true;
@@ -243,7 +254,10 @@ class _NowLine extends StatelessWidget {
         text = live ? 'Session live' : 'No session running';
       }
     }
-    final color = needsYou ? t.warn : (live ? t.good : t.muted);
+    return _line(t, color: needsYou ? t.warn : (live ? t.good : t.muted), text: text, at: at);
+  }
+
+  Widget _line(KitTokens t, {required Color color, required String text, required DateTime? at}) {
     return Container(
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 16),

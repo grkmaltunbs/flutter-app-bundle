@@ -65,6 +65,31 @@ class _SessionTabState extends State<SessionTab> {
               const SectionHead('From the phone', sub: 'Batches applied to plan/.'),
               for (final a in h.applied) Text(a, style: TextStyle(fontSize: 12.5, color: t.ink2)),
             ],
+            ListenableBuilder(
+              listenable: h.bridge,
+              builder: (context, _) {
+                final rules = h.bridge.alwaysApplied;
+                if (rules.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHead('Allowed always', sub: 'Rules Claude Code wrote to this project because an ask was answered Always. Remove one and it asks again.'),
+                    for (final r in rules)
+                      Row(children: [
+                        Expanded(child: Text('${r.ruleString}  ·  ${r.behavior}, ${r.destination}', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'menlo', fontSize: 12, color: t.ink2))),
+                        IconButton(
+                          tooltip: 'Remove',
+                          icon: const Icon(Icons.close, size: 16),
+                          onPressed: () {
+                            final removed = h.bridge.forgetAlways(r);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(removed ? 'Removed ${r.ruleString}' : '${r.ruleString} was not in ${r.destination} any more')));
+                          },
+                        ),
+                      ]),
+                  ],
+                );
+              },
+            ),
             const SectionHead('Activity', sub: 'From the hooks, newest first.'),
             if (h.hooks.events.isEmpty) Text('Nothing yet.', style: TextStyle(color: t.muted))
             else

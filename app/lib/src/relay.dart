@@ -11,7 +11,12 @@ import 'package:flutter_kit/kit.dart';
 /// projects/{slug}/items/{id}      Item.toMap()
 /// projects/{slug}/inbox/{auto}    a batch from the phone; the host stamps appliedAt
 /// projects/{slug}/events/{auto}   milestones from hooks (prompt, stop, notification)
+/// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
+/// projects/{slug}/commands/{auto} phone → host: {type: answer, …}; the host stamps doneAt, result
 /// ```
+///
+/// The host is the only writer of `asks` and `session`; the phone only ever
+/// writes `inbox` and `commands`.
 class ProjectSummary {
   ProjectSummary({required this.slug, required this.name, required this.dir, required this.machine, required this.session, required this.now, required this.counts, this.updatedAt});
 
@@ -42,6 +47,11 @@ class ProjectSummary {
   String? get sessionUrl => session['sessionUrl']?.toString();
   String? get environmentUrl => session['environmentUrl']?.toString();
   String get sessionState => (session['state'] ?? 'idle').toString();
+
+  /// `bridge` when this app drives the session, `remote` for the Claude app.
+  String get mode => (session['mode'] ?? (sessionState == 'connected' ? 'remote' : 'idle')).toString();
+  bool get live => mode == 'bridge' || sessionState == 'connected';
+  int get pendingAsks => (session['pendingAsks'] as num?)?.toInt() ?? 0;
 }
 
 /// Writes the plan mirror. Keeps the stable JSON of every document it has
@@ -119,6 +129,29 @@ class RelayPublisher {
 
   Future<void> publishSession(Map<String, Object?> session) =>
       ref.set({'session': session, 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+
+  /// An ask the bridge raised, for the phone to answer.
+  Future<void> publishAsk(Ask ask) async {
+    await ref.collection('asks').doc(ask.requestId).set({...ask.toMap(), 'answeredAt': null, 'createdAt': FieldValue.serverTimestamp()});
+    _asks++;
+    if (_asks % 20 == 0) await _pruneAsks();
+  }
+
+  /// Whoever answered, the phone's card drops on this.
+  Future<void> resolveAsk(String requestId, {required String summary, required String by}) =>
+      ref.collection('asks').doc(requestId).set({'answeredAt': FieldValue.serverTimestamp(), 'answer': summary, 'by': by}, SetOptions(merge: true));
+
+  int _asks = 0;
+
+  Future<void> _pruneAsks() async {
+    final q = await ref.collection('asks').orderBy('at', descending: true).limit(200).get();
+    if (q.docs.length < 100) return;
+    final b = db.batch();
+    for (final d in q.docs.skip(50)) {
+      b.delete(d.reference);
+    }
+    await b.commit();
+  }
 
   /// The "now" line — coalesced, because a `/step` fires PostToolUse
   /// hundreds of times and only the latest matters on a phone.
@@ -198,6 +231,65 @@ class InboxListener {
   }
 
   void dispose() => _sub?.cancel();
+}
+
+/// The host's side of `commands`: every command the phone sent and nobody
+/// has run, in the order sent, each stamped with what came of it.
+class CommandListener {
+  CommandListener(this.db, this.slug, {required this.apply});
+
+  final FirebaseFirestore db;
+  final String slug;
+
+  /// Runs one command; returns a one-line result for the stamp.
+  final Future<String> Function(Map<String, Object?> command) apply;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sub;
+  bool _busy = false;
+  final _seen = <String>{};
+
+  void start() {
+    _sub = db.collection('projects').doc(slug).collection('commands').where('doneAt', isNull: true).snapshots().listen(_onDocs);
+  }
+
+  Future<void> _onDocs(QuerySnapshot<Map<String, dynamic>> q) async {
+    if (_busy) return;
+    _busy = true;
+    try {
+      final docs = q.docs.where((d) => !_seen.contains(d.id)).toList()..sort((a, b) => (a.data()['sentAt'] ?? '').toString().compareTo((b.data()['sentAt'] ?? '').toString()));
+      for (final d in docs) {
+        _seen.add(d.id);
+        String result;
+        try {
+          result = await apply({for (final e in d.data().entries) e.key: e.value as Object?});
+        } on Object catch (e) {
+          result = 'failed: $e';
+        }
+        await d.reference.set({'doneAt': FieldValue.serverTimestamp(), 'result': result}, SetOptions(merge: true));
+      }
+    } finally {
+      _busy = false;
+    }
+  }
+
+  void dispose() => _sub?.cancel();
+}
+
+/// The phone's side of `commands`.
+class CommandSender {
+  CommandSender(this.db, this.slug);
+  final FirebaseFirestore db;
+  final String slug;
+
+  Future<void> send(Map<String, Object?> command, {required String from}) => db.collection('projects').doc(slug).collection('commands').add({
+        ...command,
+        'from': from,
+        'sentAt': DateTime.now().toUtc().toIso8601String(),
+        'doneAt': null,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+  Future<void> answer(Ask ask, AskAnswer a, {bool remember = false, required String from}) =>
+      send({'type': 'answer', 'requestId': ask.requestId, ...a.toMap(), 'remember': remember}, from: from);
 }
 
 /// The phone's side.

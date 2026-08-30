@@ -103,11 +103,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   itemBuilder: (context, i) {
                     final s = projects[i];
                     final open = (s.counts['open'] as num?)?.toInt();
+                    final asking = s.pendingAsks > 0;
                     return ListTile(
-                      leading: Icon(Icons.auto_awesome_motion, color: s.sessionState == 'connected' ? t.good : t.muted),
+                      leading: Icon(asking ? Icons.notifications_active : Icons.auto_awesome_motion, color: asking ? t.warn : (s.live ? t.good : t.muted)),
                       title: Text(s.name),
-                      subtitle: Text([s.machine, if (open != null) '$open waiting on you', if (s.sessionState == 'connected') 'Claude session live'].join(' · ')),
-                      trailing: const Icon(Icons.chevron_right),
+                      subtitle: Text([s.machine, if (open != null) '$open waiting on you', if (asking) 'Claude is asking' else if (s.live) 'Claude session live'].join(' · ')),
+                      trailing: asking ? Pill('needs you', color: t.warn, filled: true) : const Icon(Icons.chevron_right),
                       onTap: () => _openRemote(s),
                     );
                   },

@@ -27,6 +27,7 @@ class HostProject extends ChangeNotifier {
   late final BridgeSession bridge = BridgeSession(dir: dir);
   RelayPublisher? _publisher;
   InboxListener? _inbox;
+  CommandListener? _commands;
   String? slug;
   String relayStatus = 'not published yet';
   String? relayError;
@@ -41,12 +42,43 @@ class HostProject extends ChangeNotifier {
     source.addListener(_onPlan);
     session.addListener(_onSession);
     bridge.addListener(_onBridge);
+    bridge.onAsk = _onAsk;
+    bridge.onAnswered = _onAnswered;
     hooks.onEvent = _onHook;
     source.start();
     hooks.start();
   }
 
-  void _onBridge() => notifyListeners();
+  /// What the phone sees as the session: the bridge while it runs, else
+  /// Remote Control, else idle.
+  Map<String, Object?> sessionRelay() {
+    if (bridge.running) return bridge.toRelay();
+    if (session.running) return {...session.toRelay(), 'mode': 'remote', 'pendingAsks': 0};
+    return {...session.toRelay(), 'mode': 'idle', 'pendingAsks': 0};
+  }
+
+  void _onBridge() {
+    _publisher?.publishSession(sessionRelay());
+    notifyListeners();
+  }
+
+  void _onAsk(Ask ask) => _publisher?.publishAsk(ask);
+
+  void _onAnswered(Ask ask, AskAnswer a, String by) => _publisher?.resolveAsk(ask.requestId, summary: a.summary, by: by);
+
+  /// A command from the phone. `answer` lands on the pending ask only if it
+  /// is still the one the phone saw.
+  Future<String> applyCommand(Map<String, Object?> cmd) async {
+    switch (cmd['type']) {
+      case 'answer':
+        final requestId = (cmd['requestId'] ?? '').toString();
+        if (bridge.transcript.pending?.requestId != requestId) return 'stale: that ask was already answered';
+        bridge.answer(AskAnswer.fromMap(cmd), requestId: requestId, by: (cmd['from'] ?? 'phone').toString(), remember: cmd['remember'] == true);
+        return 'answered';
+      default:
+        return 'unknown command ${cmd['type']}';
+    }
+  }
 
   Future<void> _onPlan() async {
     final plan = source.plan;
@@ -54,6 +86,7 @@ class HostProject extends ChangeNotifier {
     slug ??= slugFor(plan.manifest);
     _publisher ??= RelayPublisher(db, slug!, dir: dir, machine: machine);
     _inbox ??= InboxListener(db, slug!, apply: applyBatch)..start();
+    _commands ??= CommandListener(db, slug!, apply: applyCommand)..start();
     if (_publishing) {
       _dirty = true;
       return;
@@ -101,7 +134,7 @@ class HostProject extends ChangeNotifier {
   String _today() => DateTime.now().toIso8601String().substring(0, 10);
 
   void _onSession() {
-    _publisher?.publishSession(session.toRelay());
+    _publisher?.publishSession(sessionRelay());
     notifyListeners();
   }
 
@@ -118,6 +151,7 @@ class HostProject extends ChangeNotifier {
     session.removeListener(_onSession);
     bridge.removeListener(_onBridge);
     _inbox?.dispose();
+    _commands?.dispose();
     _publisher?.dispose();
     hooks.dispose();
     session.dispose();

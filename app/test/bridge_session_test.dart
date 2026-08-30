@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:flutter_kit/kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kit_app/src/host/bridge_session.dart';
+import 'package:kit_app/src/host/permission_rules.dart';
 import 'package:path/path.dart' as p;
 
 import 'helpers/fake_claude.dart';
@@ -129,6 +130,106 @@ void main() {
     expect(fresh.error, contains('Nothing to resume'));
   });
 
+  test('this session: the same request is allowed by the host without asking; a different one, or a stale answer, is not', () async {
+    final fake = FakeClaude();
+    final s = fakeSession(fake, dir: project.path, home: home.path);
+    final asked = <String>[];
+    final answered = <String>[];
+    s.onAsk = (a) => asked.add(a.requestId);
+    s.onAnswered = (a, ans, by) => answered.add('${a.requestId}:$by:${ans.summary}');
+    await s.start();
+    s.send('touch a file');
+    fake.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'claude-fable-5'});
+    scriptBashAsk(fake, requestId: 'r1');
+    await pumpEventQueue();
+    expect(s.state, BridgeState.waiting);
+    expect(asked, ['r1']);
+
+    s.answer(AskAnswer.allow(s.transcript.pending!), remember: true);
+    await fake.writtenLines(2);
+    expect((jsonDecode(fake.written[1]) as Map)['response']['response']['behavior'], 'allow');
+    expect(answered, ['r1:Mac:Allowed']);
+    expect(s.transcript.messages.last.text, 'Allowed (this session): touch /tmp/kit-ask');
+
+    // The same command again: answered by the host, never shown.
+    scriptBashAsk(fake, requestId: 'r2');
+    await pumpEventQueue();
+    await fake.writtenLines(3);
+    expect(s.state, BridgeState.busy);
+    expect(asked, ['r1'], reason: 'a remembered request does not reach the phone');
+    expect((jsonDecode(fake.written[2]) as Map)['response']['request_id'], 'r2');
+    expect(answered.last, 'r2:host:Allowed');
+    expect(s.transcript.messages.last.text, startsWith('Allowed (this session)'));
+
+    // A different command still asks.
+    scriptBashAsk(fake, requestId: 'r3', command: 'touch /tmp/other');
+    await pumpEventQueue();
+    expect(s.state, BridgeState.waiting);
+    expect(asked, ['r1', 'r3']);
+
+    // A stale answer — the phone answering r2 after the host did — is dropped.
+    s.answer(AskAnswer.deny('late'), requestId: 'r2', by: 'phone');
+    await pumpEventQueue();
+    expect(fake.written.length, 3);
+    expect(s.state, BridgeState.waiting);
+    s.answer(AskAnswer.deny('no'), requestId: 'r3', by: 'phone');
+    await fake.writtenLines(4);
+    expect(answered.last, 'r3:phone:Denied');
+
+    // Memory ends with the process.
+    await s.stop();
+    final fake2 = FakeClaude();
+    final s2 = fakeSession(fake2, dir: project.path, home: home.path);
+    await s2.start(resume: true);
+    s2.send('again');
+    scriptBashAsk(fake2, requestId: 'r4');
+    await pumpEventQueue();
+    expect(s2.state, BridgeState.waiting);
+  });
+
+  test('always: the suggestions go back as updatedPermissions, are recorded for the Session tab, and can be taken back', () async {
+    final fake = FakeClaude();
+    final s = fakeSession(fake, dir: project.path, home: home.path);
+    await s.start();
+    s.send('touch a file');
+    scriptBashAsk(fake, requestId: 'r1');
+    await pumpEventQueue();
+    final ask = s.transcript.pending!;
+    s.answer(AskAnswer.always(ask));
+    await fake.writtenLines(2);
+    final resp = (jsonDecode(fake.written[1]) as Map)['response']['response'] as Map;
+    expect(resp['behavior'], 'allow');
+    expect(resp['updatedPermissions'], ask.suggestions);
+    expect(s.transcript.messages.last.text, startsWith('Allowed, always: touch'));
+    final rule = s.alwaysApplied.single;
+    expect(rule.ruleString, 'Bash(touch:*)');
+    expect(rule.destination, 'localSettings');
+    expect(s.previous()!.always.single.rule, 'touch:*');
+
+    // Remembered for the rest of this session too.
+    scriptBashAsk(fake, requestId: 'r2');
+    await pumpEventQueue();
+    expect(s.state, BridgeState.busy);
+
+    // A new session in the same folder lists what was applied.
+    final later = fakeSession(FakeClaude(), dir: project.path, home: home.path);
+    expect(later.alwaysApplied, [rule]);
+
+    // Taking it back edits the file the CLI wrote and forgets the rule.
+    final settings = File(p.join(project.path, '.claude', 'settings.local.json'))..createSync(recursive: true);
+    settings.writeAsStringSync(jsonEncode({'permissions': {'allow': ['Bash(touch:*)', 'Read'], 'deny': ['Bash(rm -rf:*)']}, 'other': true}));
+    expect(PermissionRules.contains(project.path, rule), isTrue);
+    expect(s.forgetAlways(rule), isTrue);
+    expect(PermissionRules.contains(project.path, rule), isFalse);
+    final written = jsonDecode(settings.readAsStringSync()) as Map;
+    expect(written['permissions']['allow'], ['Read']);
+    expect(written['permissions']['deny'], ['Bash(rm -rf:*)'], reason: 'nothing else moves');
+    expect(written['other'], isTrue);
+    expect(s.alwaysApplied, isEmpty);
+    expect(s.previous()!.always, isEmpty);
+    expect(s.forgetAlways(rule), isFalse, reason: 'already gone');
+  });
+
   test('a crash is a failure with the last stderr line; stdout that is not protocol goes to the log', () async {
     final fake = FakeClaude();
     final s = fakeSession(fake, dir: project.path, home: home.path);
@@ -190,6 +291,29 @@ void main() {
       s.answer(AskAnswer.deny('The user declined from the Mac.'));
       await until(() => s.state == BridgeState.ready);
       expect(File(marker).existsSync(), isFalse, reason: 'a denied command must not run');
+
+      // 3b. Always: the CLI writes the rule itself, and the same shape of
+      // command no longer asks — on either side.
+      final marker2 = p.join(dir.path, 'kit-live-always.txt');
+      s.send('Run the shell command `touch $marker2` with Bash, then say done. Do nothing else.');
+      await until(() => s.state == BridgeState.waiting);
+      final ask2 = s.transcript.pending!;
+      expect(ask2.suggestions, isNotEmpty, reason: 'the CLI offers a rule to remember');
+      s.answer(AskAnswer.always(ask2));
+      await until(() => s.state == BridgeState.ready);
+      expect(File(marker2).existsSync(), isTrue);
+      final settings = File(p.join(dir.path, '.claude', 'settings.local.json'));
+      expect(settings.existsSync(), isTrue, reason: 'updatedPermissions made the CLI write the rule where it said it would');
+      expect(settings.readAsStringSync(), contains('touch'));
+      expect(s.alwaysApplied.single.ruleString, contains('Bash('));
+      final marker3 = p.join(dir.path, 'kit-live-always-2.txt');
+      var askedAgain = false;
+      s.addListener(() => askedAgain |= s.state == BridgeState.waiting);
+      final before = s.transcript.lastResult;
+      s.send('Run the shell command `touch $marker3` with Bash, then say done. Do nothing else.');
+      await until(() => s.state == BridgeState.ready && !identical(s.transcript.lastResult, before));
+      expect(askedAgain, isFalse, reason: 'the rule holds for the rest of the session');
+      expect(File(marker3).existsSync(), isTrue);
 
       final id = s.sessionId!;
       await s.stop();

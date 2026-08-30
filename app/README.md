@@ -80,10 +80,12 @@ lib/src/
   relay.dart           Firestore paths, RelayPublisher (host → mirror), InboxListener (host), InboxSender (phone)
   draft.dart           ticks/answers/notes on the device until Send
   host/                claude_cli (binary, trust, bridge pointer) · remote_control (the Claude app's way in) ·
-                       bridge_session (this app's way in: `claude -p` over stdio — see ../kit/lib/src/bridge.dart) ·
-                       hook_watcher (the spool) · host_project (all of it for one folder)
-  screens/             sign in · home · project (Deck · Steps · Your work · Session) · deck (transcript, ask card,
-                       composer) · step detail · item card
+                       bridge_session (this app's way in: `claude -p` over stdio — see ../kit/lib/src/bridge.dart;
+                       remembers "this session", records "always") · permission_rules (the settings files the CLI's
+                       suggestions name) · hook_watcher (the spool) · host_project (all of it for one folder)
+  screens/             sign in · home · project (Deck · Steps · Your work · Session) · deck (transcript, composer) ·
+                       ask_card (Allow · This session · Always · Deny, or a question's options — both devices) ·
+                       remote_asks (the phone's pending ask, answered as a command) · step detail · item card
 ```
 
 `flutter_kit` (`../kit`) is a path dependency: model, graph, layout, inbox

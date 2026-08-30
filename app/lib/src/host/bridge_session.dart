@@ -8,6 +8,7 @@ import 'package:flutter_kit/kit.dart';
 import 'package:path/path.dart' as p;
 
 import 'claude_cli.dart';
+import 'permission_rules.dart';
 
 /// How a process is started — injected so a test can hand the session a
 /// fake `claude` and script its stdout.
@@ -35,18 +36,30 @@ enum BridgeState {
 }
 
 /// The session a previous run left for this folder, so a host restart can
-/// offer Resume instead of starting a second conversation.
+/// offer Resume instead of starting a second conversation — and the rules
+/// the user answered Always to, so the Session tab can list them.
 class BridgeRecord {
-  const BridgeRecord({required this.sessionId, required this.startedAt, this.pid});
+  const BridgeRecord({required this.sessionId, required this.startedAt, this.pid, this.always = const []});
   final String sessionId;
   final DateTime startedAt;
   final int? pid;
-  Map<String, Object?> toJson() => {'sessionId': sessionId, 'startedAt': startedAt.toUtc().toIso8601String(), if (pid != null) 'pid': pid};
+  final List<AppliedRule> always;
+  Map<String, Object?> toJson() => {
+        'sessionId': sessionId,
+        'startedAt': startedAt.toUtc().toIso8601String(),
+        if (pid != null) 'pid': pid,
+        'always': [for (final r in always) r.toJson()],
+      };
   static BridgeRecord? fromJson(Object? v) {
     if (v is! Map) return null;
     final id = v['sessionId']?.toString();
     if (id == null || id.isEmpty) return null;
-    return BridgeRecord(sessionId: id, startedAt: DateTime.tryParse(v['startedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0), pid: (v['pid'] as num?)?.toInt());
+    return BridgeRecord(
+      sessionId: id,
+      startedAt: DateTime.tryParse(v['startedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      pid: (v['pid'] as num?)?.toInt(),
+      always: [for (final r in (v['always'] as List? ?? const [])) if (r is Map) AppliedRule.fromJson({for (final e in r.entries) e.key.toString(): e.value})],
+    );
   }
 }
 
@@ -69,7 +82,9 @@ class BridgeSession extends ChangeNotifier {
   })  : _starter = starter ?? _startProcess,
         _findBinary = findBinary ?? ClaudeCli.findBinary,
         _versionOf = versionOf ?? _claudeVersion,
-        _shellPath = shellPath ?? ClaudeCli.shellPath;
+        _shellPath = shellPath ?? ClaudeCli.shellPath {
+    alwaysApplied.addAll(previous()?.always ?? const []);
+  }
 
   final String dir;
   final ProcessStarter _starter;
@@ -91,6 +106,21 @@ class BridgeSession extends ChangeNotifier {
   /// stderr and any stdout line that was not protocol — the Session tab's
   /// process output.
   final List<String> log = [];
+
+  /// A new ask that needs a person — the host mirrors it to the phone.
+  void Function(Ask ask)? onAsk;
+
+  /// An ask was answered, by whichever surface got there first; [by] names
+  /// it (`Mac`, `phone`, or `host` for a remembered one).
+  void Function(Ask ask, AskAnswer answer, String by)? onAnswered;
+
+  /// Rules the CLI wrote because an ask was answered Always. Persisted with
+  /// the record; the Session tab lists and removes them.
+  final List<AppliedRule> alwaysApplied = [];
+
+  /// "This session": the exact requests the user allowed once for the life
+  /// of the process. Cleared on stop; never persisted.
+  final Set<String> _sessionAllows = {};
 
   Process? _proc;
   StreamSubscription<String>? _out;
@@ -117,6 +147,7 @@ class BridgeSession extends ChangeNotifier {
     if (resume && prev == null) return _fail('Nothing to resume for this folder.');
     error = null;
     log.clear();
+    _sessionAllows.clear();
     state = BridgeState.starting;
     notifyListeners();
     final bin = await _findBinary();
@@ -155,7 +186,12 @@ class BridgeSession extends ChangeNotifier {
           _writeRecord();
         }
       case AskEvent():
-        state = BridgeState.waiting;
+        if (!e.ask.isQuestion && _sessionAllows.contains(e.ask.key)) {
+          _answerRemembered(e.ask);
+        } else {
+          state = BridgeState.waiting;
+          onAsk?.call(e.ask);
+        }
       case ResultEvent():
         state = BridgeState.ready;
       case TextDeltaEvent():
@@ -191,15 +227,51 @@ class BridgeSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Answers the pending ask. No-op when nothing is pending.
-  void answer(AskAnswer a) {
+  /// Answers the pending ask. A no-op when nothing is pending, or when
+  /// [requestId] names a different ask than the pending one — a phone's
+  /// answer to a question the Mac already settled must not land on the
+  /// next question. [remember] is "this session"; an [AskAnswer.always]
+  /// is remembered too, and its rules are recorded.
+  void answer(AskAnswer a, {String? requestId, String by = 'Mac', bool remember = false}) {
     final proc = _proc;
-    if (proc == null || transcript.pending == null) return;
-    final line = transcript.answer(a);
+    final ask = transcript.pending;
+    if (proc == null || ask == null) return;
+    if (requestId != null && requestId != ask.requestId) return;
+    if (a.allowed && !ask.isQuestion && (remember || a.appliesAlways)) _sessionAllows.add(ask.key);
+    if (a.appliesAlways) {
+      for (final s in ask.suggestions) {
+        for (final r in AppliedRule.fromSuggestion(s)) {
+          if (!alwaysApplied.contains(r)) alwaysApplied.add(r);
+        }
+      }
+      _writeRecord();
+    }
+    final line = transcript.answer(a, note: remember && !a.appliesAlways ? 'Allowed (this session): ${ask.summary}' : null);
     proc.stdin.writeln(line);
     unawaited(proc.stdin.flush());
     state = BridgeState.busy;
+    onAnswered?.call(ask, a, by);
     notifyListeners();
+  }
+
+  void _answerRemembered(Ask ask) {
+    final proc = _proc;
+    if (proc == null) return;
+    final a = AskAnswer.allow(ask);
+    final line = transcript.answer(a, note: 'Allowed (this session): ${ask.summary}');
+    proc.stdin.writeln(line);
+    unawaited(proc.stdin.flush());
+    state = BridgeState.busy;
+    onAnswered?.call(ask, a, 'host');
+  }
+
+  /// Takes an Always rule back out of its settings file and this record.
+  bool forgetAlways(AppliedRule rule) {
+    final removed = PermissionRules.remove(dir, rule);
+    alwaysApplied.remove(rule);
+    _writeRecord();
+    notifyListeners();
+    return removed;
   }
 
   Future<void> stop() async {
@@ -223,6 +295,7 @@ class BridgeSession extends ChangeNotifier {
     if (!clean && error == null) error = 'claude exited with code $code${log.isEmpty ? '' : ' — ${log.last}'}';
     _proc = null;
     pid = null;
+    _sessionAllows.clear();
     transcript.pending = null;
     transcript.turnOpen = false;
     _writeRecord();
@@ -236,12 +309,12 @@ class BridgeSession extends ChangeNotifier {
   }
 
   void _writeRecord() {
-    final id = sessionId;
+    final id = sessionId ?? previous()?.sessionId;
     if (id == null) return;
     try {
       _recordFile
         ..createSync(recursive: true)
-        ..writeAsStringSync(jsonEncode(BridgeRecord(sessionId: id, startedAt: startedAt ?? DateTime.now(), pid: pid).toJson()));
+        ..writeAsStringSync(jsonEncode(BridgeRecord(sessionId: id, startedAt: startedAt ?? previous()?.startedAt ?? DateTime.now(), pid: pid, always: alwaysApplied).toJson()));
     } on Object {
       // The record is a convenience for Resume; the session runs without it.
     }
@@ -250,6 +323,7 @@ class BridgeSession extends ChangeNotifier {
   Map<String, Object?> toRelay() => {
         'mode': running ? 'bridge' : 'idle',
         'state': state.name,
+        'pendingAsks': transcript.pending == null ? 0 : 1,
         if (sessionId != null) 'sessionId': sessionId,
         if (transcript.model != null) 'model': transcript.model,
         if (cliVersion != null) 'cliVersion': cliVersion,

@@ -16,6 +16,8 @@ library;
 
 import 'dart:convert';
 
+import 'snapshot.dart' show stableJson;
+
 /// The Claude Code version the shapes below were captured on. The host
 /// shows the version it actually started beside this one.
 const bridgeProvenOn = '2.1.251';
@@ -120,6 +122,10 @@ class Ask {
 
   bool get isQuestion => toolName == 'AskUserQuestion';
 
+  /// What "this session" remembers: the tool and its exact input. A second
+  /// request with the same key is the same request.
+  String get key => '$toolName ${stableJson(input)}';
+
   List<AskQuestion> get questions => [
         for (final q in (input['questions'] as List? ?? const []))
           if (q is Map) AskQuestion.fromMap(_map(q)),
@@ -155,6 +161,12 @@ class AskAnswer {
   /// Let the tool run with its input as proposed.
   factory AskAnswer.allow(Ask ask) => AskAnswer._({'behavior': 'allow', 'updatedInput': ask.input}, 'Allowed', true);
 
+  /// Allow, and hand the CLI its own `permission_suggestions` back as
+  /// `updatedPermissions` — it writes the rule to the settings file it
+  /// named, exactly as "Yes, and don't ask again" does in the terminal.
+  factory AskAnswer.always(Ask ask) =>
+      AskAnswer._({'behavior': 'allow', 'updatedInput': ask.input, 'updatedPermissions': ask.suggestions}, 'Allowed, always', true);
+
   /// Refuse; [message] is what the model reads as the tool result.
   factory AskAnswer.deny(String message) => AskAnswer._({'behavior': 'deny', 'message': message}, 'Denied', false);
 
@@ -163,9 +175,16 @@ class AskAnswer {
   factory AskAnswer.answers(Ask ask, Map<String, String> answers) =>
       AskAnswer._({'behavior': 'allow', 'updatedInput': {...ask.input, 'answers': answers}}, answers.values.join(' · '), true);
 
+  /// An answer that travelled through the relay.
+  factory AskAnswer.fromMap(Map<String, Object?> m) => AskAnswer._(_map(m['response']), (m['summary'] ?? '').toString(), m['allowed'] == true);
+
   final Map<String, Object?> response;
   final String summary;
   final bool allowed;
+
+  bool get appliesAlways => response['updatedPermissions'] != null;
+
+  Map<String, Object?> toMap() => {'response': response, 'summary': summary, 'allowed': allowed};
 }
 
 // -------------------------------------------------------------- events
@@ -525,14 +544,14 @@ class Transcript {
     }
   }
 
-  /// Answers [pending]: records what was decided as a note and returns the
-  /// stdin line. Throws [StateError] when nothing is pending.
-  String answer(AskAnswer a) {
+  /// Answers [pending]: records what was decided as a note ([note] replaces
+  /// the default wording) and returns the stdin line. Throws [StateError]
+  /// when nothing is pending.
+  String answer(AskAnswer a, {String? note}) {
     final ask = pending;
     if (ask == null) throw StateError('nothing is pending');
     pending = null;
-    final what = ask.isQuestion ? 'Answered: ${a.summary}' : '${a.summary}: ${_clip(ask.summary, 160)}';
-    addNote(what);
+    addNote(note ?? (ask.isQuestion ? 'Answered: ${a.summary}' : '${a.summary}: ${_clip(ask.summary, 160)}'));
     return encodeControlResponse(ask.requestId, a.response);
   }
 

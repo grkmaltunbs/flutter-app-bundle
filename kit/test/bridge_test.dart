@@ -97,6 +97,30 @@ void main() {
     expect(back.suggestions, ask.suggestions);
   });
 
+  test('always hands the suggestions back as updatedPermissions; the key names the exact request', () {
+    final ask = (parseBridgeLine(_askBash) as AskEvent).ask;
+    final a = AskAnswer.always(ask);
+    expect(a.appliesAlways, isTrue);
+    expect(a.allowed, isTrue);
+    expect(a.response['updatedPermissions'], ask.suggestions);
+    expect(a.response['updatedInput'], ask.input);
+    expect(AskAnswer.allow(ask).appliesAlways, isFalse);
+    // Through the relay and back.
+    final back = AskAnswer.fromMap(a.toMap());
+    expect(back.response, a.response);
+    expect(back.summary, 'Allowed, always');
+    expect(back.allowed, isTrue);
+    // The same command is the same key; a different one is not.
+    final same = Ask.fromMap(ask.toMap());
+    expect(same.key, ask.key);
+    final other = Ask.fromMap({...ask.toMap(), 'input': {'command': 'touch other.txt'}});
+    expect(other.key, isNot(ask.key));
+    // A note of the caller's choosing.
+    final t = Transcript()..apply(AskEvent(ask));
+    t.answer(AskAnswer.allow(ask), note: 'Allowed (this session): touch spike-permission.txt');
+    expect(t.messages.single.text, startsWith('Allowed (this session)'));
+  });
+
   test('a turn folds into the transcript: streamed text, a tool row with its result, the end', () {
     final t = Transcript();
     var tick = 0;
