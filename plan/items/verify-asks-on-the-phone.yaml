@@ -1,6 +1,6 @@
 id: verify-asks-on-the-phone
 title: With both devices in hand, deny a command from the phone, allow one for the session, and answer a question there
-status: open
+status: done
 needs: [device, look]
 blocks: [asks]
 step: asks
@@ -27,3 +27,5 @@ runbook:
     expect: Claude names your choice on the Mac.
   - do: Mac → send `touch /tmp/kit-ask-3`. Phone → Always. Then Mac → Session tab.
     expect: Under Allowed always, one rule, Bash(touch:*) or similar; tap Remove and it is gone from Nahmatik's .claude/settings.local.json.
+done_at: 2026-08-30
+note: "Verified by the user with both devices, 2026-08-30: a phone Deny held on the Mac, This session skipped the repeat, a question was answered on the phone, Always listed and removed on the Session tab."

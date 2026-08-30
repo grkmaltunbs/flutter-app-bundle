@@ -98,8 +98,7 @@ The step's checkbox stays `[ ]` until these are checked:
 ---
 
 ## Step 2 — Asks — permissions and questions remembered for a session, applied always, and answered from the phone
-- [ ]
-- state: code complete — waiting on 1 human item(s)
+- [x]
 - id: asks
 - depends_on: bridge-core
 - qa_required: true
@@ -140,13 +139,12 @@ remove it.
 
 The step's checkbox stays `[ ]` until these are checked:
 
-  - [ ] With both devices in hand, deny a command from the phone, allow one for the session, and answer a question there *(item `verify-asks-on-the-phone`)*
+  - [x] With both devices in hand, deny a command from the phone, allow one for the session, and answer a question there *(item `verify-asks-on-the-phone`)*
 
 ---
 
 ## Step 3 — The Command deck on the phone — send, watch it stream, answer, switch project
 - [ ]
-- state: blocked — waiting on asks
 - id: deck-on-the-phone
 - depends_on: asks
 - qa_required: true
