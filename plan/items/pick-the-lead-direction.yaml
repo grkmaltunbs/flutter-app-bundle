@@ -1,6 +1,6 @@
 id: pick-the-lead-direction
 title: Pick the lead direction on the canvas — Instrument, Workshop, or Daylight
-status: open
+status: done
 needs: [look, decision]
 blocks: [instrument-skin]
 step: dogfood-plan
@@ -26,4 +26,6 @@ question:
       why: "One mode, less to maintain; light mode becomes a dimmer dark."
     - label: "Workshop"
       why: "Warmer and calmer; less of a HUD — if the cyan reads as cold."
-  answer: null
+  answer: "Instrument dark, Daylight light"
+done_at: 2026-08-30
+note: "Decided 2026-08-30: Instrument as dark mode, Daylight as light mode — the recommended pairing."

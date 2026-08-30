@@ -1,6 +1,6 @@
 id: name-the-app
 title: Name the app — `kit_app` is the scaffold's name and it is about to appear on a phone, a notification channel and a Mac menu bar
-status: open
+status: done
 needs: [decision]
 blocks: [instrument-skin]
 step: dogfood-plan
@@ -20,4 +20,6 @@ question:
       why: "The plugin's name; consistent, but it is also the CLI, the library and the plugin."
     - label: "Foreman"
       why: "The role — it runs the build and asks you when it needs you — but two syllables longer on every screen."
-  answer: null
+  answer: "K.A.T.Y.A — Kodu Anlayan Tecrübeli Yapay Akıl"
+done_at: 2026-08-30
+note: "Decided 2026-08-30: K.A.T.Y.A — Kodu Anlayan Tecrübeli Yapay Akıl. Not one of the three offered; the user's own."

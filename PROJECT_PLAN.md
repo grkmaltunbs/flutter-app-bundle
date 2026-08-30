@@ -223,8 +223,8 @@ Light mode is Daylight unless the direction item says otherwise.
 
 The step's checkbox stays `[ ]` until these are checked:
 
-  - [ ] Name the app — `kit_app` is the scaffold's name and it is about to appear on a phone, a notification channel and a Mac menu bar *(item `name-the-app`)*
-  - [ ] Pick the lead direction on the canvas — Instrument, Workshop, or Daylight *(item `pick-the-lead-direction`)*
+  - [x] Name the app — `kit_app` is the scaffold's name and it is about to appear on a phone, a notification channel and a Mac menu bar *(item `name-the-app`)*
+  - [x] Pick the lead direction on the canvas — Instrument, Workshop, or Daylight *(item `pick-the-lead-direction`)*
 
 ---
 
