@@ -1,152 +1,160 @@
-# flutter-kit app — phase 2 design note
+# flutter-kit app — phase 3 design note
 
-Written 2026-08-28 as the handoff from phase 1. Read this before writing any
-app code. Decisions here were taken with the user; the *Open* section is what
-still needs them.
+Written 2026-08-30 as the handoff from phase 2 ([`DESIGN-2.md`](DESIGN-2.md)).
+Read this before writing any phase-3 app code. Decisions here were taken
+with the user or proven by a spike today; the *Open* section is what still
+needs them.
 
-## What phase 1 built (and what the app builds on)
+## The ask (2026-08-30)
 
-- `kit/` — the plan engine. `plan/kit.yaml`, `plan/steps/<id>.yaml`,
-  `plan/items/<id>.yaml`; state computed by `graph.dart`; `kit` CLI
-  (`next`, `blocks`, `done`, `gate`, `step`, `item new`, `inbox`, `render`,
-  `import`, `validate`). Schema: `../schema/README.md`. 48 tests.
-- The **board** — `kit render board` — two tabs over one plan: *Steps*
-  (bubbles by dependency depth via `dag_layout.dart`; tap → panel with comes
-  after / unlocks / what you should do as runbooks / the step's own spec) and
-  *Your work* (items grouped by what they need, flip-today first, decisions
-  with the recommended option first). Ticks, answers and notes are a
-  browser-local draft; **Send to Claude** publishes the page to itself with a
-  `#kit-outbox` batch; `kit inbox` applies it. Proven end to end on
-  2026-08-28 (one real Send, picked up by the watching session in seconds).
-- Nahmatik is the first consumer: `~/StudioProjects/nahmatik/plan/`, its
-  commands go through `tool/kit.sh` → this checkout.
+Full control of the user's Flutter app development from this app — Nahmatik
+today, every project after. Claude Code drives the plugin from the phone
+(Android first, iPhone after), asks for permission and for opinions whenever
+it needs them, answers a question about any one item of any step and the
+app reflects what changed. Talk to Claude Code **without opening the Claude
+app on the phone**, on the subscription, **no API billing**. Look and
+capability in the spirit of JARVIS — an instrument, not a chat window.
 
-**The app is the same two screens on the same data**, plus the thing the
-page cannot do: drive the user's own Claude Code.
+## What was proven today (spikes, 2026-08-30, Claude Code 2.1.251)
+
+| # | question | answer |
+|---|---|---|
+| 1 | Does headless Claude run on the subscription login? | **Yes.** `claude -p` returned a result; the stream carried `rate_limit_event { rateLimitType: five_hour, overageStatus: rejected, overageDisabledReason: org_level_disabled }` — the subscription pool, not the API. `total_cost_usd` in the result is list-price accounting (`costBasis: list`), not a charge. |
+| 2 | Can a question reach the phone? | **Yes.** With `--input-format stream-json --output-format stream-json --permission-prompt-tool stdio`, `AskUserQuestion` arrives on stdout as `control_request` / `can_use_tool` (`requires_user_interaction: true`, `display_name`, `tool_use_id`, `input.questions`). Answering with `updatedInput: {…input, answers: {"Tea or coffee?": "Coffee"}}` produced the tool result *"Your questions have been answered"* and the model continued: *"You chose coffee."* |
+| 3 | Can a permission prompt reach the phone, and does a denial hold? | **Yes.** Under `--permission-mode default` a `Bash` call arrived on the same channel with `permission_suggestions`, `blocked_path`, `description`. `{behavior: deny, message: "The user declined from the phone."}` — the file was not created and Claude reported the refusal. |
+| 4 | Does a headless transcript resume? | **Yes.** `claude -p --resume <id> "what did I choose?"` → *"You chose coffee."* |
+| 5 | Does text stream? | **Yes.** `--include-partial-messages` emits `stream_event` deltas (30 for a one-sentence reply). |
+| 6 | Can the Claude app adopt the same transcript? | **Plausible, not run.** `claude remote-control --session-id <id>` exists (help text). Not run today because it registers an environment on the account. Spike 1 of phase 3. |
+
+The stdio control protocol is what Anthropic's own Agent SDK speaks to the
+CLI (`--permission-prompt-tool stdio`); it is not a documented CLI contract.
+The bridge pins the CLI version it was proven on and keeps a one-file Node
+sidecar on the Agent SDK as the fallback (Node 24 is on the Mac). The
+runner's doc notes that since 2026-06-15 headless use on a subscription may
+draw from a separate monthly *Agent SDK* allowance — verify on the plan's
+usage page before relying on long unattended runs.
 
 ## Decisions taken
 
 | decision | answer | why |
 |---|---|---|
-| Shell | Flutter — macOS host app; **Android phone app first**, iPhone later | the user's stack and the user's phone. An Android APK installs directly (`flutter build apk`), no store, no signing ceremony |
-| How the phone runs commands | **Claude Code Remote Control**, not a chat of our own. The Mac app starts `claude --remote-control` (or `claude remote-control`) in the project; the Claude Android app drives it — `/step`, `/qa`, `/context`, `/compact`, permission prompts, plan mode, all of it | the user wants every command from the phone (2026-08-28). Remote Control gives the whole interactive session on the subscription, first-party, today; `-p` would give less (interactive prompts disabled) for far more code |
-| What our app does | the two board screens (Steps bubbles + panel, Your work + Send to Claude), a **session launcher/monitor** on the Mac (start, name, stop, "open in Claude" link), and **live progress** of a running `/step` (gates flipping, tests running) from hooks | the parts Remote Control does not have |
-| Phone ↔ Mac transport for the board | **Firestore on `flutterappbundle`** (europe-west3, Email/Password auth, enabled 2026-08-28) | no open ports, works off Wi-Fi, one user. The session itself travels over Remote Control (Anthropic's servers), not Firestore |
-| Ticks | batch behind **Send to Claude** — never per tick | the user's explicit ask |
-| Auth for Claude | the user's own Claude Code login; API key stays a config knob | personal use; the only documented prohibition is offering claude.ai login to *others* |
+| How the phone talks to Claude without the Claude app | The host runs a **bridge**: `claude -p --input-format stream-json --output-format stream-json --include-partial-messages --replay-user-messages --permission-prompt-tool stdio --permission-mode default --session-id <uuid>` in the project folder. Phone ↔ host over Firestore; host ↔ claude over stdio. Dart, in `host/`, beside `remote_control.dart`. | Proven today, on the subscription, no second language or venv. ~400 lines. |
+| Permissions and questions | Every `control_request` becomes `projects/{slug}/asks/{id}` in the relay; the phone shows it as an **authorization card** (and, in the background, a notification with Allow / Deny actions); the answer goes back as `control_response`. **Allow for this session** is remembered by the host for identical requests; **Always** applies the CLI's `permission_suggestions` to the project's `.claude/settings.json` and lists it on the Session screen. | Claude asks; you answer from the lock screen. Nothing runs that you did not see. |
+| The Claude app stays available | **Hand over** stops the bridge and starts `remote-control --session-id` on the same transcript; **Take back** does the reverse. One driver per project at a time — the host refuses a second. | Plan mode, `/compact`, the full TUI remain one tap away, on the same conversation. |
+| Asking about one item | A message carries `about: {item: id}` or `{step: id}`. The host prefixes the prompt with `kit show <id>` and a standing instruction: answer for a phone screen; if the item should change, change it with `kit` or by editing its YAML and say what changed. The plan watcher mirrors the edit; the card shows the thread and an **UPDATED** strip. Threads persist under `projects/{slug}/threads/{about}`. | Appearance is derived from data; Claude changes the data. No second state. |
+| Notifications | FCM HTTP v1 **from the host**, with a service-account key on the Mac (already gitignored). Milestones (needs you, turn ended, step flipped) and asks. Android notification actions answer an ask without opening the app. | No Cloud Functions, no Blaze, no server. iOS needs an APNs key — a human item. |
+| Voice | On-device only: `speech_to_text` on the composer mic, `flutter_tts` reads Claude's reply when the toggle is on. | The JARVIS half that costs nothing. Optional; ships after the deck works. |
+| The phone is a shell on the Mac | `local_auth` (biometric) before Start, Allow, Always and Send. Owner-only rules stay; the APK is never shared. | A lost, unlocked phone must not be a terminal. |
+| Look | **Instrument** — deep blue-black ground, one cyan for the system, one amber for anything that waits on you; Rajdhani headings, JetBrains Mono readouts, IBM Plex Sans prose. Canvas with the three screens and two alternates: https://claude.ai/code/artifact/b8bc9970-7ad2-4e99-987d-2f8dd146464d | An original design in the spirit of a HUD, not the film's graphics. `KitTokens` grows the second accent; `board.colors` still overrides per project. |
+| iPhone | After Android, same code. Dev-profile install with the team (`8J4ASHVDQ5`); APNs for pushes. | The user's second phone; nothing in the code is Android-only. |
+| Dogfood | The roadmap below becomes `plan/` at the repo root; `/step` builds this app; the human items (service account, APNs key, direction sign-off, name) are `items/`. | The plugin's own claim is that the plan is data. The app should be built by it and visible in it. |
 
-## Architecture sketch
+## Architecture
 
 ```
-┌──────────── macOS app (host) ───────────────────────────┐
-│ reads plan/ of the open project (kit as a library)       │
-│ Steps + Your work (same as the phone)                    │
-│ session launcher: spawns `claude --remote-control        │
-│   --name <project>` in the project dir; shows its state  │──── Remote Control ───┐
-│ hooks (Stop, PostToolUse, SessionStart) → events         │     (Anthropic)       │
-│ applies inbox batches with the same code as `kit inbox`  │                       │
-│ mirrors plan snapshot + events to Firestore              │                       ▼
-└───────────────────────────┬──────────────────────────────┘        Claude Android app
-                            │ Firestore (flutterappbundle):        drives the session:
-                            │ projects/{id}: snapshot, events, inbox   /step /qa /compact …
-┌───────────────────────────┴──────────────────────────────┐
-│ Android app (remote)                                      │
-│ Steps + Your work from the snapshot                       │
-│ ticks/answers/notes → draft → Send → inbox                │
-│ live progress of the running step (from events)          │
-│ "Open in Claude" → the Remote Control session             │
-└───────────────────────────────────────────────────────────┘
+┌──────────── macOS app (host) ─────────────────────────────────────┐
+│ plan/ of every opened project, watched · kit as a library           │
+│ bridge: `claude -p … --permission-prompt-tool stdio` per project    │
+│   stdin  ← user messages, control_responses                        │
+│   stdout → assistant text (streamed), tool rows, control_requests, │
+│            result                                                   │
+│ asks: control_request → relay asks/{id} → phone → control_response │
+│ remote control: hand over / take back on the same session id       │
+│ hooks spool → "now" line + events (unchanged from phase 2)         │
+│ inbox batches applied with applyInbox (unchanged)                   │
+│ FCM v1 sender (service account) → the phone                         │
+└───────────────┬────────────────────────────────────────────────────┘
+                │ Firestore (flutterappbundle), owner-only
+                │ projects/{slug}: snapshot · chat · asks · threads · commands
+┌───────────────┴────────────────────────────────────────────────────┐
+│ phone (Android, then iPhone)                                        │
+│ Command deck: talk to the session, see it work, answer its asks     │
+│ Steps: the constellation · Your work: sittings, cards, threads      │
+│ Session: start / stop / hand over · notifications with actions      │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-- **kit as a library.** The Flutter apps depend on `../kit` (path dependency)
-  for model, graph, validate, inbox. No second implementation.
-- **The host owns the truth.** `plan/` on disk is authoritative; Firestore
-  holds a snapshot the host writes and an `inbox` the phone writes.
-- **Headless runs stay possible** for a button like "run /qa now" from the
-  phone while no interactive session is open: `claude -p "/qa" --output-format
-  stream-json` from the host, progress streamed to Firestore. Optional; the
-  interactive session is the main path.
+## The bridge protocol (the contract the host is built on)
 
-## Open — nothing blocking
+What the host writes to stdin:
 
-The two earlier questions are answered (Android first; the phone may do
-everything, via Remote Control — **proven on the user's Android phone on
-2026-08-28**: `claude --remote-control` in the Nahmatik folder, `/plan-status`
-answered in the Claude app). The relay user exists
-(`grkmaltunbs@gmail.com`, uid `I8XBZsWr9sScTrDAiOK2LSZ5qFZ2`) and
-`firestore.rules` — owner-only on that uid — is deployed to `flutterappbundle`.
+```json
+{"type":"user","message":{"role":"user","content":"/step"}}
+{"type":"control_response","response":{"subtype":"success","request_id":"<id>","response":{"behavior":"allow","updatedInput":{"…":"…"}}}}
+{"type":"control_response","response":{"subtype":"success","request_id":"<id>","response":{"behavior":"deny","message":"The user declined from the phone."}}}
+```
 
-## Spikes — answered 2026-08-28
+What the host reads from stdout, one JSON object per line:
 
-1. **Spawn Remote Control without a terminal — yes, and no pty.**
-   `claude remote-control --name <n> --debug-file <f>` was run with stdin
-   from `/dev/null` and stdout to a file: it registered an environment,
-   created a session, polled work and printed `·✔︎· Connected · nahmatik ·
-   main`, the session link (`https://claude.ai/code/session_…`) and the
-   environment link (`https://claude.ai/code?environment=env_…`). It found
-   the login on its own. SIGTERM shuts it down cleanly and **preserves the
-   environment** (`-c` / `--continue` reattaches). Two facts the host is
-   built on:
-   - it **refuses an untrusted folder** with `Error: Workspace not trusted.
-     Please run \`claude\` in <dir> first…` — the host checks
-     `~/.claude.json` → `projects[dir].hasTrustDialogAccepted` before
-     spawning and says the same thing;
-   - it writes `~/.claude/projects/<slug>/bridge-pointer.json`
-     (`sessionId`, `environmentId`, `pid`, `procStart`) — the ids without
-     parsing a TUI. The slug is the path with every non-alphanumeric
-     character replaced by `-`.
-   A GUI app's PATH is bare, so the host asks the login shell for the real
-   one once and hands it to the child (the hooks need `dart`).
-2. **Hooks → the app: a spool, not a socket.** `kit hook` reads the hook
-   payload from stdin and writes one JSON file under
-   `~/.flutter_kit/events/<slug>/`, named so lexical order is arrival order.
-   The host watches the directory; nothing is lost when the app is closed. The
-   host coalesces `PostToolUse` into the project document's `now` line (one
-   write a second at most) and keeps only milestones — prompts, turn ends,
-   notifications — as an `events` history.
-3. **Inbox via Firestore** — `projects/{slug}/inbox/{auto}` with the board's
-   batch shape; the host applies it with `applyInbox` (the same function `kit
-   inbox` calls, moved into the library), stamps `appliedAt`, regenerates
-   `PROJECT_PLAN.md` and the board HTML, and the plan watcher republishes the
-   changed documents.
-4. **Android build** — `flutter build apk --release`; see README.
+| `type` | what the host does |
+|---|---|
+| `system` / `init` | records `session_id`, model, permission mode → `session` on the project doc |
+| `stream_event` | appends text deltas to the open assistant message in `chat/` (coalesced, ≤ 1 write/s) |
+| `assistant` | final content: text → the message; `tool_use` → a compact tool row |
+| `user` (tool_result) | closes the tool row with its result summary |
+| `control_request` / `can_use_tool` | writes `asks/{request_id}`; `AskUserQuestion` renders as a question card, anything else as an authorization card; waits for the answer |
+| `result` | closes the turn; `chat` gets the summary; `session.state = idle` |
+| `rate_limit_event` | shows the pool and its reset time on the Session screen |
 
-## What was built (2026-08-28)
+A `control_request` is answered by whichever surface answers first — the
+Mac window, the phone card, or a notification action — and the others
+collapse. The host answers on its own only for a request identical to one
+the user allowed "for this session".
 
-`app/` is a Flutter project (macOS + Android targets, `dev.flutterkit`), with
-`../kit` as a path dependency and Firebase registered on `flutterappbundle`
-(`lib/firebase_options.dart`). The macOS sandbox is off — the host spawns
-`claude`, reads `~/.claude.json` and any folder the user opens; a sandboxed
-child would inherit the sandbox and lose all three. This app never goes to
-the Mac App Store. The kit library gained `inbox.dart`, `hook_spool.dart`
-and `snapshot.dart` (56 tests); the CLI gained `kit hook`.
+## Firestore shape (additions to phase 2)
 
-Screens: sign-in (the one relay user) → projects (host: folders opened;
-phone: what the relay holds) → project with **Steps** (bubbles on a
-pannable canvas, tap → detail panel beside it on a wide window, a sheet on a
-phone), **Your work** (sittings by need, cards with runbooks, tick / not
-doing / answer / note into a device-local draft, **Send to Claude** at the
-bottom) and, on the host, **Session** (start/stop/reattach Remote Control,
-links, trust and hook checks, what the phone sent, hook activity, process
-output). The "now" line under the title is the latest hook event.
+```
+projects/{slug}.session               {mode: bridge|remote|idle, sessionId, model, permissionMode, startedAt, pool{resetsAt}}
+projects/{slug}/chat/{auto}           {role: user|assistant|tool, text, about?, tool?, status?, at}
+projects/{slug}/asks/{requestId}      {kind: permission|question, tool, input, suggestions, description, at, answer?, answeredAt?, by?}
+projects/{slug}/threads/{about}/messages/{auto}   the per-item / per-step conversation
+projects/{slug}/commands/{auto}       phone → host: {type: start|stop|send|handover|answer, payload, at, doneAt?}
+```
 
-Smoke-tested over Nahmatik's real plan (73 steps, 199 items) at phone width:
-every card and the code-complete step's detail render without overflow. The
-one overflow it found was the same shape Nahmatik has hit four times — a
-`Row` with `mainAxisSize.min` around a bare `Text` (a gate note inside a
-pill); the pill's text is loose now.
+The phone never writes `chat` or `asks` directly — it writes `commands`;
+the host is the only writer of session truth, as in phase 2.
 
-## Verified by the user (2026-08-28, 02:30)
+## Roadmap — as steps, each gated on running
 
-- Mac: signed in (after the keychain/signing fix), opened Nahmatik; the
-  mirror was read back from the relay — 73 steps, 199 items, revision 1.
-- Phone: APK installed, signed in, Nahmatik listed with its bubbles. Tab
-  swiping was stealing the canvas drag; tabs no longer swipe.
+| # | step | done when | needs you |
+|---|---|---|---|
+| 0 | `dogfood-plan` | `plan/` exists at the repo root with these steps and items; `/step` picks step 1 | name the app; pick the lead direction |
+| 1 | `bridge-core` | From the Mac window: Start → `/plan-status` → the answer streams into the deck; a permission renders as an ask card and Allow / Deny round-trip (a session hangs on an unanswered ask, so the card is part of the bridge); Stop ends the process; a host restart finds the session by id | — |
+| 2 | `asks` | Asks mirrored to the phone and answered there; "This session" remembered by the host; "Always" applies `permission_suggestions` and the Session tab lists it | — |
+| 3 | `deck-on-the-phone` | The Command deck on Android: send, stream, answer an ask, quick chips, switch project | — |
+| 4 | `instrument-skin` | Tokens, fonts, the constellation, restyled cards and sheets; overflow matrix at 1.0 / 2.0 / 3.12 | sign off the canvas |
+| 5 | `item-threads` | Ask on any card or step → a scoped answer; an item Claude edits updates on the phone within seconds; the UPDATED strip | — |
+| 6 | `notifications` | An ask arrives as a notification with actions while the app is closed; Allow from the lock screen runs the command | a service-account key on the Mac |
+| 7 | `handover` | Hand over → the Claude app shows the same conversation; Take back → the deck continues it; a second driver is refused | run spike 6 |
+| 8 | `voice-and-biometrics` | Dictate a message; hear the reply; biometric gate on Start / Allow / Send | — |
+| 9 | `iphone` | The app on the user's iPhone with pushes | APNs key; register the device |
 
-## Open
+Steps 1–3 are the spine; nothing in 4–9 is worth building until a `/step`
+has been driven from the phone with an ask answered on it.
 
-- Not yet tried from the app: Session tab → Start, then a `/step` from the
-  Claude app with the "now" line moving; and a tick on the phone → Send →
-  "From the phone" on the Mac. Both proven in tests, not on the devices.
-- Fonts: the app uses the platform faces; `board.fonts` is not applied yet.
-- Windows host: same code, untested.
+## Open — needs you
+
+- **A name.** `kit_app` is the scaffold's. The deck, the constellation and
+  the notification channel will carry it.
+- **Lead direction** on the canvas: Instrument (lead), Workshop, or Daylight
+  — or Instrument as dark mode with Daylight as light.
+- **Voice** in scope now, or after iPhone.
+- **Always allow from the phone** may write `permission_suggestions` into the
+  project's `.claude/settings.json`. Recommended yes, with the list visible on
+  the Session screen and removable there.
+- **Headless accounting** on the subscription — confirm on the plan's usage
+  page (see the runner note) before the first unattended run.
+
+## Risks, and what holds them
+
+- *The control protocol changes.* Pin the CLI version in the host; on a
+  parse failure the Session screen says so and offers hand-over to the
+  Claude app, which needs none of it. Fallback: the Agent SDK sidecar.
+- *Two Claudes in one tree.* One driver per project, enforced by the host
+  from the bridge pointer and the process table, as phase 2 already does for
+  Remote Control.
+- *The phone as a terminal.* Biometrics on the dangerous taps, owner-only
+  rules, a never-shared APK, and every command visible in the transcript.
+- *Headless loses the TUI.* Model is a start option; `/compact` as a message
+  is a spike; plan mode is `--permission-mode plan` on start. Everything
+  else is one hand-over away.
