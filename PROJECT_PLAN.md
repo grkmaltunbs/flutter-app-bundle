@@ -33,8 +33,7 @@ and the board shows the user what the build is waiting on.
 ---
 
 ## Step 1 — The bridge — the host talks to Claude Code over stdio, and the Mac window shows the conversation
-- [ ]
-- state: code complete — waiting on 1 human item(s)
+- [x]
 - id: bridge-core
 - depends_on: dogfood-plan
 - qa_required: true
@@ -94,13 +93,12 @@ version it started and says so on the Session tab.
 
 The step's checkbox stays `[ ]` until these are checked:
 
-  - [ ] Open the Deck on the Mac, drive one turn, refuse one command, and resume after a restart *(item `verify-the-deck-on-the-mac`)*
+  - [x] Open the Deck on the Mac, drive one turn, refuse one command, and resume after a restart *(item `verify-the-deck-on-the-mac`)*
 
 ---
 
 ## Step 2 — Asks — permissions and questions remembered for a session, applied always, and answered from the phone
 - [ ]
-- state: blocked — waiting on bridge-core
 - id: asks
 - depends_on: bridge-core
 - qa_required: true

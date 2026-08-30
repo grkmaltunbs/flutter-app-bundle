@@ -1,6 +1,6 @@
 id: verify-the-deck-on-the-mac
 title: Open the Deck on the Mac, drive one turn, refuse one command, and resume after a restart
-status: open
+status: done
 needs: [look]
 blocks: [bridge-core]
 step: bridge-core
@@ -23,3 +23,5 @@ runbook:
   - do: Stop. Quit the app. Open it again, Nahmatik, Deck.
     expect: A "Resume <id>" button beside Start. Resume, then ask "what did I ask you first?"
     if_fails: No Resume → `~/.flutter_kit/bridge/<slug>.json` was not written; say so.
+done_at: 2026-08-30
+note: "Verified by the user on the Mac, 2026-08-30: Start, \/plan-status streamed, a command denied, Stop, quit, reopen, Resume."

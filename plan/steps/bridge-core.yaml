@@ -1,7 +1,7 @@
 id: bridge-core
 number: "1"
 title: The bridge — the host talks to Claude Code over stdio, and the Mac window shows the conversation
-status: active
+status: done
 rank: 200
 depends_on: [dogfood-plan]
 meta: { qa_required: true }
@@ -74,3 +74,5 @@ history:
   - at: 2026-08-30
     event: gate qa passed
     note: "KIT_LIVE=1: the real claude 2.1.251 streamed a reply, asked a question and got Coffee, a Bash permission was denied and the file was not created, --resume remembered — 20s"
+  - at: 2026-08-30
+    event: done
