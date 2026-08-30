@@ -59,6 +59,7 @@ class HostProject extends ChangeNotifier {
 
   void _onBridge() {
     _publisher?.publishSession(sessionRelay());
+    _publisher?.publishTranscript(bridge.transcript);
     notifyListeners();
   }
 
@@ -67,7 +68,8 @@ class HostProject extends ChangeNotifier {
   void _onAnswered(Ask ask, AskAnswer a, String by) => _publisher?.resolveAsk(ask.requestId, summary: a.summary, by: by);
 
   /// A command from the phone. `answer` lands on the pending ask only if it
-  /// is still the one the phone saw.
+  /// is still the one the phone saw; `send`, `start` and `stop` are what
+  /// the Deck's buttons do here.
   Future<String> applyCommand(Map<String, Object?> cmd) async {
     switch (cmd['type']) {
       case 'answer':
@@ -75,6 +77,17 @@ class HostProject extends ChangeNotifier {
         if (bridge.transcript.pending?.requestId != requestId) return 'stale: that ask was already answered';
         bridge.answer(AskAnswer.fromMap(cmd), requestId: requestId, by: (cmd['from'] ?? 'phone').toString(), remember: cmd['remember'] == true);
         return 'answered';
+      case 'send':
+        if (!bridge.running) return 'not running';
+        final about = cmd['about'];
+        bridge.send((cmd['text'] ?? '').toString(), about: about is Map ? {for (final e in about.entries) e.key.toString(): e.value} : null);
+        return 'sent';
+      case 'start':
+        await bridge.start(resume: cmd['resume'] == true);
+        return bridge.error ?? (bridge.running ? 'started' : 'did not start');
+      case 'stop':
+        await bridge.stop();
+        return 'stopped';
       default:
         return 'unknown command ${cmd['type']}';
     }

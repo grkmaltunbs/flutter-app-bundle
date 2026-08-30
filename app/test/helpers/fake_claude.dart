@@ -74,6 +74,23 @@ BridgeSession fakeSession(FakeClaude fake, {required String dir, required String
       home: home,
     );
 
+/// A session that gets a fresh [FakeClaude] on every start — a single fake's
+/// streams can be listened to once, so Stop → Start needs a new one. Each
+/// spawned fake is appended to [spawned].
+BridgeSession fakeSessionEach(List<FakeClaude> spawned, {required String dir, required String home}) => BridgeSession(
+      dir: dir,
+      starter: (bin, args, {workingDirectory, environment}) async {
+        final f = FakeClaude()..startedWith = args;
+        f.startedIn = workingDirectory;
+        spawned.add(f);
+        return f;
+      },
+      findBinary: () async => '/fake/claude',
+      versionOf: (_) async => '2.1.251',
+      shellPath: () async => '/fake/bin',
+      home: home,
+    );
+
 /// A short scripted turn: init, a streamed sentence, its final block, a
 /// tool call and its result, the end.
 void scriptTurn(FakeClaude fake, {String sessionId = 'aaaaaaaa-0000-4000-8000-000000000001', String text = 'Step 31 is ready.'}) {

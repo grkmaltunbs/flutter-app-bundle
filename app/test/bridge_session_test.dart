@@ -109,20 +109,33 @@ void main() {
     expect(resp['updatedInput']['questions'], isNotEmpty);
   });
 
-  test('resume reuses the recorded session id with --resume', () async {
-    final first = FakeClaude();
-    final s1 = fakeSession(first, dir: project.path, home: home.path);
+  test('resume reuses the recorded session id with --resume and keeps the conversation; a fresh start clears it', () async {
+    final spawned = <FakeClaude>[];
+    final s1 = fakeSessionEach(spawned, dir: project.path, home: home.path);
     await s1.start();
     final id = s1.sessionId!;
+    s1.send('remember falcon');
+    expect(s1.toRelay()['canResume'], isFalse, reason: 'not while running');
     await s1.stop();
+    expect(s1.toRelay()['canResume'], isTrue);
+    expect(s1.transcript.messages, isNotEmpty);
+    await s1.start(resume: true);
+    expect(spawned.last.startedWith, containsAllInOrder(['--resume', id]));
+    expect(s1.transcript.messages.single.text, 'remember falcon', reason: 'resume keeps the rows');
+    await s1.stop();
+    await s1.start();
+    expect(spawned.last.startedWith, contains('--session-id'));
+    expect(s1.transcript.messages, isEmpty, reason: 'a fresh session is a fresh conversation');
+    await s1.stop();
+    expect(spawned.length, 3);
 
     final second = FakeClaude();
     final s2 = fakeSession(second, dir: project.path, home: home.path);
-    expect(s2.previous()!.sessionId, id);
+    expect(s2.previous(), isNotNull);
     await s2.start(resume: true);
-    expect(second.startedWith, containsAllInOrder(['--resume', id]));
+    expect(second.startedWith, contains('--resume'));
     expect(second.startedWith, isNot(contains('--session-id')));
-    expect(s2.sessionId, id);
+    expect(s2.sessionId, isNot(id), reason: 'the record now names the fresh session that replaced it');
 
     final fresh = fakeSession(FakeClaude(), dir: Directory.systemTemp.createTempSync('kit_other_').path, home: home.path);
     await fresh.start(resume: true);

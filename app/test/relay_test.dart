@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_kit/kit.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kit_app/src/host/bridge_session.dart' show BridgeState;
 import 'package:kit_app/src/plan_source.dart';
 import 'package:kit_app/src/relay.dart';
 import 'package:path/path.dart' as p;
@@ -89,6 +90,83 @@ void main() {
     expect(inbox.docs.single.data()['lines'], contains('a has nothing left in the way'));
     final mirrored = await db.collection('projects').doc('demo').collection('items').doc('i1').get();
     expect(mirrored.data()!['status'], 'done');
+    listener.dispose();
+  });
+
+  test('the transcript is mirrored row by row, coalesced, and the phone rebuilds it with its own echo', () async {
+    final pub = RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test');
+    await pub.publish(store.load());
+    final t = Transcript()..sessionId = 'sess-1';
+    t.addUser('/plan-status');
+    t.apply(const TextDeltaEvent('Step 31 '));
+    pub.publishTranscript(t);
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    final chat = db.collection('projects').doc('demo').collection('chat');
+    var docs = await chat.get();
+    expect(docs.docs.length, 2, reason: 'the first change of a window flushes at once');
+    expect(docs.docs.map((d) => d.data()['sessionId']).toSet(), {'sess-1'});
+
+    // Inside the window: words stream in, nothing is written yet.
+    t.apply(const TextDeltaEvent('is ready.'));
+    pub.publishTranscript(t);
+    t.apply(const AssistantEvent([ContentBlock.text('Step 31 is ready.')]));
+    pub.publishTranscript(t);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    docs = await chat.get();
+    expect(docs.docs.firstWhere((d) => d.id == 'm00001').data()['text'], 'Step 31 ', reason: 'still the draft');
+
+    // The window ends: the final text lands, once.
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    docs = await chat.get();
+    expect(docs.docs.firstWhere((d) => d.id == 'm00001').data()['text'], 'Step 31 is ready.');
+    expect(docs.docs.firstWhere((d) => d.id == 'm00001').data()['streaming'], isFalse);
+
+    // The phone rebuilds the same rows and shows its own send until the host echoes it.
+    final deck = RemoteDeck(db, 'demo')..start();
+    await pub.publishSession({'mode': 'bridge', 'state': 'ready', 'sessionId': 'sess-1', 'model': 'claude-fable-5', 'canResume': false, 'pendingAsks': 0});
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(deck.messages.map((m) => m.role), [DeckRole.user, DeckRole.assistant]);
+    expect(deck.messages.last.text, 'Step 31 is ready.');
+    expect(deck.running, isTrue);
+    expect(deck.state, BridgeState.ready);
+    expect(deck.model, 'claude-fable-5');
+    await deck.send('/next');
+    expect(deck.view.last.text, '/next');
+    expect(deck.view.last.streaming, isTrue, reason: 'an echo, not yet the host\'s copy');
+    final cmds = await db.collection('projects').doc('demo').collection('commands').get();
+    expect(cmds.docs.single.data()['type'], 'send');
+    expect(cmds.docs.single.data()['text'], '/next');
+    // The host receives it and mirrors the real row: the echo goes.
+    t.addUser('/next');
+    pub.publishTranscript(t);
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    expect(deck.view.where((m) => m.text == '/next').length, 1);
+    expect(deck.view.last.streaming, isFalse);
+
+    // A fresh session on the host: rows the transcript no longer has are deleted.
+    t.messages.clear();
+    t.addUser('hello again');
+    pub.publishTranscript(t);
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    docs = await chat.get();
+    expect(docs.docs.map((d) => d.data()['text']), ['hello again']);
+    deck.dispose();
+    pub.dispose();
+  });
+
+  test('start, send and stop from the phone are commands the host runs in order', () async {
+    final ran = <String>[];
+    final listener = CommandListener(db, 'demo', apply: (cmd) async {
+      ran.add('${cmd['type']}${cmd['text'] != null ? ':${cmd['text']}' : ''}${cmd['resume'] == true ? ':resume' : ''}');
+      return 'ok';
+    })..start();
+    final deck = RemoteDeck(db, 'demo');
+    await deck.startSession();
+    await deck.send('/step');
+    await deck.startSession(resume: true);
+    await deck.stopSession();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(ran, ['start', 'send:/step', 'start:resume', 'stop']);
     listener.dispose();
   });
 

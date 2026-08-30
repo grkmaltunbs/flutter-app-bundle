@@ -18,9 +18,9 @@ import 'step_detail.dart';
 import 'steps_tab.dart';
 import 'work_tab.dart';
 
-/// One project: (host) Deck · Steps · Your work · (host) Session. The "now"
-/// line under the title is what Claude is doing this second; the send bar
-/// at the bottom is the only way a plan change leaves the device.
+/// One project: Deck · Steps · Your work · (host) Session. The "now" line
+/// under the title is what Claude is doing this second; the send bar at
+/// the bottom is the only way a plan change leaves the device.
 class ProjectScreen extends StatefulWidget {
   const ProjectScreen._({required this.source, required this.slug, this.host, this.remoteDoc});
 
@@ -45,7 +45,7 @@ class ProjectScreen extends StatefulWidget {
 
 class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProviderStateMixin {
   late final Draft _draft = Draft(widget.slug);
-  late final TabController _tabs = TabController(length: widget.isHost ? 4 : 2, vsync: this);
+  late final TabController _tabs = TabController(length: widget.isHost ? 4 : 3, vsync: this);
   ProjectSummary? _summary;
   StreamSubscription<ProjectSummary>? _sub;
   String? _selected;
@@ -56,6 +56,8 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
     super.initState();
     _draft.load();
     _sub = widget.remoteDoc?.listen((s) => setState(() => _summary = s));
+    // The Deck pins the ask itself; the bottom panel covers the other tabs.
+    _tabs.addListener(() => setState(() {}));
   }
 
   @override
@@ -143,7 +145,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                     labelColor: t.ink,
                     indicatorColor: t.accent,
                     tabs: [
-                      if (widget.isHost) const Tab(text: 'Deck'),
+                      const Tab(text: 'Deck'),
                       const Tab(text: 'Steps'),
                       Tab(text: plan == null ? 'Your work' : 'Your work · ${plan.items.where((i) => i.isOpen).length}'),
                       if (widget.isHost) const Tab(text: 'Session'),
@@ -170,7 +172,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                   // it first. The tab strip switches tabs.
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    if (widget.isHost) DeckTab(bridge: widget.host!.bridge),
+                    widget.isHost ? DeckTab(bridge: widget.host!.bridge) : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug),
                     wide
                         ? Row(
                             children: [
@@ -195,7 +197,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!widget.isHost) RemoteAskPanel(db: FirebaseFirestore.instance, slug: widget.slug),
+                if (!widget.isHost && _tabs.index != 0) RemoteAskPanel(db: FirebaseFirestore.instance, slug: widget.slug),
                 if (_draft.count > 0)
                   Container(
                     padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),

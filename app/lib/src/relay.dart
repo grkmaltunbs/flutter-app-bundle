@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_kit/kit.dart';
+
+import 'host/bridge_session.dart' show BridgeState;
 
 /// The relay: Firestore on `flutterappbundle`, one user, owner-only rules.
 ///
@@ -12,11 +15,12 @@ import 'package:flutter_kit/kit.dart';
 /// projects/{slug}/inbox/{auto}    a batch from the phone; the host stamps appliedAt
 /// projects/{slug}/events/{auto}   milestones from hooks (prompt, stop, notification)
 /// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
-/// projects/{slug}/commands/{auto} phone → host: {type: answer, …}; the host stamps doneAt, result
+/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop, …}; the host stamps doneAt, result
+/// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// ```
 ///
-/// The host is the only writer of `asks` and `session`; the phone only ever
-/// writes `inbox` and `commands`.
+/// The host is the only writer of `asks`, `chat` and `session`; the phone
+/// only ever writes `inbox` and `commands`.
 class ProjectSummary {
   ProjectSummary({required this.slug, required this.name, required this.dir, required this.machine, required this.session, required this.now, required this.counts, this.updatedAt});
 
@@ -143,6 +147,76 @@ class RelayPublisher {
 
   int _asks = 0;
 
+  /// How many rows of the transcript the mirror keeps.
+  static const chatKeep = 300;
+
+  final Map<String, String> _chat = {};
+  Transcript? _chatSource;
+  Timer? _chatTimer;
+  bool _chatDirty = false;
+  bool _chatSeeded = false;
+  bool _chatFlushing = false;
+
+  /// Mirrors the transcript — coalesced: the first change of a window
+  /// flushes at once, the rest of the window's changes go together when it
+  /// ends, so a streaming reply costs one write a second, not one a word.
+  void publishTranscript(Transcript t) {
+    _chatSource = t;
+    if (_chatTimer != null) {
+      _chatDirty = true;
+      return;
+    }
+    _chatTimer = Timer(const Duration(milliseconds: 700), () {
+      _chatTimer = null;
+      if (_chatDirty) {
+        _chatDirty = false;
+        publishTranscript(_chatSource!);
+      }
+    });
+    unawaited(_flushChat());
+  }
+
+  Future<void> _flushChat() async {
+    final t = _chatSource;
+    if (t == null || _chatFlushing) {
+      _chatDirty = _chatDirty || _chatFlushing;
+      return;
+    }
+    _chatFlushing = true;
+    try {
+      if (!_chatSeeded) {
+        _chatSeeded = true;
+        final q = await ref.collection('chat').get();
+        for (final d in q.docs) {
+          _chat[d.id] = stableJson(d.data());
+        }
+      }
+      final msgs = t.messages.length > chatKeep ? t.messages.sublist(t.messages.length - chatKeep) : t.messages;
+      final wanted = <String, Map<String, Object?>>{for (final m in msgs) m.id: {...m.toMap(), if (t.sessionId != null) 'sessionId': t.sessionId}};
+      final ops = <void Function(WriteBatch)>[];
+      for (final e in wanted.entries) {
+        final json = stableJson(e.value);
+        if (_chat[e.key] == json) continue;
+        ops.add((b) => b.set(ref.collection('chat').doc(e.key), e.value));
+        _chat[e.key] = json;
+      }
+      for (final id in _chat.keys.toList()) {
+        if (wanted.containsKey(id)) continue;
+        ops.add((b) => b.delete(ref.collection('chat').doc(id)));
+        _chat.remove(id);
+      }
+      for (var i = 0; i < ops.length; i += 400) {
+        final b = db.batch();
+        for (final op in ops.sublist(i, (i + 400).clamp(0, ops.length))) {
+          op(b);
+        }
+        await b.commit();
+      }
+    } finally {
+      _chatFlushing = false;
+    }
+  }
+
   Future<void> _pruneAsks() async {
     final q = await ref.collection('asks').orderBy('at', descending: true).limit(200).get();
     if (q.docs.length < 100) return;
@@ -186,6 +260,89 @@ class RelayPublisher {
 
   void dispose() {
     _nowTimer?.cancel();
+    _chatTimer?.cancel();
+  }
+}
+
+/// The phone's Deck: the mirrored transcript and the session document in,
+/// commands out. A message sent from here shows at once as an echo and is
+/// replaced by the host's copy when the mirror catches up.
+class RemoteDeck extends ChangeNotifier {
+  RemoteDeck(this.db, this.slug, {this.from = 'phone'});
+
+  final FirebaseFirestore db;
+  final String slug;
+  final String from;
+  List<DeckMessage> messages = const [];
+  Map<String, Object?> session = const {};
+  final List<DeckMessage> echoes = [];
+  String? error;
+  final _subs = <StreamSubscription<Object?>>[];
+  int _echoSeq = 0;
+
+  DocumentReference<Map<String, dynamic>> get ref => db.collection('projects').doc(slug);
+
+  BridgeState get state {
+    final s = (session['state'] ?? 'idle').toString();
+    return BridgeState.values.firstWhere((v) => v.name == s, orElse: () => BridgeState.idle);
+  }
+
+  bool get running => session['mode'] == 'bridge';
+  bool get canResume => session['canResume'] == true;
+  bool get turnOpen => state == BridgeState.busy || state == BridgeState.waiting;
+  String? get sessionId => session['sessionId']?.toString();
+  String? get model => session['model']?.toString();
+  String? get cliVersion => session['cliVersion']?.toString();
+  String? get machine => session['machine']?.toString();
+
+  /// The transcript with this device's unconfirmed sends at the end.
+  List<DeckMessage> get view => [...messages, ...echoes];
+
+  void start() {
+    _subs.add(ref.snapshots().listen((d) {
+      final m = d.data()?['session'];
+      session = m is Map ? {for (final e in m.entries) e.key.toString(): e.value, 'machine': d.data()?['machine']} : const {};
+      error = session['error']?.toString();
+      notifyListeners();
+    }, onError: _onError));
+    _subs.add(ref.collection('chat').snapshots().listen((q) {
+      messages = (q.docs.map((d) => DeckMessage.fromMap({for (final e in d.data().entries) e.key: e.value as Object?})).toList()..sort((a, b) => a.id.compareTo(b.id)));
+      // The host's copy of a message we sent replaces the echo.
+      final sent = messages.where((m) => m.role == DeckRole.user).map((m) => m.text).toSet();
+      echoes.removeWhere((e) => sent.contains(e.text));
+      notifyListeners();
+    }, onError: _onError));
+  }
+
+  void _onError(Object e) {
+    error = e.toString();
+    notifyListeners();
+  }
+
+  Future<void> send(String text) async {
+    final t = text.trim();
+    if (t.isEmpty) return;
+    echoes.add(DeckMessage(id: 'echo-${(_echoSeq++).toString().padLeft(5, '0')}', role: DeckRole.user, text: t, at: DateTime.now(), streaming: true));
+    notifyListeners();
+    try {
+      await CommandSender(db, slug).send({'type': 'send', 'text': t}, from: from);
+    } on Object catch (e) {
+      echoes.removeWhere((m) => m.text == t);
+      error = 'Could not send: $e';
+      notifyListeners();
+    }
+  }
+
+  Future<void> startSession({bool resume = false}) => CommandSender(db, slug).send({'type': 'start', 'resume': resume}, from: from);
+
+  Future<void> stopSession() => CommandSender(db, slug).send({'type': 'stop'}, from: from);
+
+  @override
+  void dispose() {
+    for (final s in _subs) {
+      s.cancel();
+    }
+    super.dispose();
   }
 }
 

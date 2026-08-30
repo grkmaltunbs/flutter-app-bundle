@@ -6,10 +6,13 @@ The phase-2 shell. One Flutter codebase, two roles:
   project folder that has `plan/`, mirrors it to the relay, applies what the
   phone sends, watches Claude Code's hooks, and starts `claude
   remote-control` in the folder on the user's own login.
-- **Remote** (Android first) — reads the mirror, shows the same two screens
-  as the board (Steps as bubbles, Your work as sittings), keeps ticks and
-  notes on the device until **Send to Claude**, and opens the Remote Control
-  session in the Claude app for every command.
+- **Remote** (Android first) — reads the mirror, shows the **Deck** (the
+  conversation with the session: send, watch it stream, answer what Claude
+  asks, Start / Stop / Resume — all as commands the host runs) and the same
+  two screens as the board (Steps as bubbles, Your work as sittings), and
+  keeps ticks and notes on the device until **Send to Claude**. The Claude
+  app is no longer needed for a command; it stays the way in for the full
+  terminal (plan mode, `/compact`) until `handover` ships.
 
 The relay is the Firebase project `flutterappbundle` (Firestore in
 europe-west3, Email/Password auth, one user, owner-only rules in

@@ -148,6 +148,13 @@ class BridgeSession extends ChangeNotifier {
     error = null;
     log.clear();
     _sessionAllows.clear();
+    if (!resume) {
+      // A fresh session is a fresh conversation; Resume keeps the old one.
+      transcript.messages.clear();
+      transcript.pending = null;
+      transcript.lastResult = null;
+      transcript.turnOpen = false;
+    }
     state = BridgeState.starting;
     notifyListeners();
     final bin = await _findBinary();
@@ -324,6 +331,7 @@ class BridgeSession extends ChangeNotifier {
         'mode': running ? 'bridge' : 'idle',
         'state': state.name,
         'pendingAsks': transcript.pending == null ? 0 : 1,
+        'canResume': !running && previous() != null,
         if (sessionId != null) 'sessionId': sessionId,
         if (transcript.model != null) 'model': transcript.model,
         if (cliVersion != null) 'cliVersion': cliVersion,
