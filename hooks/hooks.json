@@ -1,5 +1,5 @@
 {
-  "description": "Two things: the batched dart analyze gate (queue edited .dart paths on each Write/Edit, one analyzer pass at turn end, block only on errors in files edited this turn), and `kit hook`, which spools every event for the flutter-kit app so a phone can see what the session is doing.",
+  "description": "Two things: the batched dart analyze gate (queue edited .dart paths on each Write/Edit, one analyzer pass at turn end, block only on errors in files edited this turn), and `kit hook`, which spools every event for the flutter-kit app so a phone can see what the session is doing \u2014 only in a project that has a plan/, and silently no-op where dart is not installed.",
   "hooks": {
     "PostToolUse": [
       {

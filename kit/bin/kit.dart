@@ -116,7 +116,7 @@ void main(List<String> argv) {
       case 'item':
         _itemCmd(PlanStore(planDir), rest, args);
       case 'hook':
-        exit(_hook());
+        exit(_hook(project, planDir));
       case 'inbox':
         exit(_inbox(PlanStore(planDir), _abs(project, _arg(rest, 1, 'inbox needs a batch file')), dryRun: args['dry-run'] as bool));
       case 'render':
@@ -365,16 +365,29 @@ List<int> _readAll(Stdin input) {
   return out;
 }
 
+/// The events worth a prune: a handful a day, where `PostToolUse` is hundreds.
+const _spoolBoundaries = {'SessionStart', 'Stop', 'SessionEnd'};
+
 /// `kit hook` — a Claude Code hook command. Reads the hook payload from
-/// stdin and spools it for the host app. Never fails the hook: a broken
-/// spool must not block Claude.
-int _hook() {
+/// stdin and spools it for the host app, when the folder it fired in has a
+/// plan. Never fails the hook: a broken spool must not block Claude.
+int _hook(String project, String planDir) {
   try {
     final text = utf8.decode(_readAll(stdin));
     if (text.trim().isEmpty) return 0;
     final raw = jsonDecode(text);
     if (raw is! Map) return 0;
-    spoolHookEvent({for (final e in raw.entries) e.key.toString(): e.value});
+    final payload = {for (final e in raw.entries) e.key.toString(): e.value};
+    // The spool exists for the host app, and the host only opens a folder that
+    // has a plan. A hook firing anywhere else writes nothing, rather than
+    // growing a directory nobody will ever read. Same fallback as the writer,
+    // so the folder that is admitted is the folder that gets spooled.
+    final cwd = (payload['cwd'] ?? Directory.current.path).toString();
+    if (!PlanStore(p.equals(cwd, project) ? planDir : p.join(cwd, 'plan')).exists) return 0;
+    spoolHookEvent(payload);
+    // Prune here rather than per tool call: the host prunes too, but only
+    // while it is running, and the spool must stay bounded without it.
+    if (_spoolBoundaries.contains(payload['hook_event_name'])) pruneSpool(cwd);
   } on Object catch (e) {
     stderr.writeln('kit hook: $e');
   }
