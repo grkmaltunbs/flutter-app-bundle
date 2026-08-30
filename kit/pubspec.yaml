@@ -1,6 +1,6 @@
 name: flutter_kit
 description: The plan engine behind flutter-kit v2 — steps, gates, human items, and the views generated from them.
-version: 2.0.0-dev.1
+version: 2.0.0
 publish_to: none
 
 environment:
