@@ -1,0 +1,23 @@
+id: name-the-app
+title: Name the app — `kit_app` is the scaffold's name and it is about to appear on a phone, a notification channel and a Mac menu bar
+status: open
+needs: [decision]
+blocks: [instrument-skin]
+step: dogfood-plan
+added: "2026-08-30"
+body: |
+  The skin step bakes the name into the launcher icon, the app bar, the
+  notification channels and the macOS bundle. Renaming after that is a
+  bundle-id change on two platforms. One word is best: it sits beside a
+  project name on every screen.
+question:
+  ask: What is the app called?
+  options:
+    - label: "Deck"
+      recommended: true
+      why: "The screen you use most is the command deck; \"open Deck\" is what you will say."
+    - label: "Kit"
+      why: "The plugin's name; consistent, but it is also the CLI, the library and the plugin."
+    - label: "Foreman"
+      why: "The role — it runs the build and asks you when it needs you — but two syllables longer on every screen."
+  answer: null

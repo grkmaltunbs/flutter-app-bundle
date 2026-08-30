@@ -1,0 +1,40 @@
+id: instrument-skin
+number: "4"
+title: The Instrument skin — tokens, fonts, the constellation, restyled cards and sheets
+status: pending
+rank: 500
+depends_on: [deck-on-the-phone]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The canvas is the spec: https://claude.ai/code/artifact/b8bc9970-7ad2-4e99-987d-2f8dd146464d
+      Deep blue-black ground, one cyan for the system, one amber for anything
+      waiting on the user; Rajdhani headings, JetBrains Mono readouts, IBM
+      Plex Sans prose (bundled, not fetched). `KitTokens` gains the second
+      accent and the soft variants; `board.colors` still overrides per
+      project. The Steps tab becomes the constellation — rings by state, the
+      ready step pulsing, the selected one haloed — over the existing
+      `dag_layout`. The "now" strip with its sweep, the ask card with its
+      corner ticks, the gate rings on a step, the sittings chips on Your work.
+      Light mode is Daylight unless the direction item says otherwise.
+  - title: Acceptance
+    body: |
+      - Every screen matches the canvas in structure and tokens; nothing in
+        the canvas is missing and nothing extra is invented.
+      - Overflow matrix clean at 1.0 / 2.0 / 3.12 on 360 / 390 / 412 widths
+        and on the Mac at 900 / 1440.
+      - Motion: the live dot, the sweep and the ready halo; nothing else moves.
+  - title: QA walkthrough
+    body: |
+      1. Phone: every tab of Nahmatik at default and largest text.
+      2. Mac: the same at 1440 wide, with the detail panel beside the canvas.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/theme.dart`, `app/pubspec.yaml` (fonts), `app/lib/src/screens/**`, `app/lib/src/widgets/**`
+history:
+  - { at: "2026-08-30", event: added }

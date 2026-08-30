@@ -1,0 +1,44 @@
+id: deck-on-the-phone
+number: "3"
+title: The Command deck on the phone — send, watch it stream, answer, switch project
+status: pending
+rank: 400
+depends_on: [asks]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The first tab of a project on the phone. The transcript from
+      `projects/{slug}/chat` (streamed text coalesced by the host to at most
+      one write a second), tool rows collapsed to one line, the pending ask
+      pinned above the composer, quick chips (`/step`, `/qa`, `/next`,
+      `blocks <id>`), a composer that writes `commands/{auto} {type: send}`.
+      Start / Stop / Resume from the phone go the same way. The project
+      list shows each project's session state and its "now" line.
+
+      This is the launch: a `/step` driven from the phone with an ask
+      answered on it. The look is still phase 2's; the skin is step 4.
+  - title: Acceptance
+    body: |
+      - Phone: Start → `/step` → the transcript streams; an ask arrives; the
+        step's tool rows appear; the "now" line moves; the turn ends.
+      - The composer and the ask card are usable at 3.12× on a 360-wide
+        screen with no overflow; the chips scroll.
+      - Two projects opened on the Mac both appear; switching does not mix
+        transcripts.
+  - title: QA walkthrough
+    body: |
+      1. Mac: open Nahmatik and this repo. Phone: both listed.
+      2. Phone → Kit → Deck → Start → `kit next` via `/next`.
+      3. Answer the Bash ask on the phone. Read the reply.
+      4. Switch to Nahmatik; its Deck is its own.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/screens/deck_tab.dart` (shared by host and phone), `app/lib/src/relay.dart`
+      - `app/lib/src/screens/home_screen.dart`
+history:
+  - { at: "2026-08-30", event: added }

@@ -1,0 +1,29 @@
+id: dogfood-plan
+number: "0"
+title: The app's own roadmap becomes plan/ — the tool that shows a plan is built from one
+status: done
+rank: 100
+depends_on: []
+meta: { qa_required: false }
+gates:
+  validate: { at: 2026-08-30, note: "kit validate clean, 2026-08-30", status: passed}
+sections:
+  - title: Description
+    body: |
+      The phase-3 roadmap in `app/DESIGN.md` becomes this directory: one step
+      per row, and the things only the user can do — a name, a direction, a
+      service-account key, an APNs key — as items that block the steps they
+      gate. From here `/step` builds the app, `kit next` says what is next,
+      and the board shows the user what the build is waiting on.
+  - title: Acceptance
+    body: |
+      - `kit validate` reports no errors.
+      - `kit next --step` answers `bridge-core`.
+      - `PROJECT_PLAN.md` and the board render from this directory.
+history:
+  - { at: "2026-08-30", event: added, note: phase 3 begins }
+  - at: 2026-08-30
+    event: gate validate passed
+    note: "kit validate clean, 2026-08-30"
+  - at: 2026-08-30
+    event: done

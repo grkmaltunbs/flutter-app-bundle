@@ -1,0 +1,35 @@
+id: notifications
+number: "6"
+title: Notifications — an ask reaches the lock screen and Allow runs the command
+status: pending
+rank: 700
+depends_on: [deck-on-the-phone]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The host sends FCM HTTP v1 messages with a service-account key kept
+      outside the repo (`~/.flutter_kit/`); no Cloud Functions, no Blaze.
+      Data messages for asks — the Android notification carries Allow and
+      Deny actions that write `commands` without opening the app — and
+      milestone notifications: needs you, turn ended, step flipped. A
+      channel per kind so the user can silence milestones and keep asks.
+  - title: Acceptance
+    body: |
+      - App closed, phone locked: a Bash ask arrives as a notification within
+        five seconds; Allow from the lock screen runs the command on the Mac.
+      - A finished `/step` notifies once.
+      - No key on the Mac → the Session tab says so and nothing else breaks.
+  - title: QA walkthrough
+    body: |
+      1. Mac: Start; lock the phone; send `touch /tmp/kit-push`.
+      2. Phone: the notification; Allow. Mac: the file exists.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/host/push_sender.dart`, `app/lib/src/push/**`, `app/android/**` (channels, actions)
+history:
+  - { at: "2026-08-30", event: added }

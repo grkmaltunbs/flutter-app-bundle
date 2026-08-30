@@ -1,0 +1,41 @@
+id: item-threads
+number: "5"
+title: Ask about one item — a scoped answer, an item Claude edits, a card that shows it
+status: pending
+rank: 600
+depends_on: [deck-on-the-phone]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      **Ask** on any item card or step sheet opens a thread. The message
+      carries `about: {item: id}` or `{step: id}`; the host prefixes the
+      prompt with `kit show <id>` and a standing instruction: answer for a
+      phone screen; if the item should change — needs, blocks, body,
+      runbook, deadline, the recommended option — change it with `kit` or by
+      editing its YAML, and say what changed. The plan watcher mirrors the
+      edit; the card re-renders; an **UPDATED** strip names what changed.
+      Threads persist under `projects/{slug}/threads/{about}/messages`, and a
+      card shows its thread count and last reply.
+  - title: Acceptance
+    body: |
+      - Ask on the presence item in Nahmatik: the answer mentions the item
+        by its own facts; a change Claude makes to the YAML appears on the
+        phone within seconds with the strip.
+      - A thread survives app restarts on both devices.
+      - A question the user cannot answer yet leaves the item open.
+  - title: QA walkthrough
+    body: |
+      1. Phone → Nahmatik → Your work → the presence card → Ask: "what does
+         friends-only cost in reads?"
+      2. Read the answer; see the strip; open the card again — the thread is there.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/host/bridge_session.dart` (scoped prompt), `app/lib/src/relay.dart` (threads)
+      - `app/lib/src/screens/item_card.dart`, `app/lib/src/screens/step_detail.dart`
+history:
+  - { at: "2026-08-30", event: added }

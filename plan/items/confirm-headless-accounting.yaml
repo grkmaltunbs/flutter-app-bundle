@@ -1,0 +1,19 @@
+id: confirm-headless-accounting
+title: Confirm how headless Claude use is counted on your plan before the first unattended run
+status: open
+needs: [know, console]
+blocks: []
+step: bridge-core
+added: "2026-08-30"
+body: |
+  On 2026-08-30 the bridge ran on the subscription — the stream reported the
+  five-hour pool and no overage, not the API. The parked runner's doc claims
+  that since 2026-06-15 headless (`claude -p` / Agent SDK) use on a
+  subscription draws from a separate monthly allowance. Nothing in the
+  bridge depends on which is true; how long you let `/step` run unattended
+  from the phone does.
+runbook:
+  - do: claude.ai → Settings → Usage, after a bridge session has run.
+    expect: Either the session's tokens against the five-hour / weekly limits, or a separate "Agent SDK" line.
+  - do: Note which, here.
+    expect: The answer written into this item's note.

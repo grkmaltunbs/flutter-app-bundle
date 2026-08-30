@@ -1,0 +1,51 @@
+# plan/kit.yaml — the manifest for the kit app's own plan.
+# The app that shows a plan is built from one. Schema: schema/README.md
+kit: 2
+
+project:
+  name: Kit
+  slug: kit
+
+firebase:
+  project: flutterappbundle          # the relay, not a consumer app's project
+
+qa:
+  runtime: macos                     # the host runs here; the phone screens are proven at phone width in widget tests, then on the Android phone
+  backend: relay                     # Firestore on flutterappbundle, one uid; tests use fake_cloud_firestore
+  screenshots: false
+  text_scales: [1.0, 2.0, 3.12]
+  # No `format:` — the code was written at a wider page than dart format's
+  # default and 54 of 57 files would reflow. Pick a formatter.page_width
+  # before turning it on; until then, analyze is the static gate.
+  live_bridge: KIT_LIVE=1            # the bridge tests that spawn the real `claude` run only with this in the environment — they spend subscription quota
+  note: >-
+    Two packages: kit/ (pure Dart, `dart test`) and app/ (Flutter, `flutter test`).
+    A step is verified when both suites pass and the thing runs — the bridge
+    against the real claude, the UI on the Mac, the phone screens on the phone.
+
+platforms: [macos, android, ios]
+
+release_step: deck-on-the-phone      # "launched" = a /step driven from the phone with an ask answered on it
+
+board:
+  title: Kit Build Board
+  output: docs/board/kit_board.html
+  fonts:
+    display: Rajdhani
+    body: IBM Plex Sans
+    mono: JetBrains Mono
+  colors:
+    dark:
+      bg: "#070B12"
+      surface: "#0C1320"
+      ink: "#E7EEF8"
+      ink2: "#A7B4C7"
+      muted: "#67788F"
+      line: "#1B2638"
+      accent: "#58D7FF"
+      accent_soft: "#0F2A36"
+      good: "#5FE3A1"
+      warn: "#FFB454"
+      critical: "#FF7A7A"
+
+plan_markdown: PROJECT_PLAN.md

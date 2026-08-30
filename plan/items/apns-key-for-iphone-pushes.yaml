@@ -1,0 +1,19 @@
+id: apns-key-for-iphone-pushes
+title: Create an APNs authentication key and upload it to Firebase Cloud Messaging
+status: open
+needs: [console, secret, money]
+blocks: [iphone]
+step: iphone
+added: "2026-08-30"
+body: |
+  iOS pushes go through APNs; Firebase needs an APNs key from the Apple
+  Developer account (team 8J4ASHVDQ5) to deliver them. One key serves every
+  app on the team. The developer membership is the "money" part if it has
+  lapsed.
+runbook:
+  - do: developer.apple.com → Certificates, Identifiers & Profiles → Keys → + → tick Apple Push Notifications service → Register → Download the .p8.
+    expect: A .p8 file and a Key ID; the file downloads once only.
+  - do: Firebase console → flutterappbundle → Project settings → Cloud Messaging → iOS app → APNs Authentication Key → Upload (.p8, Key ID, Team ID 8J4ASHVDQ5).
+    expect: The key shows under the iOS app with its Key ID.
+  - do: Keep the .p8 in `~/.flutter_kit/`, not in the repo.
+    expect: Nothing under app/ references it.

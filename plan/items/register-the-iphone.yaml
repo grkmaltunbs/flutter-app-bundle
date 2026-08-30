@@ -1,0 +1,17 @@
+id: register-the-iphone
+title: Plug in the iPhone once and let Xcode register it on the team
+status: open
+needs: [device, console]
+blocks: [iphone]
+step: iphone
+added: "2026-08-30"
+body: |
+  A development build installs only on a device registered on the team.
+  Xcode does the registration on the first run to the device; after that
+  `ship.sh ios` is enough.
+runbook:
+  - do: Connect the iPhone by cable, unlock it, tap Trust. Xcode → Window → Devices and Simulators.
+    expect: The iPhone listed, with Developer Mode enabled (iOS 16+ asks for it under Settings → Privacy & Security).
+  - do: In `app/ios`, run to the device once from Xcode with automatic signing.
+    expect: The app launches on the phone; a provisioning profile appears under the team.
+    if_fails: On "Untrusted developer" go to Settings → General → VPN & Device Management and trust the team.

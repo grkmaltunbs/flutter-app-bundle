@@ -1,0 +1,46 @@
+id: asks
+number: "2"
+title: Asks — permissions and questions remembered for a session, applied always, and answered from the phone
+status: pending
+rank: 300
+depends_on: [bridge-core]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      Every `control_request` is mirrored to `projects/{slug}/asks/{requestId}`
+      and the phone renders it as an authorization card (amber; the canvas's
+      Command deck) or a question card. The phone answers by writing a
+      `commands/{auto}` document; the host is the only writer of `asks` and
+      the only thing that talks to the process. Whichever surface answers
+      first wins; the others collapse.
+
+      **This session** — the host remembers `(tool, input)` and answers an
+      identical request itself until the session ends. **Always** — the
+      CLI's `permission_suggestions` are applied to the project's
+      `.claude/settings.json`; the Session tab lists what was added and can
+      remove it.
+  - title: Acceptance
+    body: |
+      - A Bash permission raised on the Mac appears on the phone within two
+        seconds; Deny on the phone is honoured on the Mac.
+      - An `AskUserQuestion` renders its options with the recommended one
+        first; the chosen label reaches the model.
+      - "This session" stops the same request from asking twice; "Always"
+        writes the suggestion and the Session tab shows it.
+  - title: QA walkthrough
+    body: |
+      1. Mac: Start. Phone: open the project. Mac: send `touch /tmp/kit-ask`.
+      2. Phone: the card. Deny. Mac transcript shows the refusal; no file.
+      3. Repeat; Allow · This session. Send again — no card, it runs.
+      4. Send `ask me tea or coffee with AskUserQuestion`. Answer on the phone.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/relay.dart` (asks, commands), `app/lib/src/host/bridge_session.dart`
+      - `app/lib/src/screens/ask_card.dart`
+history:
+  - { at: "2026-08-30", event: added }

@@ -1,0 +1,76 @@
+id: bridge-core
+number: "1"
+title: The bridge — the host talks to Claude Code over stdio, and the Mac window shows the conversation
+status: active
+rank: 200
+depends_on: [dogfood-plan]
+meta: { qa_required: true }
+gates:
+  analyze: { at: 2026-08-30, note: "dart analyze (kit) and flutter analyze (app) clean, 2026-08-30", status: passed}
+  tests: { at: 2026-08-30, note: "kit 66 tests; app 20 tests (7 Deck at 360\/1440 × 1.0\/2.0\/3.12, 5 bridge with a scripted claude), 0 skips besides the live gate", status: passed}
+  qa: { at: 2026-08-30, note: "KIT_LIVE=1: the real claude 2.1.251 streamed a reply, asked a question and got Coffee, a Bash permission was denied and the file was not created, --resume remembered — 20s", status: passed}
+sections:
+  - title: Description
+    body: |
+      The host spawns `claude -p --input-format stream-json --output-format
+      stream-json --include-partial-messages --replay-user-messages
+      --permission-prompt-tool stdio --permission-mode default --session-id
+      <uuid>` in the project folder, with the shell's PATH (the hooks need
+      `dart`). It writes user messages to stdin and reads one JSON object per
+      line from stdout: `system/init`, `stream_event` deltas, `assistant`
+      content, `user` tool results, `control_request` (a permission or an
+      `AskUserQuestion`), `result`, `rate_limit_event`.
+
+      The protocol parser is pure Dart in `kit/lib/src/bridge.dart` — the
+      phone will render the same transcript from the relay. The process
+      runner is `app/lib/src/host/bridge_session.dart`, beside
+      `remote_control.dart`, and the transcript is a **Deck** tab on the host:
+      messages, compact tool rows, a composer, Start / Stop.
+
+      A `control_request` must be answered or the session hangs on it, so
+      the Deck renders an **ask card** on the Mac from this step: Allow / Deny
+      for a permission, the options for a question. "This session", "Always"
+      and the phone come in `asks`.
+
+      The protocol is what Anthropic's Agent SDK speaks to the CLI; it is not
+      a documented CLI contract. Proven on Claude Code 2.1.251 on
+      2026-08-30 (the table in `app/DESIGN.md`). The host records the CLI
+      version it started and says so on the Session tab.
+  - title: Acceptance
+    body: |
+      - From the Mac window: Start → type `/plan-status` → the answer streams
+        into the Deck; a Bash permission renders as an ask card; Allow lets
+        it run, Deny shows the refusal in the transcript.
+      - Stop ends the process; a host restart finds the session by id and
+        offers Resume (`--resume`).
+      - `kit/test/bridge_test.dart` covers the parser on captured lines;
+        `app/test/bridge_session_test.dart` drives the runner with a fake
+        process; a live test spawns the real `claude` only under `KIT_LIVE=1`.
+      - Zero overflow in the Deck at 1.0 / 2.0 / 3.12 text scales.
+  - title: QA walkthrough
+    body: |
+      1. Open a project with a plan (Nahmatik). Session tab → Deck → Start.
+      2. Send `/plan-status`. Watch the reply stream in.
+      3. Send `run kit next with bash`. An ask card appears. Deny it. The
+         transcript shows the refusal.
+      4. Send it again. Allow. The tool row shows the output summary.
+      5. Stop. Quit and reopen the app. The Deck offers Resume; Resume, ask
+         "what did I ask you first?" — it remembers.
+  - title: Touchpoints
+    body: |
+      - `kit/lib/src/bridge.dart`, `kit/test/bridge_test.dart`
+      - `app/lib/src/host/bridge_session.dart`, `app/lib/src/screens/deck_tab.dart`
+      - `app/lib/src/host/host_project.dart` (owns the bridge beside the Remote Control session)
+history:
+  - { at: "2026-08-30", event: added }
+  - at: 2026-08-30
+    event: started
+  - at: 2026-08-30
+    event: gate analyze passed
+    note: "dart analyze (kit) and flutter analyze (app) clean, 2026-08-30"
+  - at: 2026-08-30
+    event: gate tests passed
+    note: "kit 66 tests; app 20 tests (7 Deck at 360\/1440 × 1.0\/2.0\/3.12, 5 bridge with a scripted claude), 0 skips besides the live gate"
+  - at: 2026-08-30
+    event: gate qa passed
+    note: "KIT_LIVE=1: the real claude 2.1.251 streamed a reply, asked a question and got Coffee, a Bash permission was denied and the file was not created, --resume remembered — 20s"

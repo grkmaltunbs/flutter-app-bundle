@@ -1,0 +1,29 @@
+id: pick-the-lead-direction
+title: Pick the lead direction on the canvas — Instrument, Workshop, or Daylight
+status: open
+needs: [look, decision]
+blocks: [instrument-skin]
+step: dogfood-plan
+added: "2026-08-30"
+body: |
+  The canvas: https://claude.ai/code/artifact/b8bc9970-7ad2-4e99-987d-2f8dd146464d
+  Three screens in the lead direction on the top row, two alternates of the
+  Command deck below. The skin step builds exactly one; light mode follows
+  from the choice. Every element on the canvas can be moved, retyped or
+  recoloured before deciding — the skin is built from the saved canvas.
+runbook:
+  - do: Open the canvas on the phone as well as the Mac — the type sizes are the phone's.
+    expect: Rajdhani, JetBrains Mono and IBM Plex Sans render (Google Fonts); the fallback faces are close.
+  - do: Edit anything that is wrong, Save, then answer below.
+    expect: The canvas keeps a version per Save.
+question:
+  ask: Which direction does the skin build?
+  options:
+    - label: "Instrument dark, Daylight light"
+      recommended: true
+      why: "One structure, two grounds — the instrument at night, paper in the sun."
+    - label: "Instrument only"
+      why: "One mode, less to maintain; light mode becomes a dimmer dark."
+    - label: "Workshop"
+      why: "Warmer and calmer; less of a HUD — if the cyan reads as cold."
+  answer: null

@@ -1,0 +1,31 @@
+id: iphone
+number: "9"
+title: The iPhone — the same app on the user's second phone, with pushes
+status: pending
+rank: 1000
+depends_on: [deck-on-the-phone, notifications]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      `flutter create --platforms ios` into `app/`, Firebase iOS app on
+      `flutterappbundle`, the team's development profile, APNs through FCM,
+      the notification actions as iOS categories. `ship.sh ios` installs to
+      the connected iPhone. Nothing in the code is Android-only; this step is
+      signing, capabilities and the two store-free installs.
+  - title: Acceptance
+    body: |
+      - The app runs on the iPhone; an ask arrives as a push with Allow.
+      - `bash app/tool/ship.sh ios` builds and installs in one command.
+  - title: QA walkthrough
+    body: |
+      1. iPhone: sign in, open Nahmatik, the constellation, an ask from the Mac.
+  - title: Touchpoints
+    body: |
+      - `app/ios/**`, `app/tool/ship.sh`, `app/lib/firebase_options.dart`
+history:
+  - { at: "2026-08-30", event: added }

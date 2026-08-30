@@ -1,0 +1,25 @@
+id: verify-the-deck-on-the-mac
+title: Open the Deck on the Mac, drive one turn, refuse one command, and resume after a restart
+status: open
+needs: [look]
+blocks: [bridge-core]
+step: bridge-core
+added: "2026-08-30"
+body: |
+  The bridge is proven against the real `claude` by a test, and the Deck is
+  proven at every size by widget tests — but nobody has watched the window
+  do it. `ship.sh mac` put the new build in `~/Applications/kit_app.app`.
+runbook:
+  - do: Open kit_app, open Nahmatik, Deck tab → Start.
+    expect: The pill goes starting → ready; the header shows the session id, the model and `claude 2.1.251`.
+    if_fails: On "claude is not installed" the app could not find the binary on your shell PATH; on "exited with code 1" the last stderr line is in the header.
+  - do: Type `/plan-status` and press Enter.
+    expect: The reply streams in word by word; tool rows show `kit status` with a green tick when done.
+  - do: Type `run kit next with bash` — or any command that is not on the project's allow-list.
+    expect: An amber AUTHORIZATION REQUESTED card above the composer with the exact command. Tap Deny.
+    if_fails: No card and the command simply ran → the project's `.claude/settings.json` allows it; pick one it does not.
+  - do: Read the transcript.
+    expect: An italic line beginning with Denied, then Claude saying it did not run it.
+  - do: Stop. Quit the app. Open it again, Nahmatik, Deck.
+    expect: A "Resume <id>" button beside Start. Resume, then ask "what did I ask you first?"
+    if_fails: No Resume → `~/.flutter_kit/bridge/<slug>.json` was not written; say so.

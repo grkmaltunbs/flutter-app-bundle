@@ -1,0 +1,23 @@
+id: voice-now-or-later
+title: Decide when voice ships — it is on-device and free, but it is a step of its own
+status: open
+needs: [decision]
+blocks: [voice-and-biometrics]
+step: dogfood-plan
+added: "2026-08-30"
+body: |
+  Dictation and read-aloud need no service and no key; the cost is a step's
+  worth of build and QA on the phone. The biometric gate in the same step is
+  not optional — it is what makes a stolen unlocked phone not a shell — so
+  "later" moves the gate forward into the deck step, not out.
+question:
+  ask: When does voice ship?
+  options:
+    - label: "At rank 900, after the skin"
+      recommended: true
+      why: "The deck and the skin are in; voice lands on a finished surface."
+    - label: "After iPhone"
+      why: "Both phones get it at once; the biometric gate moves into deck-on-the-phone."
+    - label: "Not at all"
+      why: "Keep the step for biometrics only."
+  answer: null

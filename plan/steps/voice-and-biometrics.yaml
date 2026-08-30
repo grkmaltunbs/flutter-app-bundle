@@ -1,0 +1,33 @@
+id: voice-and-biometrics
+number: "8"
+title: Voice and biometrics — dictate, hear the reply, and prove it is you before the dangerous taps
+status: pending
+rank: 900
+depends_on: [instrument-skin]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      On-device only, no service: `speech_to_text` on the composer's mic
+      (hold to talk, release to send or edit), `flutter_tts` reads the reply
+      when the toggle is on. `local_auth` gates Start, Allow, Always and
+      Send — a phone in the wrong hands is a shell on the Mac. Both are
+      settings; both default on for the phone and off for the Mac.
+  - title: Acceptance
+    body: |
+      - A dictated `/next` reaches the host as text; the reply is read aloud.
+      - Allow without a fingerprint does nothing; with one it answers.
+      - Denied microphone permission degrades to the keyboard, with a line.
+  - title: QA walkthrough
+    body: |
+      1. Phone: hold the mic, say "what is next", release. Hear the answer.
+      2. Send `touch /tmp/kit-bio`; tap Allow; the biometric prompt; approve.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/screens/deck_tab.dart`, `app/lib/src/voice/**`, `app/lib/src/auth_gate.dart`
+history:
+  - { at: "2026-08-30", event: added }

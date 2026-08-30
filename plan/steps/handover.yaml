@@ -1,0 +1,38 @@
+id: handover
+number: "7"
+title: Hand over — the Claude app takes the same conversation, and takes it back
+status: pending
+rank: 800
+depends_on: [deck-on-the-phone]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      **Hand over** stops the bridge and starts `claude remote-control
+      --session-id <the bridge's id>`; **Take back** stops Remote Control and
+      resumes the bridge on the same id. One driver per project at a time:
+      the host refuses a second from the bridge pointer and the process
+      table. The Session screen exists on the phone from this step: mode,
+      links, the CLI version, the rate-limit pool and its reset time.
+
+      Spike first: whether Remote Control adopts a session created by `-p`.
+      If it does not, hand over starts a fresh Remote Control session and
+      says so; nothing else changes.
+  - title: Acceptance
+    body: |
+      - Bridge → Hand over → the Claude app shows the conversation so far →
+        Take back → the Deck continues it with the history intact.
+      - Starting the bridge while Remote Control runs is refused with a reason.
+  - title: QA walkthrough
+    body: |
+      1. Deck: ask "remember the word falcon". Hand over. Claude app: "what
+         word?" → falcon. Take back. Deck: "and again?" → falcon.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/host/host_project.dart`, `app/lib/src/host/remote_control.dart`, `app/lib/src/screens/session_tab.dart`
+history:
+  - { at: "2026-08-30", event: added }
