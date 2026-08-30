@@ -144,7 +144,7 @@ The step's checkbox stays `[ ]` until these are checked:
 ---
 
 ## Step 3 — The Command deck on the phone — send, watch it stream, answer, switch project
-- [ ]
+- [x]
 - id: deck-on-the-phone
 - depends_on: asks
 - qa_required: true
@@ -179,11 +179,16 @@ answered on it. The look is still phase 2's; the skin is step 4.
 - `app/lib/src/screens/deck_tab.dart` (shared by host and phone), `app/lib/src/relay.dart`
 - `app/lib/src/screens/home_screen.dart`
 
+### Your part (human)
+
+The step's checkbox stays `[ ]` until these are checked:
+
+  - [x] Drive one turn of Nahmatik from the phone alone — start, send, answer an ask, watch it end — and switch to a second project *(item `verify-the-launch-from-the-phone`)*
+
 ---
 
 ## Step 4 — The Instrument skin — tokens, fonts, the constellation, restyled cards and sheets
 - [ ]
-- state: blocked — waiting on deck-on-the-phone
 - id: instrument-skin
 - depends_on: deck-on-the-phone
 - qa_required: true
@@ -225,7 +230,6 @@ The step's checkbox stays `[ ]` until these are checked:
 
 ## Step 5 — Ask about one item — a scoped answer, an item Claude edits, a card that shows it
 - [ ]
-- state: blocked — waiting on deck-on-the-phone
 - id: item-threads
 - depends_on: deck-on-the-phone
 - qa_required: true
@@ -261,7 +265,6 @@ card shows its thread count and last reply.
 
 ## Step 6 — Notifications — an ask reaches the lock screen and Allow runs the command
 - [ ]
-- state: blocked — waiting on deck-on-the-phone
 - id: notifications
 - depends_on: deck-on-the-phone
 - qa_required: true
@@ -297,7 +300,6 @@ The step's checkbox stays `[ ]` until these are checked:
 
 ## Step 7 — Hand over — the Claude app takes the same conversation, and takes it back
 - [ ]
-- state: blocked — waiting on deck-on-the-phone
 - id: handover
 - depends_on: deck-on-the-phone
 - qa_required: true
@@ -364,7 +366,7 @@ The step's checkbox stays `[ ]` until these are checked:
 
 ## Step 9 — The iPhone — the same app on the user's second phone, with pushes
 - [ ]
-- state: blocked — waiting on deck-on-the-phone, notifications
+- state: blocked — waiting on notifications
 - id: iphone
 - depends_on: deck-on-the-phone, notifications
 - qa_required: true

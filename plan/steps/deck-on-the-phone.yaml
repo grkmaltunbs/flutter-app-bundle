@@ -1,14 +1,14 @@
 id: deck-on-the-phone
 number: "3"
 title: The Command deck on the phone — send, watch it stream, answer, switch project
-status: pending
+status: done
 rank: 400
 depends_on: [asks]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-08-30, note: "flutter analyze clean, 2026-08-30", status: passed}
+  tests: { at: 2026-08-30, note: "app 33 tests: the transcript mirror coalesced and diffed, the phone rebuilding it with its echo, start\/send\/stop as commands, the phone Deck at 360 wide × 1.0\/2.0\/3.12 with an ask pinned inside it", status: passed}
+  qa: { at: 2026-08-30, note: "KIT_LIVE=1, 32s: the bridge under the new start semantics — a fresh start clears, resume keeps — still streams, asks, honours a denial, applies Always and resumes", status: passed}
 sections:
   - title: Description
     body: |
@@ -42,3 +42,16 @@ sections:
       - `app/lib/src/screens/home_screen.dart`
 history:
   - { at: "2026-08-30", event: added }
+  - at: 2026-08-30
+    event: started
+  - at: 2026-08-30
+    event: gate analyze passed
+    note: "flutter analyze clean, 2026-08-30"
+  - at: 2026-08-30
+    event: gate tests passed
+    note: "app 33 tests: the transcript mirror coalesced and diffed, the phone rebuilding it with its echo, start\/send\/stop as commands, the phone Deck at 360 wide × 1.0\/2.0\/3.12 with an ask pinned inside it"
+  - at: 2026-08-30
+    event: gate qa passed
+    note: "KIT_LIVE=1, 32s: the bridge under the new start semantics — a fresh start clears, resume keeps — still streams, asks, honours a denial, applies Always and resumes"
+  - at: 2026-08-30
+    event: done

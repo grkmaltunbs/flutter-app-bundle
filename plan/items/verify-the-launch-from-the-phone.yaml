@@ -1,0 +1,30 @@
+id: verify-the-launch-from-the-phone
+title: Drive one turn of Nahmatik from the phone alone — start, send, answer an ask, watch it end — and switch to a second project
+status: done
+needs: [device, look]
+blocks: [deck-on-the-phone]
+step: deck-on-the-phone
+added: "2026-08-30"
+body: |
+  This is the launch the plan named — a turn driven from the phone with an
+  ask answered on it. The mirror, the commands and the Deck are each proven
+  with a fake relay; the phone in your hand is what proves them together.
+  `ship.sh` built both; the APK is at ~/Desktop/kit_app.apk if the phone was
+  not on USB. The Mac app only has to be open — do not touch it.
+runbook:
+  - do: Mac → kit_app open, Nahmatik and this repo (flutter-app-bundle-2) both opened once so both are mirrored. Then put the Mac down.
+    expect: The phone lists both projects.
+  - do: Phone → Nahmatik → Deck (the first tab) → Start.
+    expect: Within a few seconds the pill goes starting → ready and the header shows the session id, the model and the claude version.
+    if_fails: A red line in the header is the host's error, word for word — claude not found, or a folder problem.
+  - do: Phone → tap the /next chip → send.
+    expect: Your message shows at once (a paler bubble), then the real one replaces it; a tool row for kit next appears; the reply streams in; the pill goes working → ready.
+  - do: Phone → type `touch /tmp/kit-launch` → send.
+    expect: The amber card pins above the composer inside the Deck; the pill says needs you. Tap Deny. The card drops; the transcript shows the Denied line and Claude's sentence.
+    verify: test ! -e /tmp/kit-launch && echo ok
+  - do: Phone → back → Kit (this repo) → Deck.
+    expect: Its own Deck — empty or its own history — never Nahmatik's rows.
+  - do: Phone → Nahmatik → Deck → Stop.
+    expect: The pill goes stopped; Start and Resume appear.
+done_at: 2026-08-30
+note: "Verified by the user on the phone, 2026-08-30: Start, \/next streamed, a touch denied from the phone, Kit's Deck was its own, Stop — the Mac untouched."
