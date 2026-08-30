@@ -20,6 +20,12 @@ Plan? _load() {
   return null;
 }
 
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 6; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
 Widget _app(Widget child, {Size size = const Size(400, 800)}) => MaterialApp(
       theme: kitTheme(KitTokens.light),
       home: MediaQuery(data: MediaQueryData(size: size), child: Scaffold(body: child)),
@@ -39,7 +45,7 @@ void main() {
     addTearDown(tester.view.reset);
     String? selected;
     await tester.pumpWidget(_app(StepsTab(plan: plan, graph: graph, selected: null, onSelect: (id) => selected = id)));
-    await tester.pumpAndSettle();
+    await _settle(tester);
     final next = graph.nextStep()!.step;
     expect(find.text(next.title), findsWidgets);
     await tester.tap(find.text(next.title).first, warnIfMissed: false);
@@ -53,7 +59,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(_app(WorkTab(plan: plan, graph: graph, draft: Draft('test'))));
-    await tester.pumpAndSettle();
+    await _settle(tester);
     final list = find.byType(Scrollable).first;
     // Scroll through the whole list so every card is laid out at least once.
     for (var i = 0; i < 60; i++) {
@@ -68,9 +74,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(_app(WorkTab(plan: plan, graph: graph, draft: Draft('test'), initialDone: true)));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Done · '), findsOneWidget);
-    expect(find.text('Reopen'), findsWidgets);
+    await _settle(tester);
+    expect(find.text('DONE'), findsOneWidget, reason: 'the DONE chip');
+    expect(find.text('REOPEN'), findsWidgets);
     final list = find.byType(Scrollable).first;
     for (var i = 0; i < 40; i++) {
       await tester.drag(list, const Offset(0, -700));
@@ -85,7 +91,7 @@ void main() {
     addTearDown(tester.view.reset);
     final v = graph.codeComplete().first;
     await tester.pumpWidget(_app(StepDetail(plan: plan, graph: graph, step: v.step, draft: Draft('test'), onSelectStep: (_) {})));
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(find.text(v.step.title), findsOneWidget);
     final list = find.byType(Scrollable).first;
     await tester.scrollUntilVisible(find.text('WHAT YOU SHOULD DO'), 300, scrollable: list);

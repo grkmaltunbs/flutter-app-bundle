@@ -48,7 +48,7 @@ void main() {
         final s = fakeSession(fake, dir: project.path, home: home.path);
         await tester.pumpWidget(_app(DeckTab(bridge: s), size: size.value, scale: scale, dark: scale == 2.0));
         await tester.pump();
-        expect(find.text('Start'), findsOneWidget);
+        expect(find.text('START'), findsOneWidget);
 
         await s.start();
         s.send('Why is step 29 still open, and what is the very long reason that it stays open for so long on this narrow screen?');
@@ -70,8 +70,8 @@ void main() {
         expect(tester.takeException(), isNull, reason: 'permission card');
         expect(find.text('AUTHORIZATION REQUESTED'), findsOneWidget);
         // The bottom pane scrolls at large scales; bring the button into view.
-        await tester.ensureVisible(find.text('Deny'));
-        await tester.tap(find.text('Deny'));
+        await tester.ensureVisible(find.text('DENY'));
+        await tester.tap(find.text('DENY'));
         await _settle(tester);
         final deny = jsonDecode(fake.written.last) as Map;
         expect(deny['response']['response']['behavior'], 'deny');
@@ -81,7 +81,7 @@ void main() {
         await _settle(tester);
         expect(tester.takeException(), isNull, reason: 'question card');
         expect(find.text('CLAUDE ASKS'), findsOneWidget);
-        final answer = find.widgetWithText(FilledButton, 'Answer');
+        final answer = find.widgetWithText(FilledButton, 'ANSWER');
         expect(tester.widget<FilledButton>(answer).onPressed, isNull, reason: 'nothing picked yet');
         await tester.ensureVisible(find.text('Public, documented'));
         await tester.tap(find.text('Public, documented'));
@@ -100,7 +100,7 @@ void main() {
         }
         await s.stop();
         await _settle(tester);
-        expect(find.textContaining('Resume'), findsOneWidget, reason: 'the record offers the session back');
+        expect(find.textContaining('RESUME'), findsOneWidget, reason: 'the record offers the session back');
       });
     }
   }

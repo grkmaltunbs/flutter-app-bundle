@@ -44,10 +44,10 @@ void main() {
     await _settle(tester);
     expect(find.text('AUTHORIZATION REQUESTED'), findsOneWidget);
     expect(find.text('touch /tmp/kit-ask'), findsOneWidget, reason: 'the oldest first');
-    expect(find.text('Always'), findsOneWidget, reason: 'the CLI offered a rule');
+    expect(find.text('ALWAYS'), findsOneWidget, reason: 'the CLI offered a rule');
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('Deny'));
+    await tester.tap(find.text('DENY'));
     await _settle(tester);
     expect(find.text('touch /tmp/kit-ask'), findsNothing, reason: 'dropped the moment it was answered here');
     expect(find.text('touch /tmp/second'), findsOneWidget, reason: 'the next one takes its place');
@@ -73,7 +73,7 @@ void main() {
     await asks.doc('req_1').set(_bashAsk('req_1'));
     await tester.pumpWidget(MaterialApp(theme: kitTheme(KitTokens.dark), home: Scaffold(body: Column(children: [RemoteAskPanel(db: db, slug: 'demo')]))));
     await _settle(tester);
-    await tester.tap(find.text('This session'));
+    await tester.tap(find.text('THIS SESSION'));
     await _settle(tester);
     var cmds = await db.collection('projects').doc('demo').collection('commands').get();
     expect(cmds.docs.single.data()['remember'], isTrue);
@@ -81,7 +81,7 @@ void main() {
 
     await asks.doc('req_2').set(_bashAsk('req_2', at: '2026-08-30T12:02:00Z'));
     await _settle(tester);
-    await tester.tap(find.text('Always'));
+    await tester.tap(find.text('ALWAYS'));
     await _settle(tester);
     cmds = await db.collection('projects').doc('demo').collection('commands').orderBy('sentAt').get();
     final always = cmds.docs.last.data();

@@ -6,6 +6,7 @@ import 'package:flutter_kit/kit.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../draft.dart';
+import '../host/bridge_session.dart';
 import '../host/host_project.dart';
 import '../plan_source.dart';
 import '../relay.dart';
@@ -18,9 +19,9 @@ import 'step_detail.dart';
 import 'steps_tab.dart';
 import 'work_tab.dart';
 
-/// One project: Deck · Steps · Your work · (host) Session. The "now" line
-/// under the title is what Claude is doing this second; the send bar at
-/// the bottom is the only way a plan change leaves the device.
+/// One project: Deck · Steps · Your work · (host) Session. The Deck wears
+/// the "now" strip; the other tabs keep a one-line readout. The send bar
+/// at the bottom is the only way a plan change leaves the device.
 class ProjectScreen extends StatefulWidget {
   const ProjectScreen._({required this.source, required this.slug, this.host, this.remoteDoc});
 
@@ -90,9 +91,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
 
   void _toast(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
-  void _select(String? id, {required bool wide}) {
-    setState(() => _selected = id);
-    if (id == null || wide) return;
+  void _openDetail(String id) {
     final plan = widget.source.plan!;
     final step = plan.step(id);
     if (step == null) return;
@@ -113,11 +112,74 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
             if (p == null || s == null) return const SizedBox.shrink();
             return StepDetail(plan: p, graph: Graph(p), step: s, draft: _draft, controller: ctrl, onSelectStep: (other) {
               Navigator.of(context).pop();
-              _select(other, wide: false);
+              setState(() => _selected = other);
+              _openDetail(other);
             });
           },
         ),
       ),
+    );
+  }
+
+  /// The session's mood, for the constellation's energy waves: idle breath,
+  /// cyan while a task runs, green when the turn is done, amber on an ask.
+  GlyphMode _sessionGlyph() {
+    if (widget.host != null) {
+      return switch (widget.host!.bridge.state) {
+        BridgeState.waiting => GlyphMode.ask,
+        BridgeState.busy || BridgeState.starting => GlyphMode.busy,
+        BridgeState.ready => GlyphMode.live,
+        _ => GlyphMode.idle,
+      };
+    }
+    final st = _summary?.sessionState ?? 'idle';
+    if ((_summary?.pendingAsks ?? 0) > 0 || st == 'waiting') return GlyphMode.ask;
+    return switch (st) {
+      'busy' || 'starting' => GlyphMode.busy,
+      'ready' => GlyphMode.live,
+      _ => (_summary?.live ?? false) ? GlyphMode.live : GlyphMode.idle,
+    };
+  }
+
+  /// The Deck's "now" strip: the latest event, the active step, its gates.
+  Widget? _nowStrip(Plan? plan, Graph? graph) {
+    if (plan == null) return null;
+    final next = graph?.nextStep();
+    final active = next != null && next.state == StepState.active ? next : null;
+    String text;
+    var needsYou = false;
+    var live = false;
+    DateTime? at;
+    if (widget.host != null) {
+      final h = widget.host!;
+      final e = h.hooks.latest;
+      live = h.session.running || h.bridge.running;
+      if (e != null) {
+        text = e.summary;
+        needsYou = e.needsYou;
+        at = e.at;
+      } else {
+        text = live ? 'Session live — waiting for a prompt' : 'No session running';
+      }
+    } else {
+      final now = _summary?.now;
+      live = _summary?.live ?? false;
+      needsYou = (_summary?.pendingAsks ?? 0) > 0;
+      if (now != null && now.isNotEmpty) {
+        text = (now['summary'] ?? '').toString();
+        needsYou = needsYou || now['needsYou'] == true;
+        at = DateTime.tryParse((now['at'] ?? '').toString());
+      } else {
+        text = live ? 'Session live' : 'No session running';
+      }
+    }
+    return NowStrip(
+      label: 'NOW · ${active?.step.id ?? (next != null ? 'NEXT ${next.step.id}' : 'IDLE')}',
+      text: text,
+      ago: at == null ? null : _ago(at),
+      gates: active?.step.gates.values.toList() ?? const [],
+      live: live,
+      needsYou: needsYou,
     );
   }
 
@@ -131,66 +193,77 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
         final plan = widget.source.plan;
         final graph = widget.source.graph;
         final sessionUrl = widget.isHost ? widget.host!.session.sessionUrl : _summary?.sessionUrl;
+        final openCount = plan?.items.where((i) => i.isOpen).length ?? 0;
         return Scaffold(
-          appBar: AppBar(
-            title: Text(plan?.manifest.projectName ?? widget.slug),
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(74),
-              child: Column(
-                children: [
-                  _NowLine(host: widget.host, summary: _summary),
-                  TabBar(
-                    controller: _tabs,
-                    isScrollable: false,
-                    labelColor: t.ink,
-                    indicatorColor: t.accent,
-                    tabs: [
-                      const Tab(text: 'Deck'),
-                      const Tab(text: 'Steps'),
-                      Tab(text: plan == null ? 'Your work' : 'Your work · ${plan.items.where((i) => i.isOpen).length}'),
-                      if (widget.isHost) const Tab(text: 'Session'),
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: t.line))),
+                  child: Row(
+                    children: [
+                      if (Navigator.of(context).canPop())
+                        IconButton(icon: const Icon(Icons.chevron_left), tooltip: 'Back', onPressed: () => Navigator.of(context).pop()),
+                      Expanded(
+                        child: TabBar(
+                          controller: _tabs,
+                          isScrollable: true,
+                          tabAlignment: TabAlignment.start,
+                          padding: EdgeInsets.zero,
+                          tabs: [
+                            const Tab(text: 'DECK'),
+                            const Tab(text: 'STEPS'),
+                            Tab(text: openCount == 0 ? 'YOUR WORK' : 'YOUR WORK · $openCount'),
+                            if (widget.isHost) const Tab(text: 'SESSION'),
+                          ],
+                        ),
+                      ),
+                      if (sessionUrl != null)
+                        IconButton(
+                          tooltip: 'Open in Claude',
+                          icon: Icon(Icons.open_in_new, size: 18, color: t.muted),
+                          onPressed: () => launchUrl(Uri.parse(sessionUrl), mode: LaunchMode.externalApplication),
+                        ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                if (_tabs.index != 0) _NowLine(host: widget.host, summary: _summary),
+                Expanded(
+                  child: plan == null
+                      ? (widget.source.error != null ? EmptyNote(widget.source.error!) : const Center(child: CircularProgressIndicator()))
+                      : TabBarView(
+                          controller: _tabs,
+                          // No swipe between tabs: a horizontal drag belongs to the
+                          // bubble canvas, and on a phone the TabBarView was taking
+                          // it first. The tab strip switches tabs.
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            widget.isHost
+                                ? DeckTab(bridge: widget.host!.bridge, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph))
+                                : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph)),
+                            wide
+                                ? Row(
+                                    children: [
+                                      Expanded(child: StepsTab(plan: plan, graph: graph!, selected: _selected, showPanel: false, session: _sessionGlyph(), onSelect: (id) => setState(() => _selected = id))),
+                                      Container(
+                                        width: 440,
+                                        decoration: BoxDecoration(color: t.surface, border: Border(left: BorderSide(color: t.line))),
+                                        child: _selected == null || plan.step(_selected!) == null
+                                            ? const EmptyNote('Tap a step.')
+                                            : StepDetail(plan: plan, graph: graph, step: plan.step(_selected!)!, draft: _draft, onSelectStep: (id) => setState(() => _selected = id)),
+                                      ),
+                                    ],
+                                  )
+                                : StepsTab(plan: plan, graph: graph!, selected: _selected, session: _sessionGlyph(), onSelect: (id) => setState(() => _selected = id), onOpenDetail: _openDetail),
+                            WorkTab(plan: plan, graph: graph, draft: _draft),
+                            if (widget.isHost) SessionTab(host: widget.host!),
+                          ],
+                        ),
+                ),
+              ],
             ),
-            actions: [
-              if (sessionUrl != null)
-                TextButton.icon(
-                  onPressed: () => launchUrl(Uri.parse(sessionUrl), mode: LaunchMode.externalApplication),
-                  icon: const Icon(Icons.open_in_new, size: 16),
-                  label: const Text('Open in Claude'),
-                ),
-            ],
           ),
-          body: plan == null
-              ? (widget.source.error != null ? EmptyNote(widget.source.error!) : const Center(child: CircularProgressIndicator()))
-              : TabBarView(
-                  controller: _tabs,
-                  // No swipe between tabs: a horizontal drag belongs to the
-                  // bubble canvas, and on a phone the TabBarView was taking
-                  // it first. The tab strip switches tabs.
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    widget.isHost ? DeckTab(bridge: widget.host!.bridge) : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug),
-                    wide
-                        ? Row(
-                            children: [
-                              Expanded(child: StepsTab(plan: plan, graph: graph!, selected: _selected, onSelect: (id) => _select(id, wide: true))),
-                              Container(
-                                width: 440,
-                                decoration: BoxDecoration(color: t.surface, border: Border(left: BorderSide(color: t.line))),
-                                child: _selected == null || plan.step(_selected!) == null
-                                    ? const EmptyNote('Tap a bubble.')
-                                    : StepDetail(plan: plan, graph: graph, step: plan.step(_selected!)!, draft: _draft, onSelectStep: (id) => _select(id, wide: true)),
-                              ),
-                            ],
-                          )
-                        : StepsTab(plan: plan, graph: graph!, selected: _selected, onSelect: (id) => _select(id, wide: false)),
-                    WorkTab(plan: plan, graph: graph, draft: _draft),
-                    if (widget.isHost) SessionTab(host: widget.host!),
-                  ],
-                ),
           // The bottom of a phone's project: what Claude is asking, then the
           // draft bar. The host answers asks on its Deck.
           bottomNavigationBar: SafeArea(
@@ -198,19 +271,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (!widget.isHost && _tabs.index != 0) RemoteAskPanel(db: FirebaseFirestore.instance, slug: widget.slug),
-                if (_draft.count > 0)
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
-                    decoration: BoxDecoration(color: t.surface, border: Border(top: BorderSide(color: t.line))),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text('${_draft.count} change${_draft.count == 1 ? '' : 's'} on this device', style: TextStyle(color: t.ink2))),
-                        TextButton(onPressed: _sending ? null : () => _draft.clear(), child: const Text('Discard')),
-                        const SizedBox(width: 6),
-                        FilledButton.icon(onPressed: _sending ? null : _send, icon: const Icon(Icons.send, size: 16), label: Text(_sending ? 'Sending…' : 'Send to Claude')),
-                      ],
-                    ),
-                  ),
+                if (_draft.count > 0) _draftBar(t),
               ],
             ),
           ),
@@ -218,8 +279,57 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
       },
     );
   }
+
+  Widget _draftBar(KitTokens t) {
+    final ticks = _draft.items.values.where((d) => d.action != null).length;
+    final answers = _draft.items.values.where((d) => d.answer != null).length;
+    final notes = _draft.items.values.where((d) => d.note.trim().isNotEmpty).length + _draft.steps.length;
+    String n(int c, String what) => '$c $what${c == 1 ? '' : 's'}';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+      decoration: BoxDecoration(color: t.surface, border: Border(top: BorderSide(color: t.line))),
+      // A Wrap, not a Row: at the largest text sizes SEND TO CLAUDE is
+      // wider than the phone and takes its own line.
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 8,
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('DRAFT ON THIS DEVICE', style: t.readout(10.5)),
+              const SizedBox(height: 2),
+              Text('${n(ticks, 'tick')} · ${n(answers, 'answer')} · ${n(notes, 'note')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: t.ink2)),
+            ],
+          ),
+          Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            TextButton(onPressed: _sending ? null : () => _draft.clear(), child: const Text('DISCARD')),
+            FilledButton.icon(
+              onPressed: _sending ? null : _send,
+              icon: const Icon(Icons.arrow_forward, size: 16),
+              iconAlignment: IconAlignment.end,
+              label: Text(_sending ? 'SENDING…' : 'SEND TO CLAUDE'),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  static String _ago(DateTime at) {
+    final d = DateTime.now().difference(at.toLocal());
+    if (d.inSeconds < 60) return 'now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m';
+    if (d.inHours < 24) return '${d.inHours}h';
+    return '${d.inDays}d';
+  }
 }
 
+/// The one-line readout the other tabs keep: a dot, the latest event, how
+/// long ago.
 class _NowLine extends StatelessWidget {
   const _NowLine({this.host, this.summary});
   final HostProject? host;
@@ -264,22 +374,15 @@ class _NowLine extends StatelessWidget {
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       alignment: Alignment.centerLeft,
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: t.line))),
       child: Row(
         children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
+          Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
           const SizedBox(width: 8),
-          Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: t.ink2))),
-          if (at != null) Text(_ago(at), style: TextStyle(fontSize: 11, color: t.muted)),
+          Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.mono(11.5, color: t.ink2))),
+          if (at != null) Text(_ProjectScreenState._ago(at), style: t.mono(11, color: t.muted)),
         ],
       ),
     );
-  }
-
-  static String _ago(DateTime at) {
-    final d = DateTime.now().difference(at.toLocal());
-    if (d.inSeconds < 60) return 'now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m';
-    if (d.inHours < 24) return '${d.inHours}h';
-    return '${d.inDays}d';
   }
 }

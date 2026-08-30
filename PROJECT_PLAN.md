@@ -188,7 +188,7 @@ The step's checkbox stays `[ ]` until these are checked:
 ---
 
 ## Step 4 — The Instrument skin — tokens, fonts, the constellation, restyled cards and sheets
-- [ ]
+- [x]
 - id: instrument-skin
 - depends_on: deck-on-the-phone
 - qa_required: true
@@ -210,7 +210,11 @@ Light mode is Daylight unless the direction item says otherwise.
   the canvas is missing and nothing extra is invented.
 - Overflow matrix clean at 1.0 / 2.0 / 3.12 on 360 / 390 / 412 widths
   and on the Mac at 900 / 1440.
-- Motion: the live dot, the sweep and the ready halo; nothing else moves.
+- Motion: the session glyph (idle breath, working radar arc, live pulse,
+  asking double-knock), the thinking dots, the sweep and the ready halo;
+  and the session's energy waves orbiting its step in the constellation
+  (dim idle, cyan working, green done, amber asking); nothing else moves.
+  (Widened from three at the user's QA, 2026-08-30 — "like JARVIS".)
 
 ### QA walkthrough
 1. Phone: every tab of Nahmatik at default and largest text.
@@ -332,7 +336,6 @@ says so; nothing else changes.
 
 ## Step 8 — Voice and biometrics — dictate, hear the reply, and prove it is you before the dangerous taps
 - [ ]
-- state: blocked — waiting on instrument-skin
 - id: voice-and-biometrics
 - depends_on: instrument-skin
 - qa_required: true

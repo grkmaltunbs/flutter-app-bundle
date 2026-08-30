@@ -1,6 +1,15 @@
-# flutter-kit app
+# K.A.T.Y.A — the kit app
 
-The phase-2 shell. One Flutter codebase, two roles:
+**K.A.T.Y.A** (Kodu Anlayan Tecrübeli Yapay Akıl). One Flutter codebase,
+two roles. The skin is **Instrument** by night and **Daylight** by day
+(`lib/src/theme.dart`); Rajdhani, IBM Plex Sans and JetBrains Mono are
+bundled in `fonts/` (OFL). What moves: the session glyph (idle breath,
+working radar arc, live pulse, asking double-knock), the thinking dots,
+the "now" sweep, the ready step's halo, and the energy waves circling
+the session's step in the constellation (dim idle, cyan working, green
+done, amber asking) — nothing else.
+
+The two roles:
 
 - **Host** (macOS today; Windows/Linux are the same code path) — opens a
   project folder that has `plan/`, mirrors it to the relay, applies what the

@@ -43,11 +43,11 @@ void main() {
         home: MediaQuery(data: MediaQueryData(size: const Size(360, 780), textScaler: TextScaler.linear(scale)), child: Scaffold(body: RemoteDeckTab(db: db, slug: 'demo'))),
       ));
       await _settle(tester);
-      expect(find.text('Start'), findsOneWidget);
-      expect(find.text('Resume'), findsOneWidget, reason: 'the host recorded a session');
+      expect(find.text('START'), findsOneWidget);
+      expect(find.text('RESUME'), findsOneWidget, reason: 'the host recorded a session');
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('Start'));
+      await tester.tap(find.text('START'));
       await _settle(tester);
       var cmds = await project.collection('commands').get();
       expect(cmds.docs.single.data()['type'], 'start');
@@ -60,8 +60,8 @@ void main() {
       await chat.doc('m00001').set(_row('m00001', DeckRole.assistant, 'It is **code complete** — three of your boxes hold it:\n\n- the Play data-safety confirmation\n- the presence decision\n- the launch path at 3.12×'));
       await chat.doc('m00002').set(_row('m00002', DeckRole.tool, 'bash kit/kit.sh blocks a11y-and-profile-privacy', tool: 'Bash', result: 'code complete · 3 items open'));
       await _settle(tester);
-      expect(find.text('Stop'), findsOneWidget);
-      expect(find.textContaining('claude 2.1.251'), findsOneWidget);
+      expect(find.text('STOP'), findsOneWidget);
+      expect(find.textContaining('CLAUDE 2.1.251'), findsOneWidget);
       final list = find.byType(Scrollable).first;
       await tester.dragUntilVisible(find.textContaining('three of your boxes', findRichText: true), list, const Offset(0, 200));
       expect(find.textContaining('three of your boxes', findRichText: true), findsOneWidget);
@@ -92,18 +92,18 @@ void main() {
       await project.set({'session': {'state': 'waiting', 'pendingAsks': 1}}, SetOptions(merge: true));
       await _settle(tester);
       expect(find.text('AUTHORIZATION REQUESTED'), findsOneWidget);
-      expect(find.text('needs you'), findsOneWidget);
+      expect(find.text('NEEDS YOU'), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'ask card');
-      await tester.ensureVisible(find.text('Deny'));
-      await tester.tap(find.text('Deny'));
+      await tester.ensureVisible(find.text('DENY'));
+      await tester.tap(find.text('DENY'));
       await _settle(tester);
       cmds = await project.collection('commands').orderBy('sentAt').get();
       expect(cmds.docs.last.data()['type'], 'answer');
       expect((cmds.docs.last.data()['response'] as Map)['message'], 'The user declined from the phone.');
       expect(find.text('AUTHORIZATION REQUESTED'), findsNothing);
 
-      await tester.ensureVisible(find.text('Stop'));
-      await tester.tap(find.text('Stop'));
+      await tester.ensureVisible(find.text('STOP'));
+      await tester.tap(find.text('STOP'));
       await _settle(tester);
       cmds = await project.collection('commands').orderBy('sentAt').get();
       expect(cmds.docs.last.data()['type'], 'stop');

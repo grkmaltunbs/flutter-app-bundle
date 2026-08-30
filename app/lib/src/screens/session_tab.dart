@@ -38,7 +38,7 @@ class _SessionTabState extends State<SessionTab> {
           padding: const EdgeInsets.all(18),
           children: [
             Row(children: [
-              Expanded(child: Text('Remote Control', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: t.ink))),
+              Expanded(child: Text('REMOTE CONTROL', style: t.display(16, weight: FontWeight.w600, ls: 2))),
               Pill(s.state.name, color: s.running ? t.good : (s.state == RcState.failed ? t.critical : t.muted), filled: s.running),
             ]),
             const SizedBox(height: 6),
@@ -47,9 +47,9 @@ class _SessionTabState extends State<SessionTab> {
             Row(children: [
               Expanded(child: TextField(controller: _name, enabled: !s.running, decoration: const InputDecoration(labelText: 'Session name'), onChanged: (v) => s.name = v.trim().isEmpty ? s.name : v.trim())),
               const SizedBox(width: 10),
-              if (!s.running) FilledButton.icon(onPressed: () => s.start(), icon: const Icon(Icons.play_arrow), label: const Text('Start')),
-              if (!s.running && existing != null) ...[const SizedBox(width: 8), OutlinedButton(onPressed: () => s.start(reattach: true), child: const Text('Reattach'))],
-              if (s.running) FilledButton.tonalIcon(onPressed: () => s.stop(), icon: const Icon(Icons.stop), label: const Text('Stop')),
+              if (!s.running) FilledButton.icon(onPressed: () => s.start(), icon: const Icon(Icons.play_arrow), label: const Text('START')),
+              if (!s.running && existing != null) ...[const SizedBox(width: 8), OutlinedButton(onPressed: () => s.start(reattach: true), child: const Text('REATTACH'))],
+              if (s.running) FilledButton.tonalIcon(onPressed: () => s.stop(), icon: const Icon(Icons.stop), label: const Text('STOP')),
             ]),
             if (s.error != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(s.error!, style: TextStyle(color: t.critical, fontSize: 13))),
             if (existing != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text('A server from an earlier start is still running (pid ${existing.pid}). Reattach keeps its sessions.', style: TextStyle(color: t.warn, fontSize: 13))),
@@ -76,7 +76,7 @@ class _SessionTabState extends State<SessionTab> {
                     const SectionHead('Allowed always', sub: 'Rules Claude Code wrote to this project because an ask was answered Always. Remove one and it asks again.'),
                     for (final r in rules)
                       Row(children: [
-                        Expanded(child: Text('${r.ruleString}  ·  ${r.behavior}, ${r.destination}', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'menlo', fontSize: 12, color: t.ink2))),
+                        Expanded(child: Text('${r.ruleString}  ·  ${r.behavior}, ${r.destination}', maxLines: 2, overflow: TextOverflow.ellipsis, style: t.mono(12))),
                         IconButton(
                           tooltip: 'Remove',
                           icon: const Icon(Icons.close, size: 16),
@@ -97,7 +97,7 @@ class _SessionTabState extends State<SessionTab> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    SizedBox(width: 46, child: Text(_hm(e.at), style: TextStyle(fontSize: 11.5, color: t.muted, fontFeatures: const [FontFeature.tabularFigures()]))),
+                    SizedBox(width: 46, child: Text(_hm(e.at), style: t.mono(11.5, color: t.muted))),
                     Expanded(child: Text(e.summary, style: TextStyle(fontSize: 12.5, color: e.needsYou ? t.warn : t.ink2))),
                   ]),
                 ),
@@ -105,7 +105,7 @@ class _SessionTabState extends State<SessionTab> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.line)),
-              child: SelectableText(s.log.isEmpty ? '—' : s.log.reversed.take(30).toList().reversed.join('\n'), style: TextStyle(fontFamily: 'menlo', fontSize: 11.5, color: t.ink2)),
+              child: SelectableText(s.log.isEmpty ? '—' : s.log.reversed.take(30).toList().reversed.join('\n'), style: t.mono(11.5)),
             ),
           ],
         );

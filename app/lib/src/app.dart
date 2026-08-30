@@ -19,7 +19,7 @@ class KitApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'flutter-kit',
+      title: 'K.A.T.Y.A',
       debugShowCheckedModeBanner: false,
       theme: kitTheme(KitTokens.light),
       darkTheme: kitTheme(KitTokens.dark),

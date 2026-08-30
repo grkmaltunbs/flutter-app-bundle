@@ -23,7 +23,7 @@ if [ "$WHAT" = mac ] || [ "$WHAT" = all ]; then
   if pgrep -x kit_app >/dev/null; then WAS_RUNNING=1; osascript -e 'tell application "kit_app" to quit' >/dev/null 2>&1 || true; sleep 2; fi
   rm -rf "$DST" && cp -R "$SRC" "$DST"
   echo "▸ Mac: installed $DST"
-  if [ "$WAS_RUNNING" = 1 ]; then open "$DST"; echo "▸ Mac: relaunched — use Reattach on the Session tab if a session was running"; else echo "▸ Mac: open it from ~/Applications (or: open \"$DST\")"; fi
+  if [ "$WAS_RUNNING" = 1 ]; then (open "$DST" || { sleep 2; open "$DST"; } || echo "▸ Mac: could not relaunch — open \"$DST\" yourself"); echo "▸ Mac: relaunched — use Reattach on the Session tab if a session was running"; else echo "▸ Mac: open it from ~/Applications (or: open \"$DST\")"; fi
 fi
 
 if [ "$WHAT" = android ] || [ "$WHAT" = all ]; then

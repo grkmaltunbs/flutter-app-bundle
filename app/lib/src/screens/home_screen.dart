@@ -60,12 +60,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final t = context.tokens;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Projects'),
+        title: const Text('K.A.T.Y.A'),
         actions: [
           IconButton(tooltip: 'Sign out', icon: const Icon(Icons.logout), onPressed: () => FirebaseAuth.instance.signOut()),
         ],
       ),
-      floatingActionButton: isHost ? FloatingActionButton.extended(onPressed: _openFolder, icon: const Icon(Icons.folder_open), label: const Text('Open folder')) : null,
+      floatingActionButton: isHost ? FloatingActionButton.extended(onPressed: _openFolder, icon: const Icon(Icons.folder_open), label: const Text('OPEN FOLDER')) : null,
       body: isHost
           ? ListenableBuilder(
               listenable: _registry,
@@ -79,8 +79,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     final open = HostProjects.open[dir];
                     return ListTile(
                       leading: Icon(Icons.folder, color: open != null ? t.accent : t.muted),
-                      title: Text(p.basename(dir)),
-                      subtitle: Text(dir, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      title: Text(p.basename(dir), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      subtitle: Text(dir, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.mono(11, color: t.muted)),
                       trailing: open == null
                           ? IconButton(icon: const Icon(Icons.close), tooltip: 'Forget', onPressed: () => _registry.remove(dir))
                           : ListenableBuilder(listenable: open.session, builder: (_, _) => Pill(open.session.state.name, color: open.session.running ? t.good : t.muted)),
@@ -106,8 +106,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     final asking = s.pendingAsks > 0;
                     return ListTile(
                       leading: Icon(asking ? Icons.notifications_active : Icons.auto_awesome_motion, color: asking ? t.warn : (s.live ? t.good : t.muted)),
-                      title: Text(s.name),
-                      subtitle: Text([s.machine, if (open != null) '$open waiting on you', if (asking) 'Claude is asking' else if (s.live) 'Claude session live'].join(' · ')),
+                      title: Text(s.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      subtitle: Text([s.machine, if (open != null) '$open waiting on you', if (asking) 'Claude is asking' else if (s.live) 'session live'].join(' · ').toUpperCase(), maxLines: 2, overflow: TextOverflow.ellipsis, style: t.readout(10)),
                       trailing: asking ? Pill('needs you', color: t.warn, filled: true) : const Icon(Icons.chevron_right),
                       onTap: () => _openRemote(s),
                     );

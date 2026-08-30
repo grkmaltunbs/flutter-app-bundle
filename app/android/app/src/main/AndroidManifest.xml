@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="kit_app"
+        android:label="K.A.T.Y.A"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

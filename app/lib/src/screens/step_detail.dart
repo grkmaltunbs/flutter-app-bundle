@@ -33,38 +33,23 @@ class StepDetail extends StatelessWidget {
       controller: controller,
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 40),
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('STEP ${step.number ?? ''} · ${step.id}'.toUpperCase(), style: TextStyle(fontSize: 11, letterSpacing: 1, color: t.muted, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text(step.title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: t.ink, height: 1.15)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            StatePill(v.state),
-          ],
-        ),
+        Row(children: [
+          Expanded(child: Text('STEP ${step.number ?? step.id} · ${stateLabel(v.state)}'.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.display(13, ls: 2.2, color: t.forState(v.state)))),
+          Text('RANK ${step.rank}', style: t.readout(11)),
+        ]),
+        const SizedBox(height: 6),
+        Text(step.title, style: t.display(20, weight: FontWeight.w600, ls: 0.3, height: 1.2)),
         const SizedBox(height: 10),
         _whatItWaitsOn(context, v),
         if (step.gates.isNotEmpty) ...[
           const SectionHead('Gates', sub: 'What Claude proves before the step can close.'),
+          Wrap(spacing: 8, runSpacing: 8, children: [for (final g in step.gates.values) GateCard(g)]),
           for (final g in step.gates.values)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Pill('${g.name} · ${g.status.name}', color: g.status == GateStatus.passed ? t.good : g.status == GateStatus.failed ? t.critical : t.muted, icon: g.status == GateStatus.passed ? Icons.check : g.status == GateStatus.failed ? Icons.close : Icons.hourglass_empty),
-                  if (g.note != null) ...[const SizedBox(width: 8), Expanded(child: Text(g.note!, style: TextStyle(fontSize: 12.5, color: t.ink2)))],
-                ],
+            if (g.note != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('${g.name} — ${g.note}', style: TextStyle(fontSize: 12.5, color: t.ink2)),
               ),
-            ),
         ],
         if (deps.isNotEmpty) ...[
           const SectionHead('Comes after'),
@@ -97,7 +82,7 @@ class StepDetail extends StatelessWidget {
           for (final h in step.history.reversed)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Text('${h.at} · ${h.event}${h.note != null ? ' — ${h.note}' : ''}', style: TextStyle(fontSize: 12.5, color: t.ink2)),
+              child: Text('${h.at} · ${h.event}${h.note != null ? ' — ${h.note}' : ''}', style: t.mono(12, color: t.ink2)),
             ),
         ],
       ],

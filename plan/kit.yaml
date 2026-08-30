@@ -35,6 +35,18 @@ board:
     body: IBM Plex Sans
     mono: JetBrains Mono
   colors:
+    light:
+      bg: "#F3F5F8"
+      surface: "#FFFFFF"
+      ink: "#0F1722"
+      ink2: "#3C4A5E"
+      muted: "#6F7C8E"
+      line: "#D9E0EA"
+      accent: "#0B7FC2"
+      accent_soft: "#E3F1FA"
+      good: "#1F8A4C"
+      warn: "#B2610A"
+      critical: "#C43D3D"
     dark:
       bg: "#070B12"
       surface: "#0C1320"

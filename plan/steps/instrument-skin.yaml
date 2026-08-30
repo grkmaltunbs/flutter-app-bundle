@@ -1,14 +1,14 @@
 id: instrument-skin
 number: "4"
 title: The Instrument skin — tokens, fonts, the constellation, restyled cards and sheets
-status: pending
+status: done
 rank: 500
 depends_on: [deck-on-the-phone]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-08-30, note: "flutter analyze: no issues", status: passed}
+  tests: { at: 2026-08-30, note: "app suite: 33 passed, 1 live skipped; overflow matrix clean at 1.0\/2.0\/3.12, phone and Mac widths", status: passed}
+  qa: { at: 2026-08-30, note: "Verified by the user on the phone and the Mac, 2026-08-30: every tab at both text sizes, green done-stars, empty-tap dismiss, the session glyph and the energy waves in all four moods", status: passed}
 sections:
   - title: Description
     body: |
@@ -28,7 +28,11 @@ sections:
         the canvas is missing and nothing extra is invented.
       - Overflow matrix clean at 1.0 / 2.0 / 3.12 on 360 / 390 / 412 widths
         and on the Mac at 900 / 1440.
-      - Motion: the live dot, the sweep and the ready halo; nothing else moves.
+      - Motion: the session glyph (idle breath, working radar arc, live pulse,
+        asking double-knock), the thinking dots, the sweep and the ready halo;
+        and the session's energy waves orbiting its step in the constellation
+        (dim idle, cyan working, green done, amber asking); nothing else moves.
+        (Widened from three at the user's QA, 2026-08-30 — "like JARVIS".)
   - title: QA walkthrough
     body: |
       1. Phone: every tab of Nahmatik at default and largest text.
@@ -38,3 +42,17 @@ sections:
       - `app/lib/src/theme.dart`, `app/pubspec.yaml` (fonts), `app/lib/src/screens/**`, `app/lib/src/widgets/**`
 history:
   - { at: "2026-08-30", event: added }
+  - at: 2026-08-30
+    event: started
+  - at: 2026-08-30
+    event: gate analyze passed
+    note: "flutter analyze: no issues"
+  - at: 2026-08-30
+    event: gate tests passed
+    note: "app suite: 33 passed, 1 live skipped; overflow matrix clean at 1.0\/2.0\/3.12, phone and Mac widths"
+  - at: 2026-08-30
+    event: gate qa passed
+    note: "Verified by the user on the phone and the Mac, 2026-08-30: every tab at both text sizes, green done-stars, empty-tap dismiss, the session glyph and the energy waves in all four moods"
+  - at: 2026-08-30
+    event: done
+    note: Instrument dark + Daylight light shipped; the app is K.A.T.Y.A with its own icon; motion widened to the JARVIS set at the user's QA
