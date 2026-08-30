@@ -99,6 +99,7 @@ The step's checkbox stays `[ ]` until these are checked:
 
 ## Step 2 — Asks — permissions and questions remembered for a session, applied always, and answered from the phone
 - [ ]
+- state: code complete — waiting on 1 human item(s)
 - id: asks
 - depends_on: bridge-core
 - qa_required: true
@@ -134,6 +135,12 @@ remove it.
 ### Touchpoints
 - `app/lib/src/relay.dart` (asks, commands), `app/lib/src/host/bridge_session.dart`
 - `app/lib/src/screens/ask_card.dart`
+
+### Your part (human)
+
+The step's checkbox stays `[ ]` until these are checked:
+
+  - [ ] With both devices in hand, deny a command from the phone, allow one for the session, and answer a question there *(item `verify-asks-on-the-phone`)*
 
 ---
 

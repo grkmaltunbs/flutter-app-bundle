@@ -1,14 +1,14 @@
 id: asks
 number: "2"
 title: Asks — permissions and questions remembered for a session, applied always, and answered from the phone
-status: pending
+status: active
 rank: 300
 depends_on: [bridge-core]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-08-30, note: "dart analyze (kit) and flutter analyze (app) clean, 2026-08-30", status: passed}
+  tests: { at: 2026-08-30, note: "kit 67 tests; app 28 (relay asks+commands, this-session and Always in the runner, the phone panel over a fake relay, the rules file), 0 skips besides the live gate", status: passed}
+  qa: { at: 2026-08-30, note: "KIT_LIVE=1, 34s: Always sent the CLI's own suggestions back as updatedPermissions — claude 2.1.251 wrote .claude\/settings.local.json itself and the same command shape ran without an ask for the rest of the session; deny still held; resume still remembered", status: passed}
 sections:
   - title: Description
     body: |
@@ -44,3 +44,14 @@ sections:
       - `app/lib/src/screens/ask_card.dart`
 history:
   - { at: "2026-08-30", event: added }
+  - at: 2026-08-30
+    event: started
+  - at: 2026-08-30
+    event: gate analyze passed
+    note: "dart analyze (kit) and flutter analyze (app) clean, 2026-08-30"
+  - at: 2026-08-30
+    event: gate tests passed
+    note: "kit 67 tests; app 28 (relay asks+commands, this-session and Always in the runner, the phone panel over a fake relay, the rules file), 0 skips besides the live gate"
+  - at: 2026-08-30
+    event: gate qa passed
+    note: "KIT_LIVE=1, 34s: Always sent the CLI's own suggestions back as updatedPermissions — claude 2.1.251 wrote .claude\/settings.local.json itself and the same command shape ran without an ask for the rest of the session; deny still held; resume still remembered"

@@ -1,0 +1,29 @@
+id: verify-asks-on-the-phone
+title: With both devices in hand, deny a command from the phone, allow one for the session, and answer a question there
+status: open
+needs: [device, look]
+blocks: [asks]
+step: asks
+added: "2026-08-30"
+body: |
+  The relay round-trip is proven with a fake Firestore and the bridge with
+  the real claude, but the two seconds between a Mac raising an ask and a
+  phone showing it are the point of the step, and only the two devices can
+  show them. `ship.sh` put the new build on both — the APK is at
+  ~/Desktop/kit_app.apk if the phone was not on USB.
+runbook:
+  - do: Mac → kit_app → Nahmatik → Deck → Start. Phone → kit_app → Nahmatik.
+    expect: The phone's project row goes green (Claude session live); its now-line matches the Mac.
+  - do: Mac → send `touch /tmp/kit-ask-1` in the Deck.
+    expect: Within two seconds the phone shows the amber card with that exact command, and the project list says needs you.
+    if_fails: No card on the phone but one on the Mac means the ask was not mirrored — the Session tab's Mirror line says why.
+  - do: Phone → Deny.
+    expect: The Mac's card disappears on its own; the transcript shows an italic Denied line and Claude saying it did not run it; /tmp/kit-ask-1 does not exist.
+    verify: test ! -e /tmp/kit-ask-1 && echo ok
+  - do: Mac → send `touch /tmp/kit-ask-2`. Phone → This session. Mac → send `touch /tmp/kit-ask-2` again.
+    expect: The first shows a card on both and runs after the tap; the second shows no card anywhere and runs — the transcript says Allowed (this session).
+    verify: test -e /tmp/kit-ask-2 && echo ok
+  - do: Mac → send `ask me tea or coffee with AskUserQuestion, then say what I chose`. Phone → pick one → Answer.
+    expect: Claude names your choice on the Mac.
+  - do: Mac → send `touch /tmp/kit-ask-3`. Phone → Always. Then Mac → Session tab.
+    expect: Under Allowed always, one rule, Bash(touch:*) or similar; tap Remove and it is gone from Nahmatik's .claude/settings.local.json.
