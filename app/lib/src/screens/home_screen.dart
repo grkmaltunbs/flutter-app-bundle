@@ -25,7 +25,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    if (isHost) _registry.load();
+    if (isHost) {
+      // Every registered project comes back up with the app: the mirror
+      // refreshes, the phone's commands land again, and no stale session
+      // survives a relaunch.
+      _registry.load().then((_) {
+        if (!mounted) return;
+        for (final dir in _registry.dirs) {
+          if (ProjectRegistry.hasPlan(dir)) HostProjects.get(dir);
+        }
+        setState(() {});
+      });
+    }
   }
 
   @override

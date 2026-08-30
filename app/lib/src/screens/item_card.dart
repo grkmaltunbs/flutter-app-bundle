@@ -2,21 +2,30 @@ import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_kit/kit.dart';
 
 import '../draft.dart';
+import '../relay.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'thread_sheet.dart';
 
 /// One thing for the person to do. The card carries the runbook — do /
 /// expect / if it fails / how to verify — and the controls that go into
 /// the draft: done, drop, an answer, a note. A decisive card wears amber:
 /// closing it flips a step today.
 class ItemCard extends StatefulWidget {
-  const ItemCard({super.key, required this.item, required this.plan, required this.graph, required this.draft, required this.needs, required this.decisive});
+  const ItemCard({super.key, required this.item, required this.plan, required this.graph, required this.draft, required this.needs, required this.decisive, this.thread, this.onAsk});
   final Item item;
   final Plan plan;
   final Graph graph;
   final Draft draft;
   final Map<String, NeedKind> needs;
   final bool decisive;
+
+  /// This item's thread, when one exists — the count, the last reply, and
+  /// what Claude last changed on the item itself.
+  final ThreadSummary? thread;
+
+  /// Opens the thread — the card's ASK.
+  final VoidCallback? onAsk;
 
   @override
   State<ItemCard> createState() => _ItemCardState();
@@ -119,17 +128,52 @@ class _ItemCardState extends State<ItemCard> {
                 const SizedBox(height: 8),
                 Text(i.note!, style: TextStyle(fontSize: 12.5, color: t.muted, fontStyle: FontStyle.italic)),
               ],
+              if (widget.thread case final th? when th.updatedAt != null && DateTime.now().difference(th.updatedAt!).inHours < 24) ...[
+                const SizedBox(height: 8),
+                UpdatedStrip(text: 'UPDATED · ${th.updatedFields.join(', ')}', ago: _ago(th.updatedAt!)),
+              ],
+              if (widget.thread case final th? when th.count > 0 && widget.onAsk != null) ...[
+                const SizedBox(height: 2),
+                InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: widget.onAsk,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(children: [
+                      Icon(Icons.forum_outlined, size: 13, color: t.accent),
+                      const SizedBox(width: 6),
+                      Text('${th.count}', style: t.mono(11, color: t.accent)),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(th.lastText ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.mono(11, color: t.muted))),
+                      if (th.lastAt != null) Text(_ago(th.lastAt!), style: t.mono(10.5, color: t.muted)),
+                    ]),
+                  ),
+                ),
+              ],
               Divider(height: 18, color: t.line),
-              Row(
-                children: i.isOpen
-                    ? [
-                        _Tick(label: 'DONE', value: d?.action == 'done', color: t.good, onChanged: (v) => _set((x) => x.action = v ? 'done' : null)),
-                        const SizedBox(width: 12),
-                        _Tick(label: 'NOT DOING', value: d?.action == 'drop', color: t.muted, onChanged: (v) => _set((x) => x.action = v ? 'drop' : null)),
-                      ]
-                    : [
-                        _Tick(label: 'REOPEN', value: d?.action == 'reopen', color: t.warn, onChanged: (v) => _set((x) => x.action = v ? 'reopen' : null)),
-                      ],
+              // A Wrap, not a Row: DONE · NOT DOING · ASK is wider than a
+              // narrow phone, and ASK takes the next line instead of
+              // overflowing.
+              Wrap(
+                spacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  ...i.isOpen
+                      ? [
+                          _Tick(label: 'DONE', value: d?.action == 'done', color: t.good, onChanged: (v) => _set((x) => x.action = v ? 'done' : null)),
+                          _Tick(label: 'NOT DOING', value: d?.action == 'drop', color: t.muted, onChanged: (v) => _set((x) => x.action = v ? 'drop' : null)),
+                        ]
+                      : [
+                          _Tick(label: 'REOPEN', value: d?.action == 'reopen', color: t.warn, onChanged: (v) => _set((x) => x.action = v ? 'reopen' : null)),
+                        ],
+                  if (widget.onAsk != null)
+                    TextButton.icon(
+                      style: TextButton.styleFrom(foregroundColor: t.accent, minimumSize: const Size(0, 36), padding: const EdgeInsets.symmetric(horizontal: 8)),
+                      onPressed: widget.onAsk,
+                      icon: const Icon(Icons.forum_outlined, size: 15),
+                      label: const Text('ASK'),
+                    ),
+                ],
               ),
               const SizedBox(height: 6),
               TextField(
@@ -152,6 +196,14 @@ class _ItemCardState extends State<ItemCard> {
           ),
       ],
     );
+  }
+
+  static String _ago(DateTime at) {
+    final d = DateTime.now().difference(at.toLocal());
+    if (d.inSeconds < 60) return 'now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m';
+    if (d.inHours < 24) return '${d.inHours}h';
+    return '${d.inDays}d';
   }
 
   static String _firstLine(String s) => s.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => '').replaceAll(RegExp(r'[*_`#>]'), '');

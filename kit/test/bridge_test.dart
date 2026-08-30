@@ -175,6 +175,28 @@ void main() {
     expect(t.messages.last.text, 'Reached the turn limit.');
   });
 
+  test('a scoped turn belongs to its item from the question to the result', () {
+    final t = Transcript();
+    t.addUser('What does friends-only cost in reads?', about: {'item': 'presence'});
+    expect(threadKey(t.lastAbout), 'item:presence');
+    t.apply(const TextDeltaEvent('About '));
+    t.apply(const AssistantEvent([ContentBlock.text('About 50 reads per open.')]));
+    t.apply(const AssistantEvent([ContentBlock.toolUse(toolUseId: 't1', toolName: 'Bash', toolInput: {'command': 'kit show presence'})]));
+    t.apply(const ToolResultEvent(toolUseId: 't1', content: 'ok'));
+    t.apply(const ResultEvent(subtype: 'success', sessionId: 's'));
+    expect(t.messages.map((m) => threadKey(m.about)).toList(), ['item:presence', 'item:presence', 'item:presence'],
+        reason: 'the user row, the reply and the tool row all carry the scope');
+
+    // The next, unscoped turn is not dragged into the thread.
+    t.addUser('and now something else');
+    t.apply(const AssistantEvent([ContentBlock.text('Something else.')]));
+    expect(t.messages.last.about, isNull);
+    expect(t.lastAbout, isNull, reason: 'an unscoped send closes the scope');
+    expect(threadKey({'step': 'instrument-skin'}), 'step:instrument-skin');
+    expect(threadKey(null), isNull);
+    expect(threadKey({'item': ''}), isNull);
+  });
+
   test('the user message line is what the CLI expects', () {
     expect(jsonDecode(encodeUserMessage('/step')), {
       'type': 'user',

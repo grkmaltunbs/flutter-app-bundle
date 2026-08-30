@@ -11,7 +11,7 @@ import '../widgets/common.dart';
 /// pulsing, the selected one haloed. Portrait turns the graph on its side
 /// so the story reads top to bottom on a phone.
 class StepsTab extends StatefulWidget {
-  const StepsTab({super.key, required this.plan, required this.graph, required this.selected, required this.onSelect, this.onOpenDetail, this.showPanel = true, this.session = GlyphMode.idle});
+  const StepsTab({super.key, required this.plan, required this.graph, required this.selected, required this.onSelect, this.onOpenDetail, this.onAskStep, this.showPanel = true, this.session = GlyphMode.idle});
   final Plan plan;
   final Graph graph;
   final String? selected;
@@ -23,6 +23,9 @@ class StepsTab extends StatefulWidget {
 
   /// Opens the full step sheet (phone); the wide layout shows it beside.
   final void Function(String id)? onOpenDetail;
+
+  /// Opens the step's thread — the panel's ASK ABOUT THIS STEP.
+  final void Function(String id)? onAskStep;
   final bool showPanel;
 
   @override
@@ -187,6 +190,7 @@ class _StepsTabState extends State<StepsTab> with TickerProviderStateMixin {
                 view: selectedView,
                 maxHeight: box.maxHeight * 0.45,
                 onOpen: widget.onOpenDetail == null ? null : () => widget.onOpenDetail!(widget.selected!),
+                onAsk: widget.onAskStep == null ? null : () => widget.onAskStep!(widget.selected!),
               ),
           ],
         );
@@ -287,10 +291,11 @@ class _Head extends StatelessWidget {
 /// What a tap shows without leaving the constellation: the step's state,
 /// its gate rings, and the boxes of yours that hold it.
 class _StepPanel extends StatelessWidget {
-  const _StepPanel({required this.view, required this.maxHeight, this.onOpen});
+  const _StepPanel({required this.view, required this.maxHeight, this.onOpen, this.onAsk});
   final StepView view;
   final double maxHeight;
   final VoidCallback? onOpen;
+  final VoidCallback? onAsk;
 
   @override
   Widget build(BuildContext context) {
@@ -331,16 +336,25 @@ class _StepPanel extends StatelessWidget {
                   ]),
                 ),
             ],
-            if (onOpen != null) ...[
+            if (onAsk != null) ...[
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
                 height: 48,
-                child: OutlinedButton(
+                child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(foregroundColor: t.accent, side: BorderSide(color: t.accent.withValues(alpha: 0.45)), backgroundColor: t.accentSoft.withValues(alpha: 0.5)),
-                  onPressed: onOpen,
-                  child: const Text('OPEN THE STEP'),
+                  onPressed: onAsk,
+                  icon: const Icon(Icons.forum_outlined, size: 16),
+                  label: const Text('ASK ABOUT THIS STEP', maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
+              ),
+            ],
+            if (onOpen != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton(onPressed: onOpen, child: const Text('OPEN THE STEP')),
               ),
             ],
           ],

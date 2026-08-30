@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -42,6 +43,19 @@ class HostProject extends ChangeNotifier {
     source.addListener(_onPlan);
     session.addListener(_onSession);
     bridge.addListener(_onBridge);
+    // A scoped message carries what the plan holds on its item or step —
+    // the same text `kit show` prints.
+    bridge.describeAbout = (about) {
+      final plan = source.plan;
+      if (plan == null) return null;
+      final id = (about['item'] ?? about['step'])?.toString();
+      if (id == null || id.isEmpty) return null;
+      final item = plan.item(id);
+      if (item != null) return renderItem(plan, item);
+      final step = plan.step(id);
+      if (step != null) return renderStep(plan, step);
+      return null;
+    };
     bridge.onAsk = _onAsk;
     bridge.onAnswered = _onAnswered;
     hooks.onEvent = _onHook;
@@ -54,12 +68,16 @@ class HostProject extends ChangeNotifier {
   Map<String, Object?> sessionRelay() {
     if (bridge.running) return bridge.toRelay();
     if (session.running) return {...session.toRelay(), 'mode': 'remote', 'pendingAsks': 0};
-    return {...session.toRelay(), 'mode': 'idle', 'pendingAsks': 0};
+    // Idle carries the bridge's record too, so the phone still offers
+    // Resume after the host restarted.
+    return {...session.toRelay(), ...bridge.toRelay(), 'mode': 'idle', 'pendingAsks': 0};
   }
 
   void _onBridge() {
     _publisher?.publishSession(sessionRelay());
     _publisher?.publishTranscript(bridge.transcript);
+    final pub = _publisher;
+    if (pub != null) unawaited(pub.publishThreads(bridge.transcript));
     notifyListeners();
   }
 
@@ -97,7 +115,12 @@ class HostProject extends ChangeNotifier {
     final plan = source.plan;
     if (plan == null) return;
     slug ??= slugFor(plan.manifest);
-    _publisher ??= RelayPublisher(db, slug!, dir: dir, machine: machine);
+    if (_publisher == null) {
+      _publisher = RelayPublisher(db, slug!, dir: dir, machine: machine);
+      // The truth about the session, first thing: a relaunched host must
+      // overwrite the LIVE a dead process left on the mirror.
+      unawaited(_publisher!.publishSession(sessionRelay()));
+    }
     _inbox ??= InboxListener(db, slug!, apply: applyBatch)..start();
     _commands ??= CommandListener(db, slug!, apply: applyCommand)..start();
     if (_publishing) {
@@ -113,6 +136,7 @@ class HostProject extends ChangeNotifier {
         final n = await _publisher!.publish(source.plan!);
         relayStatus = n == 0 ? 'mirror up to date' : 'published $n document${n == 1 ? '' : 's'}';
         relayError = null;
+        _stampThreadUpdate();
       } while (_dirty);
     } on Object catch (e) {
       relayError = e.toString();
@@ -121,6 +145,19 @@ class HostProject extends ChangeNotifier {
       _publishing = false;
       notifyListeners();
     }
+  }
+
+  /// A mirrored plan change to the thing the last scoped message was about
+  /// becomes the thread's UPDATED row — the strip the card shows.
+  void _stampThreadUpdate() {
+    final about = bridge.transcript.lastAbout;
+    final key = threadKey(about);
+    final pub = _publisher;
+    if (key == null || about == null || pub == null) return;
+    final docKey = key.startsWith('item:') ? 'items/${key.substring(5)}' : 'steps/${key.substring(5)}';
+    final fields = pub.lastChanges[docKey];
+    if (fields == null || fields.isEmpty) return;
+    unawaited(pub.publishThreadUpdate(about, fields));
   }
 
   /// Applies a batch from the phone with the same code as `kit inbox`, then

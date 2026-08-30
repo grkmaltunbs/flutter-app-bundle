@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_kit/kit.dart';
 
 import '../draft.dart';
+import '../relay.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'item_card.dart';
@@ -9,13 +10,18 @@ import 'item_card.dart';
 /// What a bubble opens: where the step sits, what stands in its way, what
 /// the person should do about it (as runbooks), and the step's own spec.
 class StepDetail extends StatelessWidget {
-  const StepDetail({super.key, required this.plan, required this.graph, required this.step, required this.draft, required this.onSelectStep, this.controller});
+  const StepDetail({super.key, required this.plan, required this.graph, required this.step, required this.draft, required this.onSelectStep, this.controller, this.threads, this.onAskItem, this.onAskStep});
   final Plan plan;
   final Graph graph;
   final Step step;
   final Draft draft;
   final void Function(String id) onSelectStep;
   final ScrollController? controller;
+  final ThreadStore? threads;
+  final void Function(Item item)? onAskItem;
+
+  /// Opens the step's own thread — ASK ABOUT THIS STEP.
+  final VoidCallback? onAskStep;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +47,23 @@ class StepDetail extends StatelessWidget {
         Text(step.title, style: t.display(20, weight: FontWeight.w600, ls: 0.3, height: 1.2)),
         const SizedBox(height: 10),
         _whatItWaitsOn(context, v),
+        if (onAskStep != null) ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: t.accent, side: BorderSide(color: t.accent.withValues(alpha: 0.45)), backgroundColor: t.accentSoft.withValues(alpha: 0.5)),
+              onPressed: onAskStep,
+              icon: const Icon(Icons.forum_outlined, size: 16),
+              label: Text(
+                'ASK ABOUT THIS STEP${(threads?.forStep(step.id)?.count ?? 0) > 0 ? ' · ${threads!.forStep(step.id)!.count}' : ''}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ],
         if (step.gates.isNotEmpty) ...[
           const SectionHead('Gates', sub: 'What Claude proves before the step can close.'),
           Wrap(spacing: 8, runSpacing: 8, children: [for (final g in step.gates.values) GateCard(g)]),
@@ -61,15 +84,15 @@ class StepDetail extends StatelessWidget {
         ],
         if (v.openBlockers.isNotEmpty) ...[
           SectionHead('What you should do', sub: '${v.openBlockers.length} item${v.openBlockers.length == 1 ? '' : 's'} stand between this step and done.'),
-          for (final i in v.openBlockers) Padding(padding: const EdgeInsets.only(bottom: 10), child: ItemCard(item: i, plan: plan, graph: graph, draft: draft, needs: needs, decisive: decisive.contains(i.id))),
+          for (final i in v.openBlockers) Padding(padding: const EdgeInsets.only(bottom: 10), child: ItemCard(item: i, plan: plan, graph: graph, draft: draft, needs: needs, decisive: decisive.contains(i.id), thread: threads?.forItem(i.id), onAsk: onAskItem == null ? null : () => onAskItem!(i))),
         ],
         if (itemsFrom.isNotEmpty) ...[
           SectionHead('Also from this step', sub: 'Open, but not gating it.'),
-          for (final i in itemsFrom) Padding(padding: const EdgeInsets.only(bottom: 10), child: ItemCard(item: i, plan: plan, graph: graph, draft: draft, needs: needs, decisive: false)),
+          for (final i in itemsFrom) Padding(padding: const EdgeInsets.only(bottom: 10), child: ItemCard(item: i, plan: plan, graph: graph, draft: draft, needs: needs, decisive: false, thread: threads?.forItem(i.id), onAsk: onAskItem == null ? null : () => onAskItem!(i))),
         ],
         if (closed.isNotEmpty) ...[
           SectionHead('Done for this step', sub: '${closed.length} closed. Reopen one if it was ticked by mistake.'),
-          for (final i in closed) Padding(padding: const EdgeInsets.only(bottom: 10), child: ItemCard(item: i, plan: plan, graph: graph, draft: draft, needs: needs, decisive: false)),
+          for (final i in closed) Padding(padding: const EdgeInsets.only(bottom: 10), child: ItemCard(item: i, plan: plan, graph: graph, draft: draft, needs: needs, decisive: false, thread: threads?.forItem(i.id), onAsk: onAskItem == null ? null : () => onAskItem!(i))),
         ],
         const SectionHead('Note to Claude', sub: 'Stays here until you press Send.'),
         _StepNote(draft: draft, stepId: step.id),

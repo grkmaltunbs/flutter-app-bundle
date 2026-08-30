@@ -379,6 +379,17 @@ String _contentText(Object? content) {
   return content?.toString() ?? '';
 }
 
+/// The thread a scoped message belongs to: `item:<id>` or `step:<id>`.
+/// Null when [about] names neither.
+String? threadKey(Map<String, Object?>? about) {
+  if (about == null) return null;
+  final item = about['item']?.toString();
+  if (item != null && item.isNotEmpty) return 'item:$item';
+  final step = about['step']?.toString();
+  if (step != null && step.isNotEmpty) return 'step:$step';
+  return null;
+}
+
 // ---------------------------------------------------------- transcript
 
 enum DeckRole { user, assistant, tool, note }
@@ -477,12 +488,23 @@ class Transcript {
   int _seq = 0;
   DateTime Function() now = DateTime.now;
 
+  /// The scope of the turn now open: everything the session says or runs
+  /// until the `result` belongs to the same item or step the user asked
+  /// about. Cleared when the turn ends.
+  Map<String, Object?>? _about;
+
+  /// The last scope a user message carried — it outlives the turn, so a
+  /// plan edit that lands just after the result still finds its thread.
+  Map<String, Object?>? lastAbout;
+
   String _nextId() => 'm${(_seq++).toString().padLeft(5, '0')}';
 
   DeckMessage addUser(String text, {Map<String, Object?>? about}) {
     final m = DeckMessage(id: _nextId(), role: DeckRole.user, text: text, at: now(), about: about);
     messages.add(m);
     turnOpen = true;
+    _about = about;
+    lastAbout = about;
     return m;
   }
 
@@ -506,7 +528,7 @@ class Transcript {
         for (final b in e.blocks) {
           if (b.isToolUse) {
             _closeStreaming();
-            messages.add(DeckMessage(id: _nextId(), role: DeckRole.tool, text: '', at: now(), toolName: b.toolName, toolInput: b.toolInput, toolUseId: b.toolUseId));
+            messages.add(DeckMessage(id: _nextId(), role: DeckRole.tool, text: '', at: now(), toolName: b.toolName, toolInput: b.toolInput, toolUseId: b.toolUseId, about: _about));
           } else {
             final text = b.text ?? '';
             final s = _streaming;
@@ -516,7 +538,7 @@ class Transcript {
               s.streaming = false;
               _streaming = null;
             } else if (text.isNotEmpty) {
-              messages.add(DeckMessage(id: _nextId(), role: DeckRole.assistant, text: text, at: now()));
+              messages.add(DeckMessage(id: _nextId(), role: DeckRole.assistant, text: text, at: now(), about: _about));
             }
           }
         }
@@ -534,6 +556,7 @@ class Transcript {
       case ResultEvent():
         _closeStreaming();
         turnOpen = false;
+        _about = null;
         lastResult = e;
         if (e.isError && e.text.isNotEmpty) addNote(e.text);
       case RateLimitEvent():
@@ -556,7 +579,7 @@ class Transcript {
   }
 
   DeckMessage _open() {
-    final m = DeckMessage(id: _nextId(), role: DeckRole.assistant, text: '', at: now(), streaming: true);
+    final m = DeckMessage(id: _nextId(), role: DeckRole.assistant, text: '', at: now(), streaming: true, about: _about);
     messages.add(m);
     return m;
   }

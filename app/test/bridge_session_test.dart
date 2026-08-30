@@ -64,6 +64,35 @@ void main() {
     expect(s.previous()!.sessionId, rec.sessionId, reason: 'the record outlives the process so Resume can find it');
   });
 
+  test('a scoped send wraps the prompt; the deck shows what was typed; the reply inherits the scope', () async {
+    final fake = FakeClaude();
+    final s = fakeSession(fake, dir: project.path, home: home.path);
+    s.describeAbout = (about) => '# Presence\n\n- id: presence\n- needs: decision';
+    await s.start();
+
+    s.send('What does friends-only cost?', about: {'item': 'presence'});
+    await fake.writtenLines(1);
+    final content = ((jsonDecode(fake.written.single) as Map)['message'] as Map)['content'].toString();
+    expect(content, contains('The user asks about one item of the plan — `presence`'));
+    expect(content, contains('What does friends-only cost?'));
+    expect(content, contains('kit show presence'));
+    expect(content, contains('- needs: decision'));
+    expect(content, contains('phone screen'));
+    expect(content, contains('say in one line what you changed'));
+    expect(s.transcript.messages.last.text, 'What does friends-only cost?', reason: 'the deck shows the question, not the wrapper');
+    expect(threadKey(s.transcript.messages.last.about), 'item:presence');
+
+    scriptTurn(fake, sessionId: s.sessionId!, text: 'About 50 reads per open.');
+    await pumpEventQueue();
+    final reply = s.transcript.messages.firstWhere((m) => m.role == DeckRole.assistant);
+    expect(threadKey(reply.about), 'item:presence', reason: 'the whole turn belongs to the thread');
+
+    // Unscoped stays unwrapped.
+    s.send('and generally?');
+    await fake.writtenLines(2);
+    expect(((jsonDecode(fake.written.last) as Map)['message'] as Map)['content'], 'and generally?');
+  });
+
   test('a permission waits on the user; a denial goes back as the control response', () async {
     final fake = FakeClaude();
     final s = fakeSession(fake, dir: project.path, home: home.path);

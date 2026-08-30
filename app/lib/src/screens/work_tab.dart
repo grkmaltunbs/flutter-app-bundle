@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_kit/kit.dart';
 
 import '../draft.dart';
+import '../relay.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'item_card.dart';
@@ -11,11 +12,13 @@ import 'item_card.dart';
 /// filter to one sitting; DONE is the record of what you decided, and
 /// where a tick sent by mistake is undone.
 class WorkTab extends StatefulWidget {
-  const WorkTab({super.key, required this.plan, required this.graph, required this.draft, this.initialDone = false});
+  const WorkTab({super.key, required this.plan, required this.graph, required this.draft, this.initialDone = false, this.threads, this.onAskItem});
   final Plan plan;
   final Graph graph;
   final Draft draft;
   final bool initialDone;
+  final ThreadStore? threads;
+  final void Function(Item item)? onAskItem;
 
   @override
   State<WorkTab> createState() => _WorkTabState();
@@ -85,7 +88,7 @@ class _WorkTabState extends State<WorkTab> {
       for (final item in closed) {
         rows.add(Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-          child: ItemCard(item: item, plan: plan, graph: graph, draft: draft, needs: needs, decisive: false),
+          child: ItemCard(item: item, plan: plan, graph: graph, draft: draft, needs: needs, decisive: false, thread: widget.threads?.forItem(item.id), onAsk: widget.onAskItem == null ? null : () => widget.onAskItem!(item)),
         ));
       }
     } else {
@@ -108,7 +111,7 @@ class _WorkTabState extends State<WorkTab> {
         for (final i in items) {
           rows.add(Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: ItemCard(item: i, plan: plan, graph: graph, draft: draft, needs: needs, decisive: decisive.contains(i.id)),
+            child: ItemCard(item: i, plan: plan, graph: graph, draft: draft, needs: needs, decisive: decisive.contains(i.id), thread: widget.threads?.forItem(i.id), onAsk: widget.onAskItem == null ? null : () => widget.onAskItem!(i)),
           ));
         }
       }

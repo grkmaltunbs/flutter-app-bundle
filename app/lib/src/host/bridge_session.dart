@@ -114,6 +114,11 @@ class BridgeSession extends ChangeNotifier {
   /// it (`Mac`, `phone`, or `host` for a remembered one).
   void Function(Ask ask, AskAnswer answer, String by)? onAnswered;
 
+  /// Renders what the plan holds on the thing a scoped message is about —
+  /// injected by the host, which has the plan (`renderItem`/`renderStep`,
+  /// the same text `kit show` prints).
+  String? Function(Map<String, Object?> about)? describeAbout;
+
   /// Rules the CLI wrote because an ask was answered Always. Persisted with
   /// the record; the Session tab lists and removes them.
   final List<AppliedRule> alwaysApplied = [];
@@ -221,14 +226,17 @@ class BridgeSession extends ChangeNotifier {
     if (log.length > 200) log.removeAt(0);
   }
 
-  /// Sends a message. [about] scopes it to one item or step — the prompt
-  /// prefix for that comes in `item-threads`.
+  /// Sends a message. [about] scopes it to one item or step: the deck
+  /// shows what was typed, the model reads it wrapped with `kit show` and
+  /// the standing instruction — answer for a phone, edit the thing itself
+  /// if it should change.
   void send(String text, {Map<String, Object?>? about}) {
     final proc = _proc;
     final t = text.trim();
     if (proc == null || !running || t.isEmpty) return;
     transcript.addUser(t, about: about);
-    proc.stdin.writeln(encodeUserMessage(t));
+    final prompt = about == null ? t : scopedPrompt(t, about, describeAbout?.call(about));
+    proc.stdin.writeln(encodeUserMessage(prompt));
     unawaited(proc.stdin.flush());
     state = BridgeState.busy;
     notifyListeners();
@@ -346,6 +354,28 @@ class BridgeSession extends ChangeNotifier {
     _err?.cancel();
     super.dispose();
   }
+}
+
+/// The prompt a scoped message becomes: the question, what the plan holds
+/// on the thing (when the host could render it), and the standing
+/// instruction from the plan's `item-threads` step.
+String scopedPrompt(String text, Map<String, Object?> about, String? shown) {
+  final kind = about.containsKey('item') ? 'item' : 'step';
+  final id = (about[kind] ?? '').toString();
+  return [
+    'The user asks about one $kind of the plan — `$id`:',
+    '',
+    text,
+    '',
+    if (shown != null && shown.trim().isNotEmpty) ...[
+      '--- what the plan holds on it (kit show $id) ---',
+      shown.trim(),
+      '--- end ---',
+      '',
+    ],
+    'Answer for a phone screen: short and concrete, from this $kind\'s own facts.',
+    'If the $kind itself should change — needs, blocks, body, runbook, deadline, or the recommended option — make the change with the `kit` CLI or by editing its YAML under plan/, and say in one line what you changed.',
+  ].join('\n');
 }
 
 Future<String?> _claudeVersion(String bin) async {

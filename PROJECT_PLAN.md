@@ -233,7 +233,7 @@ The step's checkbox stays `[ ]` until these are checked:
 ---
 
 ## Step 5 — Ask about one item — a scoped answer, an item Claude edits, a card that shows it
-- [ ]
+- [x]
 - id: item-threads
 - depends_on: deck-on-the-phone
 - qa_required: true

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -17,6 +18,8 @@ import 'host/bridge_session.dart' show BridgeState;
 /// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
 /// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop, …}; the host stamps doneAt, result
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
+/// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
+/// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
 /// ```
 ///
 /// The host is the only writer of `asks`, `chat` and `session`; the phone
@@ -74,6 +77,11 @@ class RelayPublisher {
 
   DocumentReference<Map<String, dynamic>> get ref => db.collection('projects').doc(slug);
 
+  /// What the last [publish] changed, per document — `items/presence` →
+  /// `[body, needs]`. The host turns a change to the thing a thread is
+  /// about into the thread's UPDATED row.
+  final Map<String, List<String>> lastChanges = {};
+
   /// Reads what is already there once, so a host restart does not rewrite
   /// every document it already published.
   Future<void> seed() async {
@@ -90,6 +98,7 @@ class RelayPublisher {
   /// Returns the number of documents written or deleted.
   Future<int> publish(Plan plan) async {
     await seed();
+    lastChanges.clear();
     final wanted = <String, Map<String, Object?>>{
       for (final s in plan.steps) 'steps/${s.id}': stepDoc(s),
       for (final i in plan.items) 'items/${i.id}': itemDoc(i),
@@ -98,6 +107,15 @@ class RelayPublisher {
     for (final e in wanted.entries) {
       final json = stableJson(e.value);
       if (_published[e.key] == json) continue;
+      final before = _published[e.key];
+      if (before != null) {
+        final old = jsonDecode(before) as Map;
+        final fields = <String>[
+          for (final k in {...old.keys.map((k) => k.toString()), ...e.value.keys})
+            if (stableJson({'v': old[k]}) != stableJson({'v': e.value[k]})) k,
+        ];
+        if (fields.isNotEmpty) lastChanges[e.key] = fields;
+      }
       final parts = e.key.split('/');
       ops.add((b) => b.set(ref.collection(parts[0]).doc(parts[1]), e.value));
       _published[e.key] = json;
@@ -217,6 +235,51 @@ class RelayPublisher {
     }
   }
 
+  final Set<String> _threadSeen = {};
+
+  /// Mirrors every finalized scoped row into its thread — append-only, so
+  /// a thread survives session restarts and the chat's 300-row window.
+  Future<void> publishThreads(Transcript t) async {
+    final sid = t.sessionId;
+    if (sid == null) return;
+    for (final m in t.messages) {
+      final key = threadKey(m.about);
+      if (key == null || m.streaming) continue;
+      // A tool row waits for its result so the thread holds the outcome.
+      if (m.role == DeckRole.tool && m.toolResult == null) continue;
+      final docId = '$sid-${m.id}';
+      if (!_threadSeen.add('$key/$docId')) continue;
+      final tref = ref.collection('threads').doc(key);
+      final mref = tref.collection('messages').doc(docId);
+      final exists = (await mref.get()).exists;
+      await mref.set({...m.toMap(), 'sessionId': sid});
+      await tref.set({
+        'about': m.about,
+        if (!exists) 'count': FieldValue.increment(1),
+        'last': {'role': m.role.name, 'text': _clipText(m.role == DeckRole.tool ? m.toolSummary : m.text, 240), 'at': m.at.toUtc().toIso8601String()},
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+  }
+
+  /// The UPDATED row: Claude changed the thing the thread is about.
+  Future<void> publishThreadUpdate(Map<String, Object?> about, List<String> fields) async {
+    final key = threadKey(about);
+    if (key == null || fields.isEmpty) return;
+    final tref = ref.collection('threads').doc(key);
+    final at = DateTime.now().toUtc();
+    final id = 'upd-${at.microsecondsSinceEpoch}';
+    await tref.collection('messages').doc(id).set({'id': id, 'role': 'note', 'text': 'UPDATED · ${fields.join(', ')}', 'at': at.toIso8601String(), 'about': about, 'isError': false, 'streaming': false});
+    await tref.set({
+      'about': about,
+      'count': FieldValue.increment(1),
+      'updated': {'fields': fields, 'at': at.toIso8601String()},
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static String _clipText(String s, int n) => s.length <= n ? s : '${s.substring(0, n - 1)}…';
+
   Future<void> _pruneAsks() async {
     final q = await ref.collection('asks').orderBy('at', descending: true).limit(200).get();
     if (q.docs.length < 100) return;
@@ -282,6 +345,11 @@ class RemoteDeck extends ChangeNotifier {
 
   DocumentReference<Map<String, dynamic>> get ref => db.collection('projects').doc(slug);
 
+  /// What the last [publish] changed, per document — `items/presence` →
+  /// `[body, needs]`. The host turns a change to the thing a thread is
+  /// about into the thread's UPDATED row.
+  final Map<String, List<String>> lastChanges = {};
+
   BridgeState get state {
     final s = (session['state'] ?? 'idle').toString();
     return BridgeState.values.firstWhere((v) => v.name == s, orElse: () => BridgeState.idle);
@@ -319,13 +387,13 @@ class RemoteDeck extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> send(String text) async {
+  Future<void> send(String text, {Map<String, Object?>? about}) async {
     final t = text.trim();
     if (t.isEmpty) return;
-    echoes.add(DeckMessage(id: 'echo-${(_echoSeq++).toString().padLeft(5, '0')}', role: DeckRole.user, text: t, at: DateTime.now(), streaming: true));
+    echoes.add(DeckMessage(id: 'echo-${(_echoSeq++).toString().padLeft(5, '0')}', role: DeckRole.user, text: t, at: DateTime.now(), streaming: true, about: about));
     notifyListeners();
     try {
-      await CommandSender(db, slug).send({'type': 'send', 'text': t}, from: from);
+      await CommandSender(db, slug).send({'type': 'send', 'text': t, 'about': ?about}, from: from);
     } on Object catch (e) {
       echoes.removeWhere((m) => m.text == t);
       error = 'Could not send: $e';
@@ -342,6 +410,69 @@ class RemoteDeck extends ChangeNotifier {
     for (final s in _subs) {
       s.cancel();
     }
+    super.dispose();
+  }
+}
+
+/// One thread's face on a card: how many rows, the last reply, and what
+/// Claude last changed on the thing itself.
+class ThreadSummary {
+  ThreadSummary({required this.key, required this.about, required this.count, this.lastRole, this.lastText, this.lastAt, this.updatedFields = const [], this.updatedAt});
+
+  factory ThreadSummary.fromDoc(String id, Map<String, Object?> m) {
+    Map<String, Object?> map(Object? v) => v is Map ? {for (final e in v.entries) e.key.toString(): e.value} : {};
+    final last = map(m['last']);
+    final updated = map(m['updated']);
+    return ThreadSummary(
+      key: id,
+      about: map(m['about']),
+      count: (m['count'] as num?)?.toInt() ?? 0,
+      lastRole: last['role']?.toString(),
+      lastText: last['text']?.toString(),
+      lastAt: DateTime.tryParse((last['at'] ?? '').toString()),
+      updatedFields: [for (final f in (updated['fields'] as List? ?? const [])) f.toString()],
+      updatedAt: DateTime.tryParse((updated['at'] ?? '').toString()),
+    );
+  }
+
+  final String key;
+  final Map<String, Object?> about;
+  final int count;
+  final String? lastRole;
+  final String? lastText;
+  final DateTime? lastAt;
+  final List<String> updatedFields;
+  final DateTime? updatedAt;
+}
+
+/// Every thread of one project, live — what an item card or step sheet
+/// shows without opening the thread.
+class ThreadStore extends ChangeNotifier {
+  ThreadStore(this.db, this.slug);
+  final FirebaseFirestore db;
+  final String slug;
+  final Map<String, ThreadSummary> summaries = {};
+  String? error;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sub;
+
+  void start() {
+    _sub = db.collection('projects').doc(slug).collection('threads').snapshots().listen((q) {
+      summaries
+        ..clear()
+        ..addEntries(q.docs.map((d) => MapEntry(d.id, ThreadSummary.fromDoc(d.id, {for (final e in d.data().entries) e.key: e.value as Object?}))));
+      notifyListeners();
+    }, onError: (Object e) {
+      error = e.toString();
+      notifyListeners();
+    });
+  }
+
+  ThreadSummary? forItem(String id) => summaries['item:$id'];
+  ThreadSummary? forStep(String id) => summaries['step:$id'];
+
+  @override
+  void dispose() {
+    _sub?.cancel();
     super.dispose();
   }
 }

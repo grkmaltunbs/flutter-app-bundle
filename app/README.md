@@ -111,6 +111,8 @@ projects/{slug}/steps/{id}      Step.toMap()
 projects/{slug}/items/{id}      Item.toMap()
 projects/{slug}/inbox/{auto}    {sentAt, entries, from}; the host stamps appliedAt + applied
 projects/{slug}/events/{auto}   milestones from hooks (prompts, turn ends, notifications)
+projects/{slug}/threads/{about}          `item:<id>` or `step:<id>` — {about, count, last, updated}
+projects/{slug}/threads/{about}/messages the scoped rows, append-only; they outlive sessions and the chat window
 ```
 
 The phone rebuilds a `Plan` from the documents and runs the same `Graph`,

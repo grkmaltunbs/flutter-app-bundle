@@ -154,6 +154,48 @@ void main() {
     pub.dispose();
   });
 
+  test('a scoped turn lands in its thread, append-only, and the UPDATED row follows a plan edit', () async {
+    final pub = RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test');
+    await pub.publish(store.load());
+    final t = Transcript()..sessionId = 'sess-1';
+    t.addUser('What does this cost?', about: {'item': 'i1'});
+    t.apply(const AssistantEvent([ContentBlock.text('About 50 reads per open.')]));
+    t.apply(const ResultEvent(subtype: 'success', sessionId: 'sess-1'));
+    await pub.publishThreads(t);
+    await pub.publishThreads(t);
+    final tref = db.collection('projects').doc('demo').collection('threads').doc('item:i1');
+    var msgs = await tref.collection('messages').get();
+    expect(msgs.docs.length, 2, reason: 'the question and the reply, once');
+    var sum = await tref.get();
+    expect(sum.data()!['count'], 2);
+    expect((sum.data()!['last'] as Map)['text'], 'About 50 reads per open.');
+
+    // A host restart re-mirrors the same rows without counting them twice.
+    await RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test').publishThreads(t);
+    sum = await tref.get();
+    expect(sum.data()!['count'], 2);
+
+    // Claude edits the item; publish diffs it; the UPDATED row lands.
+    store.patch(store.itemPath('i1'), ['body'], 'About 50 reads per home-screen open.');
+    await pub.publish(store.load());
+    expect(pub.lastChanges['items/i1'], ['body']);
+    await pub.publishThreadUpdate({'item': 'i1'}, pub.lastChanges['items/i1']!);
+    msgs = await tref.collection('messages').get();
+    expect(msgs.docs.length, 3);
+    sum = await tref.get();
+    expect(((sum.data()!['updated'] as Map)['fields'] as List).single, 'body');
+    expect(sum.data()!['count'], 3);
+
+    // The store hands a card its summary.
+    final threads = ThreadStore(db, 'demo')..start();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    final th = threads.forItem('i1')!;
+    expect(th.count, 3);
+    expect(th.updatedFields, ['body']);
+    expect(threads.forStep('nope'), isNull);
+    threads.dispose();
+  });
+
   test('start, send and stop from the phone are commands the host runs in order', () async {
     final ran = <String>[];
     final listener = CommandListener(db, 'demo', apply: (cmd) async {

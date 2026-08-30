@@ -444,17 +444,24 @@ class _Row extends StatelessWidget {
       case DeckRole.user:
         return Padding(
           padding: const EdgeInsets.only(bottom: 12, left: 48),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Container(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (threadKey(m.about) case final key?)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(key.replaceFirst(':', ' · ').toUpperCase(), style: t.readout(10, color: t.accent)),
+                ),
+              Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: m.streaming ? t.bubble.withValues(alpha: 0.6) : t.bubble,
                 border: Border.all(color: t.line),
                 borderRadius: const BorderRadius.only(topLeft: Radius.circular(14), topRight: Radius.circular(14), bottomLeft: Radius.circular(14), bottomRight: Radius.circular(4)),
               ),
-              child: SelectableText(m.text, style: TextStyle(fontSize: 15, height: 1.4, color: m.streaming ? t.ink2 : t.ink)),
-            ),
+                child: SelectableText(m.text, style: TextStyle(fontSize: 15, height: 1.4, color: m.streaming ? t.ink2 : t.ink)),
+              ),
+            ],
           ),
         );
       case DeckRole.assistant:

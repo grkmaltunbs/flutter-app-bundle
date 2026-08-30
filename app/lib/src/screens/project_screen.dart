@@ -17,6 +17,7 @@ import 'remote_asks.dart';
 import 'session_tab.dart';
 import 'step_detail.dart';
 import 'steps_tab.dart';
+import 'thread_sheet.dart';
 import 'work_tab.dart';
 
 /// One project: Deck · Steps · Your work · (host) Session. The Deck wears
@@ -46,6 +47,7 @@ class ProjectScreen extends StatefulWidget {
 
 class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProviderStateMixin {
   late final Draft _draft = Draft(widget.slug);
+  late final ThreadStore _threads = ThreadStore(FirebaseFirestore.instance, widget.slug)..start();
   late final TabController _tabs = TabController(length: widget.isHost ? 4 : 3, vsync: this);
   ProjectSummary? _summary;
   StreamSubscription<ProjectSummary>? _sub;
@@ -66,6 +68,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
     _sub?.cancel();
     _tabs.dispose();
     _draft.dispose();
+    _threads.dispose();
     if (!widget.isHost) widget.source.dispose();
     super.dispose();
   }
@@ -110,14 +113,54 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
             final p = widget.source.plan;
             final s = p?.step(id);
             if (p == null || s == null) return const SizedBox.shrink();
-            return StepDetail(plan: p, graph: Graph(p), step: s, draft: _draft, controller: ctrl, onSelectStep: (other) {
-              Navigator.of(context).pop();
-              setState(() => _selected = other);
-              _openDetail(other);
-            });
+            return StepDetail(
+                plan: p,
+                graph: Graph(p),
+                step: s,
+                draft: _draft,
+                controller: ctrl,
+                threads: _threads,
+                onAskItem: (i) => _askAbout({'item': i.id}, i.title),
+                onAskStep: () => _askAbout({'step': s.id}, s.title),
+                onSelectStep: (other) {
+                  Navigator.of(context).pop();
+                  setState(() => _selected = other);
+                  _openDetail(other);
+                });
           },
         ),
       ),
+    );
+  }
+
+  bool get _bridgeRunning => widget.isHost ? widget.host!.bridge.running : _summary?.mode == 'bridge';
+
+  /// Sends one scoped message to whichever session this surface drives.
+  Future<String?> _sendScoped(String text, Map<String, Object?> about) async {
+    if (widget.isHost) {
+      final b = widget.host!.bridge;
+      if (!b.running) return 'The session is not running — start it on the Deck.';
+      b.send(text, about: about);
+      return null;
+    }
+    if (!_bridgeRunning) return 'The session is not running — start it on the Deck.';
+    try {
+      await CommandSender(FirebaseFirestore.instance, widget.slug).send({'type': 'send', 'text': text, 'about': about}, from: 'phone');
+      return null;
+    } on Object catch (e) {
+      return 'Could not send: $e';
+    }
+  }
+
+  void _askAbout(Map<String, Object?> about, String title) {
+    showThreadSheet(
+      context,
+      db: FirebaseFirestore.instance,
+      slug: widget.slug,
+      about: about,
+      title: title,
+      running: _bridgeRunning,
+      onSend: (t) => _sendScoped(t, about),
     );
   }
 
@@ -188,7 +231,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
     final t = context.tokens;
     final wide = MediaQuery.sizeOf(context).width >= 900;
     return ListenableBuilder(
-      listenable: Listenable.merge([widget.source, _draft, if (widget.host != null) widget.host!, if (widget.host != null) widget.host!.hooks, if (widget.host != null) widget.host!.session, if (widget.host != null) widget.host!.bridge]),
+      listenable: Listenable.merge([widget.source, _draft, _threads, if (widget.host != null) widget.host!, if (widget.host != null) widget.host!.hooks, if (widget.host != null) widget.host!.session, if (widget.host != null) widget.host!.bridge]),
       builder: (context, _) {
         final plan = widget.source.plan;
         final graph = widget.source.graph;
@@ -251,12 +294,20 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                                         decoration: BoxDecoration(color: t.surface, border: Border(left: BorderSide(color: t.line))),
                                         child: _selected == null || plan.step(_selected!) == null
                                             ? const EmptyNote('Tap a step.')
-                                            : StepDetail(plan: plan, graph: graph, step: plan.step(_selected!)!, draft: _draft, onSelectStep: (id) => setState(() => _selected = id)),
+                                            : StepDetail(
+                                                plan: plan,
+                                                graph: graph,
+                                                step: plan.step(_selected!)!,
+                                                draft: _draft,
+                                                threads: _threads,
+                                                onAskItem: (i) => _askAbout({'item': i.id}, i.title),
+                                                onAskStep: () => _askAbout({'step': _selected!}, plan.step(_selected!)!.title),
+                                                onSelectStep: (id) => setState(() => _selected = id)),
                                       ),
                                     ],
                                   )
-                                : StepsTab(plan: plan, graph: graph!, selected: _selected, session: _sessionGlyph(), onSelect: (id) => setState(() => _selected = id), onOpenDetail: _openDetail),
-                            WorkTab(plan: plan, graph: graph, draft: _draft),
+                                : StepsTab(plan: plan, graph: graph!, selected: _selected, session: _sessionGlyph(), onSelect: (id) => setState(() => _selected = id), onOpenDetail: _openDetail, onAskStep: (id) => _askAbout({'step': id}, plan.step(id)?.title ?? id)),
+                            WorkTab(plan: plan, graph: graph, draft: _draft, threads: _threads, onAskItem: (i) => _askAbout({'item': i.id}, i.title)),
                             if (widget.isHost) SessionTab(host: widget.host!),
                           ],
                         ),

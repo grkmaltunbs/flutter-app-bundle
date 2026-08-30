@@ -1,14 +1,14 @@
 id: item-threads
 number: "5"
 title: Ask about one item — a scoped answer, an item Claude edits, a card that shows it
-status: pending
+status: done
 rank: 600
 depends_on: [deck-on-the-phone]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-08-30, note: "flutter analyze + dart analyze: no issues", status: passed}
+  tests: { at: 2026-08-30, note: "kit 68 (scoped-turn tagging), app 39 (scoped prompt, thread mirror round-trip, thread sheet at 1.0\/3.12, card strip)", status: passed}
+  qa: { at: 2026-08-30, note: "Verified by the user on the phone, 2026-08-30: ASK on an item, the scoped answer, the thread persisted; the relaunch fixes checked against the live relay", status: passed}
 sections:
   - title: Description
     body: |
@@ -39,3 +39,17 @@ sections:
       - `app/lib/src/screens/item_card.dart`, `app/lib/src/screens/step_detail.dart`
 history:
   - { at: "2026-08-30", event: added }
+  - at: 2026-08-30
+    event: started
+  - at: 2026-08-30
+    event: gate analyze passed
+    note: "flutter analyze + dart analyze: no issues"
+  - at: 2026-08-30
+    event: gate tests passed
+    note: "kit 68 (scoped-turn tagging), app 39 (scoped prompt, thread mirror round-trip, thread sheet at 1.0\/3.12, card strip)"
+  - at: 2026-08-30
+    event: gate qa passed
+    note: "Verified by the user on the phone, 2026-08-30: ASK on an item, the scoped answer, the thread persisted; the relaunch fixes checked against the live relay"
+  - at: 2026-08-30
+    event: done
+    note: "Threads over the relay, scoped prompts, the UPDATED strip; plus the relaunch truth fixes (session republish, auto-host, resume in idle relay)"
