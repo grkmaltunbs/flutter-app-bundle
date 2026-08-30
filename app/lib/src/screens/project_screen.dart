@@ -11,14 +11,15 @@ import '../plan_source.dart';
 import '../relay.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'deck_tab.dart';
 import 'session_tab.dart';
 import 'step_detail.dart';
 import 'steps_tab.dart';
 import 'work_tab.dart';
 
-/// One project: Steps · Your work · (host) Session. The "now" line under
-/// the title is what Claude is doing this second; the send bar at the
-/// bottom is the only way anything leaves the device.
+/// One project: (host) Deck · Steps · Your work · (host) Session. The "now"
+/// line under the title is what Claude is doing this second; the send bar
+/// at the bottom is the only way a plan change leaves the device.
 class ProjectScreen extends StatefulWidget {
   const ProjectScreen._({required this.source, required this.slug, this.host, this.remoteDoc});
 
@@ -43,7 +44,7 @@ class ProjectScreen extends StatefulWidget {
 
 class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProviderStateMixin {
   late final Draft _draft = Draft(widget.slug);
-  late final TabController _tabs = TabController(length: widget.isHost ? 3 : 2, vsync: this);
+  late final TabController _tabs = TabController(length: widget.isHost ? 4 : 2, vsync: this);
   ProjectSummary? _summary;
   StreamSubscription<ProjectSummary>? _sub;
   String? _selected;
@@ -122,7 +123,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
     final t = context.tokens;
     final wide = MediaQuery.sizeOf(context).width >= 900;
     return ListenableBuilder(
-      listenable: Listenable.merge([widget.source, _draft, if (widget.host != null) widget.host!, if (widget.host != null) widget.host!.hooks, if (widget.host != null) widget.host!.session]),
+      listenable: Listenable.merge([widget.source, _draft, if (widget.host != null) widget.host!, if (widget.host != null) widget.host!.hooks, if (widget.host != null) widget.host!.session, if (widget.host != null) widget.host!.bridge]),
       builder: (context, _) {
         final plan = widget.source.plan;
         final graph = widget.source.graph;
@@ -141,6 +142,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                     labelColor: t.ink,
                     indicatorColor: t.accent,
                     tabs: [
+                      if (widget.isHost) const Tab(text: 'Deck'),
                       const Tab(text: 'Steps'),
                       Tab(text: plan == null ? 'Your work' : 'Your work · ${plan.items.where((i) => i.isOpen).length}'),
                       if (widget.isHost) const Tab(text: 'Session'),
@@ -167,6 +169,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                   // it first. The tab strip switches tabs.
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
+                    if (widget.isHost) DeckTab(bridge: widget.host!.bridge),
                     wide
                         ? Row(
                             children: [
@@ -221,7 +224,7 @@ class _NowLine extends StatelessWidget {
     DateTime? at;
     if (host != null) {
       final e = host!.hooks.latest;
-      live = host!.session.running;
+      live = host!.session.running || host!.bridge.running;
       if (e != null) {
         text = e.summary;
         needsYou = e.needsYou;

@@ -7,12 +7,15 @@ import 'package:path/path.dart' as p;
 
 import '../plan_source.dart';
 import '../relay.dart';
+import 'bridge_session.dart';
 import 'claude_cli.dart';
 import 'hook_watcher.dart';
 import 'remote_control.dart';
 
 /// Everything the host runs for one open project: the plan on disk, its
-/// mirror, the inbox, the hook spool and the Remote Control session.
+/// mirror, the inbox, the hook spool, and the two ways the folder gets a
+/// Claude session — the bridge (this app talks to it) and Remote Control
+/// (the Claude app does).
 class HostProject extends ChangeNotifier {
   HostProject({required this.dir, required this.db});
 
@@ -21,6 +24,7 @@ class HostProject extends ChangeNotifier {
   late final LocalPlanSource source = LocalPlanSource(dir);
   late final HookWatcher hooks = HookWatcher(dir);
   late final RemoteControlSession session = RemoteControlSession(dir: dir, name: p.basename(dir));
+  late final BridgeSession bridge = BridgeSession(dir: dir);
   RelayPublisher? _publisher;
   InboxListener? _inbox;
   String? slug;
@@ -36,10 +40,13 @@ class HostProject extends ChangeNotifier {
   void start() {
     source.addListener(_onPlan);
     session.addListener(_onSession);
+    bridge.addListener(_onBridge);
     hooks.onEvent = _onHook;
     source.start();
     hooks.start();
   }
+
+  void _onBridge() => notifyListeners();
 
   Future<void> _onPlan() async {
     final plan = source.plan;
@@ -109,10 +116,12 @@ class HostProject extends ChangeNotifier {
   void dispose() {
     source.removeListener(_onPlan);
     session.removeListener(_onSession);
+    bridge.removeListener(_onBridge);
     _inbox?.dispose();
     _publisher?.dispose();
     hooks.dispose();
     session.dispose();
+    bridge.dispose();
     source.dispose();
     super.dispose();
   }

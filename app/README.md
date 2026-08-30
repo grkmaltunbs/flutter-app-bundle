@@ -79,9 +79,11 @@ lib/src/
   plan_source.dart     PlanSource: LocalPlanSource (plan/ on disk, watched) · RemotePlanSource (Firestore)
   relay.dart           Firestore paths, RelayPublisher (host → mirror), InboxListener (host), InboxSender (phone)
   draft.dart           ticks/answers/notes on the device until Send
-  host/                claude_cli (binary, trust, bridge pointer) · remote_control (the process) ·
+  host/                claude_cli (binary, trust, bridge pointer) · remote_control (the Claude app's way in) ·
+                       bridge_session (this app's way in: `claude -p` over stdio — see ../kit/lib/src/bridge.dart) ·
                        hook_watcher (the spool) · host_project (all of it for one folder)
-  screens/             sign in · home · project (Steps · Your work · Session) · step detail · item card
+  screens/             sign in · home · project (Deck · Steps · Your work · Session) · deck (transcript, ask card,
+                       composer) · step detail · item card
 ```
 
 `flutter_kit` (`../kit`) is a path dependency: model, graph, layout, inbox

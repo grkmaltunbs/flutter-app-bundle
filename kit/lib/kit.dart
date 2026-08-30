@@ -13,3 +13,4 @@ export 'src/dag_layout.dart';
 export 'src/inbox.dart';
 export 'src/hook_spool.dart';
 export 'src/snapshot.dart';
+export 'src/bridge.dart';
