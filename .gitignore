@@ -18,3 +18,4 @@ AUTOBUILD_NEEDS_HUMAN.md
 # Never commit
 *.env
 **/*service-account*.json
+kit/build/
