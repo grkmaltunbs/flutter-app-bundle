@@ -15,6 +15,17 @@ The relay is the Firebase project `flutterappbundle` (Firestore in
 europe-west3, Email/Password auth, one user, owner-only rules in
 `firestore.rules`). Nothing here touches a consumer app's Firebase project.
 
+## Ship a change to the devices
+
+```
+bash app/tool/ship.sh          # Mac + Android
+bash app/tool/ship.sh mac      # ~/Applications/kit_app.app, relaunched if it was running
+bash app/tool/ship.sh android  # ~/Desktop/kit_app.apk, installed over USB when a phone is plugged in
+```
+
+Run it after any change under `app/`. The plugin half of the bundle needs
+no shipping — Nahmatik's installed plugin is a symlink to this checkout.
+
 ## Run
 
 ```
