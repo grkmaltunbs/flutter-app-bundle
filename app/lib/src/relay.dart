@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_kit/kit.dart';
 
 import 'attachments.dart';
+import 'blobs.dart';
 import 'host/bridge_session.dart' show BridgeState;
 
 /// The relay: Firestore on `flutterappbundle`, one user, owner-only rules.
@@ -22,13 +22,16 @@ import 'host/bridge_session.dart' show BridgeState;
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
-/// projects/{slug}/uploads/{id}      a file on its way from the phone: {name, mime, size, parts, complete, from, sentAt}
-/// projects/{slug}/uploads/{id}/parts/{n}  base64 of [uploadChunk] bytes each; the host reassembles, saves, deletes
 /// devices/{fcmToken}                a phone that takes pushes: {platform, name, uid, registeredAt, seenAt}; the host drops one FCM no longer knows
 /// ```
 ///
+/// Bytes are not rows: a file from the phone goes into Firebase Storage
+/// under `projects/{slug}/uploads/{id}/{name}` (`blobs.dart`) and the
+/// `send` command names it; the host fetches, saves and deletes it.
+///
 /// The host is the only writer of `asks`, `chat` and `session`; the phone
-/// only ever writes `inbox`, `commands`, `uploads` and its own `devices` row.
+/// only ever writes `inbox`, `commands` and its own `devices` row, and puts
+/// objects in the bucket.
 class ProjectSummary {
   ProjectSummary({required this.slug, required this.name, required this.dir, required this.machine, required this.session, required this.now, required this.counts, this.updatedAt});
 
@@ -351,11 +354,21 @@ class RelayPublisher {
 /// commands out. A message sent from here shows at once as an echo and is
 /// replaced by the host's copy when the mirror catches up.
 class RemoteDeck extends ChangeNotifier {
-  RemoteDeck(this.db, this.slug, {this.from = 'phone'});
+  RemoteDeck(this.db, this.slug, {this.from = 'phone', this.blobs});
 
   final FirebaseFirestore db;
   final String slug;
   final String from;
+
+  /// The bucket the files go into — a test hands one in; the phone opens
+  /// Firebase Storage on the first file.
+  BlobStore? blobs;
+
+  BlobStore get _store => blobs ??= FirebaseBlobStore();
+
+  /// How far each file of an echo has gone up: `'<echo id>/<name>'` → 0…1.
+  /// Gone once the command is written.
+  final Map<String, double> uploadProgress = {};
   List<DeckMessage> messages = const [];
   Map<String, Object?> session = const {};
   final List<DeckMessage> echoes = [];
@@ -415,8 +428,8 @@ class RemoteDeck extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Sends a message; [files] go up first, in parts, and the command names
-  /// them — the host reassembles and hands them to the session.
+  /// Sends a message; [files] go up first, into the bucket, and the command
+  /// names them — the host fetches them and hands them to the session.
   Future<void> send(String text, {Map<String, Object?>? about, List<PendingAttachment> files = const []}) async {
     final t = text.trim();
     if (t.isEmpty && files.isEmpty) return;
@@ -432,12 +445,24 @@ class RemoteDeck extends ChangeNotifier {
     echoes.add(echo);
     notifyListeners();
     try {
-      final ids = [for (final f in files) await UploadSender(db, slug).send(f, from: from)];
-      final ref = await CommandSender(db, slug).send({'type': 'send', 'text': t, 'about': ?about, if (ids.isNotEmpty) 'uploads': ids}, from: from);
+      final ups = <Map<String, Object?>>[];
+      for (final f in files) {
+        final key = '${echo.id}/${f.name}';
+        ups.add(await UploadSender(_store, slug).send(f, from: from, onProgress: (p) {
+          uploadProgress[key] = p;
+          notifyListeners();
+        }));
+      }
+      final ref = await CommandSender(db, slug).send({'type': 'send', 'text': t, 'about': ?about, if (ups.isNotEmpty) 'uploads': ups}, from: from);
       _watchResult(ref, echo);
     } on Object catch (e) {
+      // The echo goes; the words and the files stay in the composer for
+      // another try — the caller hears why.
       echoes.remove(echo);
       error = 'Could not send: $e';
+      throw SendFailed(error!);
+    } finally {
+      uploadProgress.removeWhere((k, _) => k.startsWith('${echo.id}/'));
       notifyListeners();
     }
   }
@@ -669,93 +694,71 @@ class CommandSender {
       send({'type': 'answer', 'requestId': ask.requestId, ...a.toMap(), 'remember': remember}, from: from);
 }
 
-/// A Firestore document holds a megabyte; a file goes up in pieces this
-/// big (base64 makes them a third larger, still well under).
-const uploadChunk = 600 * 1024;
+/// A send that never reached the relay — a file that would not go up, a
+/// command that would not write. The composer keeps what it had.
+class SendFailed implements Exception {
+  const SendFailed(this.message);
+  final String message;
 
-/// The phone's side of `uploads`: one file → a header and its parts, the
-/// header stamped `complete` last, so the host never reads half a file.
+  @override
+  String toString() => message;
+}
+
+/// The phone's side of an upload: the file into the bucket under
+/// `projects/{slug}/uploads/{id}/{name}`; what comes back is what the
+/// `send` command names — the host fetches, saves and deletes it.
 class UploadSender {
-  UploadSender(this.db, this.slug);
-  final FirebaseFirestore db;
+  UploadSender(this.blobs, this.slug, {String Function()? newId}) : _newId = newId ?? newBlobId;
+  final BlobStore blobs;
   final String slug;
+  final String Function() _newId;
 
-  /// Returns the upload's id — what the `send` command names.
-  Future<String> send(PendingAttachment a, {required String from}) async {
-    final ref = db.collection('projects').doc(slug).collection('uploads').doc();
-    final n = max(1, (a.size / uploadChunk).ceil());
-    await ref.set({
-      'name': a.name,
-      'mime': a.mime,
-      'size': a.size,
-      'parts': n,
-      'complete': false,
-      'from': from,
-      'sentAt': DateTime.now().toUtc().toIso8601String(),
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    for (var i = 0; i < n; i++) {
-      final start = i * uploadChunk;
-      final end = min(a.size, start + uploadChunk);
-      await ref.collection('parts').doc(i.toString().padLeft(4, '0')).set({'i': i, 'data': base64Encode(a.bytes.sublist(start, end))});
-    }
-    await ref.set({'complete': true}, SetOptions(merge: true));
-    return ref.id;
+  Future<Map<String, Object?>> send(PendingAttachment a, {required String from, void Function(double fraction)? onProgress}) async {
+    final id = _newId();
+    final path = uploadBlobPath(slug, id, a.name);
+    await blobs.put(path, a.bytes, contentType: a.mime, onProgress: onProgress);
+    return {'id': id, 'path': path, 'name': a.name, 'mime': a.mime, 'size': a.size, 'from': from, 'sentAt': DateTime.now().toUtc().toIso8601String()};
   }
 }
 
-/// The host's side of `uploads`: the file back in one piece, then gone.
+/// The host's side: the file back from the bucket, then gone.
 class UploadReader {
-  UploadReader(this.db, this.slug);
-  final FirebaseFirestore db;
+  UploadReader(this.blobs, this.slug);
+  final BlobStore blobs;
   final String slug;
 
-  CollectionReference<Map<String, dynamic>> get _coll => db.collection('projects').doc(slug).collection('uploads');
-
-  /// Throws [StateError] when the upload is missing or not complete.
-  Future<PendingAttachment> fetch(String id) async {
-    final ref = _coll.doc(id);
-    final m = (await ref.get()).data();
-    if (m == null) throw StateError('upload $id is gone');
-    if (m['complete'] != true) throw StateError('upload $id is not complete');
-    final n = (m['parts'] as num?)?.toInt() ?? 0;
-    final size = (m['size'] as num?)?.toInt() ?? 0;
-    final q = await ref.collection('parts').get();
-    final parts = {for (final d in q.docs) (d.data()['i'] as num).toInt(): (d.data()['data'] ?? '').toString()};
-    final bytes = Uint8List(size);
-    var at = 0;
-    for (var i = 0; i < n; i++) {
-      final part = parts[i];
-      if (part == null) throw StateError('upload $id is missing part $i of $n');
-      final b = base64Decode(part);
-      bytes.setRange(at, at + b.length, b);
-      at += b.length;
-    }
-    if (at != size) throw StateError('upload $id came to $at bytes, not $size');
-    return PendingAttachment(name: (m['name'] ?? 'file').toString(), mime: (m['mime'] ?? 'application/octet-stream').toString(), bytes: bytes);
+  String _path(Map<String, Object?> upload) {
+    final path = (upload['path'] ?? '').toString();
+    if (!path.startsWith('${uploadsPrefix(slug)}/')) throw StateError('upload path "$path" is not under this project');
+    return path;
   }
 
-  Future<void> delete(String id) async {
-    final ref = _coll.doc(id);
-    final q = await ref.collection('parts').get();
-    final b = db.batch();
-    for (final d in q.docs) {
-      b.delete(d.reference);
+  /// Throws [StateError] when the object is gone or not the size the
+  /// phone said.
+  Future<PendingAttachment> fetch(Map<String, Object?> upload) async {
+    final path = _path(upload);
+    final Uint8List bytes;
+    try {
+      bytes = await blobs.get(path);
+    } on StateError {
+      throw StateError('upload ${upload['id'] ?? path} is gone');
     }
-    b.delete(ref);
-    await b.commit();
+    final size = (upload['size'] as num?)?.toInt();
+    if (size != null && bytes.length != size) throw StateError('upload ${upload['id'] ?? path} came to ${bytes.length} bytes, not $size');
+    return PendingAttachment(name: (upload['name'] ?? 'file').toString(), mime: (upload['mime'] ?? 'application/octet-stream').toString(), bytes: bytes);
   }
+
+  Future<void> delete(Map<String, Object?> upload) => blobs.delete(_path(upload));
 
   /// Drops uploads nobody collected — a phone that died mid-send. Returns
   /// how many went.
   Future<int> prune({Duration olderThan = const Duration(days: 1), DateTime? now}) async {
-    final cutoff = (now ?? DateTime.now()).toUtc().subtract(olderThan).toIso8601String();
-    final q = await _coll.get();
+    final cutoff = (now ?? DateTime.now()).toUtc().subtract(olderThan);
     var n = 0;
-    for (final d in q.docs) {
-      final sentAt = (d.data()['sentAt'] ?? '').toString();
-      if (sentAt.isNotEmpty && sentAt.compareTo(cutoff) > 0) continue;
-      await delete(d.id);
+    for (final e in await blobs.list(uploadsPrefix(slug))) {
+      final at = e.updatedAt;
+      if (at != null && at.toUtc().isAfter(cutoff)) continue;
+      await blobs.delete(e.path);
       n++;
     }
     return n;

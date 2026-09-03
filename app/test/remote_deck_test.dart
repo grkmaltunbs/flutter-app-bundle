@@ -9,6 +9,7 @@ import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_kit/kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kit_app/src/attachments.dart';
+import 'package:kit_app/src/blobs.dart';
 import 'package:kit_app/src/relay.dart';
 import 'package:kit_app/src/screens/deck_tab.dart';
 import 'package:kit_app/src/theme.dart';
@@ -114,19 +115,20 @@ void main() {
     });
   }
 
-  testWidgets('a file from the phone goes up in parts; the command names it; the echo shows the chip', (tester) async {
+  testWidgets('a file from the phone goes into the bucket; the command names it; the echo shows the chip', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final db = FakeFirebaseFirestore();
     final project = db.collection('projects').doc('demo');
     await project.set({'name': 'Demo', 'machine': 'mac-mini', 'session': {'mode': 'bridge', 'state': 'ready', 'sessionId': 'sess-1', 'canResume': false, 'pendingAsks': 0}});
-    final bytes = Uint8List.fromList(List.generate(uploadChunk + 10, (i) => i % 251));
+    final bytes = Uint8List.fromList(List.generate(700 * 1024 + 10, (i) => i % 251));
+    final blobs = MemoryBlobStore();
     await tester.pumpWidget(MaterialApp(
       theme: kitTheme(KitTokens.dark),
       home: MediaQuery(
         data: const MediaQueryData(size: Size(360, 780)),
-        child: Scaffold(body: RemoteDeckTab(db: db, slug: 'demo', pick: () async => [PendingAttachment(name: 'shot.png', mime: 'image/png', bytes: bytes)])),
+        child: Scaffold(body: RemoteDeckTab(db: db, slug: 'demo', blobs: blobs, pick: () async => [PendingAttachment(name: 'shot.png', mime: 'image/png', bytes: bytes)])),
       ),
     ));
     await _settle(tester);
@@ -138,27 +140,63 @@ void main() {
     for (var i = 0; i < 4; i++) {
       await _settle(tester);
     }
-    final uploads = await project.collection('uploads').get();
-    final up = uploads.docs.single;
-    expect(up.data()['complete'], isTrue);
-    expect(up.data()['parts'], 2);
-    expect(up.data()['from'], 'phone');
-    expect((await up.reference.collection('parts').get()).docs.length, 2);
+    expect(blobs.objects.keys.single, startsWith('projects/demo/uploads/'));
+    expect(blobs.objects.keys.single, endsWith('/shot.png'));
+    expect(blobs.progress.values.single.last, 1, reason: 'the chip heard it go up');
     final cmd = (await project.collection('commands').get()).docs.single.data();
     expect(cmd['type'], 'send');
     expect(cmd['text'], '');
-    expect(cmd['uploads'], [up.id]);
+    final up = ((cmd['uploads'] as List).single as Map).map((k, v) => MapEntry(k.toString(), v as Object?));
+    expect(up['name'], 'shot.png');
+    expect(up['mime'], 'image/png');
+    expect(up['size'], bytes.length);
+    expect(up['path'], blobs.objects.keys.single);
+    expect(up['from'], 'phone');
+    expect((await project.collection('uploads').get()).docs, isEmpty, reason: 'no parts in Firestore, ever again');
     expect(find.text('shot.png'), findsOneWidget, reason: 'the echo row carries the chip');
+    expect(find.textContaining('UP '), findsNothing, reason: 'the progress line is gone once the command is written');
     expect(find.byIcon(Icons.close), findsNothing, reason: 'the composer cleared');
     // What the host reads back is the file, whole.
-    expect((await UploadReader(db, 'demo').fetch(up.id)).bytes, bytes);
+    expect((await UploadReader(blobs, 'demo').fetch(up)).bytes, bytes);
 
     // The host could not run it: the echo comes back, with the reason.
     final cmdRef = (await project.collection('commands').get()).docs.single.reference;
-    await cmdRef.set({'doneAt': '2026-09-02T10:00:00Z', 'result': 'failed: Bad state: upload ${up.id} is gone'}, SetOptions(merge: true));
+    await cmdRef.set({'doneAt': '2026-09-02T10:00:00Z', 'result': 'failed: Bad state: upload ${up['id']} is gone'}, SetOptions(merge: true));
     await _settle(tester);
     expect(find.text('shot.png'), findsNothing, reason: 'the echo is taken back');
     expect(find.textContaining('Not sent: failed'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a file that will not go up: the echo comes back, the composer keeps the words and the file, nothing is written', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = FakeFirebaseFirestore();
+    final project = db.collection('projects').doc('demo');
+    await project.set({'name': 'Demo', 'machine': 'mac-mini', 'session': {'mode': 'bridge', 'state': 'ready', 'sessionId': 'sess-1', 'canResume': false, 'pendingAsks': 0}});
+    final blobs = MemoryBlobStore()..failNextPutWith = StateError('the network went');
+    await tester.pumpWidget(MaterialApp(
+      theme: kitTheme(KitTokens.dark),
+      home: MediaQuery(
+        data: const MediaQueryData(size: Size(360, 780)),
+        child: Scaffold(body: RemoteDeckTab(db: db, slug: 'demo', blobs: blobs, pick: () async => [PendingAttachment(name: 'shot.png', mime: 'image/png', bytes: Uint8List(10))])),
+      ),
+    ));
+    await _settle(tester);
+    await tester.tap(find.byIcon(Icons.attach_file));
+    await _settle(tester);
+    await tester.enterText(find.byType(TextField), 'what is this');
+    await tester.tap(find.byIcon(Icons.arrow_forward));
+    for (var i = 0; i < 4; i++) {
+      await _settle(tester);
+    }
+    expect(find.textContaining('Could not send'), findsOneWidget);
+    expect(find.text('shot.png'), findsOneWidget, reason: 'the chip is still in the composer, and there is no echo row');
+    expect(find.byIcon(Icons.close), findsOneWidget, reason: 'the chip can still be removed');
+    expect(find.text('what is this'), findsOneWidget, reason: 'the words stay');
+    expect((await project.collection('commands').get()).docs, isEmpty);
+    expect(blobs.objects, isEmpty);
     expect(tester.takeException(), isNull);
   });
 

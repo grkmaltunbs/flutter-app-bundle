@@ -1,17 +1,16 @@
-// Files on their way to Claude: the type a name implies, a file in parts
-// over the relay and back in one piece, a screenshot shrunk to the edge
-// the API would shrink it to anyway.
+// Files on their way to Claude: the type a name implies, a file into the
+// bucket and back whole, a screenshot shrunk to the edge the API would
+// shrink it to anyway.
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter_kit/kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kit_app/src/attachment_picker.dart';
 import 'package:kit_app/src/attachments.dart';
+import 'package:kit_app/src/blobs.dart';
 import 'package:kit_app/src/relay.dart';
 
 void main() {
@@ -39,53 +38,77 @@ void main() {
     expect(got.map((a) => a.size), [3, 2, 1]);
   });
 
-  test('a file goes up in parts and comes back in one piece; then it is gone', () async {
-    final db = FakeFirebaseFirestore();
+  test('a file goes into the bucket under the project and comes back whole; then it is gone', () async {
+    final blobs = MemoryBlobStore();
     final r = Random(7);
-    final bytes = Uint8List.fromList(List.generate(uploadChunk * 2 + 12345, (_) => r.nextInt(256)));
-    final id = await UploadSender(db, 'demo').send(PendingAttachment(name: 'shot.png', mime: 'image/png', bytes: bytes), from: 'phone');
-    final uploads = db.collection('projects').doc('demo').collection('uploads');
-    final head = (await uploads.doc(id).get()).data()!;
-    expect(head['parts'], 3);
-    expect(head['complete'], isTrue);
-    expect(head['size'], bytes.length);
-    expect(head['from'], 'phone');
-    final parts = await uploads.doc(id).collection('parts').get();
-    expect(parts.docs.length, 3);
-    for (final d in parts.docs) {
-      expect((d.data()['data'] as String).length, lessThan(1000 * 1000), reason: 'a document holds a megabyte');
-    }
+    final bytes = Uint8List.fromList(List.generate(12 * 1024 * 1024 + 12345, (_) => r.nextInt(256)));
+    final progress = <double>[];
+    final up = await UploadSender(blobs, 'demo', newId: () => 'up1').send(PendingAttachment(name: 'my shot (1).png', mime: 'image/png', bytes: bytes), from: 'phone', onProgress: progress.add);
+    expect(up['id'], 'up1');
+    expect(up['path'], 'projects/demo/uploads/up1/my_shot_1_.png', reason: 'a name a path and a URL can carry');
+    expect(up['name'], 'my shot (1).png', reason: 'the file keeps its own name');
+    expect(up['mime'], 'image/png');
+    expect(up['size'], bytes.length);
+    expect(up['from'], 'phone');
+    expect(progress.first, 0);
+    expect(progress.last, 1);
+    expect(blobs.objects.keys, ['projects/demo/uploads/up1/my_shot_1_.png']);
+    expect(blobs.objects.values.single.contentType, 'image/png');
 
-    final reader = UploadReader(db, 'demo');
-    final back = await reader.fetch(id);
-    expect(back.name, 'shot.png');
+    final reader = UploadReader(blobs, 'demo');
+    final back = await reader.fetch(up);
+    expect(back.name, 'my shot (1).png');
     expect(back.mime, 'image/png');
     expect(back.bytes, bytes);
 
-    await reader.delete(id);
-    expect((await uploads.get()).docs, isEmpty);
-    expect((await uploads.doc(id).collection('parts').get()).docs, isEmpty);
-    expect(() => reader.fetch(id), throwsStateError);
+    await reader.delete(up);
+    expect(blobs.objects, isEmpty);
+    expect(() => reader.fetch(up), throwsA(isA<StateError>().having((e) => e.message, 'message', 'upload up1 is gone')));
+    await reader.delete(up);
   });
 
-  test('an empty file is one part; a half-written upload is refused', () async {
-    final db = FakeFirebaseFirestore();
-    final id = await UploadSender(db, 'demo').send(PendingAttachment(name: 'empty.txt', mime: 'text/plain', bytes: Uint8List(0)), from: 'phone');
-    expect((await UploadReader(db, 'demo').fetch(id)).size, 0);
-    await db.collection('projects').doc('demo').collection('uploads').doc(id).set({'complete': false}, SetOptions(merge: true));
-    expect(() => UploadReader(db, 'demo').fetch(id), throwsStateError);
+  test('an upload is refused when it is not the size the phone said, or not under this project', () async {
+    final blobs = MemoryBlobStore();
+    final up = await UploadSender(blobs, 'demo', newId: () => 'u').send(PendingAttachment(name: 'a.txt', mime: 'text/plain', bytes: Uint8List(0)), from: 'phone');
+    expect((await UploadReader(blobs, 'demo').fetch(up)).size, 0, reason: 'an empty file is a file');
+    expect(() => UploadReader(blobs, 'demo').fetch({...up, 'size': 3}), throwsA(isA<StateError>().having((e) => e.message, 'message', contains('came to 0 bytes, not 3'))));
+    expect(() => UploadReader(blobs, 'other').fetch(up), throwsA(isA<StateError>().having((e) => e.message, 'message', contains('not under this project'))));
+    expect(() => UploadReader(blobs, 'demo').fetch({'path': '/etc/passwd'}), throwsStateError);
+    expect(blobs.objects, hasLength(1), reason: 'a refused fetch deletes nothing');
+  });
+
+  test('a put that dies mid-way leaves nothing in the bucket and throws', () async {
+    final blobs = MemoryBlobStore()..failNextPutWith = StateError('the network went');
+    final progress = <double>[];
+    await expectLater(
+      UploadSender(blobs, 'demo').send(PendingAttachment(name: 'b.pdf', mime: 'application/pdf', bytes: Uint8List(10)), from: 'phone', onProgress: progress.add),
+      throwsStateError,
+    );
+    expect(blobs.objects, isEmpty);
+    expect(progress, isNotEmpty);
+    expect(progress.last, lessThan(1));
   });
 
   test('uploads nobody collected go after a day', () async {
-    final db = FakeFirebaseFirestore();
-    final coll = db.collection('projects').doc('demo').collection('uploads');
-    await coll.doc('old').set({'name': 'a', 'sentAt': '2026-09-01T00:00:00.000Z', 'complete': true, 'parts': 0, 'size': 0});
-    await coll.doc('old').collection('parts').doc('0000').set({'i': 0, 'data': ''});
-    await coll.doc('new').set({'name': 'b', 'sentAt': '2026-09-02T09:00:00.000Z', 'complete': true, 'parts': 0, 'size': 0});
-    final n = await UploadReader(db, 'demo').prune(now: DateTime.utc(2026, 9, 2, 10));
+    final blobs = MemoryBlobStore();
+    final old = await UploadSender(blobs, 'demo', newId: () => 'old').send(PendingAttachment(name: 'a', mime: 'text/plain', bytes: Uint8List(1)), from: 'phone');
+    await UploadSender(blobs, 'demo', newId: () => 'new').send(PendingAttachment(name: 'b', mime: 'text/plain', bytes: Uint8List(1)), from: 'phone');
+    await UploadSender(blobs, 'other', newId: () => 'old').send(PendingAttachment(name: 'c', mime: 'text/plain', bytes: Uint8List(1)), from: 'phone');
+    blobs.age(old['path'].toString(), DateTime.utc(2026, 9, 1));
+    blobs.age('projects/other/uploads/old/c', DateTime.utc(2026, 9, 1));
+    final n = await UploadReader(blobs, 'demo').prune(now: DateTime.utc(2026, 9, 2, 10));
     expect(n, 1);
-    expect((await coll.get()).docs.map((d) => d.id), ['new']);
-    expect((await coll.doc('old').collection('parts').get()).docs, isEmpty);
+    expect(blobs.objects.keys, unorderedEquals(['projects/demo/uploads/new/b', 'projects/other/uploads/old/c']), reason: 'another project\'s leftovers are its own');
+  });
+
+  test('a blob id sorts by time and a name is made safe', () {
+    final a = newBlobId(Random(1));
+    final b = newBlobId(Random(2));
+    expect(a, matches(RegExp(r'^[0-9a-z]+-[a-z0-9]{6}$')));
+    expect(a.split('-').first, b.split('-').first, reason: 'the same millisecond, or the next');
+    expect(safeBlobName('İş planı v2 (final).PDF'), '_plan_v2_final_.PDF', reason: 'a run of anything else is one underscore; the dot and the extension stay');
+    expect(safeBlobName('???'), 'file');
+    expect(uploadBlobPath('demo', 'x', 'a b.png'), 'projects/demo/uploads/x/a_b.png');
   });
 
   testWidgets('a wide screenshot is shrunk to the API edge; a small or unreadable image is left alone', (tester) async {

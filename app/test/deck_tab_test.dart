@@ -176,7 +176,7 @@ void main() {
     await _settle(tester);
     expect(find.text('shot.png'), findsOneWidget, reason: 'the chip');
     expect(find.text('huge.bin'), findsNothing);
-    expect(find.textContaining('the limit is 8.0 MB'), findsOneWidget);
+    expect(find.textContaining('the limit is 32.0 MB'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'What is on this screen?');
     await tester.tap(find.byIcon(Icons.arrow_forward));
     await _settle(tester);

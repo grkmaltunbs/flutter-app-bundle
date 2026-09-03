@@ -21,8 +21,9 @@ class PendingAttachment {
   DeckAttachment describe({String? path}) => DeckAttachment(name: name, mime: mime, size: size, path: path);
 }
 
-/// One file, after an image was shrunk. Bigger is refused at the picker.
-const maxAttachmentBytes = 8 * 1024 * 1024;
+/// One file, after an image was shrunk. Bigger is refused at the picker —
+/// the bytes sit in the phone's memory on their way to the bucket.
+const maxAttachmentBytes = 32 * 1024 * 1024;
 
 /// The API takes 5 MB per image; an image past this rides by path only.
 const maxInlineImageBytes = 4 * 1024 * 1024;

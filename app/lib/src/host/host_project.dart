@@ -7,6 +7,7 @@ import 'package:flutter_kit/kit.dart';
 import 'package:path/path.dart' as p;
 
 import '../attachments.dart';
+import '../blobs.dart';
 import '../plan_source.dart';
 import '../relay.dart';
 import 'bridge_session.dart';
@@ -20,10 +21,13 @@ import 'remote_control.dart';
 /// Claude session — the bridge (this app talks to it) and Remote Control
 /// (the Claude app does).
 class HostProject extends ChangeNotifier {
-  HostProject({required this.dir, required this.db, this.push});
+  HostProject({required this.dir, required this.db, this.push, this.blobs});
 
   final String dir;
   final FirebaseFirestore db;
+
+  /// The bucket the phone's files come from; null in a test without one.
+  final BlobStore? blobs;
 
   /// The Mac's one push sender, shared by every open project; null in a
   /// test that has no phone to reach.
@@ -180,15 +184,20 @@ class HostProject extends ChangeNotifier {
       case 'send':
         if (!bridge.running) return 'not running';
         final about = cmd['about'];
-        // The files the phone put up first, back in one piece each.
-        final ids = [for (final u in (cmd['uploads'] as List? ?? const [])) u.toString()];
-        final reader = UploadReader(db, slug!);
-        final files = <PendingAttachment>[for (final id in ids) await reader.fetch(id)];
+        // The files the phone put in the bucket first, back whole.
+        final ups = [
+          for (final u in (cmd['uploads'] as List? ?? const []))
+            if (u is Map) {for (final e in u.entries) e.key.toString(): e.value as Object?},
+        ];
+        final store = blobs;
+        if (ups.isNotEmpty && store == null) return 'failed: this host has no bucket';
+        final reader = store == null ? null : UploadReader(store, slug!);
+        final files = <PendingAttachment>[for (final u in ups) await reader!.fetch(u)];
         bridge.send((cmd['text'] ?? '').toString(), about: about is Map ? {for (final e in about.entries) e.key.toString(): e.value} : null, files: files);
-        for (final id in ids) {
-          unawaited(reader.delete(id));
+        for (final u in ups) {
+          unawaited(reader!.delete(u).catchError((Object _) {}));
         }
-        return ids.isEmpty ? 'sent' : 'sent with ${ids.length} file${ids.length == 1 ? '' : 's'}';
+        return ups.isEmpty ? 'sent' : 'sent with ${ups.length} file${ups.length == 1 ? '' : 's'}';
       case 'start':
         // A fresh conversation has nothing pending; a resumed one neither.
         final sweep = _publisher;
@@ -220,7 +229,8 @@ class HostProject extends ChangeNotifier {
       // overwrite the LIVE a dead process left on the mirror.
       unawaited(_publisher!.publishSession(sessionRelay()));
       // Files a phone put up and nobody collected.
-      unawaited(UploadReader(db, slug!).prune().catchError((Object _) => 0));
+      final store = blobs;
+      if (store != null) unawaited(UploadReader(store, slug!).prune().catchError((Object _) => 0));
       // Asks a dead process left open: nothing can answer them now.
       unawaited(_sweepAsks(_publisher!));
     }

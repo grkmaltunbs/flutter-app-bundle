@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../attachment_picker.dart';
 import '../attachments.dart';
+import '../blobs.dart';
 import '../deck_commands.dart';
 import '../host/bridge_session.dart';
 import '../relay.dart';
@@ -49,6 +50,7 @@ class DeckView extends StatefulWidget {
     this.restartPending = false,
     this.onOptions,
     this.onTestPush,
+    this.uploadProgress = const {},
   });
 
   final BridgeState state;
@@ -97,6 +99,10 @@ class DeckView extends StatefulWidget {
 
   /// An option changed while a turn ran; it applies when the turn ends.
   final bool restartPending;
+
+  /// How far a file of an echo has gone up — `'<message id>/<name>'` → 0…1;
+  /// the chip shows it in place of the size until the file is there.
+  final Map<String, double> uploadProgress;
 
   /// Changes an option — the host writes its record, the phone sends a
   /// command. Null where the surface cannot.
@@ -289,6 +295,8 @@ class _DeckViewState extends State<DeckView> {
         _input.clear();
         _files.clear();
       });
+    } on SendFailed {
+      // The deck's error line says why; the words and the files stay put.
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -325,7 +333,7 @@ class _DeckViewState extends State<DeckView> {
                             controller: _scroll,
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                             itemCount: w.messages.length,
-                            itemBuilder: (context, i) => _Row(message: w.messages[i]),
+                            itemBuilder: (context, i) => _Row(message: w.messages[i], progress: w.uploadProgress),
                           ),
                         ),
                       ),
@@ -640,9 +648,12 @@ class _Thumb extends StatelessWidget {
 /// The files a sent message carried, under its bubble. On the Mac, where
 /// the copy sits, a tap opens it.
 class _Attachments extends StatelessWidget {
-  const _Attachments(this.files, {this.dim = false});
+  const _Attachments(this.files, {this.dim = false, this.progress = const {}});
   final List<DeckAttachment> files;
   final bool dim;
+
+  /// Name → how far up it is, while it still is on its way.
+  final Map<String, double> progress;
 
   @override
   Widget build(BuildContext context) {
@@ -676,7 +687,10 @@ class _Attachments extends StatelessWidget {
                       children: [
                         ConstrainedBox(constraints: const BoxConstraints(maxWidth: 170), child: Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.mono(12, color: t.ink))),
                         const SizedBox(height: 2),
-                        Text('${formatBytes(a.size)}${a.isImage ? ' · IMAGE' : ''}${local ? ' · OPEN' : ''}', style: t.readout(10)),
+                        if (progress[a.name] case final p? when p < 1)
+                          Text('UP ${(p * 100).round()}% · ${formatBytes(a.size)}', style: t.readout(10, color: t.accent))
+                        else
+                          Text('${formatBytes(a.size)}${a.isImage ? ' · IMAGE' : ''}${local ? ' · OPEN' : ''}', style: t.readout(10)),
                       ],
                     ),
                   ],
@@ -754,10 +768,13 @@ class DeckTab extends StatelessWidget {
 
 /// The phone's Deck: the mirror in, commands out.
 class RemoteDeckTab extends StatefulWidget {
-  const RemoteDeckTab({super.key, required this.db, required this.slug, this.from = 'phone', this.title, this.nowSlot, this.pick});
+  const RemoteDeckTab({super.key, required this.db, required this.slug, this.from = 'phone', this.title, this.nowSlot, this.pick, this.blobs});
   final FirebaseFirestore db;
   final String slug;
   final String from;
+
+  /// The bucket the files go into; a test hands in a memory one.
+  final BlobStore? blobs;
   final String? title;
   final Widget? nowSlot;
   final Future<List<PendingAttachment>> Function()? pick;
@@ -767,7 +784,7 @@ class RemoteDeckTab extends StatefulWidget {
 }
 
 class _RemoteDeckTabState extends State<RemoteDeckTab> {
-  late final RemoteDeck _deck = RemoteDeck(widget.db, widget.slug, from: widget.from)..start();
+  late final RemoteDeck _deck = RemoteDeck(widget.db, widget.slug, from: widget.from, blobs: widget.blobs)..start();
 
   @override
   void dispose() {
@@ -804,6 +821,7 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         restartPending: d.restartPending,
         onOptions: ({skipPermissions, chrome, model, effort}) => d.setOptions(skipPermissions: skipPermissions, chrome: chrome, model: model, effort: effort),
         onTestPush: d.testPush,
+        uploadProgress: d.uploadProgress,
         askSlot: RemoteAskPanel(db: widget.db, slug: widget.slug, from: widget.from),
         onStart: () => d.startSession(),
         onResume: () => d.startSession(resume: true),
@@ -1104,8 +1122,9 @@ class _OptionPill extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.message});
+  const _Row({required this.message, this.progress = const {}});
   final DeckMessage message;
+  final Map<String, double> progress;
 
   @override
   Widget build(BuildContext context) {
@@ -1126,7 +1145,7 @@ class _Row extends StatelessWidget {
               if (m.attachments.isNotEmpty)
                 Padding(
                   padding: EdgeInsets.only(bottom: m.text.isEmpty ? 0 : 6),
-                  child: _Attachments(m.attachments, dim: m.streaming),
+                  child: _Attachments(m.attachments, dim: m.streaming, progress: {for (final e in progress.entries) if (e.key.startsWith('${m.id}/')) e.key.substring(m.id.length + 1): e.value}),
                 ),
               if (m.text.isNotEmpty)
                 Container(

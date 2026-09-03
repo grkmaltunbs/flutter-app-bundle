@@ -1,0 +1,14 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // One user, one tool — the same uid as firestore.rules. Uploads from the
+    // phone, mirror frames, builds and push images all live under
+    // projects/{slug}/…; nobody else reads or writes a byte of it.
+    function isOwner() {
+      return request.auth != null && request.auth.uid == 'I8XBZsWr9sScTrDAiOK2LSZ5qFZ2';
+    }
+    match /{allPaths=**} {
+      allow read, write: if isOwner();
+    }
+  }
+}
