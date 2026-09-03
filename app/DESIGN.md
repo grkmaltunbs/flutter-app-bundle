@@ -123,8 +123,7 @@ projects/{slug}/chat/{auto}           {role: user|assistant|tool, text, about?, 
 projects/{slug}/asks/{requestId}      {kind: permission|question, tool, input, suggestions, description, at, answer?, answeredAt?, by?}
 projects/{slug}/threads/{about}/messages/{auto}   the per-item / per-step conversation
 projects/{slug}/commands/{auto}       phone → host: {type: start|stop|send|options|handover|answer, payload, uploads?, at, doneAt?}
-projects/{slug}/uploads/{id}          a file on its way from the phone: {name, mime, size, parts, complete, from, sentAt}
-projects/{slug}/uploads/{id}/parts/{n}  base64, 600 KB of the file each; the host deletes the upload once saved
+(uploads rode Firestore in 600 KB base64 parts until step 10, 2026-09-04; now an object in Storage under projects/{slug}/uploads/{id}/{name}, named by the send command — see Phase 3b)
 ```
 
 The phone never writes `chat` or `asks` directly — it writes `commands`

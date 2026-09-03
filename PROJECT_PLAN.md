@@ -496,7 +496,7 @@ draws today. A step that flipped, on its own channel.
 ---
 
 ## Step 10 — Blobs — files, frames, builds and push images ride Firebase Storage, not Firestore parts
-- [ ]
+- [x]
 - id: blobs
 - depends_on: attachments
 - qa_required: true
@@ -722,7 +722,6 @@ the note says so. The protocol is undocumented; the fallback stays.
 
 ## Step 14 — Review — the diff before Allow, any file on the Mac from a tap, and Git from the phone
 - [ ]
-- state: blocked — waiting on blobs
 - id: review
 - depends_on: deck-on-the-phone, blobs
 - qa_required: true
@@ -1009,7 +1008,7 @@ without a turn.
 
 ## Step 19 — Mirror — see the app under test on the phone, and drive it with taps
 - [ ]
-- state: blocked — waiting on run-bay, blobs
+- state: blocked — waiting on run-bay
 - id: mirror
 - depends_on: run-bay, blobs
 - qa_required: true
@@ -1064,7 +1063,6 @@ paperclip does, one tap on the sheet.
 
 ## Step 20 — Try it — the build installs on the phone in your hand, and a screenshot shares straight back
 - [ ]
-- state: blocked — waiting on blobs
 - id: try-it
 - depends_on: blobs, notifications
 - qa_required: true

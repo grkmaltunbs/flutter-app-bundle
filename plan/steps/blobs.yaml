@@ -1,14 +1,14 @@
 id: blobs
 number: "10"
 title: Blobs — files, frames, builds and push images ride Firebase Storage, not Firestore parts
-status: pending
+status: done
 rank: 710
 depends_on: [attachments]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-04, note: kit and app analyzers clean 2026-09-04, status: passed}
+  tests: { at: 2026-09-04, note: "kit 75, app 78: a BlobStore with a Firebase door and a memory twin; an upload into the bucket under the project and back whole, refused when the size or the project is wrong, nothing left after a failed put, day-old leftovers pruned per project, safe names and time-ordered ids; the phone's send names the object and the chip hears the progress; no parts in Firestore; signed-out read, write and list refused by the deployed rules (403)", status: passed}
+  qa: { at: 2026-09-04, note: "Verified 2026-09-04 on the user's Android phone over adb: a 12 MB PDF and a screenshot attached from the phone reached ~\/.flutter_kit\/attachments whole, the bucket's uploads\/ was empty after, the reply named 3 pages and described the screenshot; Wi-Fi and data cut mid-upload: the failure showed after the 45 s retry limit, the composer kept the words and the chip, no command was written, nothing left in the bucket; signed-out read\/write\/list refused (403). The Mac's paperclip and drop never touch Storage and were not re-run.", status: passed}
 sections:
   - title: Description
     body: |
@@ -59,3 +59,16 @@ sections:
       - `app/lib/src/attachments.dart`, `app/lib/src/host/attachment_store.dart`, `app/lib/src/relay.dart` (uploads), `app/storage.rules`, `app/firebase.json`, `app/pubspec.yaml` (`firebase_storage`)
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — subtracts the base64 parts; unlocks mirror, try-it, rich-pushes" }
+  - at: 2026-09-04
+    event: started
+  - at: 2026-09-04
+    event: gate analyze passed
+    note: kit and app analyzers clean 2026-09-04
+  - at: 2026-09-04
+    event: gate tests passed
+    note: "kit 75, app 78: a BlobStore with a Firebase door and a memory twin; an upload into the bucket under the project and back whole, refused when the size or the project is wrong, nothing left after a failed put, day-old leftovers pruned per project, safe names and time-ordered ids; the phone's send names the object and the chip hears the progress; no parts in Firestore; signed-out read, write and list refused by the deployed rules (403)"
+  - at: 2026-09-04
+    event: gate qa passed
+    note: "Verified 2026-09-04 on the user's Android phone over adb: a 12 MB PDF and a screenshot attached from the phone reached ~\/.flutter_kit\/attachments whole, the bucket's uploads\/ was empty after, the reply named 3 pages and described the screenshot; Wi-Fi and data cut mid-upload: the failure showed after the 45 s retry limit, the composer kept the words and the chip, no command was written, nothing left in the bucket; signed-out read\/write\/list refused (403). The Mac's paperclip and drop never touch Storage and were not re-run."
+  - at: 2026-09-04
+    event: done
