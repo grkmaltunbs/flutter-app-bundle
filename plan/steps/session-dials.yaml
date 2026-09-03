@@ -1,0 +1,61 @@
+id: session-dials
+number: "5d"
+title: Session dials — model and effort from either device; the conversation as one selection
+status: active
+rank: 665
+depends_on: [session-options]
+meta: { qa_required: true }
+gates:
+  analyze: { at: 2026-09-03, note: kit and app analyzers clean 2026-09-03, status: passed}
+  tests: { at: 2026-09-03, note: "kit 74, app 69: dials become flags; record, relay, one command per lift; a change while live restarts on the same session between turns and waits for a running turn; header folds while running with Stop on the row; 1.0\/2.0\/3.12x no overflow", status: passed}
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      Two dials under the option pills on the Deck header: `--model` by the
+      CLI's aliases (default · haiku · sonnet · opus · fable) and `--effort`
+      (default · low · medium · high · xhigh · max). Kept in the bridge
+      record beside the switches, flipped from either device — while a
+      session runs too: the process restarts on the same conversation
+      (`--resume`) with the new flags, at once between turns, at the end
+      of a running turn otherwise. `default` hands the choice back to the
+      CLI. The
+      transcript sits in one SelectionArea, so the conversation can be
+      selected and copied whole on the Mac and on the phone. The controls
+      under the title fold behind a chevron — open while idle, folded while
+      running, Stop kept on the title row — so the transcript has the screen.
+  - title: Acceptance
+    body: |
+      - Phone: MODEL to opus, EFFORT to high, Start; the facts line shows
+        the model init reported; the Mac's process runs with the flags.
+      - A dial dragged while live between turns restarts the process on the
+        same session with the new flag; dragged mid-turn it waits for the
+        turn to end and says so.
+      - Running: the controls are folded and Stop is on the title row; the
+        chevron opens them; Stop folds them back on its own.
+      - Mac: drag across three rows and copy; the clipboard holds all three.
+      - Phone: long-press a reply, extend the selection into the next row, copy.
+  - title: QA walkthrough
+    body: |
+      1. Phone: MODEL → OPUS, EFFORT → HIGH; Start; send "which model are you?".
+      2. Mac: Session tab process output shows --model opus --effort high; the deck's facts line names the model.
+      3. Mac: select from your message down through the reply; Cmd-C; paste somewhere.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/screens/deck_tab.dart` (`_Dial`, SelectionArea), `app/lib/src/host/bridge_session.dart` (record, args), `app/lib/src/relay.dart`, `kit/lib/src/bridge.dart` (choices, `--effort`)
+history:
+  - { at: "2026-09-03", event: added }
+  - at: 2026-09-03
+    event: started
+  - at: 2026-09-03
+    event: gate analyze passed
+    note: kit and app analyzers clean 2026-09-03
+  - at: 2026-09-03
+    event: gate tests passed
+    note: "kit 74 (dials become flags), app 68 (record, relay, dials drag once per lift and freeze while running, header scrolls in its share at 3.12x)"
+  - at: 2026-09-03
+    event: gate tests passed
+    note: "kit 74, app 68: dials become flags; record, relay, one command per lift, frozen while running; header folds while running with Stop on the title row; opens idle; 1.0\/2.0\/3.12x no overflow"
+  - at: 2026-09-03
+    event: gate tests passed
+    note: "kit 74, app 69: dials become flags; record, relay, one command per lift; a change while live restarts on the same session between turns and waits for a running turn; header folds while running with Stop on the row; 1.0\/2.0\/3.12x no overflow"

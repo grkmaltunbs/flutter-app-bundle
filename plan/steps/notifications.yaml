@@ -7,7 +7,7 @@ depends_on: [deck-on-the-phone]
 meta: { qa_required: true }
 gates:
   analyze: { at: 2026-09-03, note: kit and app analyzers clean 2026-09-03, status: passed}
-  tests: { at: 2026-09-03, note: "kit 72, app 68 (+1 live skipped): notice texts incl. Done with duration, isSignIn, brief tells sessions PushNotification has no route; PushSender against a scripted FCM (key missing\/bad\/late, bearer and endpoint, UNREGISTERED dropped, failure kept, TurnWatch once per failure\/result); PushRegistrar; PushTap", status: passed}
+  tests: { at: 2026-09-03, note: "kit 74, app 68: notice texts incl. Done and Claude · project notes, isSignIn, brief tells sessions about kit notify and that PushNotification has no route; kit notify CLI spools with a plan and refuses without; PushSender against a scripted FCM; TurnWatch; PushRegistrar; PushTap; PUSH · TEST on both decks", status: passed}
   qa: { status: pending }
 sections:
   - title: Description
@@ -22,7 +22,9 @@ sections:
       error), and when a turn ends well — the task sent from the phone
       reports back. Three Android channels — Claude needs you, Problems,
       Turn ended — so any one can be silenced alone. A tap opens the
-      project. Allow / Deny on the notification itself is
+      project. `kit notify "one line"` lets a session push a line of its
+      own mid-task — a Notify event in the hook spool the host already
+      watches. Allow / Deny on the notification itself is
       `notification-actions`.
   - title: Acceptance
     body: |
@@ -42,7 +44,7 @@ sections:
       5. Mac: Stop; kill the process from a terminal while a session runs → "Problem · Kit" on the phone.
   - title: Touchpoints
     body: |
-      - `app/lib/src/host/push_sender.dart` (key, token, FCM v1, ProblemWatch), `app/lib/src/push/**` (registrar, listener, tap), `kit/lib/src/bridge.dart` (Notice, `Ask.isSignIn`), `app/android/**` (channels, POST_NOTIFICATIONS)
+      - `app/lib/src/host/push_sender.dart` (key, token, FCM v1, TurnWatch), `app/lib/src/push/**` (registrar, listener, tap), `kit/lib/src/bridge.dart` (Notice, `Ask.isSignIn`, the brief), `kit/bin/kit.dart` (`kit notify`), `app/android/**` (channels, POST_NOTIFICATIONS)
 history:
   - { at: "2026-08-30", event: added }
   - at: 2026-09-03
@@ -56,3 +58,6 @@ history:
   - at: 2026-09-03
     event: gate tests passed
     note: "kit 72, app 68 (+1 live skipped): notice texts incl. Done with duration, isSignIn, brief tells sessions PushNotification has no route; PushSender against a scripted FCM (key missing\/bad\/late, bearer and endpoint, UNREGISTERED dropped, failure kept, TurnWatch once per failure\/result); PushRegistrar; PushTap"
+  - at: 2026-09-03
+    event: gate tests passed
+    note: "kit 74, app 68: notice texts incl. Done and Claude · project notes, isSignIn, brief tells sessions about kit notify and that PushNotification has no route; kit notify CLI spools with a plan and refuses without; PushSender against a scripted FCM; TurnWatch; PushRegistrar; PushTap; PUSH · TEST on both decks"
