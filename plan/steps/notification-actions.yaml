@@ -1,0 +1,30 @@
+id: notification-actions
+number: "6b"
+title: Notification actions — Allow and Deny from the lock screen
+status: pending
+rank: 705
+depends_on: [notifications]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The Android notification for an ask carries Allow and Deny actions
+      that write `commands` without opening the app — a data message the
+      app renders itself (flutter_local_notifications, a background isolate
+      that answers over Firestore), instead of the tray notification FCM
+      draws today. A step that flipped, on its own channel.
+  - title: Acceptance
+    body: |
+      - Phone locked: Allow on the notification runs the command on the Mac;
+        the app never opens.
+      - Deny from the notification is the deny the deck would have sent.
+      - A step that flipped to done notifies once, on a channel the user can silence.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/push/**`, `app/android/**`
+history:
+  - { at: "2026-09-03", event: added }
