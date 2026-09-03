@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_kit/kit.dart';
 import 'package:path/path.dart' as p;
 
+import '../attachments.dart';
+import 'attachment_store.dart';
 import 'claude_cli.dart';
 import 'permission_rules.dart';
 
@@ -35,30 +37,43 @@ enum BridgeState {
   failed,
 }
 
-/// The session a previous run left for this folder, so a host restart can
-/// offer Resume instead of starting a second conversation — and the rules
-/// the user answered Always to, so the Session tab can list them.
+/// What this folder keeps between runs: the session a previous run left,
+/// so a host restart can offer Resume instead of starting a second
+/// conversation; the rules the user answered Always to, so the Session
+/// tab can list them; and the options the next Start runs with.
 class BridgeRecord {
-  const BridgeRecord({required this.sessionId, required this.startedAt, this.pid, this.always = const []});
-  final String sessionId;
+  const BridgeRecord({this.sessionId, required this.startedAt, this.pid, this.always = const [], this.skipPermissions = false, this.chrome = false});
+
+  /// Null when no session has run here yet — only options are recorded.
+  final String? sessionId;
   final DateTime startedAt;
   final int? pid;
   final List<AppliedRule> always;
+
+  /// `--permission-mode bypassPermissions`: nothing waits on Allow.
+  final bool skipPermissions;
+
+  /// `--chrome`: the Claude in Chrome tools, on this Mac's browser.
+  final bool chrome;
+
   Map<String, Object?> toJson() => {
-        'sessionId': sessionId,
+        if (sessionId != null) 'sessionId': sessionId,
         'startedAt': startedAt.toUtc().toIso8601String(),
         if (pid != null) 'pid': pid,
         'always': [for (final r in always) r.toJson()],
+        'skipPermissions': skipPermissions,
+        'chrome': chrome,
       };
   static BridgeRecord? fromJson(Object? v) {
     if (v is! Map) return null;
     final id = v['sessionId']?.toString();
-    if (id == null || id.isEmpty) return null;
     return BridgeRecord(
-      sessionId: id,
+      sessionId: id == null || id.isEmpty ? null : id,
       startedAt: DateTime.tryParse(v['startedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
       pid: (v['pid'] as num?)?.toInt(),
       always: [for (final r in (v['always'] as List? ?? const [])) if (r is Map) AppliedRule.fromJson({for (final e in r.entries) e.key.toString(): e.value})],
+      skipPermissions: v['skipPermissions'] == true,
+      chrome: v['chrome'] == true,
     );
   }
 }
@@ -83,7 +98,10 @@ class BridgeSession extends ChangeNotifier {
         _findBinary = findBinary ?? ClaudeCli.findBinary,
         _versionOf = versionOf ?? _claudeVersion,
         _shellPath = shellPath ?? ClaudeCli.shellPath {
-    alwaysApplied.addAll(previous()?.always ?? const []);
+    final prev = previous();
+    alwaysApplied.addAll(prev?.always ?? const []);
+    skipPermissions = prev?.skipPermissions ?? false;
+    chrome = prev?.chrome ?? false;
   }
 
   final String dir;
@@ -96,6 +114,10 @@ class BridgeSession extends ChangeNotifier {
   final String? home;
 
   final Transcript transcript = Transcript();
+
+  /// Where the files that travel with a message land.
+  late final AttachmentStore attachments = AttachmentStore(dir: dir, home: home);
+
   BridgeState state = BridgeState.idle;
   String? error;
   String? sessionId;
@@ -123,6 +145,28 @@ class BridgeSession extends ChangeNotifier {
   /// the record; the Session tab lists and removes them.
   final List<AppliedRule> alwaysApplied = [];
 
+  /// The next Start runs `--permission-mode bypassPermissions`: no Allow /
+  /// Deny cards, every command runs. Questions still come. Persisted.
+  bool skipPermissions = false;
+
+  /// The next Start runs `--chrome`: the session drives this Mac's own
+  /// browser through the Claude in Chrome extension. Persisted.
+  bool chrome = false;
+
+  /// Options are fixed for a running process; returns false then.
+  bool setOptions({bool? skipPermissions, bool? chrome}) {
+    if (running) return false;
+    if (skipPermissions != null) this.skipPermissions = skipPermissions;
+    if (chrome != null) this.chrome = chrome;
+    _writeRecord();
+    notifyListeners();
+    return true;
+  }
+
+  /// What `init` said about the browser: `connected`, `failed`, … — null
+  /// before init or when [chrome] was off.
+  String? get chromeStatus => transcript.mcpServers['claude-in-chrome'];
+
   /// "This session": the exact requests the user allowed once for the life
   /// of the process. Cleared on stop; never persisted.
   final Set<String> _sessionAllows = {};
@@ -149,7 +193,7 @@ class BridgeSession extends ChangeNotifier {
   Future<void> start({bool resume = false, String? model}) async {
     if (running) return;
     final prev = resume ? previous() : null;
-    if (resume && prev == null) return _fail('Nothing to resume for this folder.');
+    if (resume && prev?.sessionId == null) return _fail('Nothing to resume for this folder.');
     error = null;
     log.clear();
     _sessionAllows.clear();
@@ -165,7 +209,7 @@ class BridgeSession extends ChangeNotifier {
     final bin = await _findBinary();
     if (bin == null) return _fail('claude is not installed (looked on your shell PATH, ~/.local/bin, /opt/homebrew/bin).');
     sessionId = resume ? prev!.sessionId : _uuid4();
-    final args = bridgeArgs(sessionId: sessionId!, resume: resume, model: model);
+    final args = bridgeArgs(sessionId: sessionId!, resume: resume, model: model, permissionMode: skipPermissions ? 'bypassPermissions' : 'default', chrome: chrome);
     try {
       _proc = await _starter(bin, args, workingDirectory: dir, environment: {...Platform.environment, 'PATH': await _shellPath()});
     } on ProcessException catch (e) {
@@ -229,14 +273,26 @@ class BridgeSession extends ChangeNotifier {
   /// Sends a message. [about] scopes it to one item or step: the deck
   /// shows what was typed, the model reads it wrapped with `kit show` and
   /// the standing instruction — answer for a phone, edit the thing itself
-  /// if it should change.
-  void send(String text, {Map<String, Object?>? about}) {
+  /// if it should change. [files] travel with it: every one is saved under
+  /// the store and named by path in the prompt; an image the API takes
+  /// goes inline too, so the model sees it at once — a pasted screenshot,
+  /// as in the terminal.
+  void send(String text, {Map<String, Object?>? about, List<PendingAttachment> files = const []}) {
     final proc = _proc;
     final t = text.trim();
-    if (proc == null || !running || t.isEmpty) return;
-    transcript.addUser(t, about: about);
-    final prompt = about == null ? t : scopedPrompt(t, about, describeAbout?.call(about));
-    proc.stdin.writeln(encodeUserMessage(prompt));
+    if (proc == null || !running || (t.isEmpty && files.isEmpty)) return;
+    final saved = [for (final f in files) attachments.save(f)];
+    transcript.addUser(t, about: about, attachments: saved);
+    var prompt = about == null ? t : scopedPrompt(t, about, describeAbout?.call(about));
+    final images = <InlineImage>[];
+    final inline = <int>{};
+    for (var i = 0; i < files.length; i++) {
+      if (!files[i].inlinable) continue;
+      images.add(InlineImage(mediaType: files[i].mime, data: base64Encode(files[i].bytes)));
+      inline.add(i);
+    }
+    prompt = attachmentsPrompt(prompt, saved, inline: inline);
+    proc.stdin.writeln(encodeUserMessage(prompt, images: images));
     unawaited(proc.stdin.flush());
     state = BridgeState.busy;
     notifyListeners();
@@ -324,12 +380,18 @@ class BridgeSession extends ChangeNotifier {
   }
 
   void _writeRecord() {
-    final id = sessionId ?? previous()?.sessionId;
-    if (id == null) return;
+    final prev = previous();
     try {
       _recordFile
         ..createSync(recursive: true)
-        ..writeAsStringSync(jsonEncode(BridgeRecord(sessionId: id, startedAt: startedAt ?? previous()?.startedAt ?? DateTime.now(), pid: pid, always: alwaysApplied).toJson()));
+        ..writeAsStringSync(jsonEncode(BridgeRecord(
+          sessionId: sessionId ?? prev?.sessionId,
+          startedAt: startedAt ?? prev?.startedAt ?? DateTime.now(),
+          pid: pid,
+          always: alwaysApplied,
+          skipPermissions: skipPermissions,
+          chrome: chrome,
+        ).toJson()));
     } on Object {
       // The record is a convenience for Resume; the session runs without it.
     }
@@ -339,7 +401,10 @@ class BridgeSession extends ChangeNotifier {
         'mode': running ? 'bridge' : 'idle',
         'state': state.name,
         'pendingAsks': transcript.pending == null ? 0 : 1,
-        'canResume': !running && previous() != null,
+        'canResume': !running && previous()?.sessionId != null,
+        'skipPermissions': skipPermissions,
+        'chrome': chrome,
+        if (chromeStatus != null) 'chromeStatus': chromeStatus,
         if (sessionId != null) 'sessionId': sessionId,
         if (transcript.model != null) 'model': transcript.model,
         if (cliVersion != null) 'cliVersion': cliVersion,

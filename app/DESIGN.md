@@ -43,6 +43,9 @@ usage page before relying on long unattended runs.
 | The Claude app stays available | **Hand over** stops the bridge and starts `remote-control --session-id` on the same transcript; **Take back** does the reverse. One driver per project at a time — the host refuses a second. | Plan mode, `/compact`, the full TUI remain one tap away, on the same conversation. |
 | Asking about one item | A message carries `about: {item: id}` or `{step: id}`. The host prefixes the prompt with `kit show <id>` and a standing instruction: answer for a phone screen; if the item should change, change it with `kit` or by editing its YAML and say what changed. The plan watcher mirrors the edit; the card shows the thread and an **UPDATED** strip. Threads persist under `projects/{slug}/threads/{about}`. | Appearance is derived from data; Claude changes the data. No second state. |
 | Notifications | FCM HTTP v1 **from the host**, with a service-account key on the Mac (already gitignored). Milestones (needs you, turn ended, step flipped) and asks. Android notification actions answer an ask without opening the app. | No Cloud Functions, no Blaze, no server. iOS needs an APNs key — a human item. |
+| Attaching a file | The paperclip on the composer, both devices; on the Mac, a drop on the Deck too. The phone puts the bytes up in 600 KB base64 parts under `uploads/`; the host reassembles, saves under `~/.flutter_kit/attachments/`, sends images inline and every file by path, and deletes the upload. Images are shrunk on the device to the 1568-px edge the API scales to. | No Storage bucket (Blaze), no second transport. Firestore's free tier carries a screenshot in a second, and nothing stays in it. |
+| Skipping permissions | A per-project option, kept in the bridge record and flipped from either device while no session runs: Start adds `--permission-mode bypassPermissions`. Questions still arrive — an `AskUserQuestion` under bypass came over stdio and its answer was read back (2026-09-03, 2.1.258). | It is `--dangerously-skip-permissions` by another name, so it is a switch the user throws, never a default; and the phone still gets the questions, which is the half of the ask model that matters when nothing else is asked. |
+| The browser | A second option: Start adds `--chrome`. Headless, the session's `init` listed `claude-in-chrome: connected` and the browser tools (navigate, find, form_input, get_page_text, computer, file_upload) on 2026-09-03; the pill shows that status while running. App Store Connect, Play Console, RevenueCat are the Mac's own logged-in Chrome tabs, driven from the phone; each browser action asks unless permissions are skipped. | The extension is on the Mac already; no Playwright profile to sign in, no second browser. |
 | Voice | On-device only: `speech_to_text` on the composer mic, `flutter_tts` reads Claude's reply when the toggle is on. | The JARVIS half that costs nothing. Optional; ships after the deck works. |
 | The phone is a shell on the Mac | `local_auth` (biometric) before Start, Allow, Always and Send. Owner-only rules stay; the APK is never shared. | A lost, unlocked phone must not be a terminal. |
 | Look | **Instrument** — deep blue-black ground, one cyan for the system, one amber for anything that waits on you; Rajdhani headings, JetBrains Mono readouts, IBM Plex Sans prose. Canvas with the three screens and two alternates: https://claude.ai/code/artifact/b8bc9970-7ad2-4e99-987d-2f8dd146464d | An original design in the spirit of a HUD, not the film's graphics. `KitTokens` grows the second accent; `board.colors` still overrides per project. |
@@ -82,7 +85,14 @@ What the host writes to stdin:
 {"type":"user","message":{"role":"user","content":"/step"}}
 {"type":"control_response","response":{"subtype":"success","request_id":"<id>","response":{"behavior":"allow","updatedInput":{"…":"…"}}}}
 {"type":"control_response","response":{"subtype":"success","request_id":"<id>","response":{"behavior":"deny","message":"The user declined from the phone."}}}
+{"type":"user","message":{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"…"}},{"type":"text","text":"What is wrong on this screen?\n\n--- attached … ---"}]}}
 ```
+
+The third line is a message with files: an image the API takes (png,
+jpeg, gif, webp, ≤ 4 MB) rides inline as a block — proven 2026-09-02 on
+2.1.258, a red square went in and `Red` came back — and every file, image
+or not, is saved under `~/.flutter_kit/attachments/<project>/` and named by
+path in a trailer, for the Read tool.
 
 What the host reads from stdout, one JSON object per line:
 
@@ -104,15 +114,18 @@ the user allowed "for this session".
 ## Firestore shape (additions to phase 2)
 
 ```
-projects/{slug}.session               {mode: bridge|remote|idle, sessionId, model, permissionMode, startedAt, pool{resetsAt}}
+projects/{slug}.session               {mode: bridge|remote|idle, sessionId, model, startedAt, pool{resetsAt}, skipPermissions, chrome, chromeStatus?}
 projects/{slug}/chat/{auto}           {role: user|assistant|tool, text, about?, tool?, status?, at}
 projects/{slug}/asks/{requestId}      {kind: permission|question, tool, input, suggestions, description, at, answer?, answeredAt?, by?}
 projects/{slug}/threads/{about}/messages/{auto}   the per-item / per-step conversation
-projects/{slug}/commands/{auto}       phone → host: {type: start|stop|send|handover|answer, payload, at, doneAt?}
+projects/{slug}/commands/{auto}       phone → host: {type: start|stop|send|options|handover|answer, payload, uploads?, at, doneAt?}
+projects/{slug}/uploads/{id}          a file on its way from the phone: {name, mime, size, parts, complete, from, sentAt}
+projects/{slug}/uploads/{id}/parts/{n}  base64, 600 KB of the file each; the host deletes the upload once saved
 ```
 
-The phone never writes `chat` or `asks` directly — it writes `commands`;
-the host is the only writer of session truth, as in phase 2.
+The phone never writes `chat` or `asks` directly — it writes `commands`
+(and `uploads`, which the host consumes); the host is the only writer of
+session truth, as in phase 2.
 
 ## Roadmap — as steps, each gated on running
 

@@ -16,12 +16,22 @@ The two roles:
   phone sends, watches Claude Code's hooks, and starts `claude
   remote-control` in the folder on the user's own login.
 - **Remote** (Android first) — reads the mirror, shows the **Deck** (the
-  conversation with the session: send, watch it stream, answer what Claude
-  asks, Start / Stop / Resume — all as commands the host runs) and the same
+  conversation with the session: send, attach a screenshot or any file,
+  watch it stream, answer what Claude asks, Start / Stop / Resume — all as
+  commands the host runs) and the same
   two screens as the board (Steps as bubbles, Your work as sittings), and
   keeps ticks and notes on the device until **Send to Claude**. The Claude
   app is no longer needed for a command; it stays the way in for the full
   terminal (plan mode, `/compact`) until `handover` ships.
+
+Two session options live per project, under Start on both Decks and on
+the Mac's Session tab, fixed while a session runs: **Skip permissions**
+(`--permission-mode bypassPermissions` — no Allow / Deny cards, every
+command runs; Claude's questions still reach the phone) and **Drive
+Chrome** (`--chrome` — the session works in the Mac's own signed-in
+browser through the Claude in Chrome extension; the pill shows whether
+the browser answered). They sit in `~/.flutter_kit/bridge/<project>.json`
+beside the session to resume.
 
 The relay is the Firebase project `flutterappbundle` (Firestore in
 europe-west3, Email/Password auth, one user, owner-only rules in
@@ -91,6 +101,9 @@ lib/src/
   plan_source.dart     PlanSource: LocalPlanSource (plan/ on disk, watched) · RemotePlanSource (Firestore)
   relay.dart           Firestore paths, RelayPublisher (host → mirror), InboxListener (host), InboxSender (phone)
   draft.dart           ticks/answers/notes on the device until Send
+  attachments.dart     PendingAttachment (a picked file), what may ride inline · attachment_picker (file_selector, or a
+                       drop on the Mac window; images shrunk to the API's 1568-px edge) · host/attachment_store
+                       (~/.flutter_kit/attachments/)
   host/                claude_cli (binary, trust, bridge pointer) · remote_control (the Claude app's way in) ·
                        bridge_session (this app's way in: `claude -p` over stdio — see ../kit/lib/src/bridge.dart;
                        remembers "this session", records "always") · permission_rules (the settings files the CLI's
@@ -113,6 +126,8 @@ projects/{slug}/inbox/{auto}    {sentAt, entries, from}; the host stamps applied
 projects/{slug}/events/{auto}   milestones from hooks (prompts, turn ends, notifications)
 projects/{slug}/threads/{about}          `item:<id>` or `step:<id>` — {about, count, last, updated}
 projects/{slug}/threads/{about}/messages the scoped rows, append-only; they outlive sessions and the chat window
+projects/{slug}/uploads/{id}             a file on its way from the phone {name, mime, size, parts, complete}; parts/{n} hold 600 KB
+                                         of base64 each; the host saves it under ~/.flutter_kit/attachments/ and deletes the upload
 ```
 
 The phone rebuilds a `Plan` from the documents and runs the same `Graph`,

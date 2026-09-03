@@ -1,0 +1,73 @@
+id: attachments
+number: "5b"
+title: Attachments — a screenshot or any file rides with a message from either device; the Deck reads freely while Claude writes
+status: active
+rank: 650
+depends_on: [item-threads]
+meta: { qa_required: true }
+gates:
+  analyze: { at: 2026-09-02, note: "flutter analyze + dart analyze: no issues", status: passed}
+  tests: { at: 2026-09-02, note: "kit 69 (the image-block line, attachment rows and the prompt trailer), app 54 (files inline and by path, uploads in parts and back whole, a screenshot shrunk to 1568, free scrolling with LATEST, a phone upload named by the send command and its echo taken back on failure, a Finder drop on the Mac Deck with the veil and a refused folder); the image block proven live on claude 2.1.258", status: passed}
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The paperclip on the Deck's composer opens the system picker on both
+      devices (`file_selector`; the phone's document picker lists
+      screenshots under Images); on the Mac a file dropped anywhere on the
+      Deck lands the same way (`desktop_drop`, with a veil while it hangs
+      over the window). A picked file shows as a chip with its size. An image is shrunk on the device to the 1568-px long edge the
+      API scales to anyway, so nothing the model would see is lost and a
+      screenshot travels at a third of the bytes. On send, the phone puts
+      each file up under `projects/{slug}/uploads/{id}` in base64 parts of
+      600 KB (a Firestore document holds a megabyte) and the `send` command
+      names the ids; the host reassembles, saves every file under
+      `~/.flutter_kit/attachments/<project>/` (never in the repo), deletes
+      the upload, and sends the message to `claude -p` as the API's block
+      list: images the API takes inline (png, jpeg, gif, webp, ≤ 4 MB),
+      then the text with a trailer naming every file's path for the Read
+      tool. The row shows the files under the bubble; on the Mac a tap
+      opens one.
+
+      The Deck follows the newest row only while the viewport sits on it.
+      Scroll up to read and the list stays put while Claude writes; a
+      LATEST chip offers the way down; sending pins the list again.
+  - title: Acceptance
+    body: |
+      - From the phone: attach a screenshot, ask what is on it; the answer
+        describes the screenshot; the chip shows under the message on both
+        devices; `uploads/` is empty afterwards.
+      - From the Mac: attach a PDF and an image — one by the paperclip, one
+        dropped from the Finder; Claude reads the PDF by path when asked
+        about it.
+      - While a long reply streams, scroll up on the phone: the list does
+        not move; LATEST appears; tapping it lands on the newest row.
+      - The inline image block is proven against the real CLI (2.1.258,
+        2026-09-02: a red square in, "Red" out).
+  - title: QA walkthrough
+    body: |
+      1. Phone → a project → Deck → the paperclip → pick a screenshot →
+         "what is on this screen?" → send. Watch the chip, then the answer.
+      2. While Claude writes a long answer, drag the list up; wait; tap
+         LATEST.
+      3. Mac → the same Deck → drag a PDF from the Finder onto the
+         transcript → "summarise the attached file".
+  - title: Touchpoints
+    body: |
+      - `kit/lib/src/bridge.dart` (`InlineImage`, `DeckAttachment`, `attachmentsPrompt`, `encodeUserMessage`)
+      - `app/lib/src/attachments.dart`, `attachment_picker.dart` (picker and drop), `host/attachment_store.dart`
+      - `app/lib/src/relay.dart` (`UploadSender`, `UploadReader`), `host/host_project.dart` (the `send` command)
+      - `app/lib/src/screens/deck_tab.dart` (composer, `_follow`, LATEST)
+history:
+  - { at: "2026-09-02", event: added }
+  - at: 2026-09-02
+    event: started
+  - at: 2026-09-02
+    event: gate analyze passed
+    note: "flutter analyze + dart analyze: no issues"
+  - at: 2026-09-02
+    event: gate tests passed
+    note: "kit 69 (the image-block line, attachment rows and the prompt trailer), app 51 (files inline and by path, uploads in parts and back whole, a screenshot shrunk to 1568, free scrolling with LATEST, a phone upload named by the send command); the image block proven live on claude 2.1.258"
+  - at: 2026-09-02
+    event: gate tests passed
+    note: "kit 69 (the image-block line, attachment rows and the prompt trailer), app 54 (files inline and by path, uploads in parts and back whole, a screenshot shrunk to 1568, free scrolling with LATEST, a phone upload named by the send command and its echo taken back on failure, a Finder drop on the Mac Deck with the veil and a refused folder); the image block proven live on claude 2.1.258"

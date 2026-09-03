@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_kit/kit.dart';
 
+import 'attachments.dart';
 import 'host/bridge_session.dart' show BridgeState;
 
 /// The relay: Firestore on `flutterappbundle`, one user, owner-only rules.
@@ -16,14 +18,16 @@ import 'host/bridge_session.dart' show BridgeState;
 /// projects/{slug}/inbox/{auto}    a batch from the phone; the host stamps appliedAt
 /// projects/{slug}/events/{auto}   milestones from hooks (prompt, stop, notification)
 /// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
-/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop, …}; the host stamps doneAt, result
+/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|options, …}; the host stamps doneAt, result
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
+/// projects/{slug}/uploads/{id}      a file on its way from the phone: {name, mime, size, parts, complete, from, sentAt}
+/// projects/{slug}/uploads/{id}/parts/{n}  base64 of [uploadChunk] bytes each; the host reassembles, saves, deletes
 /// ```
 ///
 /// The host is the only writer of `asks`, `chat` and `session`; the phone
-/// only ever writes `inbox` and `commands`.
+/// only ever writes `inbox`, `commands` and `uploads`.
 class ProjectSummary {
   ProjectSummary({required this.slug, required this.name, required this.dir, required this.machine, required this.session, required this.now, required this.counts, this.updatedAt});
 
@@ -362,6 +366,9 @@ class RemoteDeck extends ChangeNotifier {
   String? get model => session['model']?.toString();
   String? get cliVersion => session['cliVersion']?.toString();
   String? get machine => session['machine']?.toString();
+  bool get skipPermissions => session['skipPermissions'] == true;
+  bool get chrome => session['chrome'] == true;
+  String? get chromeStatus => session['chromeStatus']?.toString();
 
   /// The transcript with this device's unconfirmed sends at the end.
   List<DeckMessage> get view => [...messages, ...echoes];
@@ -387,23 +394,58 @@ class RemoteDeck extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> send(String text, {Map<String, Object?>? about}) async {
+  /// Sends a message; [files] go up first, in parts, and the command names
+  /// them — the host reassembles and hands them to the session.
+  Future<void> send(String text, {Map<String, Object?>? about, List<PendingAttachment> files = const []}) async {
     final t = text.trim();
-    if (t.isEmpty) return;
-    echoes.add(DeckMessage(id: 'echo-${(_echoSeq++).toString().padLeft(5, '0')}', role: DeckRole.user, text: t, at: DateTime.now(), streaming: true, about: about));
+    if (t.isEmpty && files.isEmpty) return;
+    final echo = DeckMessage(
+      id: 'echo-${(_echoSeq++).toString().padLeft(5, '0')}',
+      role: DeckRole.user,
+      text: t,
+      at: DateTime.now(),
+      streaming: true,
+      about: about,
+      attachments: [for (final f in files) f.describe()],
+    );
+    echoes.add(echo);
     notifyListeners();
     try {
-      await CommandSender(db, slug).send({'type': 'send', 'text': t, 'about': ?about}, from: from);
+      final ids = [for (final f in files) await UploadSender(db, slug).send(f, from: from)];
+      final ref = await CommandSender(db, slug).send({'type': 'send', 'text': t, 'about': ?about, if (ids.isNotEmpty) 'uploads': ids}, from: from);
+      _watchResult(ref, echo);
     } on Object catch (e) {
-      echoes.removeWhere((m) => m.text == t);
+      echoes.remove(echo);
       error = 'Could not send: $e';
       notifyListeners();
     }
   }
 
+  /// The host stamps what came of a command. Anything but "sent" — the
+  /// session stopped meanwhile, a file that did not arrive — takes the
+  /// echo back and says why, instead of leaving a dim bubble forever.
+  void _watchResult(DocumentReference<Map<String, dynamic>> ref, DeckMessage echo) {
+    late final StreamSubscription<DocumentSnapshot<Map<String, dynamic>>> sub;
+    sub = ref.snapshots().listen((d) {
+      final m = d.data();
+      if (m == null || m['doneAt'] == null) return;
+      sub.cancel();
+      final result = (m['result'] ?? '').toString();
+      if (result.startsWith('sent')) return;
+      echoes.remove(echo);
+      error = 'Not sent: $result';
+      notifyListeners();
+    }, onError: (Object _) => sub.cancel());
+    _subs.add(sub);
+  }
+
   Future<void> startSession({bool resume = false}) => CommandSender(db, slug).send({'type': 'start', 'resume': resume}, from: from);
 
   Future<void> stopSession() => CommandSender(db, slug).send({'type': 'stop'}, from: from);
+
+  /// The options the host's next Start runs with.
+  Future<void> setOptions({bool? skipPermissions, bool? chrome}) =>
+      CommandSender(db, slug).send({'type': 'options', 'skipPermissions': ?skipPermissions, 'chrome': ?chrome}, from: from);
 
   @override
   void dispose() {
@@ -568,7 +610,9 @@ class CommandSender {
   final FirebaseFirestore db;
   final String slug;
 
-  Future<void> send(Map<String, Object?> command, {required String from}) => db.collection('projects').doc(slug).collection('commands').add({
+  /// Returns the command's document — the host stamps `doneAt` and
+  /// `result` on it.
+  Future<DocumentReference<Map<String, dynamic>>> send(Map<String, Object?> command, {required String from}) => db.collection('projects').doc(slug).collection('commands').add({
         ...command,
         'from': from,
         'sentAt': DateTime.now().toUtc().toIso8601String(),
@@ -578,6 +622,99 @@ class CommandSender {
 
   Future<void> answer(Ask ask, AskAnswer a, {bool remember = false, required String from}) =>
       send({'type': 'answer', 'requestId': ask.requestId, ...a.toMap(), 'remember': remember}, from: from);
+}
+
+/// A Firestore document holds a megabyte; a file goes up in pieces this
+/// big (base64 makes them a third larger, still well under).
+const uploadChunk = 600 * 1024;
+
+/// The phone's side of `uploads`: one file → a header and its parts, the
+/// header stamped `complete` last, so the host never reads half a file.
+class UploadSender {
+  UploadSender(this.db, this.slug);
+  final FirebaseFirestore db;
+  final String slug;
+
+  /// Returns the upload's id — what the `send` command names.
+  Future<String> send(PendingAttachment a, {required String from}) async {
+    final ref = db.collection('projects').doc(slug).collection('uploads').doc();
+    final n = max(1, (a.size / uploadChunk).ceil());
+    await ref.set({
+      'name': a.name,
+      'mime': a.mime,
+      'size': a.size,
+      'parts': n,
+      'complete': false,
+      'from': from,
+      'sentAt': DateTime.now().toUtc().toIso8601String(),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    for (var i = 0; i < n; i++) {
+      final start = i * uploadChunk;
+      final end = min(a.size, start + uploadChunk);
+      await ref.collection('parts').doc(i.toString().padLeft(4, '0')).set({'i': i, 'data': base64Encode(a.bytes.sublist(start, end))});
+    }
+    await ref.set({'complete': true}, SetOptions(merge: true));
+    return ref.id;
+  }
+}
+
+/// The host's side of `uploads`: the file back in one piece, then gone.
+class UploadReader {
+  UploadReader(this.db, this.slug);
+  final FirebaseFirestore db;
+  final String slug;
+
+  CollectionReference<Map<String, dynamic>> get _coll => db.collection('projects').doc(slug).collection('uploads');
+
+  /// Throws [StateError] when the upload is missing or not complete.
+  Future<PendingAttachment> fetch(String id) async {
+    final ref = _coll.doc(id);
+    final m = (await ref.get()).data();
+    if (m == null) throw StateError('upload $id is gone');
+    if (m['complete'] != true) throw StateError('upload $id is not complete');
+    final n = (m['parts'] as num?)?.toInt() ?? 0;
+    final size = (m['size'] as num?)?.toInt() ?? 0;
+    final q = await ref.collection('parts').get();
+    final parts = {for (final d in q.docs) (d.data()['i'] as num).toInt(): (d.data()['data'] ?? '').toString()};
+    final bytes = Uint8List(size);
+    var at = 0;
+    for (var i = 0; i < n; i++) {
+      final part = parts[i];
+      if (part == null) throw StateError('upload $id is missing part $i of $n');
+      final b = base64Decode(part);
+      bytes.setRange(at, at + b.length, b);
+      at += b.length;
+    }
+    if (at != size) throw StateError('upload $id came to $at bytes, not $size');
+    return PendingAttachment(name: (m['name'] ?? 'file').toString(), mime: (m['mime'] ?? 'application/octet-stream').toString(), bytes: bytes);
+  }
+
+  Future<void> delete(String id) async {
+    final ref = _coll.doc(id);
+    final q = await ref.collection('parts').get();
+    final b = db.batch();
+    for (final d in q.docs) {
+      b.delete(d.reference);
+    }
+    b.delete(ref);
+    await b.commit();
+  }
+
+  /// Drops uploads nobody collected — a phone that died mid-send. Returns
+  /// how many went.
+  Future<int> prune({Duration olderThan = const Duration(days: 1), DateTime? now}) async {
+    final cutoff = (now ?? DateTime.now()).toUtc().subtract(olderThan).toIso8601String();
+    final q = await _coll.get();
+    var n = 0;
+    for (final d in q.docs) {
+      final sentAt = (d.data()['sentAt'] ?? '').toString();
+      if (sentAt.isNotEmpty && sentAt.compareTo(cutoff) > 0) continue;
+      await delete(d.id);
+      n++;
+    }
+    return n;
+  }
 }
 
 /// The phone's side.

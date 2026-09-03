@@ -3,9 +3,11 @@
 // step's runtime gate, not a habit.
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_kit/kit.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kit_app/src/attachments.dart';
 import 'package:kit_app/src/host/bridge_session.dart';
 import 'package:kit_app/src/host/permission_rules.dart';
 import 'package:path/path.dart' as p;
@@ -62,6 +64,86 @@ void main() {
     expect(s.state, BridgeState.stopped);
     expect(s.running, isFalse);
     expect(s.previous()!.sessionId, rec.sessionId, reason: 'the record outlives the process so Resume can find it');
+  });
+
+  test('files ride with a message: saved on the Mac, named by path, an image shown inline', () async {
+    final fake = FakeClaude();
+    final s = fakeSession(fake, dir: project.path, home: home.path);
+    await s.start();
+    final png = base64Decode(onePixelPng);
+    final shot = PendingAttachment(name: 'Screenshot 2026-09-02.png', mime: 'image/png', bytes: png);
+    final pdf = PendingAttachment(name: 'spec.pdf', mime: 'application/pdf', bytes: Uint8List.fromList(utf8.encode('%PDF-1.4 fake')));
+    s.send('What is wrong on this screen?', files: [shot, pdf]);
+    await fake.writtenLines(1);
+    final content = (((jsonDecode(fake.written.single) as Map)['message'] as Map)['content']) as List;
+    expect(content.length, 2, reason: 'the image block, then the text; the pdf rides by path');
+    expect(content[0]['type'], 'image');
+    expect(content[0]['source'], {'type': 'base64', 'media_type': 'image/png', 'data': onePixelPng});
+    final text = content[1]['text'] as String;
+    expect(text, startsWith('What is wrong on this screen?'));
+    expect(text, contains('Read tool'));
+    final row = s.transcript.messages.single;
+    expect(row.attachments.map((a) => a.name), ['Screenshot 2026-09-02.png', 'spec.pdf']);
+    for (final a in row.attachments) {
+      expect(a.path, startsWith(p.join(home.path, 'attachments', claudeProjectSlug(project.path))), reason: 'outside the project, never in git');
+      expect(File(a.path!).existsSync(), isTrue);
+      expect(text, contains(a.path!));
+    }
+    expect(File(row.attachments[0].path!).readAsBytesSync(), png);
+    expect(row.attachments[0].path, endsWith('-Screenshot_2026-09-02.png'), reason: 'spaces do not travel into a path');
+    expect('(shown above)'.allMatches(text).length, 1, reason: 'only the image is inline');
+    expect(s.state, BridgeState.busy);
+
+    // No words at all: the file is the message.
+    s.send('', files: [shot]);
+    await fake.writtenLines(2);
+    final again = (((jsonDecode(fake.written.last) as Map)['message'] as Map)['content']) as List;
+    expect(again[1]['text'], startsWith('See the attached file.'));
+    expect(s.transcript.messages.last.text, isEmpty);
+    expect(s.transcript.messages.last.attachments.single.path, isNot(row.attachments[0].path), reason: 'a second copy gets its own name');
+
+    // Nothing at all is nothing.
+    s.send('   ');
+    await pumpEventQueue();
+    expect(fake.written.length, 2);
+  });
+
+  test('session options live in the record and shape the command line; fixed while running', () async {
+    final fake = FakeClaude();
+    final s = fakeSession(fake, dir: project.path, home: home.path);
+    expect(s.skipPermissions, isFalse);
+    expect(s.chrome, isFalse);
+    expect(s.previous(), isNull, reason: 'nothing recorded yet');
+
+    expect(s.setOptions(skipPermissions: true, chrome: true), isTrue);
+    expect(s.previous()!.sessionId, isNull, reason: 'options alone make a record; nothing to resume yet');
+    expect(s.previous()!.skipPermissions, isTrue);
+    expect(s.toRelay()['canResume'], isFalse);
+    expect(s.toRelay()['skipPermissions'], isTrue);
+    expect(s.toRelay()['chrome'], isTrue);
+
+    // A fresh session on the same folder reads them back.
+    final again = fakeSession(FakeClaude(), dir: project.path, home: home.path);
+    expect(again.skipPermissions, isTrue);
+    expect(again.chrome, isTrue);
+
+    await s.start();
+    expect(fake.startedWith, containsAllInOrder(['--permission-mode', 'bypassPermissions', '--chrome', '--session-id', s.sessionId]));
+    expect(s.setOptions(chrome: false), isFalse, reason: 'fixed while running');
+    expect(s.chrome, isTrue);
+    fake.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'm', 'permissionMode': 'bypassPermissions', 'mcp_servers': [{'name': 'claude-in-chrome', 'status': 'connected'}]});
+    await pumpEventQueue();
+    expect(s.chromeStatus, 'connected');
+    expect(s.toRelay()['chromeStatus'], 'connected');
+    expect(s.transcript.permissionMode, 'bypassPermissions');
+
+    await s.stop();
+    final rec = s.previous()!;
+    expect(rec.sessionId, s.sessionId, reason: 'the session is recorded beside the options');
+    expect(rec.chrome, isTrue);
+    expect(s.setOptions(skipPermissions: false), isTrue);
+    expect(s.previous()!.sessionId, s.sessionId, reason: 'changing an option keeps the session to resume');
+    expect(s.previous()!.skipPermissions, isFalse);
   });
 
   test('a scoped send wraps the prompt; the deck shows what was typed; the reply inherits the scope', () async {

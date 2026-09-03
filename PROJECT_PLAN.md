@@ -267,6 +267,111 @@ card shows its thread count and last reply.
 
 ---
 
+## Step 5b — Attachments — a screenshot or any file rides with a message from either device; the Deck reads freely while Claude writes
+- [ ]
+- state: active — gates pending: qa
+- id: attachments
+- depends_on: item-threads
+- qa_required: true
+
+### Description
+The paperclip on the Deck's composer opens the system picker on both
+devices (`file_selector`; the phone's document picker lists
+screenshots under Images); on the Mac a file dropped anywhere on the
+Deck lands the same way (`desktop_drop`, with a veil while it hangs
+over the window). A picked file shows as a chip with its size. An image is shrunk on the device to the 1568-px long edge the
+API scales to anyway, so nothing the model would see is lost and a
+screenshot travels at a third of the bytes. On send, the phone puts
+each file up under `projects/{slug}/uploads/{id}` in base64 parts of
+600 KB (a Firestore document holds a megabyte) and the `send` command
+names the ids; the host reassembles, saves every file under
+`~/.flutter_kit/attachments/<project>/` (never in the repo), deletes
+the upload, and sends the message to `claude -p` as the API's block
+list: images the API takes inline (png, jpeg, gif, webp, ≤ 4 MB),
+then the text with a trailer naming every file's path for the Read
+tool. The row shows the files under the bubble; on the Mac a tap
+opens one.
+
+The Deck follows the newest row only while the viewport sits on it.
+Scroll up to read and the list stays put while Claude writes; a
+LATEST chip offers the way down; sending pins the list again.
+
+### Acceptance
+- From the phone: attach a screenshot, ask what is on it; the answer
+  describes the screenshot; the chip shows under the message on both
+  devices; `uploads/` is empty afterwards.
+- From the Mac: attach a PDF and an image — one by the paperclip, one
+  dropped from the Finder; Claude reads the PDF by path when asked
+  about it.
+- While a long reply streams, scroll up on the phone: the list does
+  not move; LATEST appears; tapping it lands on the newest row.
+- The inline image block is proven against the real CLI (2.1.258,
+  2026-09-02: a red square in, "Red" out).
+
+### QA walkthrough
+1. Phone → a project → Deck → the paperclip → pick a screenshot →
+   "what is on this screen?" → send. Watch the chip, then the answer.
+2. While Claude writes a long answer, drag the list up; wait; tap
+   LATEST.
+3. Mac → the same Deck → drag a PDF from the Finder onto the
+   transcript → "summarise the attached file".
+
+### Touchpoints
+- `kit/lib/src/bridge.dart` (`InlineImage`, `DeckAttachment`, `attachmentsPrompt`, `encodeUserMessage`)
+- `app/lib/src/attachments.dart`, `attachment_picker.dart` (picker and drop), `host/attachment_store.dart`
+- `app/lib/src/relay.dart` (`UploadSender`, `UploadReader`), `host/host_project.dart` (the `send` command)
+- `app/lib/src/screens/deck_tab.dart` (composer, `_follow`, LATEST)
+
+---
+
+## Step 5c — Session options — skip permissions, and drive the Mac's Chrome, from either device
+- [ ]
+- state: active — gates pending: qa
+- id: session-options
+- depends_on: asks
+- qa_required: true
+
+### Description
+Two options per project, kept in the bridge record beside the session
+to resume, shown as pills under Start on both Decks and as switches
+on the Mac's Session tab, fixed while a session runs:
+
+- **Skip permissions** — Start runs `--permission-mode
+  bypassPermissions` (`--dangerously-skip-permissions` by another
+  name). No Allow / Deny cards; every command runs. An
+  `AskUserQuestion` still arrives on stdio, so questions still reach
+  the phone — proven 2026-09-03 on 2.1.258.
+- **Drive Chrome** — Start runs `--chrome`. The session gets the
+  Claude in Chrome tools and works in this Mac's own browser, signed
+  in as the user: App Store Connect, Play Console, RevenueCat. The
+  `init` event names `claude-in-chrome` with its status, which the
+  pill shows while running. Proven headless the same day.
+
+The phone flips an option with an `options` command; the host writes
+its record and republishes the session. Browser tool rows read as
+`chrome · navigate · <url>`.
+
+### Acceptance
+- Flip Skip permissions on the phone, Start: a `/step` runs with no
+  Allow card; a question still pins on the Deck.
+- Flip Drive Chrome, Start: the pill says CONNECTED; "open App Store
+  Connect and tell me the app's status" opens a tab in the Mac's
+  Chrome and answers from it.
+- The pills and switches are frozen while a session runs.
+
+### QA walkthrough
+1. Phone → Deck → PERMISSIONS · ASK → SKIP; CHROME · OFF → ON; START.
+2. "Open play.google.com/console and tell me which app is listed."
+3. Watch the tab open on the Mac; read the answer on the phone.
+
+### Touchpoints
+- `kit/lib/src/bridge.dart` (`bridgeArgs` chrome, `InitEvent.mcpServers`, `toolLabel`)
+- `app/lib/src/host/bridge_session.dart` (`BridgeRecord` options, `setOptions`, `chromeStatus`)
+- `app/lib/src/relay.dart` (`RemoteDeck.setOptions`), `host/host_project.dart` (the `options` command)
+- `app/lib/src/screens/deck_tab.dart` (`_OptionPill`), `session_tab.dart` (switches)
+
+---
+
 ## Step 6 — Notifications — an ask reaches the lock screen and Allow runs the command
 - [ ]
 - id: notifications

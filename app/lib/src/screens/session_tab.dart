@@ -68,14 +68,30 @@ class _SessionTabState extends State<SessionTab> {
             ListenableBuilder(
               listenable: h.bridge,
               builder: (context, _) {
-                final rules = h.bridge.alwaysApplied;
-                if (rules.isEmpty) return const SizedBox.shrink();
+                final b = h.bridge;
+                final rules = b.alwaysApplied;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SectionHead('Allowed always', sub: 'Rules Claude Code wrote to this project because an ask was answered Always. Remove one and it asks again.'),
-                    for (final r in rules)
-                      Row(children: [
+                    SectionHead('Session options', sub: b.running ? 'How Start runs claude -p in this folder. Fixed while a session runs — stop it to change them.' : 'How Start runs claude -p in this folder. The phone can flip these too.'),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: b.skipPermissions,
+                      onChanged: b.running ? null : (v) => b.setOptions(skipPermissions: v),
+                      title: Text('Skip permissions', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
+                      subtitle: Text('--dangerously-skip-permissions: nothing waits on Allow, every command runs. Questions still reach the phone. Only for a folder you trust.', style: TextStyle(fontSize: 12.5, color: t.ink2)),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: b.chrome,
+                      onChanged: b.running ? null : (v) => b.setOptions(chrome: v),
+                      title: Text('Drive Chrome', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
+                      subtitle: Text('--chrome: the session gets the Claude in Chrome tools and works in this Mac\'s own browser — App Store Connect, Play Console, RevenueCat, signed in as you. Each browser action asks unless permissions are skipped.${b.running && b.chromeStatus != null ? ' Now: ${b.chromeStatus}.' : ''}', style: TextStyle(fontSize: 12.5, color: t.ink2)),
+                    ),
+                    if (rules.isNotEmpty) ...[
+                      const SectionHead('Allowed always', sub: 'Rules Claude Code wrote to this project because an ask was answered Always. Remove one and it asks again.'),
+                      for (final r in rules)
+                        Row(children: [
                         Expanded(child: Text('${r.ruleString}  ·  ${r.behavior}, ${r.destination}', maxLines: 2, overflow: TextOverflow.ellipsis, style: t.mono(12))),
                         IconButton(
                           tooltip: 'Remove',
@@ -85,7 +101,8 @@ class _SessionTabState extends State<SessionTab> {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(removed ? 'Removed ${r.ruleString}' : '${r.ruleString} was not in ${r.destination} any more')));
                           },
                         ),
-                      ]),
+                        ]),
+                    ],
                   ],
                 );
               },

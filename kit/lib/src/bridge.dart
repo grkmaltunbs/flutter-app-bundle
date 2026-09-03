@@ -25,7 +25,14 @@ const bridgeProvenOn = '2.1.251';
 /// The command line the host starts. `--session-id` names a fresh session;
 /// `resume: true` reattaches to [sessionId] instead. `--verbose` is not a
 /// choice: without it the CLI refuses `--output-format stream-json`.
-List<String> bridgeArgs({required String sessionId, bool resume = false, String? model, String permissionMode = 'default'}) => [
+///
+/// [permissionMode] `bypassPermissions` is `--dangerously-skip-permissions`
+/// by another name: no `can_use_tool` for permissions — but an
+/// `AskUserQuestion` still arrives on stdio (proven 2026-09-03, 2.1.258).
+/// [chrome] adds the Claude in Chrome tools, which reach the Mac's own
+/// browser through the extension; the `init` event then lists
+/// `claude-in-chrome` among [InitEvent.mcpServers] (proven the same day).
+List<String> bridgeArgs({required String sessionId, bool resume = false, String? model, String permissionMode = 'default', bool chrome = false}) => [
       '-p',
       '--verbose',
       '--input-format', 'stream-json',
@@ -34,14 +41,96 @@ List<String> bridgeArgs({required String sessionId, bool resume = false, String?
       '--replay-user-messages',
       '--permission-prompt-tool', 'stdio',
       '--permission-mode', permissionMode,
+      if (chrome) '--chrome',
       resume ? '--resume' : '--session-id', sessionId,
       if (model != null) ...['--model', model],
     ];
 
-String encodeUserMessage(String text) => jsonEncode({
+/// A tool's name as a row shows it: `Bash` stays `Bash`; an MCP tool —
+/// `mcp__claude-in-chrome__find` — becomes `chrome · find`.
+String toolLabel(String name) {
+  if (!name.startsWith('mcp__')) return name;
+  final parts = name.split('__');
+  if (parts.length < 3) return name;
+  var server = parts[1];
+  if (server == 'claude-in-chrome') server = 'chrome';
+  if (server.startsWith('plugin_')) server = server.substring(7);
+  return '$server · ${parts.sublist(2).join('__')}';
+}
+
+/// An image the model sees inline: the file's base64, as the API takes it.
+class InlineImage {
+  const InlineImage({required this.mediaType, required this.data});
+  final String mediaType;
+  final String data;
+}
+
+/// The user message line. With [images] the content becomes the API's
+/// block list — the images first, then the text — which is what the
+/// terminal sends for a pasted screenshot. Proven on Claude Code 2.1.258,
+/// 2026-09-02: a red square went in, "red" came back.
+String encodeUserMessage(String text, {List<InlineImage> images = const []}) => jsonEncode({
       'type': 'user',
-      'message': {'role': 'user', 'content': text},
+      'message': {
+        'role': 'user',
+        'content': images.isEmpty
+            ? text
+            : [
+                for (final i in images)
+                  {
+                    'type': 'image',
+                    'source': {'type': 'base64', 'media_type': i.mediaType, 'data': i.data},
+                  },
+                {'type': 'text', 'text': text},
+              ],
+      },
     });
+
+/// A file that travelled with a message: what it is called, what it is,
+/// how big — and, once the host saved it, where it sits on the Mac.
+class DeckAttachment {
+  const DeckAttachment({required this.name, required this.mime, required this.size, this.path});
+
+  factory DeckAttachment.fromMap(Map<String, Object?> m) => DeckAttachment(
+        name: (m['name'] ?? '').toString(),
+        mime: (m['mime'] ?? 'application/octet-stream').toString(),
+        size: (m['size'] as num?)?.toInt() ?? 0,
+        path: m['path']?.toString(),
+      );
+
+  final String name;
+  final String mime;
+  final int size;
+  final String? path;
+
+  bool get isImage => mime.startsWith('image/');
+
+  Map<String, Object?> toMap() => {'name': name, 'mime': mime, 'size': size, if (path != null) 'path': path};
+}
+
+/// What the model reads when files travel with a message: the text, then
+/// where each file sits on the Mac so the Read tool can open it. An image
+/// the message already shows inline (its index in [inline]) says so. No
+/// text at all becomes "See the attached file."
+String attachmentsPrompt(String text, List<DeckAttachment> files, {Set<int> inline = const {}}) {
+  if (files.isEmpty) return text;
+  final head = text.trim().isEmpty ? 'See the attached file${files.length == 1 ? '' : 's'}.' : text;
+  return [
+    head,
+    '',
+    '--- attached (saved on the Mac; open one with the Read tool when you need it) ---',
+    for (var i = 0; i < files.length; i++)
+      '- ${files[i].name} — ${files[i].mime}, ${formatBytes(files[i].size)}${files[i].path == null ? '' : ' — ${files[i].path}'}${inline.contains(i) ? ' (shown above)' : ''}',
+    '--- end ---',
+  ].join('\n');
+}
+
+/// `412 KB`, `1.3 MB` — what a chip says about a file.
+String formatBytes(int n) {
+  if (n < 1024) return '$n B';
+  if (n < 1024 * 1024) return '${(n / 1024).round()} KB';
+  return '${(n / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
 
 String encodeControlResponse(String requestId, Map<String, Object?> response) => jsonEncode({
       'type': 'control_response',
@@ -136,8 +225,9 @@ class Ask {
   String get summary {
     if (isQuestion) return questions.map((q) => q.question).join(' · ');
     if (toolName == 'Bash') return (input['command'] ?? '').toString();
-    final path = input['file_path'] ?? input['path'] ?? input['pattern'];
-    return path != null ? '$toolName $path' : '$toolName ${_clip(jsonEncode(input), 120)}';
+    final path = input['file_path'] ?? input['path'] ?? input['pattern'] ?? input['url'];
+    final name = toolLabel(toolName);
+    return path != null ? '$name $path' : '$name ${_clip(jsonEncode(input), 120)}';
   }
 
   Map<String, Object?> toMap() => {
@@ -195,12 +285,16 @@ sealed class BridgeEvent {
 
 /// `system` / `init` — the session exists.
 class InitEvent extends BridgeEvent {
-  const InitEvent({required this.sessionId, this.model, this.permissionMode, this.cwd, this.tools = const []});
+  const InitEvent({required this.sessionId, this.model, this.permissionMode, this.cwd, this.tools = const [], this.mcpServers = const {}});
   final String sessionId;
   final String? model;
   final String? permissionMode;
   final String? cwd;
   final List<String> tools;
+
+  /// MCP server name → status (`connected`, `pending`, `failed`,
+  /// `needs-auth`); `claude-in-chrome` is the browser.
+  final Map<String, String> mcpServers;
 }
 
 /// A piece of the assistant's text, as it is written.
@@ -298,6 +392,10 @@ BridgeEvent? parseBridgeLine(String line) {
           permissionMode: m['permissionMode']?.toString(),
           cwd: m['cwd']?.toString(),
           tools: [for (final t in (m['tools'] as List? ?? const [])) t.toString()],
+          mcpServers: {
+            for (final srv in (m['mcp_servers'] as List? ?? const []))
+              if (srv is Map && srv['name'] != null) srv['name'].toString(): (srv['status'] ?? '').toString(),
+          },
         );
       }
       return OtherEvent(type, sub);
@@ -408,6 +506,7 @@ class DeckMessage {
     this.isError = false,
     this.streaming = false,
     this.about,
+    this.attachments = const [],
   });
 
   factory DeckMessage.fromMap(Map<String, Object?> m) => DeckMessage(
@@ -422,6 +521,7 @@ class DeckMessage {
         isError: m['isError'] == true,
         streaming: m['streaming'] == true,
         about: m['about'] is Map ? _map(m['about']) : null,
+        attachments: [for (final a in (m['attachments'] as List? ?? const [])) if (a is Map) DeckAttachment.fromMap(_map(a))],
       );
 
   final String id;
@@ -438,13 +538,16 @@ class DeckMessage {
   /// `{item: id}` or `{step: id}` when the message is about one thing.
   final Map<String, Object?>? about;
 
+  /// The files that travelled with a user message.
+  final List<DeckAttachment> attachments;
+
   /// One line for a tool row: the command for Bash, the path for a file
   /// tool, the tool and its input otherwise.
   String get toolSummary {
     final input = toolInput ?? const {};
-    final name = toolName ?? '';
+    final name = toolLabel(toolName ?? '');
     if (name == 'Bash') return (input['command'] ?? '').toString();
-    final path = input['file_path'] ?? input['path'] ?? input['pattern'] ?? input['query'];
+    final path = input['file_path'] ?? input['path'] ?? input['pattern'] ?? input['query'] ?? input['url'];
     if (path != null) return '$name · $path';
     if (name == 'AskUserQuestion') return 'asked you a question';
     return input.isEmpty ? name : '$name · ${_clip(jsonEncode(input), 100)}';
@@ -462,6 +565,7 @@ class DeckMessage {
         'isError': isError,
         'streaming': streaming,
         if (about != null) 'about': about,
+        if (attachments.isNotEmpty) 'attachments': [for (final a in attachments) a.toMap()],
       };
 }
 
@@ -476,6 +580,10 @@ class Transcript {
   String? permissionMode;
   RateLimitEvent? pool;
   ResultEvent? lastResult;
+
+  /// From `init`: MCP server name → status. `claude-in-chrome` says
+  /// whether the browser answered.
+  Map<String, String> mcpServers = const {};
 
   /// True between a user message and the `result` that ends the turn.
   bool turnOpen = false;
@@ -499,8 +607,8 @@ class Transcript {
 
   String _nextId() => 'm${(_seq++).toString().padLeft(5, '0')}';
 
-  DeckMessage addUser(String text, {Map<String, Object?>? about}) {
-    final m = DeckMessage(id: _nextId(), role: DeckRole.user, text: text, at: now(), about: about);
+  DeckMessage addUser(String text, {Map<String, Object?>? about, List<DeckAttachment> attachments = const []}) {
+    final m = DeckMessage(id: _nextId(), role: DeckRole.user, text: text, at: now(), about: about, attachments: attachments);
     messages.add(m);
     turnOpen = true;
     _about = about;
@@ -520,6 +628,7 @@ class Transcript {
         sessionId = e.sessionId;
         model = e.model;
         permissionMode = e.permissionMode;
+        mcpServers = e.mcpServers;
       case TextDeltaEvent():
         deltasSeen++;
         final s = _streaming ??= _open();

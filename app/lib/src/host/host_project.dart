@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_kit/kit.dart';
 import 'package:path/path.dart' as p;
 
+import '../attachments.dart';
 import '../plan_source.dart';
 import '../relay.dart';
 import 'bridge_session.dart';
@@ -98,14 +99,24 @@ class HostProject extends ChangeNotifier {
       case 'send':
         if (!bridge.running) return 'not running';
         final about = cmd['about'];
-        bridge.send((cmd['text'] ?? '').toString(), about: about is Map ? {for (final e in about.entries) e.key.toString(): e.value} : null);
-        return 'sent';
+        // The files the phone put up first, back in one piece each.
+        final ids = [for (final u in (cmd['uploads'] as List? ?? const [])) u.toString()];
+        final reader = UploadReader(db, slug!);
+        final files = <PendingAttachment>[for (final id in ids) await reader.fetch(id)];
+        bridge.send((cmd['text'] ?? '').toString(), about: about is Map ? {for (final e in about.entries) e.key.toString(): e.value} : null, files: files);
+        for (final id in ids) {
+          unawaited(reader.delete(id));
+        }
+        return ids.isEmpty ? 'sent' : 'sent with ${ids.length} file${ids.length == 1 ? '' : 's'}';
       case 'start':
         await bridge.start(resume: cmd['resume'] == true);
         return bridge.error ?? (bridge.running ? 'started' : 'did not start');
       case 'stop':
         await bridge.stop();
         return 'stopped';
+      case 'options':
+        final ok = bridge.setOptions(skipPermissions: cmd['skipPermissions'] as bool?, chrome: cmd['chrome'] as bool?);
+        return ok ? 'options saved' : 'the session is running — stop it first';
       default:
         return 'unknown command ${cmd['type']}';
     }
@@ -120,6 +131,8 @@ class HostProject extends ChangeNotifier {
       // The truth about the session, first thing: a relaunched host must
       // overwrite the LIVE a dead process left on the mirror.
       unawaited(_publisher!.publishSession(sessionRelay()));
+      // Files a phone put up and nobody collected.
+      unawaited(UploadReader(db, slug!).prune().catchError((Object _) => 0));
     }
     _inbox ??= InboxListener(db, slug!, apply: applyBatch)..start();
     _commands ??= CommandListener(db, slug!, apply: applyCommand)..start();

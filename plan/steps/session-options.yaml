@@ -1,0 +1,61 @@
+id: session-options
+number: "5c"
+title: Session options — skip permissions, and drive the Mac's Chrome, from either device
+status: active
+rank: 660
+depends_on: [asks]
+meta: { qa_required: true }
+gates:
+  analyze: { at: 2026-09-03, note: "flutter analyze + dart analyze: no issues", status: passed}
+  tests: { at: 2026-09-03, note: "kit 70 (args with bypass + --chrome, init mcp_servers, browser tool labels), app 57 (options in the record and on the command line, frozen while running, chromeStatus relayed; pills on both Decks, the phone's options command); bypass + AskUserQuestion and --chrome proven live on claude 2.1.258, 2026-09-03", status: passed}
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      Two options per project, kept in the bridge record beside the session
+      to resume, shown as pills under Start on both Decks and as switches
+      on the Mac's Session tab, fixed while a session runs:
+
+      - **Skip permissions** — Start runs `--permission-mode
+        bypassPermissions` (`--dangerously-skip-permissions` by another
+        name). No Allow / Deny cards; every command runs. An
+        `AskUserQuestion` still arrives on stdio, so questions still reach
+        the phone — proven 2026-09-03 on 2.1.258.
+      - **Drive Chrome** — Start runs `--chrome`. The session gets the
+        Claude in Chrome tools and works in this Mac's own browser, signed
+        in as the user: App Store Connect, Play Console, RevenueCat. The
+        `init` event names `claude-in-chrome` with its status, which the
+        pill shows while running. Proven headless the same day.
+
+      The phone flips an option with an `options` command; the host writes
+      its record and republishes the session. Browser tool rows read as
+      `chrome · navigate · <url>`.
+  - title: Acceptance
+    body: |
+      - Flip Skip permissions on the phone, Start: a `/step` runs with no
+        Allow card; a question still pins on the Deck.
+      - Flip Drive Chrome, Start: the pill says CONNECTED; "open App Store
+        Connect and tell me the app's status" opens a tab in the Mac's
+        Chrome and answers from it.
+      - The pills and switches are frozen while a session runs.
+  - title: QA walkthrough
+    body: |
+      1. Phone → Deck → PERMISSIONS · ASK → SKIP; CHROME · OFF → ON; START.
+      2. "Open play.google.com/console and tell me which app is listed."
+      3. Watch the tab open on the Mac; read the answer on the phone.
+  - title: Touchpoints
+    body: |
+      - `kit/lib/src/bridge.dart` (`bridgeArgs` chrome, `InitEvent.mcpServers`, `toolLabel`)
+      - `app/lib/src/host/bridge_session.dart` (`BridgeRecord` options, `setOptions`, `chromeStatus`)
+      - `app/lib/src/relay.dart` (`RemoteDeck.setOptions`), `host/host_project.dart` (the `options` command)
+      - `app/lib/src/screens/deck_tab.dart` (`_OptionPill`), `session_tab.dart` (switches)
+history:
+  - { at: "2026-09-03", event: added }
+  - at: 2026-09-03
+    event: started
+  - at: 2026-09-03
+    event: gate analyze passed
+    note: "flutter analyze + dart analyze: no issues"
+  - at: 2026-09-03
+    event: gate tests passed
+    note: "kit 70 (args with bypass + --chrome, init mcp_servers, browser tool labels), app 57 (options in the record and on the command line, frozen while running, chromeStatus relayed; pills on both Decks, the phone's options command); bypass + AskUserQuestion and --chrome proven live on claude 2.1.258, 2026-09-03"

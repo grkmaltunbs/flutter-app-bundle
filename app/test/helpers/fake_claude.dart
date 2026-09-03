@@ -6,6 +6,9 @@ import 'dart:io';
 
 import 'package:kit_app/src/host/bridge_session.dart';
 
+/// A real 1×1 PNG, base64 — the smallest image the pipeline can carry.
+const onePixelPng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
 class FakeClaude implements Process {
   FakeClaude() {
     _stdinCtrl.stream.transform(utf8.decoder).transform(const LineSplitter()).listen(written.add);

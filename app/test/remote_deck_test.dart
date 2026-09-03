@@ -1,11 +1,15 @@
 // The phone's Deck over a fake relay at phone width and every text scale:
 // Start is a command, the mirrored transcript renders, a send shows at
 // once and becomes a command, an ask pins inside the Deck.
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_kit/kit.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kit_app/src/attachments.dart';
+import 'package:kit_app/src/relay.dart';
 import 'package:kit_app/src/screens/deck_tab.dart';
 import 'package:kit_app/src/theme.dart';
 
@@ -110,4 +114,111 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('a file from the phone goes up in parts; the command names it; the echo shows the chip', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = FakeFirebaseFirestore();
+    final project = db.collection('projects').doc('demo');
+    await project.set({'name': 'Demo', 'machine': 'mac-mini', 'session': {'mode': 'bridge', 'state': 'ready', 'sessionId': 'sess-1', 'canResume': false, 'pendingAsks': 0}});
+    final bytes = Uint8List.fromList(List.generate(uploadChunk + 10, (i) => i % 251));
+    await tester.pumpWidget(MaterialApp(
+      theme: kitTheme(KitTokens.dark),
+      home: MediaQuery(
+        data: const MediaQueryData(size: Size(360, 780)),
+        child: Scaffold(body: RemoteDeckTab(db: db, slug: 'demo', pick: () async => [PendingAttachment(name: 'shot.png', mime: 'image/png', bytes: bytes)])),
+      ),
+    ));
+    await _settle(tester);
+    await tester.tap(find.byIcon(Icons.attach_file));
+    await _settle(tester);
+    expect(find.text('shot.png'), findsOneWidget, reason: 'the chip');
+    // No words: the file is the message.
+    await tester.tap(find.byIcon(Icons.arrow_forward));
+    for (var i = 0; i < 4; i++) {
+      await _settle(tester);
+    }
+    final uploads = await project.collection('uploads').get();
+    final up = uploads.docs.single;
+    expect(up.data()['complete'], isTrue);
+    expect(up.data()['parts'], 2);
+    expect(up.data()['from'], 'phone');
+    expect((await up.reference.collection('parts').get()).docs.length, 2);
+    final cmd = (await project.collection('commands').get()).docs.single.data();
+    expect(cmd['type'], 'send');
+    expect(cmd['text'], '');
+    expect(cmd['uploads'], [up.id]);
+    expect(find.text('shot.png'), findsOneWidget, reason: 'the echo row carries the chip');
+    expect(find.byIcon(Icons.close), findsNothing, reason: 'the composer cleared');
+    // What the host reads back is the file, whole.
+    expect((await UploadReader(db, 'demo').fetch(up.id)).bytes, bytes);
+
+    // The host could not run it: the echo comes back, with the reason.
+    final cmdRef = (await project.collection('commands').get()).docs.single.reference;
+    await cmdRef.set({'doneAt': '2026-09-02T10:00:00Z', 'result': 'failed: Bad state: upload ${up.id} is gone'}, SetOptions(merge: true));
+    await _settle(tester);
+    expect(find.text('shot.png'), findsNothing, reason: 'the echo is taken back');
+    expect(find.textContaining('Not sent: failed'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a send the host ran keeps its echo until the mirror replaces it', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = FakeFirebaseFirestore();
+    final project = db.collection('projects').doc('demo');
+    await project.set({'name': 'Demo', 'machine': 'mac-mini', 'session': {'mode': 'bridge', 'state': 'ready', 'sessionId': 'sess-1', 'canResume': false, 'pendingAsks': 0}});
+    await tester.pumpWidget(MaterialApp(
+      theme: kitTheme(KitTokens.light),
+      home: MediaQuery(data: const MediaQueryData(size: Size(360, 780)), child: Scaffold(body: RemoteDeckTab(db: db, slug: 'demo'))),
+    ));
+    await _settle(tester);
+    await tester.enterText(find.byType(TextField), 'hello there');
+    await tester.tap(find.byIcon(Icons.arrow_forward));
+    await _settle(tester);
+    final cmdRef = (await project.collection('commands').get()).docs.single.reference;
+    await cmdRef.set({'doneAt': '2026-09-02T10:00:00Z', 'result': 'sent'}, SetOptions(merge: true));
+    await _settle(tester);
+    expect(find.text('hello there'), findsOneWidget, reason: 'the echo stays');
+    expect(find.textContaining('Not sent'), findsNothing);
+    await project.collection('chat').doc('m00000').set(_row('m00000', DeckRole.user, 'hello there'));
+    await _settle(tester);
+    expect(find.text('hello there'), findsOneWidget, reason: 'the mirror\'s row replaced the echo, not doubled it');
+  });
+
+  testWidgets('the option pills on the phone are commands; the session document is what they show', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = FakeFirebaseFirestore();
+    final project = db.collection('projects').doc('demo');
+    await project.set({'name': 'Demo', 'machine': 'mac-mini', 'session': {'mode': 'idle', 'state': 'idle', 'canResume': false, 'pendingAsks': 0, 'skipPermissions': false, 'chrome': true}});
+    await tester.pumpWidget(MaterialApp(
+      theme: kitTheme(KitTokens.dark),
+      home: MediaQuery(data: const MediaQueryData(size: Size(360, 780)), child: Scaffold(body: RemoteDeckTab(db: db, slug: 'demo'))),
+    ));
+    await _settle(tester);
+    expect(find.text('PERMISSIONS · ASK'), findsOneWidget);
+    expect(find.text('CHROME · ON'), findsOneWidget);
+    await tester.tap(find.text('PERMISSIONS · ASK'));
+    await _settle(tester);
+    final cmd = (await project.collection('commands').get()).docs.single.data();
+    expect(cmd['type'], 'options');
+    expect(cmd['skipPermissions'], isTrue);
+    expect(cmd.containsKey('chrome'), isFalse);
+    // The host wrote its record and republished.
+    await project.set({'session': {'skipPermissions': true}}, SetOptions(merge: true));
+    await _settle(tester);
+    expect(find.text('PERMISSIONS · SKIP'), findsOneWidget);
+    // Running: frozen, and the browser's status shows.
+    await project.set({'session': {'mode': 'bridge', 'state': 'ready', 'chromeStatus': 'failed'}}, SetOptions(merge: true));
+    await _settle(tester);
+    expect(find.text('CHROME · FAILED'), findsOneWidget);
+    await tester.tap(find.text('CHROME · FAILED'));
+    await _settle(tester);
+    expect((await project.collection('commands').get()).docs.length, 1, reason: 'no command while running');
+    expect(tester.takeException(), isNull);
+  });
 }

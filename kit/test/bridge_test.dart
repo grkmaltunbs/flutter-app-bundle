@@ -33,6 +33,25 @@ void main() {
     final again = bridgeArgs(sessionId: 'abc', resume: true, model: 'opus');
     expect(again, containsAllInOrder(['--resume', 'abc', '--model', 'opus']));
     expect(again, isNot(contains('--session-id')));
+    expect(fresh, isNot(contains('--chrome')));
+    final options = bridgeArgs(sessionId: 'abc', permissionMode: 'bypassPermissions', chrome: true);
+    expect(options, containsAllInOrder(['--permission-mode', 'bypassPermissions', '--chrome', '--session-id', 'abc']));
+  });
+
+  test('init names the MCP servers; a browser tool reads as one', () {
+    final e = parseBridgeLine('{"type":"system","subtype":"init","session_id":"s1","model":"m","permissionMode":"bypassPermissions","tools":["Bash","mcp__claude-in-chrome__find"],"mcp_servers":[{"name":"claude-in-chrome","status":"connected"},{"name":"plugin:firebase:firebase","status":"pending"}]}') as InitEvent;
+    expect(e.mcpServers, {'claude-in-chrome': 'connected', 'plugin:firebase:firebase': 'pending'});
+    expect(e.permissionMode, 'bypassPermissions');
+    final t = Transcript()..apply(e);
+    expect(t.mcpServers['claude-in-chrome'], 'connected');
+
+    expect(toolLabel('Bash'), 'Bash');
+    expect(toolLabel('mcp__claude-in-chrome__find'), 'chrome · find');
+    expect(toolLabel('mcp__plugin_firebase_firebase__firestore_get_document'), 'firebase_firebase · firestore_get_document');
+    final row = DeckMessage(id: 'x', role: DeckRole.tool, text: '', at: DateTime(2026), toolName: 'mcp__claude-in-chrome__navigate', toolInput: const {'url': 'https://appstoreconnect.apple.com'});
+    expect(row.toolSummary, 'chrome · navigate · https://appstoreconnect.apple.com');
+    final ask = Ask(requestId: 'r', toolName: 'mcp__claude-in-chrome__form_input', toolUseId: 't', input: const {'ref': 'ref_3', 'text': 'K.A.T.Y.A'}, at: DateTime(2026));
+    expect(ask.summary, startsWith('chrome · form_input {'));
   });
 
   test('every captured line parses to its event', () {
@@ -197,10 +216,45 @@ void main() {
     expect(threadKey({'item': ''}), isNull);
   });
 
-  test('the user message line is what the CLI expects', () {
+  test('the user message line is what the CLI expects — text alone, or images then text', () {
     expect(jsonDecode(encodeUserMessage('/step')), {
       'type': 'user',
       'message': {'role': 'user', 'content': '/step'},
     });
+    expect(jsonDecode(encodeUserMessage('What colour?', images: const [InlineImage(mediaType: 'image/png', data: 'AAAA')])), {
+      'type': 'user',
+      'message': {
+        'role': 'user',
+        'content': [
+          {'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/png', 'data': 'AAAA'}},
+          {'type': 'text', 'text': 'What colour?'},
+        ],
+      },
+    });
+  });
+
+  test('files travel on the row and in the prompt', () {
+    const shot = DeckAttachment(name: 'shot.png', mime: 'image/png', size: 412 * 1024, path: '/Users/x/.flutter_kit/attachments/p/shot.png');
+    const pdf = DeckAttachment(name: 'spec.pdf', mime: 'application/pdf', size: 3 * 1024 * 1024);
+    final prompt = attachmentsPrompt('Look at this.', [shot, pdf], inline: {0});
+    expect(prompt, startsWith('Look at this.\n\n--- attached'));
+    expect(prompt, contains('- shot.png — image/png, 412 KB — /Users/x/.flutter_kit/attachments/p/shot.png (shown above)'));
+    expect(prompt, contains('- spec.pdf — application/pdf, 3.0 MB\n'));
+    expect(prompt, endsWith('--- end ---'));
+    expect(attachmentsPrompt('', [shot]), startsWith('See the attached file.'));
+    expect(attachmentsPrompt('', [shot, pdf]), startsWith('See the attached files.'));
+    expect(attachmentsPrompt('plain', const []), 'plain');
+    expect(shot.isImage, isTrue);
+    expect(pdf.isImage, isFalse);
+
+    final t = Transcript();
+    final m = t.addUser('', attachments: const [shot]);
+    final back = DeckMessage.fromMap(jsonDecode(jsonEncode(m.toMap())) as Map<String, Object?>);
+    expect(back.attachments.single.name, 'shot.png');
+    expect(back.attachments.single.path, shot.path);
+    expect(back.attachments.single.size, 412 * 1024);
+    expect(m.toMap().containsKey('attachments'), isTrue);
+    expect(t.addUser('no files').toMap().containsKey('attachments'), isFalse);
+    expect(DeckMessage.fromMap({'id': 'x', 'role': 'user', 'text': 'old row', 'at': '2026-08-30T12:00:00Z'}).attachments, isEmpty, reason: 'rows from before carry none');
   });
 }
