@@ -381,6 +381,48 @@ about first. The Session tab shows the text.
 
 ---
 
+## Step 5d — Session dials — model and effort from either device; the conversation as one selection
+- [ ]
+- state: active — gates pending: qa
+- id: session-dials
+- depends_on: session-options
+- qa_required: true
+
+### Description
+Two dials under the option pills on the Deck header: `--model` by the
+CLI's aliases (default · haiku · sonnet · opus · fable) and `--effort`
+(default · low · medium · high · xhigh · max). Kept in the bridge
+record beside the switches, flipped from either device — while a
+session runs too: the process restarts on the same conversation
+(`--resume`) with the new flags, at once between turns, at the end
+of a running turn otherwise. `default` hands the choice back to the
+CLI. The
+transcript sits in one SelectionArea, so the conversation can be
+selected and copied whole on the Mac and on the phone. The controls
+under the title fold behind a chevron — open while idle, folded while
+running, Stop kept on the title row — so the transcript has the screen.
+
+### Acceptance
+- Phone: MODEL to opus, EFFORT to high, Start; the facts line shows
+  the model init reported; the Mac's process runs with the flags.
+- A dial dragged while live between turns restarts the process on the
+  same session with the new flag; dragged mid-turn it waits for the
+  turn to end and says so.
+- Running: the controls are folded and Stop is on the title row; the
+  chevron opens them; Stop folds them back on its own.
+- Mac: drag across three rows and copy; the clipboard holds all three.
+- Phone: long-press a reply, extend the selection into the next row, copy.
+
+### QA walkthrough
+1. Phone: MODEL → OPUS, EFFORT → HIGH; Start; send "which model are you?".
+2. Mac: Session tab process output shows --model opus --effort high; the deck's facts line names the model.
+3. Mac: select from your message down through the reply; Cmd-C; paste somewhere.
+
+### Touchpoints
+- `app/lib/src/screens/deck_tab.dart` (`_Dial`, SelectionArea), `app/lib/src/host/bridge_session.dart` (record, args), `app/lib/src/relay.dart`, `kit/lib/src/bridge.dart` (choices, `--effort`)
+
+---
+
 ## Step 6 — Notifications — an ask, a sign-in or a problem reaches the phone
 - [ ]
 - state: active — gates pending: qa
@@ -399,7 +441,9 @@ continue") or hits a problem (the process died, a turn ended in an
 error), and when a turn ends well — the task sent from the phone
 reports back. Three Android channels — Claude needs you, Problems,
 Turn ended — so any one can be silenced alone. A tap opens the
-project. Allow / Deny on the notification itself is
+project. `kit notify "one line"` lets a session push a line of its
+own mid-task — a Notify event in the hook spool the host already
+watches. Allow / Deny on the notification itself is
 `notification-actions`.
 
 ### Acceptance
@@ -419,7 +463,7 @@ project. Allow / Deny on the notification itself is
 5. Mac: Stop; kill the process from a terminal while a session runs → "Problem · Kit" on the phone.
 
 ### Touchpoints
-- `app/lib/src/host/push_sender.dart` (key, token, FCM v1, ProblemWatch), `app/lib/src/push/**` (registrar, listener, tap), `kit/lib/src/bridge.dart` (Notice, `Ask.isSignIn`), `app/android/**` (channels, POST_NOTIFICATIONS)
+- `app/lib/src/host/push_sender.dart` (key, token, FCM v1, TurnWatch), `app/lib/src/push/**` (registrar, listener, tap), `kit/lib/src/bridge.dart` (Notice, `Ask.isSignIn`, the brief), `kit/bin/kit.dart` (`kit notify`), `app/android/**` (channels, POST_NOTIFICATIONS)
 
 ### Your part (human)
 

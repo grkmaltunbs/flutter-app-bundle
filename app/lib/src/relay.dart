@@ -18,7 +18,7 @@ import 'host/bridge_session.dart' show BridgeState;
 /// projects/{slug}/inbox/{auto}    a batch from the phone; the host stamps appliedAt
 /// projects/{slug}/events/{auto}   milestones from hooks (prompt, stop, notification)
 /// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
-/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|options|push-test, …}; the host stamps doneAt, result
+/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|options|push-test, …}; options carry skipPermissions, chrome, model, effort; the host stamps doneAt, result
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
@@ -167,6 +167,20 @@ class RelayPublisher {
   /// Whoever answered, the phone's card drops on this.
   Future<void> resolveAsk(String requestId, {required String summary, required String by}) =>
       ref.collection('asks').doc(requestId).set({'answeredAt': FieldValue.serverTimestamp(), 'answer': summary, 'by': by}, SetOptions(merge: true));
+
+  /// Every ask still open in the relay, closed as withdrawn — a host that
+  /// just came up, or a fresh conversation, has nothing pending, so an ask
+  /// a dead process left behind must not haunt the phone. Returns how many.
+  Future<int> withdrawOpenAsks({String reason = 'Withdrawn — the session stopped'}) async {
+    final q = await ref.collection('asks').where('answeredAt', isNull: true).get();
+    if (q.docs.isEmpty) return 0;
+    final b = db.batch();
+    for (final d in q.docs) {
+      b.set(d.reference, {'answeredAt': FieldValue.serverTimestamp(), 'answer': reason, 'by': 'host'}, SetOptions(merge: true));
+    }
+    await b.commit();
+    return q.docs.length;
+  }
 
   int _asks = 0;
 
@@ -369,6 +383,11 @@ class RemoteDeck extends ChangeNotifier {
   String? get machine => session['machine']?.toString();
   bool get skipPermissions => session['skipPermissions'] == true;
   bool get chrome => session['chrome'] == true;
+  String get modelChoice => (session['modelChoice'] ?? 'default').toString();
+  String get effort => (session['effort'] ?? 'default').toString();
+
+  /// An option changed mid-turn; the host restarts when the turn ends.
+  bool get restartPending => session['restartPending'] == true;
   String? get chromeStatus => session['chromeStatus']?.toString();
 
   /// The transcript with this device's unconfirmed sends at the end.
@@ -444,9 +463,10 @@ class RemoteDeck extends ChangeNotifier {
 
   Future<void> stopSession() => CommandSender(db, slug).send({'type': 'stop'}, from: from);
 
-  /// The options the host's next Start runs with.
-  Future<void> setOptions({bool? skipPermissions, bool? chrome}) =>
-      CommandSender(db, slug).send({'type': 'options', 'skipPermissions': ?skipPermissions, 'chrome': ?chrome}, from: from);
+  /// The options the host's next Start runs with; `default` for a dial
+  /// hands the choice back to the CLI.
+  Future<void> setOptions({bool? skipPermissions, bool? chrome, String? model, String? effort}) =>
+      CommandSender(db, slug).send({'type': 'options', 'skipPermissions': ?skipPermissions, 'chrome': ?chrome, 'model': ?model, 'effort': ?effort}, from: from);
 
   /// Asks the Mac to push to every registered phone, and waits for what
   /// came of it — or says so when the Mac does not answer.

@@ -116,9 +116,13 @@ void main() {
     expect(s.chrome, isFalse);
     expect(s.previous(), isNull, reason: 'nothing recorded yet');
 
-    expect(s.setOptions(skipPermissions: true, chrome: true), isTrue);
+    expect(s.setOptions(skipPermissions: true, chrome: true, model: 'opus', effort: 'high'), isTrue);
     expect(s.previous()!.sessionId, isNull, reason: 'options alone make a record; nothing to resume yet');
     expect(s.previous()!.skipPermissions, isTrue);
+    expect(s.previous()!.model, 'opus');
+    expect(s.previous()!.effort, 'high');
+    expect(s.toRelay()['modelChoice'], 'opus');
+    expect(s.toRelay()['effort'], 'high');
     expect(s.toRelay()['canResume'], isFalse);
     expect(s.toRelay()['skipPermissions'], isTrue);
     expect(s.toRelay()['chrome'], isTrue);
@@ -127,14 +131,16 @@ void main() {
     final again = fakeSession(FakeClaude(), dir: project.path, home: home.path);
     expect(again.skipPermissions, isTrue);
     expect(again.chrome, isTrue);
+    expect(again.modelChoice, 'opus');
+    expect(again.effort, 'high');
 
     await s.start();
-    expect(fake.startedWith, containsAllInOrder(['--permission-mode', 'bypassPermissions', '--chrome', '--session-id', s.sessionId]));
+    expect(fake.startedWith, containsAllInOrder(['--permission-mode', 'bypassPermissions', '--chrome', '--session-id', s.sessionId, '--model', 'opus', '--effort', 'high']));
     final brief = fake.startedWith[fake.startedWith.indexOf('--append-system-prompt') + 1];
     expect(brief, contains('Claude in Chrome tools'));
     expect(brief, contains('runs without asking'));
     expect(brief, s.brief);
-    expect(s.setOptions(chrome: false), isFalse, reason: 'fixed while running');
+    expect(s.setOptions(), isFalse, reason: 'nothing given, nothing changed');
     expect(s.chrome, isTrue);
     fake.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'm', 'permissionMode': 'bypassPermissions', 'mcp_servers': [{'name': 'claude-in-chrome', 'status': 'connected'}]});
     await pumpEventQueue();
@@ -146,9 +152,50 @@ void main() {
     final rec = s.previous()!;
     expect(rec.sessionId, s.sessionId, reason: 'the session is recorded beside the options');
     expect(rec.chrome, isTrue);
-    expect(s.setOptions(skipPermissions: false), isTrue);
+    expect(s.setOptions(skipPermissions: false, model: 'default', effort: 'default'), isTrue);
     expect(s.previous()!.sessionId, s.sessionId, reason: 'changing an option keeps the session to resume');
+    expect(s.modelChoice, isNull, reason: 'default hands the choice back to the CLI');
+    expect(s.previous()!.model, isNull);
+    expect(s.toRelay()['effort'], 'default');
     expect(s.previous()!.skipPermissions, isFalse);
+  });
+
+  test('a change while live restarts the process on the same conversation; mid-turn it waits for the turn to end', () async {
+    final spawned = <FakeClaude>[];
+    final s = fakeSessionEach(spawned, dir: project.path, home: home.path);
+    await s.start();
+    final id = s.sessionId!;
+    spawned.single.emitJson({'type': 'system', 'subtype': 'init', 'session_id': id, 'model': 'm', 'permissionMode': 'default'});
+    await pumpEventQueue();
+    expect(s.state, BridgeState.ready);
+
+    // Between turns: at once.
+    expect(s.setOptions(model: 'opus'), isTrue);
+    await pumpEventQueue(times: 200);
+    expect(spawned.length, 2, reason: 'stopped and started again');
+    expect(spawned[1].startedWith, containsAllInOrder(['--resume', id, '--model', 'opus']));
+    expect(s.sessionId, id, reason: 'the same conversation');
+    expect(s.running, isTrue);
+    expect(s.restartPending, isFalse);
+    spawned[1].emitJson({'type': 'system', 'subtype': 'init', 'session_id': id, 'model': 'claude-opus-5', 'permissionMode': 'default'});
+    await pumpEventQueue();
+    expect(s.transcript.model, 'claude-opus-5');
+
+    // Mid-turn: the change waits for the end of the turn.
+    s.send('do a thing');
+    expect(s.state, BridgeState.busy);
+    expect(s.setOptions(effort: 'high', chrome: true), isTrue);
+    expect(s.restartPending, isTrue);
+    expect(s.toRelay()['restartPending'], isTrue);
+    await pumpEventQueue(times: 50);
+    expect(spawned.length, 2, reason: 'nothing in flight is cut');
+    spawned[1].emitJson({'type': 'result', 'subtype': 'success', 'is_error': false, 'duration_ms': 10, 'num_turns': 1, 'result': 'done', 'session_id': id});
+    await pumpEventQueue(times: 200);
+    expect(spawned.length, 3);
+    expect(spawned[2].startedWith, containsAllInOrder(['--chrome', '--resume', id, '--model', 'opus', '--effort', 'high']));
+    expect(s.restartPending, isFalse);
+    expect(s.transcript.messages.map((m) => m.text), contains('do a thing'), reason: 'the transcript carries on');
+    expect(s.previous()!.effort, 'high');
   });
 
   test('a scoped send wraps the prompt; the deck shows what was typed; the reply inherits the scope', () async {
@@ -205,6 +252,24 @@ void main() {
     s.answer(AskAnswer.deny('again'));
     await pumpEventQueue();
     expect(fake.written.length, 2);
+  });
+
+  test('the process ends with an ask open: it is withdrawn, so no phone keeps offering it', () async {
+    final fake = FakeClaude();
+    final s = fakeSession(fake, dir: project.path, home: home.path);
+    final gone = <String>[];
+    s.onWithdrawn = (a) => gone.add(a.requestId);
+    await s.start();
+    s.send('touch a file');
+    fake.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'claude-fable-5'});
+    scriptBashAsk(fake);
+    await pumpEventQueue();
+    expect(s.state, BridgeState.waiting);
+    await s.stop();
+    expect(gone, ['req_bash']);
+    expect(s.transcript.pending, isNull);
+    expect(s.transcript.messages.last.text, startsWith('Withdrawn — the session stopped: touch'));
+    expect(s.toRelay()['pendingAsks'], 0);
   });
 
   test('a question is answered by label and the whole input travels back', () async {

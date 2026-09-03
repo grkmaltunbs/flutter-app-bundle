@@ -59,7 +59,7 @@ void main() {
         expect(tester.takeException(), isNull, reason: 'transcript');
         // The list follows the newest row; at the largest scale the reply is
         // taller than the viewport, so scroll back up to it.
-        final list = find.byType(Scrollable).first;
+        final list = find.byType(ListView);
         final reply = find.textContaining('code complete', findRichText: true);
         await tester.dragUntilVisible(reply, list, const Offset(0, 200));
         expect(reply, findsOneWidget, reason: 'rows: ${s.transcript.messages.map((m) => '${m.role.name}:${m.text.length}').join(' ')}');
@@ -118,7 +118,7 @@ void main() {
     s.send('Tell me everything.');
     scriptTurn(fake, sessionId: s.sessionId!, text: List.generate(40, (i) => 'Line $i of a long reply that fills the screen.').join('\n\n'));
     await _settle(tester);
-    final list = find.byType(Scrollable).first;
+    final list = find.byType(ListView);
     final pos = tester.widget<ListView>(find.byType(ListView)).controller!.position;
     expect(pos.pixels, pos.maxScrollExtent, reason: 'follows the newest row while pinned');
     expect(find.text('LATEST'), findsNothing);
@@ -274,16 +274,38 @@ void main() {
     await tester.tap(find.text('CHROME · OFF'));
     await tester.pump();
     expect(find.text('CHROME · ON'), findsOneWidget);
+    // The dials: drag to the end, one write when the finger lifts.
+    expect(find.text('MODEL · DEFAULT'), findsOneWidget);
+    expect(find.text('EFFORT · DEFAULT'), findsOneWidget);
+    await tester.drag(find.byType(Slider).first, const Offset(400, 0));
+    await tester.pump();
+    expect(find.text('MODEL · FABLE'), findsOneWidget);
+    expect(s.previous()!.model, 'fable');
+    await tester.drag(find.byType(Slider).last, const Offset(400, 0));
+    await tester.pump();
+    expect(find.text('EFFORT · MAX'), findsOneWidget);
+    expect(s.previous()!.effort, 'max');
 
     await s.start();
     fake.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'm', 'permissionMode': 'bypassPermissions', 'mcp_servers': [{'name': 'claude-in-chrome', 'status': 'connected'}]});
     await _settle(tester);
     expect(fake.startedWith, contains('--chrome'));
-    expect(find.text('CHROME · CONNECTED'), findsOneWidget, reason: 'while running, what init said');
-    await tester.tap(find.text('PERMISSIONS · SKIP'));
+    // Running: the controls fold so the transcript has the screen; the
+    // chevron (or the title) brings them back.
+    expect(find.text('PUSH · TEST'), findsNothing, reason: 'folded while running');
+    expect(find.byType(Slider), findsNothing);
+    await tester.tap(find.byTooltip('Show session controls'));
     await tester.pump();
-    expect(find.text('PERMISSIONS · SKIP'), findsOneWidget, reason: 'frozen while running');
-    expect(s.skipPermissions, isTrue);
+    expect(find.text('CHROME · CONNECTED'), findsOneWidget, reason: 'while running, what init said');
+    expect(fake.startedWith, containsAllInOrder(['--model', 'fable', '--effort', 'max']));
+    expect(tester.widget<Slider>(find.byType(Slider).first).onChanged, isNotNull, reason: 'dials move while live');
+    expect(find.textContaining('restarts the session on the same conversation'), findsOneWidget);
+    await tester.tap(find.textContaining('SESSION '));
+    await tester.pump();
+    expect(find.byType(Slider), findsNothing, reason: 'a tap on the title row folds them again');
+    await s.stop();
+    await _settle(tester);
+    expect(find.text('START'), findsOneWidget, reason: 'idle: open again on its own');
     expect(tester.takeException(), isNull);
   });
 

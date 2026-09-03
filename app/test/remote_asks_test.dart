@@ -22,6 +22,20 @@ Map<String, Object?> _bashAsk(String id, {String command = 'touch /tmp/kit-ask',
       'answeredAt': null,
     };
 
+Map<String, Object?> _questionAsk(String id) => {
+      'requestId': id,
+      'toolName': 'AskUserQuestion',
+      'toolUseId': 'toolu_$id',
+      'input': {
+        'questions': [
+          {'question': 'Ship the artwork slots?', 'header': 'Catalogue', 'multiSelect': false, 'options': [{'label': 'All seven', 'description': ''}, {'label': 'Hold two', 'description': ''}]}
+        ]
+      },
+      'at': '2026-09-03T20:00:00Z',
+      'requiresUserInteraction': true,
+      'answeredAt': null,
+    };
+
 Future<void> _settle(WidgetTester tester) async {
   for (var i = 0; i < 4; i++) {
     await tester.pump(const Duration(milliseconds: 20));
@@ -64,6 +78,48 @@ void main() {
     await asks.doc('req_2').set({'answeredAt': Timestamp.now(), 'by': 'Mac', 'answer': 'Allowed'}, SetOptions(merge: true));
     await _settle(tester);
     expect(find.text('AUTHORIZATION REQUESTED'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a question takes an answer in the user\'s own words, beside the options', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = FakeFirebaseFirestore();
+    final asks = db.collection('projects').doc('demo').collection('asks');
+    await asks.doc('q_1').set(_questionAsk('q_1'));
+    await tester.pumpWidget(MaterialApp(theme: kitTheme(KitTokens.dark), home: Scaffold(body: SingleChildScrollView(child: Column(children: [RemoteAskPanel(db: db, slug: 'demo')])))));
+    await _settle(tester);
+    expect(find.text('CLAUDE ASKS'), findsOneWidget);
+    final answer = find.widgetWithText(FilledButton, 'ANSWER');
+    expect(tester.widget<FilledButton>(answer).onPressed, isNull, reason: 'nothing chosen yet');
+
+    // A pick, then own words: the words win and the pick clears.
+    await tester.tap(find.text('All seven'));
+    await tester.pump();
+    expect(tester.widget<FilledButton>(answer).onPressed, isNotNull);
+    await tester.enterText(find.byType(TextField), 'Hold all of them until the next release');
+    await tester.pump();
+    expect(find.byIcon(Icons.radio_button_checked), findsNothing, reason: 'own words clear the pick');
+    await tester.tap(answer);
+    await _settle(tester);
+    final cmd = (await db.collection('projects').doc('demo').collection('commands').get()).docs.single.data();
+    expect(cmd['type'], 'answer');
+    expect(((cmd['response'] as Map)['updatedInput'] as Map)['answers'], {'Ship the artwork slots?': 'Hold all of them until the next release'});
+    expect(cmd['summary'], 'Hold all of them until the next release');
+
+    // And the other way: a pick after words clears the words.
+    await asks.doc('q_2').set({..._questionAsk('q_2'), 'at': '2026-09-03T20:01:00Z'});
+    await _settle(tester);
+    await tester.enterText(find.byType(TextField), 'maybe');
+    await tester.pump();
+    await tester.tap(find.text('Hold two'));
+    await tester.pump();
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
+    await tester.tap(answer);
+    await _settle(tester);
+    final second = (await db.collection('projects').doc('demo').collection('commands').orderBy('sentAt').get()).docs.last.data();
+    expect(((second['response'] as Map)['updatedInput'] as Map)['answers'], {'Ship the artwork slots?': 'Hold two'});
     expect(tester.takeException(), isNull);
   });
 

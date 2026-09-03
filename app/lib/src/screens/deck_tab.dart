@@ -44,6 +44,9 @@ class DeckView extends StatefulWidget {
     this.skipPermissions = false,
     this.chrome = false,
     this.chromeStatus,
+    this.modelChoice = 'default',
+    this.effort = 'default',
+    this.restartPending = false,
     this.onOptions,
     this.onTestPush,
   });
@@ -88,9 +91,16 @@ class DeckView extends StatefulWidget {
   /// What `init` said about the browser while running: `connected`, `failed`…
   final String? chromeStatus;
 
+  /// The dials: one of [modelChoices], one of [effortChoices].
+  final String modelChoice;
+  final String effort;
+
+  /// An option changed while a turn ran; it applies when the turn ends.
+  final bool restartPending;
+
   /// Changes an option — the host writes its record, the phone sends a
   /// command. Null where the surface cannot.
-  final void Function({bool? skipPermissions, bool? chrome})? onOptions;
+  final void Function({bool? skipPermissions, bool? chrome, String? model, String? effort})? onOptions;
 
   /// Sends a push to every registered phone, to see one arrive; returns
   /// the one-line result to toast. Null where the surface cannot.
@@ -118,6 +128,13 @@ class _DeckViewState extends State<DeckView> {
   /// A drag from the Finder is over the Deck.
   bool _dragOver = false;
 
+  /// The session controls under the title — Start/Stop, the pills, the
+  /// dials — fold away so the transcript gets the screen. Open while idle
+  /// (Start is there), folded while a session runs; a tap on the chevron
+  /// or the title overrides until the session state changes again.
+  bool? _openChoice;
+  bool get _headerOpen => _openChoice ?? !widget.running;
+
   /// Files can be dropped on a desktop window; a phone has the paperclip.
   static final bool _dropSupported = Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
@@ -126,6 +143,7 @@ class _DeckViewState extends State<DeckView> {
   @override
   void didUpdateWidget(DeckView old) {
     super.didUpdateWidget(old);
+    if (old.running != widget.running) _openChoice = null;
     _follow();
   }
 
@@ -285,20 +303,30 @@ class _DeckViewState extends State<DeckView> {
     final body = LayoutBuilder(
       builder: (context, box) => Column(
         children: [
-          _Header(view: w),
+          // The header, like the bottom, scrolls inside its own share at the
+          // largest text sizes rather than pushing the transcript out.
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: box.maxHeight * 0.48),
+            child: SingleChildScrollView(child: _Header(view: w, open: _headerOpen, onToggle: () => setState(() => _openChoice = !_headerOpen))),
+          ),
           if (w.nowSlot != null) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 4), child: w.nowSlot!),
           Expanded(
             child: w.messages.isEmpty
                 ? EmptyNote(w.running ? 'Session ready. Ask, or give an order.' : 'Start a session to talk to Claude Code in this folder.')
                 : Stack(
                     children: [
-                      NotificationListener<ScrollNotification>(
-                        onNotification: _onScroll,
-                        child: ListView.builder(
-                          controller: _scroll,
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                          itemCount: w.messages.length,
-                          itemBuilder: (context, i) => _Row(message: w.messages[i]),
+                      // One selection over the whole conversation — drag on
+                      // the Mac, long-press on the phone, copy — across
+                      // bubbles, replies and tool rows alike.
+                      SelectionArea(
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: _onScroll,
+                          child: ListView.builder(
+                            controller: _scroll,
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                            itemCount: w.messages.length,
+                            itemBuilder: (context, i) => _Row(message: w.messages[i]),
+                          ),
                         ),
                       ),
                       if (_unseen)
@@ -316,7 +344,7 @@ class _DeckViewState extends State<DeckView> {
           // bottom scrolls inside its own share and the transcript keeps
           // the rest, instead of a Column overflowing.
           ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: box.maxHeight * 0.6),
+            constraints: BoxConstraints(maxHeight: box.maxHeight * 0.5),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -700,7 +728,10 @@ class DeckTab extends StatelessWidget {
           skipPermissions: b.skipPermissions,
           chrome: b.chrome,
           chromeStatus: b.chromeStatus,
-          onOptions: ({skipPermissions, chrome}) => b.setOptions(skipPermissions: skipPermissions, chrome: chrome),
+          modelChoice: b.modelChoice ?? 'default',
+          effort: b.effort ?? 'default',
+          restartPending: b.restartPending,
+          onOptions: ({skipPermissions, chrome, model, effort}) => b.setOptions(skipPermissions: skipPermissions, chrome: chrome, model: model, effort: effort),
           onTestPush: testPush,
           askSlot: pending == null
               ? null
@@ -768,7 +799,10 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         skipPermissions: d.skipPermissions,
         chrome: d.chrome,
         chromeStatus: d.chromeStatus,
-        onOptions: ({skipPermissions, chrome}) => d.setOptions(skipPermissions: skipPermissions, chrome: chrome),
+        modelChoice: d.modelChoice,
+        effort: d.effort,
+        restartPending: d.restartPending,
+        onOptions: ({skipPermissions, chrome, model, effort}) => d.setOptions(skipPermissions: skipPermissions, chrome: chrome, model: model, effort: effort),
         onTestPush: d.testPush,
         askSlot: RemoteAskPanel(db: widget.db, slug: widget.slug, from: widget.from),
         onStart: () => d.startSession(),
@@ -790,8 +824,12 @@ String hm(DateTime at) {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.view});
+  const _Header({required this.view, required this.open, required this.onToggle});
   final DeckView view;
+
+  /// Whether the controls under the title row show.
+  final bool open;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -827,16 +865,19 @@ class _Header extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (w.title != null) ...[
-                      Text(w.title!.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.display(22, ls: 3.2)),
-                      const SizedBox(height: 4),
+                child: InkWell(
+                  onTap: onToggle,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (w.title != null) ...[
+                        Text(w.title!.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.display(22, ls: 3.2)),
+                        const SizedBox(height: 4),
+                      ],
+                      if (w.facts.isNotEmpty)
+                        Text(w.facts.join(' · ').toUpperCase(), maxLines: open ? 2 : 1, overflow: TextOverflow.ellipsis, style: t.readout(11)),
                     ],
-                    if (w.facts.isNotEmpty)
-                      Text(w.facts.join(' · ').toUpperCase(), maxLines: 2, overflow: TextOverflow.ellipsis, style: t.readout(11)),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -856,10 +897,37 @@ class _Header extends StatelessWidget {
                   ),
                 ),
               ),
+              // Folded while running: Stop stays one tap away.
+              if (!open && w.running)
+                IconButton(
+                  tooltip: 'Stop',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  icon: Icon(Icons.stop, color: t.ink2),
+                  onPressed: w.onStop,
+                ),
+              IconButton(
+                tooltip: open ? 'Hide session controls' : 'Show session controls',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                icon: Icon(open ? Icons.expand_less : Icons.expand_more, color: t.ink2),
+                onPressed: onToggle,
+              ),
             ],
           ),
           if (w.error != null)
             Padding(padding: const EdgeInsets.only(top: 8), child: Text(w.error!, maxLines: 3, overflow: TextOverflow.ellipsis, style: t.mono(12, color: t.critical))),
+          if (open) ..._controls(context, w, t),
+        ],
+      ),
+    );
+  }
+
+  /// Everything the chevron folds: Start / Resume / Stop, the option
+  /// pills, the test pill, the two dials.
+  List<Widget> _controls(BuildContext context, DeckView w, KitTokens t) => [
           if (!w.running || w.canResume)
             Padding(
               padding: const EdgeInsets.only(top: 10),
@@ -889,14 +957,14 @@ class _Header extends StatelessWidget {
                     text: 'PERMISSIONS · ${w.skipPermissions ? 'SKIP' : 'ASK'}',
                     color: w.skipPermissions ? t.warn : t.ink2,
                     on: w.skipPermissions,
-                    enabled: !w.running,
+                    enabled: true,
                     onTap: () => w.onOptions!(skipPermissions: !w.skipPermissions),
                   ),
                   _OptionPill(
                     text: 'CHROME · ${w.chrome ? (w.running && w.chromeStatus != null ? w.chromeStatus!.toUpperCase() : 'ON') : 'OFF'}',
                     color: w.chrome ? (w.chromeStatus == 'failed' ? t.critical : t.accent) : t.ink2,
                     on: w.chrome,
-                    enabled: !w.running,
+                    enabled: true,
                     onTap: () => w.onOptions!(chrome: !w.chrome),
                   ),
                   if (w.onTestPush != null)
@@ -913,9 +981,93 @@ class _Header extends StatelessWidget {
                 ],
               ),
             ),
-        ],
+          if (w.onOptions != null) ...[
+            const SizedBox(height: 4),
+            _Dial(label: 'MODEL', choices: modelChoices, value: w.modelChoice, enabled: true, onChanged: (v) => w.onOptions!(model: v)),
+            _Dial(label: 'EFFORT', choices: effortChoices, value: w.effort, enabled: true, onChanged: (v) => w.onOptions!(effort: v)),
+            if (w.running)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  w.restartPending ? 'Applies when this turn ends — the session restarts on the same conversation.' : 'A change restarts the session on the same conversation.',
+                  style: t.mono(11, color: w.restartPending ? t.warn : t.muted),
+                ),
+              ),
+          ],
+        ];
+}
+
+/// A dial: a slider over a short list of words, the current word beside
+/// it. Moves freely while dragged and reports once, when the finger lifts
+/// — so the phone sends one command, not one per notch.
+class _Dial extends StatefulWidget {
+  const _Dial({required this.label, required this.choices, required this.value, required this.enabled, required this.onChanged});
+  final String label;
+  final List<String> choices;
+  final String value;
+  final bool enabled;
+  final void Function(String) onChanged;
+
+  @override
+  State<_Dial> createState() => _DialState();
+}
+
+class _DialState extends State<_Dial> {
+  double? _dragging;
+
+  int get _index {
+    final i = widget.choices.indexOf(widget.value);
+    return i < 0 ? 0 : i;
+  }
+
+  @override
+  void didUpdateWidget(_Dial old) {
+    super.didUpdateWidget(old);
+    if (old.value != widget.value) _dragging = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final v = _dragging ?? _index.toDouble();
+    final word = widget.choices[v.round().clamp(0, widget.choices.length - 1)];
+    final color = widget.enabled ? (word == 'default' ? t.ink2 : t.accent) : t.muted;
+    return Row(children: [
+      Flexible(child: Text('${widget.label} · ${word.toUpperCase()}', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.mono(11.5, color: color))),
+      Expanded(
+        child: SliderTheme(
+          data: SliderThemeData(
+            trackHeight: 2,
+            activeTrackColor: color,
+            inactiveTrackColor: t.line,
+            thumbColor: color,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+            tickMarkShape: const RoundSliderTickMarkShape(tickMarkRadius: 1.5),
+            activeTickMarkColor: color.withValues(alpha: 0.5),
+            inactiveTickMarkColor: t.line,
+            showValueIndicator: ShowValueIndicator.never,
+          ),
+          child: SizedBox(
+            height: 34,
+            child: Slider(
+              min: 0,
+              max: (widget.choices.length - 1).toDouble(),
+              divisions: widget.choices.length - 1,
+              value: v,
+              onChanged: widget.enabled ? (x) => setState(() => _dragging = x) : null,
+              onChangeEnd: widget.enabled
+                  ? (x) {
+                      final chosen = widget.choices[x.round().clamp(0, widget.choices.length - 1)];
+                      setState(() => _dragging = null);
+                      if (chosen != widget.value) widget.onChanged(chosen);
+                    }
+                  : null,
+            ),
+          ),
+        ),
       ),
-    );
+    ]);
   }
 }
 
@@ -984,7 +1136,7 @@ class _Row extends StatelessWidget {
                     border: Border.all(color: t.line),
                     borderRadius: const BorderRadius.only(topLeft: Radius.circular(14), topRight: Radius.circular(14), bottomLeft: Radius.circular(14), bottomRight: Radius.circular(4)),
                   ),
-                  child: SelectableText(m.text, style: TextStyle(fontSize: 15, height: 1.4, color: m.streaming ? t.ink2 : t.ink)),
+                  child: Text(m.text, style: TextStyle(fontSize: 15, height: 1.4, color: m.streaming ? t.ink2 : t.ink)),
                 ),
             ],
           ),

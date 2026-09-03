@@ -212,6 +212,26 @@ void main() {
     listener.dispose();
   });
 
+  test('asks left open by a dead process are withdrawn in one sweep; answered ones are left alone', () async {
+    final pub = RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test');
+    Ask ask(String id) => Ask(requestId: id, toolName: 'Bash', toolUseId: 't$id', input: {'command': 'echo $id'}, at: DateTime.utc(2026, 9, 3, 20));
+    await pub.publishAsk(ask('old_1'));
+    await pub.publishAsk(ask('old_2'));
+    await pub.publishAsk(ask('done_1'));
+    await pub.resolveAsk('done_1', summary: 'Allowed', by: 'Mac');
+    expect(await pub.withdrawOpenAsks(), 2);
+    final asks = db.collection('projects').doc('demo').collection('asks');
+    for (final id in ['old_1', 'old_2']) {
+      final d = (await asks.doc(id).get()).data()!;
+      expect(d['answeredAt'], isNotNull);
+      expect(d['answer'], 'Withdrawn — the session stopped');
+      expect(d['by'], 'host');
+    }
+    expect((await asks.doc('done_1').get()).data()!['answer'], 'Allowed');
+    expect((await asks.where('answeredAt', isNull: true).get()).docs, isEmpty, reason: 'nothing left for a phone to show');
+    expect(await pub.withdrawOpenAsks(), 0);
+  });
+
   test('an ask reaches the phone; its answer comes back as a command; the host stamps both', () async {
     final pub = RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test');
     await pub.publish(store.load());

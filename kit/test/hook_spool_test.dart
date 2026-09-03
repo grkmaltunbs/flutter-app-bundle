@@ -59,6 +59,27 @@ void main() {
     expect(readSpool(project.path, home: home.path).map((e) => e.name), ['Stop']);
   }, timeout: const Timeout(Duration(minutes: 2)));
 
+  test('kit notify spools a line the host pushes; says so without a plan', () async {
+    final project = Directory.systemTemp.createTempSync('kit_notify_');
+    addTearDown(() => project.deleteSync(recursive: true));
+    Future<ProcessResult> run(List<String> words) => Process.run(
+          Platform.resolvedExecutable,
+          ['run', 'bin/kit.dart', '--project', project.path, 'notify', ...words],
+          environment: {'FLUTTER_KIT_HOME': home.path},
+        );
+    expect((await run(['Build', 'uploaded'])).exitCode, 1, reason: 'no plan — nothing listens');
+    expect(readSpool(project.path, home: home.path), isEmpty);
+    Directory(p.join(project.path, 'plan')).createSync();
+    File(p.join(project.path, 'plan', 'kit.yaml')).writeAsStringSync('kit: 2\nproject: { name: T, slug: t }\n');
+    expect((await run([])).exitCode, 2, reason: 'nothing to say');
+    final r = await run(['Build uploaded — 0 errors']);
+    expect(r.exitCode, 0, reason: r.stderr.toString());
+    final events = readSpool(project.path, home: home.path);
+    expect(events.map((e) => e.name), ['Notify']);
+    expect(events.single.summary, 'Build uploaded — 0 errors');
+    expect(events.single.needsYou, isFalse);
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
   test('prune keeps the newest', () {
     for (var i = 0; i < 5; i++) {
       spoolHookEvent({'hook_event_name': 'Stop', 'cwd': '/p/x'}, now: DateTime.utc(2026, 1, 1, 0, 0, i), home: home.path);

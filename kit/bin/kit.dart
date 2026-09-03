@@ -23,6 +23,7 @@ kit — the plan engine behind flutter-kit
   kit step done <step-id> [--force] [--note ...]
   kit done <item-id> [--note ...]      close a human item; prints what it unblocked
   kit drop <item-id> [--note ...]      close an item as "not doing"
+  kit notify <text>                    one line to the user's phone, through the K.A.T.Y.A host
   kit reopen <item-id>
   kit item new --id <id> --title <t> [--needs a,b] [--blocks s1,s2] [--from <step>]
                                        [--deadline YYYY-MM-DD] [--body <md> | --body-file <path>]
@@ -117,6 +118,8 @@ void main(List<String> argv) {
         _itemCmd(PlanStore(planDir), rest, args);
       case 'hook':
         exit(_hook(project, planDir));
+      case 'notify':
+        exit(_notify(project, planDir, rest.sublist(1)));
       case 'inbox':
         exit(_inbox(PlanStore(planDir), _abs(project, _arg(rest, 1, 'inbox needs a batch file')), dryRun: args['dry-run'] as bool));
       case 'render':
@@ -391,6 +394,23 @@ int _hook(String project, String planDir) {
   } on Object catch (e) {
     stderr.writeln('kit hook: $e');
   }
+  return 0;
+}
+
+/// `kit notify "text"`: one event in the spool, the kind the host turns
+/// into a push. Claude runs it mid-task when the user asked to be told.
+int _notify(String project, String planDir, List<String> words) {
+  final text = words.join(' ').trim();
+  if (text.isEmpty) {
+    stderr.writeln('kit notify: say what — kit notify "Tests green, starting the release build"');
+    return 2;
+  }
+  if (!PlanStore(planDir).exists) {
+    stderr.writeln('kit notify: no plan in $project — nothing is listening here');
+    return 1;
+  }
+  spoolHookEvent({'hook_event_name': 'Notify', 'cwd': project, 'message': text});
+  stdout.writeln('noted — the phone hears it while the K.A.T.Y.A host has this folder open');
   return 0;
 }
 

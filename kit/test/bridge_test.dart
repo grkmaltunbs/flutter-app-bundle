@@ -340,5 +340,21 @@ void main() {
     expect(noticeForDone(const ResultEvent(subtype: 'success', sessionId: 's'), project: 'kit').body, 'The turn ended.');
     expect(n.channel, 'asks');
     expect(p.channel, 'problems');
+
+    final note = noticeForNote('  Build uploaded to TestFlight. ', project: 'Nahmatik');
+    expect(note.kind, NoticeKind.note);
+    expect(note.title, 'Claude · Nahmatik');
+    expect(note.body, 'Build uploaded to TestFlight.');
+    expect(note.channel, 'done');
+    expect(deckBrief(chrome: false, skipPermissions: false), contains('kit notify'), reason: 'a session is told how to say something mid-task');
+  });
+
+  test('the dials become flags; default leaves the CLI to itself', () {
+    expect(bridgeArgs(sessionId: 'abc', model: 'opus', effort: 'high'), containsAllInOrder(['--model', 'opus', '--effort', 'high']));
+    final plain = bridgeArgs(sessionId: 'abc');
+    expect(plain, isNot(contains('--model')));
+    expect(plain, isNot(contains('--effort')));
+    expect(modelChoices.first, 'default');
+    expect(effortChoices, ['default', 'low', 'medium', 'high', 'xhigh', 'max']);
   });
 }

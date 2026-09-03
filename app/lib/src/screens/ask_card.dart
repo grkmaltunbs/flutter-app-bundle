@@ -22,7 +22,26 @@ class AskCard extends StatefulWidget {
 class _AskCardState extends State<AskCard> {
   final Map<String, Set<String>> _picked = {};
 
-  bool get _complete => widget.ask.questions.every((q) => (_picked[q.question] ?? const {}).isNotEmpty);
+  /// One's own words, per question — the "Other" of the terminal. Text
+  /// here is the answer; it clears the picks, and a pick clears it.
+  final Map<String, TextEditingController> _own = {};
+
+  TextEditingController _ownFor(AskQuestion q) => _own.putIfAbsent(q.question, () => TextEditingController());
+
+  String _answerFor(AskQuestion q) {
+    final own = _own[q.question]?.text.trim() ?? '';
+    return own.isNotEmpty ? own : (_picked[q.question] ?? const {}).join(', ');
+  }
+
+  bool get _complete => widget.ask.questions.every((q) => _answerFor(q).isNotEmpty);
+
+  @override
+  void dispose() {
+    for (final c in _own.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,14 +77,13 @@ class _AskCardState extends State<AskCard> {
                   Text(q.question, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: t.ink)),
                   const SizedBox(height: 8),
                   for (final o in q.options) _option(context, q, o),
+                  _ownAnswer(context, q),
                   const SizedBox(height: 6),
                 ],
                 Align(
                   alignment: Alignment.centerRight,
                   child: FilledButton(
-                    onPressed: _complete
-                        ? () => widget.onAnswer(AskAnswer.answers(ask, {for (final q in ask.questions) q.question: (_picked[q.question] ?? const {}).join(', ')}))
-                        : null,
+                    onPressed: _complete ? () => widget.onAnswer(AskAnswer.answers(ask, {for (final q in ask.questions) q.question: _answerFor(q)})) : null,
                     child: const Text('ANSWER'),
                   ),
                 ),
@@ -110,6 +128,39 @@ class _AskCardState extends State<AskCard> {
     );
   }
 
+  /// The field under the options: an answer in one's own words.
+  Widget _ownAnswer(BuildContext context, AskQuestion q) {
+    final t = context.tokens;
+    final c = _ownFor(q);
+    final on = c.text.trim().isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: on ? t.accentSoft : t.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: on ? t.accent.withValues(alpha: 0.55) : t.line),
+      ),
+      child: TextField(
+        controller: c,
+        minLines: 1,
+        maxLines: 4,
+        style: TextStyle(fontSize: 14, color: t.ink),
+        decoration: InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          hintText: 'Or answer in your own words…',
+          hintStyle: TextStyle(fontSize: 14, color: t.muted),
+          prefixIcon: Icon(Icons.edit_outlined, size: 18, color: on ? t.accent : t.muted),
+          prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 20),
+        ),
+        onChanged: (v) => setState(() {
+          if (v.trim().isNotEmpty) _picked[q.question]?.clear();
+        }),
+      ),
+    );
+  }
+
   Widget _option(BuildContext context, AskQuestion q, AskOption o) {
     final t = context.tokens;
     final set = _picked[q.question] ?? <String>{};
@@ -117,6 +168,7 @@ class _AskCardState extends State<AskCard> {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () => setState(() {
+        _own[q.question]?.clear();
         final s = _picked.putIfAbsent(q.question, () => <String>{});
         if (q.multiSelect) {
           on ? s.remove(o.label) : s.add(o.label);

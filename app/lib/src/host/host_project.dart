@@ -65,6 +65,7 @@ class HostProject extends ChangeNotifier {
     };
     bridge.onAsk = _onAsk;
     bridge.onAnswered = _onAnswered;
+    bridge.onWithdrawn = (ask) => _publisher?.resolveAsk(ask.requestId, summary: 'Withdrawn — the session stopped', by: 'host');
     hooks.onEvent = _onHook;
     source.start();
     hooks.start();
@@ -131,7 +132,12 @@ class HostProject extends ChangeNotifier {
     switch (cmd['type']) {
       case 'answer':
         final requestId = (cmd['requestId'] ?? '').toString();
-        if (bridge.transcript.pending?.requestId != requestId) return 'stale: that ask was already answered';
+        if (bridge.transcript.pending?.requestId != requestId) {
+          // Close it in the relay too, so no phone keeps offering it.
+          final pub = _publisher;
+          if (requestId.isNotEmpty && pub != null) unawaited(pub.resolveAsk(requestId, summary: 'Stale — no longer pending', by: 'host'));
+          return 'stale: that ask was already answered';
+        }
         bridge.answer(AskAnswer.fromMap(cmd), requestId: requestId, by: (cmd['from'] ?? 'phone').toString(), remember: cmd['remember'] == true);
         return 'answered';
       case 'send':
@@ -147,14 +153,19 @@ class HostProject extends ChangeNotifier {
         }
         return ids.isEmpty ? 'sent' : 'sent with ${ids.length} file${ids.length == 1 ? '' : 's'}';
       case 'start':
+        // A fresh conversation has nothing pending; a resumed one neither.
+        final sweep = _publisher;
+        if (sweep != null) unawaited(sweep.withdrawOpenAsks().catchError((Object _) => 0));
         await bridge.start(resume: cmd['resume'] == true);
         return bridge.error ?? (bridge.running ? 'started' : 'did not start');
       case 'stop':
         await bridge.stop();
         return 'stopped';
       case 'options':
-        final ok = bridge.setOptions(skipPermissions: cmd['skipPermissions'] as bool?, chrome: cmd['chrome'] as bool?);
-        return ok ? 'options saved' : 'the session is running — stop it first';
+        final ok = bridge.setOptions(skipPermissions: cmd['skipPermissions'] as bool?, chrome: cmd['chrome'] as bool?, model: cmd['model'] as String?, effort: cmd['effort'] as String?);
+        if (!ok) return 'nothing to change';
+        if (bridge.restartPending) return 'applies when this turn ends';
+        return bridge.running ? 'restarting on the same conversation' : 'options saved';
       case 'push-test':
         return testPush();
       default:
@@ -173,6 +184,8 @@ class HostProject extends ChangeNotifier {
       unawaited(_publisher!.publishSession(sessionRelay()));
       // Files a phone put up and nobody collected.
       unawaited(UploadReader(db, slug!).prune().catchError((Object _) => 0));
+      // Asks a dead process left open: nothing can answer them now.
+      unawaited(_publisher!.withdrawOpenAsks().catchError((Object _) => 0));
     }
     _inbox ??= InboxListener(db, slug!, apply: applyBatch)..start();
     _commands ??= CommandListener(db, slug!, apply: applyCommand)..start();
@@ -246,6 +259,8 @@ class HostProject extends ChangeNotifier {
     if (pub == null) return;
     pub.publishNow(e);
     if (e.name != 'PreToolUse' && e.name != 'PostToolUse') pub.publishMilestone(e);
+    // `kit notify` from the session: a line for the phone, on purpose.
+    if (e.name == 'Notify' && e.summary.isNotEmpty) _notify(noticeForNote(e.summary, project: projectName));
   }
 
   @override

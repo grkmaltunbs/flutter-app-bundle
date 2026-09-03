@@ -32,7 +32,14 @@ const bridgeProvenOn = '2.1.251';
 /// [chrome] adds the Claude in Chrome tools, which reach the Mac's own
 /// browser through the extension; the `init` event then lists
 /// `claude-in-chrome` among [InitEvent.mcpServers] (proven the same day).
-List<String> bridgeArgs({required String sessionId, bool resume = false, String? model, String permissionMode = 'default', bool chrome = false, String? appendSystemPrompt}) => [
+/// The model dial: the CLI's aliases for the latest of each, and `default`
+/// for whatever the CLI would pick on its own.
+const modelChoices = ['default', 'haiku', 'sonnet', 'opus', 'fable'];
+
+/// The effort dial: `--effort`'s levels, and `default` for the CLI's own.
+const effortChoices = ['default', 'low', 'medium', 'high', 'xhigh', 'max'];
+
+List<String> bridgeArgs({required String sessionId, bool resume = false, String? model, String? effort, String permissionMode = 'default', bool chrome = false, String? appendSystemPrompt}) => [
       '-p',
       '--verbose',
       '--input-format', 'stream-json',
@@ -45,6 +52,7 @@ List<String> bridgeArgs({required String sessionId, bool resume = false, String?
       if (appendSystemPrompt != null) ...['--append-system-prompt', appendSystemPrompt],
       resume ? '--resume' : '--session-id', sessionId,
       if (model != null) ...['--model', model],
+      if (effort != null) ...['--effort', effort],
     ];
 
 /// What every session the app starts is told, on top of Claude Code's own
@@ -76,7 +84,7 @@ String deckBrief({required bool chrome, required bool skipPermissions}) => [
         'Permissions: a command may wait for the user to allow it on the phone; that is expected.',
       '',
       '',
-      'Notifications: the app tells the user itself when you ask something, when a turn ends, and when something fails. The PushNotification tool has no route from this session — do not use it, and do not offer to.',
+      'Notifications: the app tells the user itself when you ask something, when a turn ends, and when something fails. To tell the user something at a point mid-task — a build uploaded, tests green before a long release step — run `kit notify "one line"` in this folder; it reaches the phone as a notification. Use it when the user asked to be told, not for every step. The PushNotification tool has no route from this session — do not use it, and do not offer to.',
       '',
       'If you hand work to a subagent that will use the browser, put these rules in its prompt.',
     ].join('\n');
@@ -299,6 +307,9 @@ enum NoticeKind {
 
   /// A turn ended well — the reply is on the phone.
   done,
+
+  /// A line Claude sent on purpose, with `kit notify`.
+  note,
 }
 
 /// One notification: what to show, and what it is about, so a tap opens
@@ -319,7 +330,7 @@ class Notice {
   /// pending), a repeated problem does not stack.
   String get channel => switch (kind) {
         NoticeKind.problem => 'problems',
-        NoticeKind.done => 'done',
+        NoticeKind.done || NoticeKind.note => 'done',
         NoticeKind.permission || NoticeKind.question || NoticeKind.signIn => 'asks',
       };
 
@@ -352,6 +363,9 @@ Notice noticeForDone(ResultEvent r, {required String project}) {
   final took = secs < 60 ? '' : ' in ${secs ~/ 60}m ${(secs % 60).toString().padLeft(2, '0')}s';
   return Notice(kind: NoticeKind.done, title: 'Done$took · $project', body: _clip(r.text.trim().isEmpty ? 'The turn ended.' : r.text.trim(), 240));
 }
+
+/// The notification for a line Claude sent with `kit notify`.
+Notice noticeForNote(String text, {required String project}) => Notice(kind: NoticeKind.note, title: 'Claude · $project', body: _clip(text.trim(), 240));
 
 /// The user's answer to an [Ask], as the `response` of a control_response.
 class AskAnswer {

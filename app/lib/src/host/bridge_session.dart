@@ -42,7 +42,7 @@ enum BridgeState {
 /// conversation; the rules the user answered Always to, so the Session
 /// tab can list them; and the options the next Start runs with.
 class BridgeRecord {
-  const BridgeRecord({this.sessionId, required this.startedAt, this.pid, this.always = const [], this.skipPermissions = false, this.chrome = false});
+  const BridgeRecord({this.sessionId, required this.startedAt, this.pid, this.always = const [], this.skipPermissions = false, this.chrome = false, this.model, this.effort});
 
   /// Null when no session has run here yet — only options are recorded.
   final String? sessionId;
@@ -56,6 +56,10 @@ class BridgeRecord {
   /// `--chrome`: the Claude in Chrome tools, on this Mac's browser.
   final bool chrome;
 
+  /// `--model` / `--effort` — null leaves the CLI to its own choice.
+  final String? model;
+  final String? effort;
+
   Map<String, Object?> toJson() => {
         if (sessionId != null) 'sessionId': sessionId,
         'startedAt': startedAt.toUtc().toIso8601String(),
@@ -63,6 +67,8 @@ class BridgeRecord {
         'always': [for (final r in always) r.toJson()],
         'skipPermissions': skipPermissions,
         'chrome': chrome,
+        if (model != null) 'model': model,
+        if (effort != null) 'effort': effort,
       };
   static BridgeRecord? fromJson(Object? v) {
     if (v is! Map) return null;
@@ -74,7 +80,14 @@ class BridgeRecord {
       always: [for (final r in (v['always'] as List? ?? const [])) if (r is Map) AppliedRule.fromJson({for (final e in r.entries) e.key.toString(): e.value})],
       skipPermissions: v['skipPermissions'] == true,
       chrome: v['chrome'] == true,
+      model: _choice(v['model']),
+      effort: _choice(v['effort']),
     );
+  }
+
+  static String? _choice(Object? v) {
+    final s = v?.toString().trim() ?? '';
+    return s.isEmpty || s == 'default' ? null : s;
   }
 }
 
@@ -102,6 +115,8 @@ class BridgeSession extends ChangeNotifier {
     alwaysApplied.addAll(prev?.always ?? const []);
     skipPermissions = prev?.skipPermissions ?? false;
     chrome = prev?.chrome ?? false;
+    modelChoice = prev?.model;
+    effort = prev?.effort;
   }
 
   final String dir;
@@ -136,6 +151,10 @@ class BridgeSession extends ChangeNotifier {
   /// it (`Mac`, `phone`, or `host` for a remembered one).
   void Function(Ask ask, AskAnswer answer, String by)? onAnswered;
 
+  /// The process ended with an ask still open — nobody can answer it now,
+  /// and the phone must stop showing it.
+  void Function(Ask ask)? onWithdrawn;
+
   /// Renders what the plan holds on the thing a scoped message is about —
   /// injected by the host, which has the plan (`renderItem`/`renderStep`,
   /// the same text `kit show` prints).
@@ -153,14 +172,53 @@ class BridgeSession extends ChangeNotifier {
   /// browser through the Claude in Chrome extension. Persisted.
   bool chrome = false;
 
-  /// Options are fixed for a running process; returns false then.
-  bool setOptions({bool? skipPermissions, bool? chrome}) {
-    if (running) return false;
+  /// The next Start's `--model` alias (`opus`, `fable`, …); null is the
+  /// CLI's own choice. Distinct from [Transcript.model], what init said.
+  String? modelChoice;
+
+  /// The next Start's `--effort` level; null is the CLI's own.
+  String? effort;
+
+  /// Options for the next Start — and, while a session runs, for this
+  /// one: the flags belong to the process, not the conversation, so the
+  /// process is stopped and started again on the same session
+  /// (`--resume`) with the new flags. At once between turns; while a turn
+  /// runs or an ask is open, when that turn ends, so nothing in flight is
+  /// cut. `default` for [model] or [effort] hands the choice back to the
+  /// CLI. Returns false only when nothing was given.
+  bool setOptions({bool? skipPermissions, bool? chrome, String? model, String? effort}) {
+    if (skipPermissions == null && chrome == null && model == null && effort == null) return false;
     if (skipPermissions != null) this.skipPermissions = skipPermissions;
     if (chrome != null) this.chrome = chrome;
+    if (model != null) modelChoice = BridgeRecord._choice(model);
+    if (effort != null) this.effort = BridgeRecord._choice(effort);
     _writeRecord();
+    if (running) {
+      restartPending = true;
+      _applyPendingRestart();
+    }
     notifyListeners();
     return true;
+  }
+
+  /// A change made while a turn was running — applied when it ends.
+  bool restartPending = false;
+  bool _restarting = false;
+
+  void _applyPendingRestart() {
+    if (!restartPending || _restarting || state != BridgeState.ready) return;
+    unawaited(_restartForOptions());
+  }
+
+  Future<void> _restartForOptions() async {
+    _restarting = true;
+    restartPending = false;
+    try {
+      await stop();
+      await start(resume: true);
+    } finally {
+      _restarting = false;
+    }
   }
 
   /// What `init` said about the browser: `connected`, `failed`, … — null
@@ -194,7 +252,7 @@ class BridgeSession extends ChangeNotifier {
     }
   }
 
-  Future<void> start({bool resume = false, String? model}) async {
+  Future<void> start({bool resume = false}) async {
     if (running) return;
     final prev = resume ? previous() : null;
     if (resume && prev?.sessionId == null) return _fail('Nothing to resume for this folder.');
@@ -213,7 +271,7 @@ class BridgeSession extends ChangeNotifier {
     final bin = await _findBinary();
     if (bin == null) return _fail('claude is not installed (looked on your shell PATH, ~/.local/bin, /opt/homebrew/bin).');
     sessionId = resume ? prev!.sessionId : _uuid4();
-    final args = bridgeArgs(sessionId: sessionId!, resume: resume, model: model, permissionMode: skipPermissions ? 'bypassPermissions' : 'default', chrome: chrome, appendSystemPrompt: brief);
+    final args = bridgeArgs(sessionId: sessionId!, resume: resume, model: modelChoice, effort: effort, permissionMode: skipPermissions ? 'bypassPermissions' : 'default', chrome: chrome, appendSystemPrompt: brief);
     try {
       _proc = await _starter(bin, args, workingDirectory: dir, environment: {...Platform.environment, 'PATH': await _shellPath()});
     } on ProcessException catch (e) {
@@ -245,6 +303,7 @@ class BridgeSession extends ChangeNotifier {
           sessionId = e.sessionId;
           _writeRecord();
         }
+        _applyPendingRestart();
       case AskEvent():
         if (!e.ask.isQuestion && _sessionAllows.contains(e.ask.key)) {
           _answerRemembered(e.ask);
@@ -254,6 +313,7 @@ class BridgeSession extends ChangeNotifier {
         }
       case ResultEvent():
         state = BridgeState.ready;
+        _applyPendingRestart();
       case TextDeltaEvent():
       case AssistantEvent():
       case ToolResultEvent():
@@ -371,8 +431,16 @@ class BridgeSession extends ChangeNotifier {
     _proc = null;
     pid = null;
     _sessionAllows.clear();
+    final open = transcript.pending;
+    if (open != null) {
+      transcript.addNote('Withdrawn — the session stopped: ${open.summary}');
+      onWithdrawn?.call(open);
+    }
     transcript.pending = null;
     transcript.turnOpen = false;
+    // A restart for new options is on its way; anything else that ended
+    // takes the record with it on the next Start.
+    if (!_restarting) restartPending = false;
     _writeRecord();
     notifyListeners();
   }
@@ -395,6 +463,8 @@ class BridgeSession extends ChangeNotifier {
           always: alwaysApplied,
           skipPermissions: skipPermissions,
           chrome: chrome,
+          model: modelChoice,
+          effort: effort,
         ).toJson()));
     } on Object {
       // The record is a convenience for Resume; the session runs without it.
@@ -408,6 +478,9 @@ class BridgeSession extends ChangeNotifier {
         'canResume': !running && previous()?.sessionId != null,
         'skipPermissions': skipPermissions,
         'chrome': chrome,
+        'modelChoice': modelChoice ?? 'default',
+        'effort': effort ?? 'default',
+        'restartPending': restartPending,
         if (chromeStatus != null) 'chromeStatus': chromeStatus,
         if (sessionId != null) 'sessionId': sessionId,
         if (transcript.model != null) 'model': transcript.model,

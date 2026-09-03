@@ -121,6 +121,31 @@ lib/src/
 `flutter_kit` (`../kit`) is a path dependency: model, graph, layout, inbox
 and the hook spool are the same code the CLI runs.
 
+## Session options
+
+The Deck header carries what the next Start runs with, on both devices:
+two pills, **PERMISSIONS · ASK/SKIP** and **CHROME · OFF/ON**, and two
+dials, **MODEL** (default · haiku · sonnet · opus · fable, the CLI's
+aliases) and **EFFORT** (default · low · medium · high · xhigh · max).
+A dial moves freely and reports once when the finger lifts; `default`
+leaves the choice to the CLI. All four are kept in the bridge record
+under `~/.flutter_kit/bridge/`. They work while a session runs too: the
+flags belong to the process, not the conversation, so the host stops
+the process and starts it again on the same session with `--resume` and
+the new flags — at once between turns, or when the running turn ends so
+nothing in flight is cut (the header says "Applies when this turn
+ends"). The facts line under the title shows the model the session
+actually got.
+
+Everything under the title — Start/Stop, the pills, the dials — folds
+behind a chevron so the transcript gets the screen: open while idle,
+folded while a session runs, with a compact Stop kept on the title row;
+a tap on the chevron or the title overrides until the session state
+changes again.
+
+The conversation is one selection: drag on the Mac, long-press on the
+phone, copy — across your bubbles, Claude's replies and tool rows.
+
 ## Notifications
 
 The host pushes to the phone itself, over FCM HTTP v1 — no Cloud
@@ -146,6 +171,12 @@ foreground app. The session is told all this in its brief, because the
 CLI's own PushNotification tool has no route from a bridge session: it
 only knows Anthropic's Remote Control pairing with the Claude app.
 
+A session can push a line of its own: `kit notify "Build uploaded"` in
+the project folder writes one `Notify` event to the hook spool, and the
+host sends it as "Claude · project" on the Turn ended channel. The brief
+tells every session the command exists and when to use it — when you
+asked to be told at a point, not at every step.
+
 `dart run tool/push_probe.dart [fcm-token]` (from `app/`) proves the key
 mints a token and FCM answers; without a token it sends to a probe token
 and FCM's 400 about that token is the proof.
@@ -157,6 +188,7 @@ projects/{slug}                 name, dir, machine, manifest, counts, session{st
 projects/{slug}/steps/{id}      Step.toMap()
 projects/{slug}/items/{id}      Item.toMap()
 projects/{slug}/inbox/{auto}    {sentAt, entries, from}; the host stamps appliedAt + applied
+projects/{slug}/asks/{requestId} an Ask; the host stamps answeredAt, answer, by — 'Withdrawn' when the process ended with it open
 projects/{slug}/events/{auto}   milestones from hooks (prompts, turn ends, notifications)
 projects/{slug}/threads/{about}          `item:<id>` or `step:<id>` — {about, count, last, updated}
 projects/{slug}/threads/{about}/messages the scoped rows, append-only; they outlive sessions and the chat window

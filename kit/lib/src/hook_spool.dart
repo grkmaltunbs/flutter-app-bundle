@@ -76,6 +76,8 @@ class HookEvent {
         return _clip((payload['message'] ?? 'Claude needs you').toString(), 160);
       case 'SessionEnd':
         return 'Session ended';
+      case 'Notify':
+        return _clip((payload['message'] ?? '').toString().trim(), 240);
       default:
         return name.isEmpty ? 'Event' : name;
     }

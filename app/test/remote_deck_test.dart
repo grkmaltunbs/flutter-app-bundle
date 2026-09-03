@@ -64,9 +64,9 @@ void main() {
       await chat.doc('m00001').set(_row('m00001', DeckRole.assistant, 'It is **code complete** — three of your boxes hold it:\n\n- the Play data-safety confirmation\n- the presence decision\n- the launch path at 3.12×'));
       await chat.doc('m00002').set(_row('m00002', DeckRole.tool, 'bash kit/kit.sh blocks a11y-and-profile-privacy', tool: 'Bash', result: 'code complete · 3 items open'));
       await _settle(tester);
-      expect(find.text('STOP'), findsOneWidget);
+      expect(find.byTooltip('Stop'), findsOneWidget, reason: 'folded while running, Stop stays on the title row');
       expect(find.textContaining('CLAUDE 2.1.251'), findsOneWidget);
-      final list = find.byType(Scrollable).first;
+      final list = find.byType(ListView);
       await tester.dragUntilVisible(find.textContaining('three of your boxes', findRichText: true), list, const Offset(0, 200));
       expect(find.textContaining('three of your boxes', findRichText: true), findsOneWidget);
       await tester.dragUntilVisible(find.textContaining('3 items open'), list, const Offset(0, -200));
@@ -106,8 +106,7 @@ void main() {
       expect((cmds.docs.last.data()['response'] as Map)['message'], 'The user declined from the phone.');
       expect(find.text('AUTHORIZATION REQUESTED'), findsNothing);
 
-      await tester.ensureVisible(find.text('STOP'));
-      await tester.tap(find.text('STOP'));
+      await tester.tap(find.byTooltip('Stop'));
       await _settle(tester);
       cmds = await project.collection('commands').orderBy('sentAt').get();
       expect(cmds.docs.last.data()['type'], 'stop');
@@ -202,12 +201,23 @@ void main() {
     await _settle(tester);
     expect(find.text('PERMISSIONS · ASK'), findsOneWidget);
     expect(find.text('CHROME · ON'), findsOneWidget);
+    expect(find.text('MODEL · DEFAULT'), findsOneWidget);
     await tester.tap(find.text('PERMISSIONS · ASK'));
     await _settle(tester);
     final cmd = (await project.collection('commands').get()).docs.single.data();
     expect(cmd['type'], 'options');
     expect(cmd['skipPermissions'], isTrue);
     expect(cmd.containsKey('chrome'), isFalse);
+    expect(cmd.containsKey('model'), isFalse);
+    // A dial is one command, sent when the finger lifts.
+    await tester.drag(find.byType(Slider).first, const Offset(400, 0));
+    await _settle(tester);
+    final dial = (await project.collection('commands').get()).docs.map((d) => d.data()).firstWhere((d) => d['model'] != null);
+    expect(dial['model'], 'fable');
+    await project.set({'session': {'modelChoice': 'fable', 'effort': 'xhigh'}}, SetOptions(merge: true));
+    await _settle(tester);
+    expect(find.text('MODEL · FABLE'), findsOneWidget);
+    expect(find.text('EFFORT · XHIGH'), findsOneWidget);
     // The host wrote its record and republished.
     await project.set({'session': {'skipPermissions': true}}, SetOptions(merge: true));
     await _settle(tester);
@@ -215,15 +225,22 @@ void main() {
     // Running: frozen, and the browser's status shows.
     await project.set({'session': {'mode': 'bridge', 'state': 'ready', 'chromeStatus': 'failed'}}, SetOptions(merge: true));
     await _settle(tester);
+    expect(find.text('CHROME · FAILED'), findsNothing, reason: 'running: the controls fold');
+    await tester.tap(find.byTooltip('Show session controls'));
+    await _settle(tester);
     expect(find.text('CHROME · FAILED'), findsOneWidget);
     await tester.tap(find.text('CHROME · FAILED'));
     await _settle(tester);
-    expect((await project.collection('commands').get()).docs.length, 1, reason: 'no command while running');
-    // The test pill works while running: a command, then the host's answer toasted.
+    final live = (await project.collection('commands').get()).docs.map((d) => d.data()).where((d) => d.containsKey('chrome'));
+    expect(live.single['chrome'], isFalse, reason: 'a change while live is a command; the host restarts on the same conversation');
+    await project.set({'session': {'restartPending': true}}, SetOptions(merge: true));
+    await _settle(tester);
+    expect(find.textContaining('Applies when this turn ends'), findsOneWidget);
+    // The test pill: a command, then the host's answer toasted.
     await tester.tap(find.text('PUSH · TEST'));
     await _settle(tester);
     final cmds = (await project.collection('commands').get()).docs;
-    expect(cmds.length, 2);
+    expect(cmds.length, 4);
     final test = cmds.firstWhere((d) => d.data()['type'] == 'push-test');
     await test.reference.set({'doneAt': FieldValue.serverTimestamp(), 'result': 'sent to 1 phone'}, SetOptions(merge: true));
     await _settle(tester);
