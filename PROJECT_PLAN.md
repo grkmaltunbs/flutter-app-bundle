@@ -382,8 +382,7 @@ about first. The Session tab shows the text.
 ---
 
 ## Step 5d — Session dials — model and effort from either device; the conversation as one selection
-- [ ]
-- state: active — gates pending: qa
+- [x]
 - id: session-dials
 - depends_on: session-options
 - qa_required: true
@@ -424,8 +423,7 @@ running, Stop kept on the title row — so the transcript has the screen.
 ---
 
 ## Step 6 — Notifications — an ask, a sign-in or a problem reaches the phone
-- [ ]
-- state: active — gates pending: qa
+- [x]
 - id: notifications
 - depends_on: deck-on-the-phone
 - qa_required: true
@@ -474,8 +472,7 @@ The step's checkbox stays `[ ]` until these are checked:
 ---
 
 ## Step 6b — Notification actions — Allow and Deny from the lock screen
-- [ ]
-- state: blocked — waiting on notifications
+- [x]
 - id: notification-actions
 - depends_on: notifications
 - qa_required: true
@@ -498,19 +495,972 @@ draws today. A step that flipped, on its own channel.
 
 ---
 
-## Step 7 — Hand over — the Claude app takes the same conversation, and takes it back
+## Step 10 — Blobs — files, frames, builds and push images ride Firebase Storage, not Firestore parts
 - [ ]
-- id: handover
+- id: blobs
+- depends_on: attachments
+- qa_required: true
+
+### Description
+One transport for every byte that is not a row. Firebase Storage on
+`flutterappbundle` (the relay), owner-only rules (`storage.rules`,
+deployed beside `firestore.rules`), the client SDK on both roles —
+the host is signed in as the same user, so no second key. Paths:
+
+```
+projects/{slug}/uploads/{id}/{name}     a file from the phone, deleted by the host once saved
+projects/{slug}/frames/live.jpg         the mirror's newest frame (`mirror`)
+projects/{slug}/builds/{sha}.apk        a build for the phone (`try-it`)
+projects/{slug}/shots/{id}.jpg          a picture a push points at (`rich-pushes`)
+projects/{slug}/files/{id}              a file too big for a row (`review`)
+```
+
+The phone's send puts each attachment up with `putFile` and the
+`send` command names the storage paths; the host downloads, saves
+under `~/.flutter_kit/attachments/<project>/` as today, deletes the
+object. The 600 KB base64 parts under `uploads/{id}/parts` go, with
+their tests. A download URL (token-bearing, unguessable) is what a
+push may carry as an image later. Progress shows on the chip on both
+devices; a failed upload takes the message back into the composer as
+today.
+
+Storage rules deploy from `app/` with `firebase deploy --only
+storage --project flutterappbundle`; the step refuses any other
+project, as every deploy in this kit does.
+
+### Acceptance
+- Phone: attach a 12 MB PDF and a screenshot; both arrive under
+  `~/.flutter_kit/attachments/<project>/`; the bucket is empty of
+  `uploads/` afterwards; the answer describes the screenshot.
+- Mac: the same by paperclip and by drop.
+- Airplane mode mid-upload: the chip shows the failure and the
+  message returns to the composer; nothing half-written remains in
+  the bucket after the host's next sweep.
+- A signed-out client cannot read or write any object (rules test).
+- No `parts` subcollection is written anywhere; the old code and
+  tests are gone.
+
+### QA walkthrough
+1. Phone: paperclip → a screenshot and a PDF → "what is on the image and how many pages is the PDF?"; watch the chips fill; read the answer.
+2. Firebase console → Storage: nothing under `projects/<slug>/uploads`.
+3. Mac: drop a PNG on the Deck; the same.
+
+### Touchpoints
+- `app/lib/src/attachments.dart`, `app/lib/src/host/attachment_store.dart`, `app/lib/src/relay.dart` (uploads), `app/storage.rules`, `app/firebase.json`, `app/pubspec.yaml` (`firebase_storage`)
+
+### Your part (human)
+
+The step's checkbox stays `[ ]` until these are checked:
+
+  - [x] Turn on Firebase Storage for flutterappbundle so blobs have a bucket *(item `enable-storage-bucket`)*
+
+---
+
+## Step 11 — Host as a service — starts at login, holds the Mac awake, and the phone knows when it is gone
+- [ ]
+- id: host-service
+- depends_on: bridge-core
+- qa_required: true
+
+### Description
+The phone is only as good as the host behind it, and a closed lid
+or a reboot is the most common way a session dies today.
+
+**Start at login.** A switch on the Session tab registers the app
+as a login item (`launch_at_startup`; a LaunchAgent with KeepAlive
+as the fallback), so the host is up after a reboot without anyone at
+the Mac. The host reopens the folders it had open and re-adopts a
+running session by id, as it already does after a restart.
+
+**Stay awake.** While any session or run bay process runs, the host
+holds a power assertion — `caffeinate -is -w <pid>` on the bridge
+process — and releases it when the last one ends. The Session tab
+says "holding the Mac awake" while it does.
+
+**Presence.** The host writes `hosts/{hostId}` — `{seenAt
+(server time), name, appVersion, cli, projects: [slugs]}` — every
+thirty seconds while it runs, and once more with `stopping: true`
+on a clean quit. The phone shows the host's state in the Deck
+header's facts line: "Mac · 12 s ago"; past ninety seconds it turns
+amber: "Mac unreachable since 4 min". A command written while the
+host is unreachable shows as *queued* under the composer with a way
+to withdraw it; the host drains `commands` in order when it returns,
+as it already does. A session that was running when the host went
+away is shown as *lost* until the host reports it again.
+
+A stopped host (clean quit) reads as "Mac stopped", not
+"unreachable"; the phone's Start then says the host must be up.
+
+### Acceptance
+- Start at login on: reboot the Mac, do not log into the app; the
+  phone's facts line shows the Mac within a minute of the desktop;
+  the project list is back.
+- Lid open, on battery, a session running: the Mac does not idle-sleep
+  in 20 min (`pmset -g assertions` lists the assertion); Stop releases it.
+- Quit the host: the phone says "Mac stopped" within a heartbeat;
+  kill -9 it: "Mac unreachable since …" within ninety seconds.
+- Send while unreachable: the row says queued; bring the host back;
+  the row runs and the answer streams.
+
+### QA walkthrough
+1. Mac: Session tab → Start at login on; `pmset -g assertions` while a session runs.
+2. Phone: watch the facts line; kill the host from a terminal; send "hello"; relaunch the host; the reply arrives.
+
+### Touchpoints
+- `app/lib/src/host/host_projects.dart`, `app/lib/src/host/bridge_session.dart` (power assertion), `app/lib/src/relay.dart` (hosts), `app/lib/src/screens/session_tab.dart`, `app/lib/src/screens/deck_tab.dart` (facts line, queued rows), `app/pubspec.yaml`
+
+---
+
+## Step 12 — Plan mode — the mode dial, and the plan as a card you approve from the phone
+- [ ]
+- id: plan-mode
+- depends_on: session-dials
+- qa_required: true
+
+### Description
+A third dial beside MODEL and EFFORT: **MODE** — `default · plan ·
+accept edits · bypass`, the CLI's `--permission-mode` values. It
+absorbs the Skip permissions pill (bypass is what the pill did; the
+pill goes). Kept in the bridge record, flipped from either device,
+and while live it changes like the other dials: at once between
+turns, at the end of a running turn otherwise (restart on `--resume`
+today; the `set_permission_mode` control request if `interrupt`
+proves it).
+
+In plan mode the session reads and thinks but does not edit, and
+when it is ready it calls `ExitPlanMode` — which arrives on the ask
+channel like any tool, with the plan text in its input. That ask
+renders as a **plan card**: the plan in markdown, scrollable, with
+**Approve** (allow) and **Revise** (deny, with a message the user
+types — what to change — which the session reads and plans again).
+A push for it: "Plan ready · Nahmatik". After Approve the dial shows
+the mode the CLI reports in the next init, and the session builds.
+
+The question card also learns previews: an `AskUserQuestion` option
+that carries `preview` shows it (markdown, monospaced) under the
+option, so a choice between two layouts or two snippets reads on
+the phone as it does in the terminal.
+
+Spike first, from the Mac: what `ExitPlanMode`'s `control_request`
+carries on the pinned CLI version (the plan field's name, and
+whether the allow response takes a mode), and record it in
+`DESIGN.md` beside the protocol table.
+
+### Acceptance
+- Phone: MODE → plan; Start; send "add a settings screen". The
+  session explores, then a plan card appears with headings and code
+  blocks rendered; Approve; the next tool rows are edits.
+- Revise with "no new packages": the session re-plans and the new
+  card reflects it.
+- Mode flipped to plan mid-turn waits and says so; between turns it
+  applies at once; the facts line shows the mode the CLI reports.
+- A question with previews shows them; the answer round-trips.
+- The Skip permissions pill is gone from both Decks and the Session
+  tab; bypass on the dial does what it did.
+
+### QA walkthrough
+1. Phone: MODE → PLAN; Start; "plan a settings screen with a theme toggle".
+2. Phone: the plan card; scroll; Revise: "keep it to one file"; the second card; Approve.
+3. Mac: Session tab process output shows the mode; the Deck's tool rows show Edit asks.
+
+### Touchpoints
+- `app/lib/src/screens/deck_tab.dart` (`_Dial`, header), `app/lib/src/screens/ask_card.dart` (plan card, previews), `app/lib/src/host/bridge_session.dart` (record, mode), `kit/lib/src/bridge.dart` (choices, ExitPlanMode parse), `app/lib/src/host/push_sender.dart` (notice text), `app/DESIGN.md`
+
+---
+
+## Step 13 — Interrupt — end the turn and keep the session; a message sent while it works waits its turn
+- [ ]
+- id: interrupt
+- depends_on: session-dials
+- qa_required: true
+
+### Description
+Today the only brake is Stop, which kills the process. The stdio
+protocol has a client-side control request the Agent SDK sends as
+`interrupt()`:
+
+```json
+{"type":"control_request","request_id":"<uuid>","request":{"subtype":"interrupt"}}
+```
+
+The CLI answers with a `control_response`, the running turn ends
+with a `result`, and the session is still there for the next
+message. The Deck's title row shows **INTERRUPT** while a turn runs
+(Stop moves into the fold); the row for the cut turn says
+"interrupted from the phone". An open ask is withdrawn when its turn
+is interrupted, as it is on Stop.
+
+**Queued messages.** Sending while a turn runs no longer waits on
+the composer: the host keeps the message, the row shows *queued*
+with a way to withdraw it, and the host sends it the moment the
+`result` lands. One queue per session, in order.
+
+**Spike, from the Mac, recorded in `DESIGN.md`:** the two sibling
+requests — `{subtype: set_model, model}` and `{subtype:
+set_permission_mode, mode}` — if the pinned CLI honours them, the
+dials switch without the restart-on-`--resume` that `session-dials`
+does now, and this step wires them; if not, nothing changes and
+the note says so. The protocol is undocumented; the fallback stays.
+
+### Acceptance
+- Phone: send "count to 200 slowly, one number per line"; INTERRUPT
+  at 20; the row ends with "interrupted"; send "what was the last
+  number?"; the reply names it — the session lived.
+- INTERRUPT while an ask is open withdraws the ask card on both devices.
+- Send two messages during a turn; both show queued in order; the
+  second is withdrawn; only the first runs after the result.
+- Stop still kills the process; Start after it resumes on the same id.
+
+### QA walkthrough
+1. Phone: "count to 200 slowly"; INTERRUPT; "last number?".
+2. Phone: during a turn, send "and then say done"; watch it queue, then run.
+
+### Touchpoints
+- `kit/lib/src/bridge.dart` (interrupt line, control_response parse), `app/lib/src/host/bridge_session.dart` (queue, withdraw), `app/lib/src/relay.dart` (commands), `app/lib/src/screens/deck_tab.dart` (title row, queued rows), `app/DESIGN.md`
+
+---
+
+## Step 14 — Review — the diff before Allow, any file on the Mac from a tap, and Git from the phone
+- [ ]
+- state: blocked — waiting on blobs
+- id: review
+- depends_on: deck-on-the-phone, blobs
+- qa_required: true
+
+### Description
+The half of an agent the human does is reading what it changed.
+
+**Diffs.** An ask for `Edit`, `MultiEdit`, `Write` or `NotebookEdit`
+shows a unified diff on the card instead of the input JSON: the host
+computes it against the file as it is on disk (old/new strings for
+Edit; the whole file for Write) and writes it into the ask doc,
+bounded at 24 KB with a "… n more lines" tail. Added lines green,
+removed red, in the mono face, at every text scale. The tool row of
+an edit that ran shows the same diff on tap. A `Bash` ask shows the
+command in a code block with its description under it.
+
+**Files.** Any path in a tool row or a diff is a tap: the phone
+writes a `host` command — `{type: host, action: read_file, path}`
+— and the host answers with `files/{id}` (`{path, text, lines,
+truncated}`; past 900 KB the text goes to Storage under
+`files/{id}` and the doc points at it). The phone shows it
+monospaced with line numbers and a find field; **Ask about this**
+prefills the composer with `path:line` so the question is scoped
+the way item threads are. The host reads only inside the project
+folder and its attachments folder; anything else is refused with a
+reason.
+
+**Git card.** On the Session screen and in the Deck's fold:
+branch, ahead/behind, dirty count, the last commit's first line —
+the host refreshes it after every turn and every hook event, no
+quota. Buttons the host runs directly: **Commit** (a message field;
+`git add -A && git commit`), **Push**, and on a file's diff view
+**Revert file** (`git checkout -- <path>`, behind a confirm sheet
+now, biometrics in `voice-and-biometrics`). Each is a `host` command
+and shows as a tool-style row in the transcript so the session's
+next turn sees it too. A push that needs credentials the host does
+not have reports the error line verbatim.
+
+### Acceptance
+- Phone, default mode: "rename the title in home_screen.dart"; the
+  Edit ask shows a diff with the old line red and the new green;
+  Deny; the file is unchanged.
+- Tap the path on that row: the file opens with line numbers; find
+  "title" jumps to it; Ask about this prefills `path:line`.
+- Git card: dirty count matches `git status --short | wc -l`;
+  Commit "wip: title" → `git log -1` shows it; Push → the remote
+  has it; Revert file on a dirty file → `git status` no longer lists it.
+- A read_file for `/etc/passwd` is refused and the row says why.
+- 1.0 / 2.0 / 3.12x: the diff scrolls sideways inside its own box;
+  the page never scrolls horizontally.
+
+### QA walkthrough
+1. Phone: MODE → DEFAULT; "change the app title to KATYA Test" → the Edit ask; read the diff; Allow.
+2. Phone: tap the file path; find the line; Ask about this: "why is this a const?".
+3. Phone: Git card → Commit "test: title" → Push; Mac: `git log -1`.
+
+### Touchpoints
+- `app/lib/src/screens/ask_card.dart` (diff), `app/lib/src/screens/deck_tab.dart` (tool rows, file view), `app/lib/src/host/bridge_session.dart` (diff on ask), `app/lib/src/host/host_project.dart` (host commands: read_file, git), `app/lib/src/relay.dart` (files, host commands), `kit/lib/src/diff.dart` (new, pure Dart unified diff)
+
+---
+
+## Step 15 — Instruments — the context gauge and the pool gauges on the Deck, and compaction offered before the wall
+- [ ]
+- id: instruments
+- depends_on: session-dials
+- qa_required: true
+
+### Description
+The state of the machine at a glance, in the Instrument skin's own
+language: two small arcs on the Deck header's facts row.
+
+**Context.** Every `assistant` message carries `usage`; the context
+in use is that message's `input_tokens + cache_creation_input_tokens
++ cache_read_input_tokens`. The window is the model's — 200k by
+default, 1M for the `[1m]` variants — from the init's model name.
+The arc fills; amber past 70 %, red past 85 %, the number on tap.
+Kept on the session doc (`context: {used, window, at}`) so both
+devices draw the same arc.
+
+**Pool.** `rate_limit_event` carries the type (`five_hour`,
+`seven_day`), the status and the reset time, and a utilization when
+the CLI sends one; the second arc is the five-hour pool with a
+countdown to reset, the weekly pool under it on the Session screen.
+"Exhausted · resets in 1 h 12 m" replaces the amber wait line when
+a turn is refused for the pool. Tokens per turn show on the result
+row; never dollars — `total_cost_usd` is list-price accounting, not
+a charge, and this app never suggests API billing.
+
+**Compaction.** Past 80 % the header offers **COMPACT**, which sends
+`/compact` as a user message — a spike the design note lists: if
+the pinned CLI compacts in `-p`, the arc drops and the row says so;
+if it does not, the offer reads "start a fresh session; this one
+is at n %" and Start with a new id is one tap. Record the answer in
+`DESIGN.md`.
+
+### Acceptance
+- After a turn, the context arc's number equals the last assistant
+  message's three usage fields summed (check against the Mac's
+  process output).
+- The pool arc shows the reset countdown from the last
+  `rate_limit_event`; a refused turn shows the exhausted line.
+- Above 80 %: COMPACT appears; below: it does not. Its result is
+  whatever the spike found, and the row says which.
+- Both arcs read at 1.0 / 2.0 / 3.12x without overflow; tap shows the
+  numbers.
+
+### QA walkthrough
+1. Phone: Start; "read lib/ and summarise"; watch the context arc climb; tap it.
+2. Phone: the pool arc and its countdown; Mac: compare with the process output's rate_limit_event.
+
+### Touchpoints
+- `kit/lib/src/bridge.dart` (usage, rate_limit parse), `app/lib/src/host/bridge_session.dart` (context on the session doc), `app/lib/src/screens/deck_tab.dart` (arcs), `app/lib/src/screens/session_tab.dart`, `app/lib/src/widgets/common.dart` (the arc), `app/DESIGN.md`
+
+---
+
+## Step 16 — Deck crew — subagents as a strip, tool rows that open, and the line since you last looked
+- [ ]
+- id: deck-crew
 - depends_on: deck-on-the-phone
 - qa_required: true
 
 ### Description
+**Crew.** A `Task` tool use is a subagent; the stream tags every
+message it produces with `parent_tool_use_id`. The Deck shows each
+running subagent as a chip on a strip under the header — its
+description, its elapsed time, a working pulse — and folds its
+tool rows under the chip so the transcript stays the user's
+conversation. Done chips dim and carry the summary on tap. The
+constellation's session step keeps its waves; nothing else moves.
+
+**Tool rows that open.** A tap on any tool row shows the full input
+and the full result, bounded at 24 KB with "open on the Mac"
+beyond, in the mono face; the compact row stays as it is. Copy is
+the SelectionArea's.
+
+**Since you last looked.** The phone remembers the last row it
+showed with the app in front, per project; the next open draws a
+thin labelled line above the first unread row and lands the list
+on it; the finished-turn push opens there too. The marker moves
+when the user scrolls past it, and there is one, not one per turn.
+
+### Acceptance
+- Send `/qa`; a flutter-qa chip appears with a running clock; its
+  rows are under the chip, not in the main list; when it ends the
+  chip dims and its summary is on tap.
+- Tap a Bash row: the command and the whole output; a 100 KB output
+  is cut at 24 KB with the note.
+- Leave the app during a turn; come back: the line sits above the
+  first row you have not seen, and the list starts there.
+- 1.0 / 2.0 / 3.12x: the strip wraps, nothing overflows.
+
+### QA walkthrough
+1. Phone: "/qa" and watch the crew strip; tap the chip when done.
+2. Phone: background the app mid-turn; a push; open; the line.
+
+### Touchpoints
+- `kit/lib/src/bridge.dart` (`parent_tool_use_id`), `app/lib/src/host/bridge_session.dart` (crew on the session doc), `app/lib/src/screens/deck_tab.dart` (strip, row sheet, marker), `app/lib/src/draft.dart` (last-seen)
+
+---
+
+## Step 17 — Autopilot — the host keeps stepping within a budget, waits for the pool, and stops for you
+- [ ]
+- state: blocked — waiting on host-service, instruments, interrupt
+- id: autopilot
+- depends_on: notification-actions, host-service, instruments, interrupt
+- qa_required: true
+
+### Description
+Rapid means "keep going". A toggle in the Deck's fold, **AUTOPILOT**,
+with a budget sheet: how many steps (1–10), and **night shift** —
+whether to wait out an empty pool and continue. The rest is fixed:
+an ask always stops the loop until it is answered (the push carries
+it, as today); a step whose gate fails twice stops it; a `kit next`
+that says the human's move stops it; Stop or INTERRUPT stops it.
+
+The loop lives in the host, about a hundred lines beside the
+bridge: on the `result` of a turn the loop started, run `kit next
+--step` through the library; if a step is ready for Claude, send
+`/step <id>` as the next user message; otherwise stop with the
+reason. On a `rate_limit_event` that refuses the turn, night shift
+waits until the reset time plus a minute and sends again — the
+process is resumed on the same id if it died meanwhile. Every
+start, every step that flips, every stop pushes one line on the
+Turn ended channel: "Autopilot · step 12 done · 2 of 5", "Autopilot
+stopped · needs you: register the iPhone". The transcript shows
+the loop's messages as its own rows, labelled, so the record is
+whole.
+
+The parked Python runner is what this replaces: `runner/` and
+`docs/autobuild.md` are deleted in this step, and the README's
+mention goes with them. A biometric gate on the toggle comes with
+`voice-and-biometrics`; until then the toggle asks for a confirm.
+
+### Acceptance
+- Budget 2, two ready steps in a scratch project: the host sends two
+  `/step`s in sequence and stops with "budget reached"; three pushes.
+- A step whose tests gate fails twice: the loop stops and the push
+  names the step.
+- An ask mid-loop: the loop waits; Allow from the lock screen; it
+  continues.
+- Night shift on, pool refused (simulated by a scripted event in the
+  test; live if the pool happens to be empty): the fold shows
+  "waiting for the pool · 0:42:10"; at reset it sends again.
+- INTERRUPT or Stop ends the loop; the toggle is off afterwards.
+- `runner/` and `docs/autobuild.md` no longer exist; README has no
+  dead link.
+
+### QA walkthrough
+1. Phone: AUTOPILOT → budget 2 → confirm; watch two steps run and the stop push.
+2. Phone: during a step, an Allow arrives on the lock screen; Allow; the loop continues.
+
+### Touchpoints
+- `app/lib/src/host/autopilot.dart` (new), `app/lib/src/host/bridge_session.dart`, `app/lib/src/host/push_sender.dart`, `app/lib/src/relay.dart` (session.autopilot), `app/lib/src/screens/deck_tab.dart` (toggle, sheet, waiting line), `runner/` (deleted), `docs/autobuild.md` (deleted), `README.md`
+
+### Your part (human)
+
+The step's checkbox stays `[ ]` until these are checked:
+
+  - [ ] Confirm how headless Claude use is counted on your plan before the first unattended run *(item `confirm-headless-accounting`)*
+
+---
+
+## Step 18 — Run bay — the host runs the app under test; reload, restart, the device and the log from the phone
+- [ ]
+- state: blocked — waiting on host-service
+- id: run-bay
+- depends_on: host-service
+- qa_required: true
+
+### Description
+"Does it run" stops being a question for Claude and becomes a thing
+you watch. The host owns the app process: `flutter run -d <device>
+--machine --print-dtd` in the project folder, speaking the daemon
+protocol IDEs use — `app.start` and `app.debugPort` events in,
+`app.restart {appId, fullRestart}` and `app.stop` commands out. No
+quota is spent on any of it.
+
+A **RUN** control in the Deck's fold and on the Session screen:
+the device picker (`flutter devices --machine`, plus booting a
+simulator or emulator that is listed but off; the default is the
+class `plan/kit.yaml` → `qa.runtime` names), then RUN · RELOAD ·
+RESTART · STOP. The run's state sits on the project doc
+(`run: {device, appId, state, since, vmUri, dtdUri}`), so both
+devices show the same pill: "Running · iPhone 16 · 4 min".
+
+**The log.** stdout and stderr of the run stream to
+`runs/{id}/log/{n}` in lines, coalesced to one write a second and
+kept to the last two thousand lines; the phone shows a monospaced
+tail with a pause, a find, and a copy. An exception in the log
+lights the pill amber and the line is a tap away.
+
+**Claude at the same app.** The session's standing brief gains the
+run's VM service and DTD URIs while a run is up, so the Dart MCP
+server can connect to the running app for runtime errors, widget
+trees and hot reload, and the brief says the host owns the process
+— the session must not start its own `flutter run` while the bay
+runs. **Reload on edit**, a switch: the host watches `lib/` and
+hot-reloads on a save, so a session's edits show up on the device
+without a turn.
+
+### Acceptance
+- Phone: RUN on the default device; the pill goes Running with the
+  device name within the build time; the log tail shows the
+  launch lines.
+- Edit a string on the Mac with reload on edit on: the simulator
+  shows the change and the log shows the reload line; RELOAD and
+  RESTART from the phone do the same on demand.
+- A thrown exception in the app shows amber on the pill and the
+  stack trace in the log.
+- A session asked "what runtime errors are there?" reads them
+  through the Dart MCP server from the bay's app, and does not start
+  a second `flutter run`.
+- STOP ends the process; the pill reads Idle; the log stays readable.
+
+### QA walkthrough
+1. Phone: RUN → the simulator boots and the app launches; watch the tail.
+2. Mac: change a visible string; the app reloads; phone: RESTART.
+3. Phone: "what runtime errors are there?" with an intentional throw in the app.
+
+### Touchpoints
+- `app/lib/src/host/run_bay.dart` (new, the daemon protocol), `app/lib/src/host/host_project.dart`, `app/lib/src/relay.dart` (run, runs/log), `app/lib/src/screens/deck_tab.dart` (fold), `app/lib/src/screens/session_tab.dart`, `app/lib/src/screens/log_sheet.dart` (new), `kit/lib/src/bridge.dart` (brief lines)
+
+---
+
+## Step 19 — Mirror — see the app under test on the phone, and drive it with taps
+- [ ]
+- state: blocked — waiting on run-bay, blobs
+- id: mirror
+- depends_on: run-bay, blobs
+- qa_required: true
+
+### Description
+The simulator on the Mac, on the phone in your hand.
+
+**Frames.** The host captures the run bay's device — `xcrun simctl
+io <udid> screenshot` for the simulator, `adb exec-out screencap
+-p` for an emulator, `screencapture -l <window>` for a macOS run —
+shrinks the frame to a 720 px long edge as JPEG, and puts it at
+`projects/{slug}/frames/live.jpg` in Storage; the project doc's
+`mirror: {seq, at, w, h}` ticks and the phone fetches on each tick.
+On demand from the **MIRROR** control; live at one frame a second
+while the Mirror sheet is open on a phone (the phone sets
+`mirror.watching` with its own heartbeat, so a sheet left open on
+a locked phone stops the stream). The sheet fills the width, keeps
+the aspect, and shows the frame's age.
+
+**Input.** A tap or a drag on the sheet becomes `{type: input,
+action: tap|swipe|text|key, x, y, x2, y2, text}` in device
+coordinates from the frame's size; the host plays it — `adb shell
+input` on Android, `idb ui tap|swipe|text` on the simulator (the
+session can install `idb` when the sheet says it is missing). The
+next frame follows the input at once. A caption line names the
+last input so the user sees what landed.
+
+Frames never enter the session on their own; "what is on the
+screen?" attaches the current frame as an image the way the
+paperclip does, one tap on the sheet.
+
+### Acceptance
+- RUN, then MIRROR: the simulator's screen shows on the phone within
+  two seconds; the age reads under one second while live.
+- Tap a button on the mirror: the app reacts on the simulator and
+  the next frame shows it; drag scrolls a list.
+- Close the sheet: `mirror.watching` clears and the host stops
+  capturing within three seconds (the Session tab says so).
+- Attach the frame and ask what is on it: the reply describes the
+  screen.
+- An emulator run does the same with adb; a missing idb shows the
+  line, and input is refused until it is there.
+
+### QA walkthrough
+1. Phone: RUN → MIRROR → tap through two screens of the app.
+2. Phone: the camera icon → "what is wrong on this screen?".
+
+### Touchpoints
+- `app/lib/src/host/mirror.dart` (new: capture, input), `app/lib/src/host/run_bay.dart`, `app/lib/src/relay.dart` (mirror, input commands), `app/lib/src/screens/mirror_sheet.dart` (new), `app/lib/src/screens/deck_tab.dart`
+
+---
+
+## Step 20 — Try it — the build installs on the phone in your hand, and a screenshot shares straight back
+- [ ]
+- state: blocked — waiting on blobs
+- id: try-it
+- depends_on: blobs, notifications
+- qa_required: true
+
+### Description
+The phone that drives the build is the device the app is for.
+
+**Build ready.** **TRY IT** in the Deck's fold, and — a switch per
+project — on its own when a step flips to done or code complete
+(the hook spool already carries the event): the host runs
+`flutter build apk --debug` in the project, puts the APK at
+`projects/{slug}/builds/{sha}.apk` in Storage, writes
+`builds/{id}` (`{sha, branch, version, size, at, path}`), and
+pushes "Build ready · Nahmatik · 3.2.0+41" on the Turn ended
+channel. A tap on the push, or on the build row, downloads to the
+app's cache and opens the system installer (`open_filex` with the
+FileProvider; `REQUEST_INSTALL_PACKAGES` in the manifest; the
+one-time "allow from this source" is an item). Progress on the
+row; the last three builds kept, older objects deleted by the host.
+
+**Share back.** K.A.T.Y.A registers as a share target for images
+and text (`receive_sharing_intent`): a screenshot of the app under
+test shared from Android's share sheet opens the Deck with the file
+attached and the composer focused — a project picker first when
+more than one project is open. The loop closes without the Mac:
+build, install, try, screenshot, share, ask, fix.
+
+iOS is the `iphone` step: the same flow over a wireless
+`flutter install` to the paired phone.
+
+### Acceptance
+- Phone: TRY IT; the row fills; "Build ready" arrives; tap; the
+  installer; the app opens on the phone.
+- A step flipping to done with the switch on builds without a tap;
+  with it off it does not.
+- Share a screenshot from the gallery to K.A.T.Y.A: the Deck opens
+  with the chip attached; send "what is wrong here?"; the answer
+  describes it.
+- Four builds: the bucket holds three; `builds/` lists three.
+- A build that fails pushes "Build failed" with the first error
+  line, and the row opens the log.
+
+### QA walkthrough
+1. Phone: TRY IT → Build ready → install → open the built app.
+2. Phone: screenshot the built app → share → K.A.T.Y.A → send.
+
+### Touchpoints
+- `app/lib/src/host/builds.dart` (new), `app/lib/src/host/hook_watcher.dart` (flip event), `app/lib/src/relay.dart` (builds), `app/lib/src/screens/deck_tab.dart` (fold, build rows), `app/lib/src/share_intake.dart` (new), `app/android/app/src/main/AndroidManifest.xml`, `app/pubspec.yaml`
+
+### Your part (human)
+
+The step's checkbox stays `[ ]` until these are checked:
+
+  - [ ] Let K.A.T.Y.A install apps on the Android phone, once *(item `allow-katya-to-install-apps`)*
+
+---
+
+## Step 21 — Session history — every conversation kept, any one resumed from the phone
+- [ ]
+- id: session-history
+- depends_on: session-dials
+- qa_required: true
+
+### Description
+The bridge record holds one session per project today; Start after
+Stop resumes it, and a new conversation forgets the old. Sessions
+are cheap to keep.
+
+The record becomes a list — `~/.flutter_kit/bridge/<project>.json`
+→ `{current, sessions: [{id, startedAt, endedAt, firstMessage,
+turns, model, mode}]}` — mirrored to `projects/{slug}/sessions/{id}`
+so the phone lists them: first message, date, turns, model. The
+Session screen and the Deck's fold show **Sessions**: tap one →
+**Resume** (Start with `--resume <id>`; the dials keep their
+settings); **New** starts a fresh id and the old one stays in the
+list. The transcript on the phone is per session: chat rows carry
+`sessionId`, the Deck shows the current one, and a resumed
+session's last rows come back from the CLI's own transcript file
+(`~/.claude/projects/<cwd-key>/<id>.jsonl`, read by the host —
+a spike for the file's shape on the pinned version, recorded in
+`DESIGN.md`). Delete removes a session from the list, not the
+CLI's file.
+
+### Acceptance
+- Two sessions: "remember falcon" in the first, New, "remember
+  heron" in the second; the list shows both with their first lines.
+- Resume the first from the phone; "what word?" → falcon; the Deck
+  shows that session's rows, not heron's.
+- The list survives a host restart and shows on both devices.
+- Delete on the second: gone from the list; `~/.claude/projects`
+  still has the file.
+
+### QA walkthrough
+1. Phone: Start → "remember falcon" → Stop → NEW → "remember heron" → Sessions → the first → Resume → "what word?".
+
+### Touchpoints
+- `app/lib/src/host/bridge_session.dart` (record shape, resume by id), `app/lib/src/host/claude_cli.dart` (transcript file), `app/lib/src/relay.dart` (sessions, chat.sessionId), `app/lib/src/screens/session_tab.dart`, `app/lib/src/screens/deck_tab.dart` (fold), `app/DESIGN.md`
+
+---
+
+## Step 22 — Worktree sessions — a second session on the same project in its own tree, merged from the Git card
+- [ ]
+- state: blocked — waiting on review, session-history
+- id: worktrees
+- depends_on: review, session-history
+- qa_required: true
+
+### Description
+One driver per folder is the rule; a worktree is another folder.
+**New worktree** on the project screen takes a name and the host
+runs `git worktree add ~/.flutter_kit/worktrees/<slug>/<name> -b
+<name>` from the project, then registers the tree as a project
+entry of its own — `<slug>~<name>` in the relay, its own bridge,
+chat, asks, sessions, run bay — listed under the parent in the
+project switcher with a branch glyph. Both can run at once; pushes
+say which tree they came from.
+
+The plan is shared by convention, not by file: `plan/` in a
+worktree is that branch's copy, so the host mirrors the constellation
+from the main tree only and a worktree session is told in its brief
+to leave `plan/` to the main tree. **Merge into main** on the
+worktree's Git card: the worktree session must be stopped; the
+host runs `git merge --no-ff <name>` in the main folder; a clean
+merge reports the commit, a conflict leaves the tree as git left it
+and offers to send "resolve the merge of <name>" to the main
+session. **Remove** runs `git worktree remove` (refused while
+dirty, `--force` behind a confirm) and drops the relay entry.
+
+### Acceptance
+- New worktree "settings": the switcher lists it under the project;
+  a session started there edits under the worktree path (the tool
+  rows show it) while the main session stays idle or runs too.
+- Merge with the worktree session stopped: `git log` in main shows
+  the merge commit; the worktree entry stays until Remove.
+- A conflicting merge reports the files and the offer; accepting it
+  sends the message to the main session.
+- Remove on a dirty tree is refused with the count; confirm forces.
+
+### QA walkthrough
+1. Phone: project → New worktree "settings" → switch → Start → "add a settings screen".
+2. Phone: Stop → Git card → Merge into main → Mac: `git log --oneline -3`.
+
+### Touchpoints
+- `app/lib/src/host/host_projects.dart` (worktree entries), `app/lib/src/host/project_registry.dart`, `app/lib/src/host/host_project.dart` (git merge/remove), `app/lib/src/relay.dart`, `app/lib/src/screens/project_screen.dart`, `kit/lib/src/bridge.dart` (brief line)
+
+---
+
+## Step 23 — Rich pushes — a finished turn with its summary and a frame, a plan and a diff in the push, quiet hours
+- [ ]
+- state: blocked — waiting on mirror
+- id: rich-pushes
+- depends_on: notifications, mirror
+- qa_required: true
+
+### Description
+**Pictures.** When a turn ends while the run bay has the app up,
+the host captures one frame (the mirror's path), puts it at
+`projects/{slug}/shots/{id}.jpg`, and the Done push carries its
+download URL as the notification's image, under the reply's first
+lines; the tap opens the Deck on that turn. No run, no picture.
+
+**Text that tells you enough to decide.** The ask push for an edit
+carries the diff's first three changed lines; the plan push
+("Plan ready") carries the plan's first heading and its step
+count; the problem push carries the error line verbatim.
+
+**Quiet hours.** Per project, on the Session screen and in the
+phone's settings: a window (default 23:00–08:00 in the phone's
+zone, stored on the device doc) in which Turn ended and Problems
+are held on the host and sent as one digest at the window's end —
+"While you slept · 3 turns ended · 1 problem". Asks always push;
+a Problem that is a dead session pushes at once regardless.
+
+### Acceptance
+- RUN, then a turn that changes the screen: the Done push shows the
+  frame; expand it on the notification; tap opens that turn.
+- An Edit ask's push shows three diff lines; a plan push shows the
+  heading; a Problem push shows the error text.
+- Quiet hours set to now: a finished turn does not push; move the
+  window's end to a minute ahead; one digest arrives naming the count.
+- An ask during quiet hours pushes at once.
+
+### QA walkthrough
+1. Phone: RUN; "change the home title"; lock; the Done push with the frame.
+2. Phone: quiet hours → now+1 min; a turn; wait; the digest.
+
+### Touchpoints
+- `app/lib/src/host/push_sender.dart` (image, digest, hold), `app/lib/src/host/mirror.dart` (one frame), `app/lib/src/relay.dart` (devices.quiet), `app/lib/src/screens/session_tab.dart`, `app/lib/src/push/push_listener.dart`
+
+---
+
+## Step 24 — Constellation controls — start, blocks and done from a step's bubble; reorder by drag, no model needed
+- [ ]
+- id: constellation-controls
+- depends_on: item-threads
+- qa_required: true
+
+### Description
+The constellation shows the plan; now it drives it. A tap on a
+step's bubble opens its sheet with the thread it already has and
+three controls:
+
+- **Start this step** sends `/step <id>` to the session (Start is
+  offered first when none runs).
+- **Blocks** — the host runs the kit library's `blocks` for the
+  step and the sheet shows the rendering: dependencies, gates, the
+  human items and whose move it is. No model, no quota.
+- **Mark done** — the host runs `kit step done <id>`; a refusal
+  (gates pending, an item open) shows the reason as the CLI
+  prints it; a flip re-renders the plan and the board and the
+  constellation moves within seconds.
+
+Long-press a bubble and drag it past another to **reorder**: the
+inbox batch the phone already sends for ticks and notes gains
+`reorder {id, before}` and `step_done {id}` ops; `applyInbox` on
+the host changes ranks in place and re-renders. The phone keeps
+the drag on the device until **Send to Claude** as it does for
+ticks — except that these ops need no Claude; the button reads
+**Apply** when a batch holds only host-side ops.
+
+### Acceptance
+- Tap a ready step → Start this step → the Deck shows `/step <id>`
+  running.
+- Blocks on a blocked step lists its open item and the dependency;
+  nothing is sent to the session.
+- Mark done on an active step with a pending gate is refused with
+  the gate's name; on a flippable step it flips and the bubble
+  turns done on both devices.
+- Drag step 21 before 20 → Apply → `kit status` on the Mac lists the
+  new order; `PROJECT_PLAN.md` is regenerated.
+
+### QA walkthrough
+1. Phone: Steps → a bubble → Blocks; → Start this step.
+2. Phone: long-press, drag, Apply; Mac: `kit status`.
+
+### Touchpoints
+- `app/lib/src/screens/steps_tab.dart`, `app/lib/src/screens/step_detail.dart`, `app/lib/src/draft.dart` (batch ops), `app/lib/src/host/host_project.dart` (applyInbox, blocks, step done), `kit/lib/src/inbox.dart`, `kit/lib/src/store.dart` (rank moves)
+
+---
+
+## Step 25 — Brief and rules — the standing brief and CLAUDE.md edited on the phone, committed on save
+- [ ]
+- state: blocked — waiting on review
+- id: brief-and-rules
+- depends_on: session-options, review
+- qa_required: true
+
+### Description
+The human's rules evolve where the human is. Two editors, both on
+the Session screen and in the Deck's fold:
+
+**Brief.** The standing brief has a fixed part (the kit's lines:
+driven from a phone, the browser, sign-ins as questions, store
+actions asked first) and gains a per-project part the user writes
+— kept in the bridge record, shown as its own block under the
+fixed text, applied on the next start or dial change. Saving while
+a session runs says when it will apply.
+
+**Rules.** `CLAUDE.md` and the `qa.note` paragraph of
+`plan/kit.yaml` open in a plain editor with the mono face; **Save**
+writes the file through the host and commits just that file —
+"rules: <first changed line>" — using the Git card's path; a dirty
+tree elsewhere is left alone. The editor refuses to save over a
+file that changed on disk since it was opened and offers to reload.
+
+### Acceptance
+- Phone: add "Always answer in Turkish" to the brief; Start; "hi" →
+  Turkish; the Session tab shows the block under the fixed text.
+- Phone: append a line to CLAUDE.md; Save; `git log -1 --stat` on
+  the Mac shows one file in a commit named after the line.
+- Edit CLAUDE.md on the Mac while it is open on the phone; Save on
+  the phone is refused with the reload offer.
+- 3.12x: the editor scrolls, the Save row stays reachable.
+
+### QA walkthrough
+1. Phone: Session → Brief → add a line → Save → Start → "hi".
+2. Phone: Session → Rules → CLAUDE.md → append → Save; Mac: `git log -1 --stat`.
+
+### Touchpoints
+- `app/lib/src/screens/session_tab.dart`, `app/lib/src/screens/rules_editor.dart` (new), `app/lib/src/host/bridge_session.dart` (brief parts), `app/lib/src/host/host_project.dart` (write_file, commit one file), `kit/lib/src/bridge.dart` (brief assembly)
+
+---
+
+## Step 26 — Voice and biometrics — hear the ask and the summary, answer by voice, and prove it is you before the dangerous taps
+- [ ]
+- state: blocked — waiting on plan-mode, review, autopilot
+- id: voice-and-biometrics
+- depends_on: instrument-skin, plan-mode, review, autopilot
+- qa_required: true
+
+### Description
+On-device only, no service. Narrowed on 2026-09-04 to what matters
+on the move:
+
+**Voice.** `speech_to_text` on the composer's mic — hold to talk,
+release to edit or send. `flutter_tts` reads aloud two things when
+the toggle is on: an ask as it arrives (the question and its
+options, or "Allow <tool>: <description>") and the finished turn's
+summary — never the streamed reply. An ask can be answered by
+voice: after the read-out the mic opens for "allow", "deny", or an
+option's label or number; anything else is typed into the Other
+field for the user to confirm. Denied microphone permission
+degrades to the keyboard, with a line.
+
+**Biometrics.** `local_auth` gates the taps that make the phone a
+shell on the Mac: Start, Allow, Always, Send, the mode dial's
+*bypass*, Autopilot on, Revert file, Merge into main and Remove
+worktree. Both are settings; both default on for the phone and off
+for the Mac. A **kill switch** in the Deck's fold — behind the
+same gate — stops every session on every project and the run bay,
+and pushes "Stopped everything".
+
+### Acceptance
+- A dictated `/next` reaches the host as text; the ask that follows
+  is read aloud; "allow" spoken answers it; the summary is read at
+  the end and the streamed text is not.
+- Allow without a fingerprint does nothing; with one it answers;
+  bypass on the dial and Autopilot on ask for it too.
+- Kill switch: two sessions and a run stop; one push.
+- Denied microphone permission degrades to the keyboard, with a line.
+
+### QA walkthrough
+1. Phone: hold the mic, say "what is next", release. Hear the ask; say "allow".
+2. Send `touch /tmp/kit-bio`; tap Allow; the biometric prompt; approve.
+3. Phone: kill switch → everything stops.
+
+### Touchpoints
+- `app/lib/src/screens/deck_tab.dart`, `app/lib/src/voice/**`, `app/lib/src/auth_gate.dart`, `app/lib/src/host/host_projects.dart` (stop all)
+
+### Your part (human)
+
+The step's checkbox stays `[ ]` until these are checked:
+
+  - [x] Decide when voice ships — it is on-device and free, but it is a step of its own *(item `voice-now-or-later`)*
+
+---
+
+## Step 27 — The iPhone — the same app on the user's second phone, with pushes
+- [ ]
+- id: iphone
+- depends_on: deck-on-the-phone, notifications
+- qa_required: true
+
+### Description
+`flutter create --platforms ios` into `app/`, Firebase iOS app on
+`flutterappbundle`, the team's development profile, APNs through FCM,
+the notification actions as iOS categories. `ship.sh ios` installs to
+the connected iPhone. Nothing in the code is Android-only; this step is
+signing, capabilities and the two store-free installs.
+
+Try it on iOS (added 2026-09-04): a build for the iPhone goes over a
+wireless `flutter install -d <iphone>` to the paired phone from the
+host — no store, no TestFlight — and the share-sheet intake is the
+iOS share extension.
+
+### Acceptance
+- The app runs on the iPhone; an ask arrives as a push with Allow.
+- `bash app/tool/ship.sh ios` builds and installs in one command.
+- TRY IT with the iPhone paired installs the project's app on it.
+
+### QA walkthrough
+1. iPhone: sign in, open Nahmatik, the constellation, an ask from the Mac.
+
+### Touchpoints
+- `app/ios/**`, `app/tool/ship.sh`, `app/lib/firebase_options.dart`, `app/lib/src/host/builds.dart`
+
+### Your part (human)
+
+The step's checkbox stays `[ ]` until these are checked:
+
+  - [ ] Create an APNs authentication key and upload it to Firebase Cloud Messaging *(item `apns-key-for-iphone-pushes`)*
+  - [ ] Plug in the iPhone once and let Xcode register it on the team *(item `register-the-iphone`)*
+
+---
+
+## Step 28 — Parked — Hand over to the Claude app on the same conversation, and take it back
+- [ ]
+- state: blocked — waiting on iphone
+- id: handover
+- depends_on: deck-on-the-phone, iphone
+- qa_required: true
+- parked: true
+
+### Description
+**Parked 2026-09-04.** With the mode dial, the plan card, interrupt,
+compaction, session history and the diffs in the bridge, nothing
+remains that only the Claude app can do on this conversation; the
+step is a spike with an unknown answer that registers an
+environment on the account. Kept last, not removed: it is the
+fallback if the control protocol ever breaks under the pinned CLI.
+
 **Hand over** stops the bridge and starts `claude remote-control
 --session-id <the bridge's id>`; **Take back** stops Remote Control and
 resumes the bridge on the same id. One driver per project at a time:
 the host refuses a second from the bridge pointer and the process
-table. The Session screen exists on the phone from this step: mode,
-links, the CLI version, the rate-limit pool and its reset time.
+table.
 
 Spike first: whether Remote Control adopts a session created by `-p`.
 If it does not, hand over starts a fresh Remote Control session and
@@ -527,72 +1477,6 @@ says so; nothing else changes.
 
 ### Touchpoints
 - `app/lib/src/host/host_project.dart`, `app/lib/src/host/remote_control.dart`, `app/lib/src/screens/session_tab.dart`
-
----
-
-## Step 8 — Voice and biometrics — dictate, hear the reply, and prove it is you before the dangerous taps
-- [ ]
-- id: voice-and-biometrics
-- depends_on: instrument-skin
-- qa_required: true
-
-### Description
-On-device only, no service: `speech_to_text` on the composer's mic
-(hold to talk, release to send or edit), `flutter_tts` reads the reply
-when the toggle is on. `local_auth` gates Start, Allow, Always and
-Send — a phone in the wrong hands is a shell on the Mac. Both are
-settings; both default on for the phone and off for the Mac.
-
-### Acceptance
-- A dictated `/next` reaches the host as text; the reply is read aloud.
-- Allow without a fingerprint does nothing; with one it answers.
-- Denied microphone permission degrades to the keyboard, with a line.
-
-### QA walkthrough
-1. Phone: hold the mic, say "what is next", release. Hear the answer.
-2. Send `touch /tmp/kit-bio`; tap Allow; the biometric prompt; approve.
-
-### Touchpoints
-- `app/lib/src/screens/deck_tab.dart`, `app/lib/src/voice/**`, `app/lib/src/auth_gate.dart`
-
-### Your part (human)
-
-The step's checkbox stays `[ ]` until these are checked:
-
-  - [ ] Decide when voice ships — it is on-device and free, but it is a step of its own *(item `voice-now-or-later`)*
-
----
-
-## Step 9 — The iPhone — the same app on the user's second phone, with pushes
-- [ ]
-- state: blocked — waiting on notifications
-- id: iphone
-- depends_on: deck-on-the-phone, notifications
-- qa_required: true
-
-### Description
-`flutter create --platforms ios` into `app/`, Firebase iOS app on
-`flutterappbundle`, the team's development profile, APNs through FCM,
-the notification actions as iOS categories. `ship.sh ios` installs to
-the connected iPhone. Nothing in the code is Android-only; this step is
-signing, capabilities and the two store-free installs.
-
-### Acceptance
-- The app runs on the iPhone; an ask arrives as a push with Allow.
-- `bash app/tool/ship.sh ios` builds and installs in one command.
-
-### QA walkthrough
-1. iPhone: sign in, open Nahmatik, the constellation, an ask from the Mac.
-
-### Touchpoints
-- `app/ios/**`, `app/tool/ship.sh`, `app/lib/firebase_options.dart`
-
-### Your part (human)
-
-The step's checkbox stays `[ ]` until these are checked:
-
-  - [ ] Create an APNs authentication key and upload it to Firebase Cloud Messaging *(item `apns-key-for-iphone-pushes`)*
-  - [ ] Plug in the iPhone once and let Xcode register it on the team *(item `register-the-iphone`)*
 
 ---
 

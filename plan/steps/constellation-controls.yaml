@@ -1,0 +1,55 @@
+id: constellation-controls
+number: "24"
+title: Constellation controls — start, blocks and done from a step's bubble; reorder by drag, no model needed
+status: pending
+rank: 850
+depends_on: [item-threads]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The constellation shows the plan; now it drives it. A tap on a
+      step's bubble opens its sheet with the thread it already has and
+      three controls:
+
+      - **Start this step** sends `/step <id>` to the session (Start is
+        offered first when none runs).
+      - **Blocks** — the host runs the kit library's `blocks` for the
+        step and the sheet shows the rendering: dependencies, gates, the
+        human items and whose move it is. No model, no quota.
+      - **Mark done** — the host runs `kit step done <id>`; a refusal
+        (gates pending, an item open) shows the reason as the CLI
+        prints it; a flip re-renders the plan and the board and the
+        constellation moves within seconds.
+
+      Long-press a bubble and drag it past another to **reorder**: the
+      inbox batch the phone already sends for ticks and notes gains
+      `reorder {id, before}` and `step_done {id}` ops; `applyInbox` on
+      the host changes ranks in place and re-renders. The phone keeps
+      the drag on the device until **Send to Claude** as it does for
+      ticks — except that these ops need no Claude; the button reads
+      **Apply** when a batch holds only host-side ops.
+  - title: Acceptance
+    body: |
+      - Tap a ready step → Start this step → the Deck shows `/step <id>`
+        running.
+      - Blocks on a blocked step lists its open item and the dependency;
+        nothing is sent to the session.
+      - Mark done on an active step with a pending gate is refused with
+        the gate's name; on a flippable step it flips and the bubble
+        turns done on both devices.
+      - Drag step 21 before 20 → Apply → `kit status` on the Mac lists the
+        new order; `PROJECT_PLAN.md` is regenerated.
+  - title: QA walkthrough
+    body: |
+      1. Phone: Steps → a bubble → Blocks; → Start this step.
+      2. Phone: long-press, drag, Apply; Mac: `kit status`.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/screens/steps_tab.dart`, `app/lib/src/screens/step_detail.dart`, `app/lib/src/draft.dart` (batch ops), `app/lib/src/host/host_project.dart` (applyInbox, blocks, step done), `kit/lib/src/inbox.dart`, `kit/lib/src/store.dart` (rank moves)
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — the constellation as a control surface" }

@@ -1,0 +1,52 @@
+id: worktrees
+number: "22"
+title: Worktree sessions — a second session on the same project in its own tree, merged from the Git card
+status: pending
+rank: 830
+depends_on: [review, session-history]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      One driver per folder is the rule; a worktree is another folder.
+      **New worktree** on the project screen takes a name and the host
+      runs `git worktree add ~/.flutter_kit/worktrees/<slug>/<name> -b
+      <name>` from the project, then registers the tree as a project
+      entry of its own — `<slug>~<name>` in the relay, its own bridge,
+      chat, asks, sessions, run bay — listed under the parent in the
+      project switcher with a branch glyph. Both can run at once; pushes
+      say which tree they came from.
+
+      The plan is shared by convention, not by file: `plan/` in a
+      worktree is that branch's copy, so the host mirrors the constellation
+      from the main tree only and a worktree session is told in its brief
+      to leave `plan/` to the main tree. **Merge into main** on the
+      worktree's Git card: the worktree session must be stopped; the
+      host runs `git merge --no-ff <name>` in the main folder; a clean
+      merge reports the commit, a conflict leaves the tree as git left it
+      and offers to send "resolve the merge of <name>" to the main
+      session. **Remove** runs `git worktree remove` (refused while
+      dirty, `--force` behind a confirm) and drops the relay entry.
+  - title: Acceptance
+    body: |
+      - New worktree "settings": the switcher lists it under the project;
+        a session started there edits under the worktree path (the tool
+        rows show it) while the main session stays idle or runs too.
+      - Merge with the worktree session stopped: `git log` in main shows
+        the merge commit; the worktree entry stays until Remove.
+      - A conflicting merge reports the files and the offer; accepting it
+        sends the message to the main session.
+      - Remove on a dirty tree is refused with the count; confirm forces.
+  - title: QA walkthrough
+    body: |
+      1. Phone: project → New worktree "settings" → switch → Start → "add a settings screen".
+      2. Phone: Stop → Git card → Merge into main → Mac: `git log --oneline -3`.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/host/host_projects.dart` (worktree entries), `app/lib/src/host/project_registry.dart`, `app/lib/src/host/host_project.dart` (git merge/remove), `app/lib/src/relay.dart`, `app/lib/src/screens/project_screen.dart`, `kit/lib/src/bridge.dart` (brief line)
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — parallel work" }

@@ -1,14 +1,14 @@
 id: notification-actions
 number: "6b"
 title: Notification actions — Allow and Deny from the lock screen
-status: pending
+status: done
 rank: 705
 depends_on: [notifications]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-04, note: kit and app analyzers clean 2026-09-04, status: passed}
+  tests: { at: 2026-09-04, note: "kit 75 (notice actions: Allow\/Deny, a short single question, a sign-in; answerForAction; step notices), app 76 (Android data messages with buttons, withdrawals to every phone uncounted, per-platform shape; the phone's LocalNotice from data with stable ids and withdrawal targets; a button writes the answer command over a fake relay — stale, unknown, signed-out write nothing; flippedDone once and only to done)", status: passed}
+  qa: { at: 2026-09-04, note: "Verified 2026-09-04 on the user's Android 16 phone over adb, app locked away: Allow on the lock-screen notification ran the command on the Mac within 2 s with the app never opened; Deny from the notification is the deck's deny (by: notification, nothing ran); an ask answered elsewhere came off the lock screen at once; a step flipped to done pushed once on the Steps channel and a non-flip edit did not", status: passed}
 sections:
   - title: Description
     body: |
@@ -28,3 +28,16 @@ sections:
       - `app/lib/src/push/**`, `app/android/**`
 history:
   - { at: "2026-09-03", event: added }
+  - at: 2026-09-04
+    event: started
+  - at: 2026-09-04
+    event: gate analyze passed
+    note: kit and app analyzers clean 2026-09-04
+  - at: 2026-09-04
+    event: gate tests passed
+    note: "kit 75 (notice actions: Allow\/Deny, a short single question, a sign-in; answerForAction; step notices), app 76 (Android data messages with buttons, withdrawals to every phone uncounted, per-platform shape; the phone's LocalNotice from data with stable ids and withdrawal targets; a button writes the answer command over a fake relay — stale, unknown, signed-out write nothing; flippedDone once and only to done)"
+  - at: 2026-09-04
+    event: gate qa passed
+    note: "Verified 2026-09-04 on the user's Android 16 phone over adb, app locked away: Allow on the lock-screen notification ran the command on the Mac within 2 s with the app never opened; Deny from the notification is the deck's deny (by: notification, nothing ran); an ask answered elsewhere came off the lock screen at once; a step flipped to done pushed once on the Steps channel and a non-flip edit did not"
+  - at: 2026-09-04
+    event: done

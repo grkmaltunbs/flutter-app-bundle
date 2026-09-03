@@ -1,0 +1,59 @@
+id: try-it
+number: "20"
+title: Try it — the build installs on the phone in your hand, and a screenshot shares straight back
+status: pending
+rank: 810
+depends_on: [blobs, notifications]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The phone that drives the build is the device the app is for.
+
+      **Build ready.** **TRY IT** in the Deck's fold, and — a switch per
+      project — on its own when a step flips to done or code complete
+      (the hook spool already carries the event): the host runs
+      `flutter build apk --debug` in the project, puts the APK at
+      `projects/{slug}/builds/{sha}.apk` in Storage, writes
+      `builds/{id}` (`{sha, branch, version, size, at, path}`), and
+      pushes "Build ready · Nahmatik · 3.2.0+41" on the Turn ended
+      channel. A tap on the push, or on the build row, downloads to the
+      app's cache and opens the system installer (`open_filex` with the
+      FileProvider; `REQUEST_INSTALL_PACKAGES` in the manifest; the
+      one-time "allow from this source" is an item). Progress on the
+      row; the last three builds kept, older objects deleted by the host.
+
+      **Share back.** K.A.T.Y.A registers as a share target for images
+      and text (`receive_sharing_intent`): a screenshot of the app under
+      test shared from Android's share sheet opens the Deck with the file
+      attached and the composer focused — a project picker first when
+      more than one project is open. The loop closes without the Mac:
+      build, install, try, screenshot, share, ask, fix.
+
+      iOS is the `iphone` step: the same flow over a wireless
+      `flutter install` to the paired phone.
+  - title: Acceptance
+    body: |
+      - Phone: TRY IT; the row fills; "Build ready" arrives; tap; the
+        installer; the app opens on the phone.
+      - A step flipping to done with the switch on builds without a tap;
+        with it off it does not.
+      - Share a screenshot from the gallery to K.A.T.Y.A: the Deck opens
+        with the chip attached; send "what is wrong here?"; the answer
+        describes it.
+      - Four builds: the bucket holds three; `builds/` lists three.
+      - A build that fails pushes "Build failed" with the first error
+        line, and the row opens the log.
+  - title: QA walkthrough
+    body: |
+      1. Phone: TRY IT → Build ready → install → open the built app.
+      2. Phone: screenshot the built app → share → K.A.T.Y.A → send.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/host/builds.dart` (new), `app/lib/src/host/hook_watcher.dart` (flip event), `app/lib/src/relay.dart` (builds), `app/lib/src/screens/deck_tab.dart` (fold, build rows), `app/lib/src/share_intake.dart` (new), `app/android/app/src/main/AndroidManifest.xml`, `app/pubspec.yaml`
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — close the loop on the phone" }

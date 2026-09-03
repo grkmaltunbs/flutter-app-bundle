@@ -1,14 +1,14 @@
 id: notifications
 number: "6"
 title: Notifications — an ask, a sign-in or a problem reaches the phone
-status: active
+status: done
 rank: 700
 depends_on: [deck-on-the-phone]
 meta: { qa_required: true }
 gates:
   analyze: { at: 2026-09-03, note: kit and app analyzers clean 2026-09-03, status: passed}
   tests: { at: 2026-09-03, note: "kit 74, app 68: notice texts incl. Done and Claude · project notes, isSignIn, brief tells sessions about kit notify and that PushNotification has no route; kit notify CLI spools with a plan and refuses without; PushSender against a scripted FCM; TurnWatch; PushRegistrar; PushTap; PUSH · TEST on both decks", status: passed}
-  qa: { status: pending }
+  qa: { at: 2026-09-04, note: "Verified by the user on the phone, 2026-09-04: asks, sign-in, problem and finished-turn pushes arrive with the app closed; a tap opens the project", status: passed}
 sections:
   - title: Description
     body: |
@@ -61,3 +61,8 @@ history:
   - at: 2026-09-03
     event: gate tests passed
     note: "kit 74, app 68: notice texts incl. Done and Claude · project notes, isSignIn, brief tells sessions about kit notify and that PushNotification has no route; kit notify CLI spools with a plan and refuses without; PushSender against a scripted FCM; TurnWatch; PushRegistrar; PushTap; PUSH · TEST on both decks"
+  - at: 2026-09-04
+    event: gate qa passed
+    note: "Verified by the user on the phone, 2026-09-04: asks, sign-in, problem and finished-turn pushes arrive with the app closed; a tap opens the project"
+  - at: 2026-09-04
+    event: done

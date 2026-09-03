@@ -1,0 +1,15 @@
+id: allow-katya-to-install-apps
+title: Let K.A.T.Y.A install apps on the Android phone, once
+status: open
+needs: [device]
+blocks: [try-it]
+step: try-it
+added: "2026-09-04"
+body: |
+  Android asks once per source app before it installs an APK from it.
+  The first "Build ready" tap opens that prompt; nothing installs until
+  the switch is on.
+runbook:
+  - do: On the first Build ready tap, follow the prompt to Settings → Install unknown apps → K.A.T.Y.A → Allow from this source.
+    expect: The installer sheet for the built app appears on the next tap.
+    if_fails: Settings → Apps → Special app access → Install unknown apps.

@@ -176,3 +176,99 @@ has been driven from the phone with an ask answered on it.
 - *Headless loses the TUI.* Model is a start option; `/compact` as a message
   is a spike; plan mode is `--permission-mode plan` on start. Everything
   else is one hand-over away.
+
+## Phase 3b — everything the agent can do (2026-09-04)
+
+The ask, 2026-09-04: *"the app, using the MacBook, should do everything
+that an AI agent can do"* — for rapid app development. Phase 3's spine
+(bridge, asks, deck, threads, attachments, options, dials, notifications)
+is a phone-side terminal for Claude. What the phone still could not do:
+see the app under test, read the diff, touch the repo, approve a plan, or
+keep the agent going without a person. The user took the whole list on
+2026-09-04; the steps are `plan/steps/` 10–28 and `kit status` is the
+order. This section records the decisions the steps are built on.
+
+### Decisions taken
+
+| decision | answer | why |
+|---|---|---|
+| Bytes that are not rows | **Firebase Storage** on the relay, owner-only rules, the client SDK on both roles (both are signed in as the relay user — no key). Uploads, mirror frames, builds, push images, big files. The 600 KB base64 parts in Firestore go. | One transport unlocks four steps; Blaze is on already. |
+| The host when nobody is at the Mac | A **service**: start at login, a power assertion (`caffeinate -is -w <pid>`) while anything runs, a `hosts/{id}` heartbeat every 30 s so the phone says *unreachable since* instead of hanging. | A closed lid or a reboot is how sessions die today. Lid-close sleep is not preventable; the `lid-closed-sleep` item says so. |
+| Permission mode | A **MODE dial** — default · plan · accept edits · bypass — replaces the Skip permissions pill. `ExitPlanMode` arrives on the ask channel with the plan in its input and renders as a **plan card**: Approve / Revise. | Reading and approving the plan from the phone is the most agent-like thing that was missing. |
+| Stopping a turn | An **interrupt** control request on stdin — `{"type":"control_request","request_id":…,"request":{"subtype":"interrupt"}}` — ends the turn and keeps the session. Messages sent mid-turn are **queued** by the host. `set_model` / `set_permission_mode` are a spike; if honoured, the dials stop restarting the process. | Stop kills the process; the SDK has a brake that does not. |
+| Reviewing the agent | **Diffs on Edit/Write asks** (host-computed, ≤ 24 KB), any path a tap to a **file view**, a **Git card** (branch, dirty, last commit; Commit / Push / Revert file) the host runs directly. | The human half of an agent is reading what it changed. |
+| Actions that need no model | **`host` commands** — `{type: host, action: read_file|git|blocks|step_done|reorder|…}` — the host runs the kit library, git or the toolchain and answers in the relay; no quota. Everything on the Git card, the constellation's controls, the run bay and the mirror are host commands. | Half of what the phone asks Claude today is a shell command. The app must stay useful with the pool empty. |
+| Instruments | Context in use from each assistant message's `usage` (input + cache creation + cache read) against the model's window; the pools from `rate_limit_event`. **Compact** offered past 80 % (a spike: `/compact` as a message in `-p`). Tokens, never dollars. | The JARVIS reading: the state of the machine at a glance. |
+| Keeping the agent going | **Autopilot** in the host: `/step` after each passed step, within a budget; stops on an ask, a second failed gate, the human's move; **night shift** waits out the pool from the event's reset time. Replaces `runner/`, which is deleted in that step. | The runner was parked and unwireable; the bridge makes the loop a hundred lines. |
+| The app under test | The host owns the process: **run bay** — `flutter run -d <device> --machine --print-dtd`, the daemon protocol (`app.restart`, `app.stop`, `app.debugPort`), the log tail in the relay, the VM/DTD URIs in the brief for the Dart MCP server. **Mirror**: frames through Storage, taps back through `adb shell input` / `idb ui`. **Try it**: a debug APK built by the host, installed from a push; share-sheet intake. | "Does it run" becomes something you watch, then something you hold. |
+| Pushes on Android (step 6b, built 2026-09-04) | A **data message**, not a tray notification: the phone draws it with `flutter_local_notifications` on the same four channels (`asks`, `problems`, `done`, `steps`), with **Allow / Deny** — or a short single question's options, or a sign-in's one option — as buttons. A button runs in a background isolate: it reads the ask from the relay, writes the `answer` command the card would, and takes the notification down; a failure replaces the buttons with a line. An ask answered anywhere makes the host send a silent **withdraw** message so the notification comes off every phone. Other platforms still get FCM's tray notification. | Buttons on a notification need the app to draw it; the withdraw keeps a stale Allow off the lock screen. |
+| Hand-over to the Claude app | **Parked** last (step 28, rank 2000). | With the dial, the plan card, interrupt, compaction and history in the bridge, nothing remains that only the Claude app can do; it registers an environment on the account for a spike with an unknown answer. Kept as the fallback if the protocol breaks. |
+| Voice | Narrowed: read the ask and the finished summary aloud, answer an ask by voice; never the streamed reply. Biometrics widened to bypass, Autopilot, Revert, Merge, Remove; a kill switch. After the agent-parity steps, before the iPhone. | Resolves `voice-now-or-later`: later, and less. |
+| The Mac window | The host's console, not a second product: every host feature has a Mac control for QA, but phone-only polish (crew strip, since-you-looked, share intake, install) is not mirrored there. | The phone is the product; the Mac is the engine. |
+
+### Protocol additions (stdin, client → CLI)
+
+```json
+{"type":"control_request","request_id":"<uuid>","request":{"subtype":"interrupt"}}
+{"type":"control_request","request_id":"<uuid>","request":{"subtype":"set_model","model":"opus"}}                  // spike
+{"type":"control_request","request_id":"<uuid>","request":{"subtype":"set_permission_mode","mode":"plan"}}       // spike
+```
+
+And on stdout, two things the host now reads that it ignored: `usage` on
+every `assistant` message (the context gauge) and `parent_tool_use_id`
+on messages a subagent produced (the crew strip). `ExitPlanMode` is a
+`can_use_tool` request like any other; the exact field carrying the plan
+is the first spike of `plan-mode`.
+
+### Relay shape (additions to phase 3)
+
+```
+hosts/{hostId}                        {seenAt, name, appVersion, cli, projects: [slug], stopping?}
+projects/{slug}.run                   {device, appId, state, since, vmUri, dtdUri}
+projects/{slug}.mirror                {seq, at, w, h, watching?}
+projects/{slug}.context               {used, window, at}
+projects/{slug}.autopilot             {on, budget, done, nightShift, waitingUntil?, stoppedFor?}
+projects/{slug}/sessions/{id}         {startedAt, endedAt, firstMessage, turns, model, mode}
+projects/{slug}/runs/{id}/log/{n}     lines, coalesced ≤ 1 write/s, last 2000 kept
+projects/{slug}/files/{id}            {path, text, lines, truncated}  (text in Storage past 900 KB)
+projects/{slug}/builds/{id}           {sha, branch, version, size, at, path}
+projects/{slug}/commands/{auto}       + {type: host|input, action, …}
+projects/{slug}/chat/{auto}           + sessionId, parentToolUseId?, diff?
+projects/{slug}/asks/{id}             + diff?, plan?
+devices/{token}                       + quiet: {from, to, zone}
+```
+
+Storage, owner-only:
+
+```
+projects/{slug}/uploads/{id}/{name}   projects/{slug}/frames/live.jpg   projects/{slug}/builds/{sha}.apk
+projects/{slug}/shots/{id}.jpg        projects/{slug}/files/{id}
+```
+
+The phone still never writes `chat` or `asks`; it writes `commands` and
+puts objects in Storage. The host is the only writer of session truth.
+
+### Spikes to run first, each recorded here when answered
+
+1. `interrupt` on the pinned CLI: the `control_response` and the `result` that follow.
+2. `set_model` / `set_permission_mode`: honoured, or not.
+3. `ExitPlanMode`'s request: the plan field, and whether the allow response takes a mode.
+4. `/compact` as a user message in `-p`: compacts, or not.
+5. `xcrun simctl io <udid> screenshot` to a pipe, and the frame rate it sustains.
+6. The CLI's transcript file under `~/.claude/projects/<cwd-key>/` for session history.
+
+### Risks, and what holds them
+
+- *More undocumented protocol.* Every new request is behind a spike and a
+  fallback that already works (restart on `--resume`, Stop, a fresh
+  session). The pin on the CLI version stays.
+- *The phone as a shell, wider.* Revert, Merge, Remove, bypass, Autopilot
+  and the kill switch sit behind the biometric gate from step 26; until
+  then each has a confirm sheet. The host reads and writes files only
+  inside the project folder and its attachments folder.
+- *Autopilot loops.* The loop stops on an ask, on a second failed gate, on
+  the human's move, on the budget, on Stop; every start and stop pushes.
+  The accounting item blocks the step until the plan's usage page has
+  been read.
+- *Storage cost.* Frames at one a second only while a sheet is open and a
+  phone heartbeat says so; three builds kept; uploads deleted on save.

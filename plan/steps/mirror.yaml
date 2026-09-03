@@ -1,0 +1,60 @@
+id: mirror
+number: "19"
+title: Mirror — see the app under test on the phone, and drive it with taps
+status: pending
+rank: 800
+depends_on: [run-bay, blobs]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The simulator on the Mac, on the phone in your hand.
+
+      **Frames.** The host captures the run bay's device — `xcrun simctl
+      io <udid> screenshot` for the simulator, `adb exec-out screencap
+      -p` for an emulator, `screencapture -l <window>` for a macOS run —
+      shrinks the frame to a 720 px long edge as JPEG, and puts it at
+      `projects/{slug}/frames/live.jpg` in Storage; the project doc's
+      `mirror: {seq, at, w, h}` ticks and the phone fetches on each tick.
+      On demand from the **MIRROR** control; live at one frame a second
+      while the Mirror sheet is open on a phone (the phone sets
+      `mirror.watching` with its own heartbeat, so a sheet left open on
+      a locked phone stops the stream). The sheet fills the width, keeps
+      the aspect, and shows the frame's age.
+
+      **Input.** A tap or a drag on the sheet becomes `{type: input,
+      action: tap|swipe|text|key, x, y, x2, y2, text}` in device
+      coordinates from the frame's size; the host plays it — `adb shell
+      input` on Android, `idb ui tap|swipe|text` on the simulator (the
+      session can install `idb` when the sheet says it is missing). The
+      next frame follows the input at once. A caption line names the
+      last input so the user sees what landed.
+
+      Frames never enter the session on their own; "what is on the
+      screen?" attaches the current frame as an image the way the
+      paperclip does, one tap on the sheet.
+  - title: Acceptance
+    body: |
+      - RUN, then MIRROR: the simulator's screen shows on the phone within
+        two seconds; the age reads under one second while live.
+      - Tap a button on the mirror: the app reacts on the simulator and
+        the next frame shows it; drag scrolls a list.
+      - Close the sheet: `mirror.watching` clears and the host stops
+        capturing within three seconds (the Session tab says so).
+      - Attach the frame and ask what is on it: the reply describes the
+        screen.
+      - An emulator run does the same with adb; a missing idb shows the
+        line, and input is refused until it is there.
+  - title: QA walkthrough
+    body: |
+      1. Phone: RUN → MIRROR → tap through two screens of the app.
+      2. Phone: the camera icon → "what is wrong on this screen?".
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/host/mirror.dart` (new: capture, input), `app/lib/src/host/run_bay.dart`, `app/lib/src/relay.dart` (mirror, input commands), `app/lib/src/screens/mirror_sheet.dart` (new), `app/lib/src/screens/deck_tab.dart`
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — see and drive the app under test" }

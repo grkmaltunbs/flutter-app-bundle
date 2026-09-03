@@ -1,0 +1,60 @@
+id: instruments
+number: "15"
+title: Instruments — the context gauge and the pool gauges on the Deck, and compaction offered before the wall
+status: pending
+rank: 760
+depends_on: [session-dials]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The state of the machine at a glance, in the Instrument skin's own
+      language: two small arcs on the Deck header's facts row.
+
+      **Context.** Every `assistant` message carries `usage`; the context
+      in use is that message's `input_tokens + cache_creation_input_tokens
+      + cache_read_input_tokens`. The window is the model's — 200k by
+      default, 1M for the `[1m]` variants — from the init's model name.
+      The arc fills; amber past 70 %, red past 85 %, the number on tap.
+      Kept on the session doc (`context: {used, window, at}`) so both
+      devices draw the same arc.
+
+      **Pool.** `rate_limit_event` carries the type (`five_hour`,
+      `seven_day`), the status and the reset time, and a utilization when
+      the CLI sends one; the second arc is the five-hour pool with a
+      countdown to reset, the weekly pool under it on the Session screen.
+      "Exhausted · resets in 1 h 12 m" replaces the amber wait line when
+      a turn is refused for the pool. Tokens per turn show on the result
+      row; never dollars — `total_cost_usd` is list-price accounting, not
+      a charge, and this app never suggests API billing.
+
+      **Compaction.** Past 80 % the header offers **COMPACT**, which sends
+      `/compact` as a user message — a spike the design note lists: if
+      the pinned CLI compacts in `-p`, the arc drops and the row says so;
+      if it does not, the offer reads "start a fresh session; this one
+      is at n %" and Start with a new id is one tap. Record the answer in
+      `DESIGN.md`.
+  - title: Acceptance
+    body: |
+      - After a turn, the context arc's number equals the last assistant
+        message's three usage fields summed (check against the Mac's
+        process output).
+      - The pool arc shows the reset countdown from the last
+        `rate_limit_event`; a refused turn shows the exhausted line.
+      - Above 80 %: COMPACT appears; below: it does not. Its result is
+        whatever the spike found, and the row says which.
+      - Both arcs read at 1.0 / 2.0 / 3.12x without overflow; tap shows the
+        numbers.
+  - title: QA walkthrough
+    body: |
+      1. Phone: Start; "read lib/ and summarise"; watch the context arc climb; tap it.
+      2. Phone: the pool arc and its countdown; Mac: compare with the process output's rate_limit_event.
+  - title: Touchpoints
+    body: |
+      - `kit/lib/src/bridge.dart` (usage, rate_limit parse), `app/lib/src/host/bridge_session.dart` (context on the session doc), `app/lib/src/screens/deck_tab.dart` (arcs), `app/lib/src/screens/session_tab.dart`, `app/lib/src/widgets/common.dart` (the arc), `app/DESIGN.md`
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — the JARVIS reading" }

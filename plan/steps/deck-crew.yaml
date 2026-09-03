@@ -1,0 +1,51 @@
+id: deck-crew
+number: "16"
+title: Deck crew — subagents as a strip, tool rows that open, and the line since you last looked
+status: pending
+rank: 770
+depends_on: [deck-on-the-phone]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      **Crew.** A `Task` tool use is a subagent; the stream tags every
+      message it produces with `parent_tool_use_id`. The Deck shows each
+      running subagent as a chip on a strip under the header — its
+      description, its elapsed time, a working pulse — and folds its
+      tool rows under the chip so the transcript stays the user's
+      conversation. Done chips dim and carry the summary on tap. The
+      constellation's session step keeps its waves; nothing else moves.
+
+      **Tool rows that open.** A tap on any tool row shows the full input
+      and the full result, bounded at 24 KB with "open on the Mac"
+      beyond, in the mono face; the compact row stays as it is. Copy is
+      the SelectionArea's.
+
+      **Since you last looked.** The phone remembers the last row it
+      showed with the app in front, per project; the next open draws a
+      thin labelled line above the first unread row and lands the list
+      on it; the finished-turn push opens there too. The marker moves
+      when the user scrolls past it, and there is one, not one per turn.
+  - title: Acceptance
+    body: |
+      - Send `/qa`; a flutter-qa chip appears with a running clock; its
+        rows are under the chip, not in the main list; when it ends the
+        chip dims and its summary is on tap.
+      - Tap a Bash row: the command and the whole output; a 100 KB output
+        is cut at 24 KB with the note.
+      - Leave the app during a turn; come back: the line sits above the
+        first row you have not seen, and the list starts there.
+      - 1.0 / 2.0 / 3.12x: the strip wraps, nothing overflows.
+  - title: QA walkthrough
+    body: |
+      1. Phone: "/qa" and watch the crew strip; tap the chip when done.
+      2. Phone: background the app mid-turn; a push; open; the line.
+  - title: Touchpoints
+    body: |
+      - `kit/lib/src/bridge.dart` (`parent_tool_use_id`), `app/lib/src/host/bridge_session.dart` (crew on the session doc), `app/lib/src/screens/deck_tab.dart` (strip, row sheet, marker), `app/lib/src/draft.dart` (last-seen)
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — improve the deck" }

@@ -1,0 +1,58 @@
+id: interrupt
+number: "13"
+title: Interrupt — end the turn and keep the session; a message sent while it works waits its turn
+status: pending
+rank: 740
+depends_on: [session-dials]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      Today the only brake is Stop, which kills the process. The stdio
+      protocol has a client-side control request the Agent SDK sends as
+      `interrupt()`:
+
+      ```json
+      {"type":"control_request","request_id":"<uuid>","request":{"subtype":"interrupt"}}
+      ```
+
+      The CLI answers with a `control_response`, the running turn ends
+      with a `result`, and the session is still there for the next
+      message. The Deck's title row shows **INTERRUPT** while a turn runs
+      (Stop moves into the fold); the row for the cut turn says
+      "interrupted from the phone". An open ask is withdrawn when its turn
+      is interrupted, as it is on Stop.
+
+      **Queued messages.** Sending while a turn runs no longer waits on
+      the composer: the host keeps the message, the row shows *queued*
+      with a way to withdraw it, and the host sends it the moment the
+      `result` lands. One queue per session, in order.
+
+      **Spike, from the Mac, recorded in `DESIGN.md`:** the two sibling
+      requests — `{subtype: set_model, model}` and `{subtype:
+      set_permission_mode, mode}` — if the pinned CLI honours them, the
+      dials switch without the restart-on-`--resume` that `session-dials`
+      does now, and this step wires them; if not, nothing changes and
+      the note says so. The protocol is undocumented; the fallback stays.
+  - title: Acceptance
+    body: |
+      - Phone: send "count to 200 slowly, one number per line"; INTERRUPT
+        at 20; the row ends with "interrupted"; send "what was the last
+        number?"; the reply names it — the session lived.
+      - INTERRUPT while an ask is open withdraws the ask card on both devices.
+      - Send two messages during a turn; both show queued in order; the
+        second is withdrawn; only the first runs after the result.
+      - Stop still kills the process; Start after it resumes on the same id.
+  - title: QA walkthrough
+    body: |
+      1. Phone: "count to 200 slowly"; INTERRUPT; "last number?".
+      2. Phone: during a turn, send "and then say done"; watch it queue, then run.
+  - title: Touchpoints
+    body: |
+      - `kit/lib/src/bridge.dart` (interrupt line, control_response parse), `app/lib/src/host/bridge_session.dart` (queue, withdraw), `app/lib/src/relay.dart` (commands), `app/lib/src/screens/deck_tab.dart` (title row, queued rows), `app/DESIGN.md`
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — agent parity" }

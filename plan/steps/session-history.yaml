@@ -1,0 +1,49 @@
+id: session-history
+number: "21"
+title: Session history — every conversation kept, any one resumed from the phone
+status: pending
+rank: 820
+depends_on: [session-dials]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The bridge record holds one session per project today; Start after
+      Stop resumes it, and a new conversation forgets the old. Sessions
+      are cheap to keep.
+
+      The record becomes a list — `~/.flutter_kit/bridge/<project>.json`
+      → `{current, sessions: [{id, startedAt, endedAt, firstMessage,
+      turns, model, mode}]}` — mirrored to `projects/{slug}/sessions/{id}`
+      so the phone lists them: first message, date, turns, model. The
+      Session screen and the Deck's fold show **Sessions**: tap one →
+      **Resume** (Start with `--resume <id>`; the dials keep their
+      settings); **New** starts a fresh id and the old one stays in the
+      list. The transcript on the phone is per session: chat rows carry
+      `sessionId`, the Deck shows the current one, and a resumed
+      session's last rows come back from the CLI's own transcript file
+      (`~/.claude/projects/<cwd-key>/<id>.jsonl`, read by the host —
+      a spike for the file's shape on the pinned version, recorded in
+      `DESIGN.md`). Delete removes a session from the list, not the
+      CLI's file.
+  - title: Acceptance
+    body: |
+      - Two sessions: "remember falcon" in the first, New, "remember
+        heron" in the second; the list shows both with their first lines.
+      - Resume the first from the phone; "what word?" → falcon; the Deck
+        shows that session's rows, not heron's.
+      - The list survives a host restart and shows on both devices.
+      - Delete on the second: gone from the list; `~/.claude/projects`
+        still has the file.
+  - title: QA walkthrough
+    body: |
+      1. Phone: Start → "remember falcon" → Stop → NEW → "remember heron" → Sessions → the first → Resume → "what word?".
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/host/bridge_session.dart` (record shape, resume by id), `app/lib/src/host/claude_cli.dart` (transcript file), `app/lib/src/relay.dart` (sessions, chat.sessionId), `app/lib/src/screens/session_tab.dart`, `app/lib/src/screens/deck_tab.dart` (fold), `app/DESIGN.md`
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b" }

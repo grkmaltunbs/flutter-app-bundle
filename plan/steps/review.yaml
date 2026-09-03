@@ -1,0 +1,69 @@
+id: review
+number: "14"
+title: Review — the diff before Allow, any file on the Mac from a tap, and Git from the phone
+status: pending
+rank: 750
+depends_on: [deck-on-the-phone, blobs]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The half of an agent the human does is reading what it changed.
+
+      **Diffs.** An ask for `Edit`, `MultiEdit`, `Write` or `NotebookEdit`
+      shows a unified diff on the card instead of the input JSON: the host
+      computes it against the file as it is on disk (old/new strings for
+      Edit; the whole file for Write) and writes it into the ask doc,
+      bounded at 24 KB with a "… n more lines" tail. Added lines green,
+      removed red, in the mono face, at every text scale. The tool row of
+      an edit that ran shows the same diff on tap. A `Bash` ask shows the
+      command in a code block with its description under it.
+
+      **Files.** Any path in a tool row or a diff is a tap: the phone
+      writes a `host` command — `{type: host, action: read_file, path}`
+      — and the host answers with `files/{id}` (`{path, text, lines,
+      truncated}`; past 900 KB the text goes to Storage under
+      `files/{id}` and the doc points at it). The phone shows it
+      monospaced with line numbers and a find field; **Ask about this**
+      prefills the composer with `path:line` so the question is scoped
+      the way item threads are. The host reads only inside the project
+      folder and its attachments folder; anything else is refused with a
+      reason.
+
+      **Git card.** On the Session screen and in the Deck's fold:
+      branch, ahead/behind, dirty count, the last commit's first line —
+      the host refreshes it after every turn and every hook event, no
+      quota. Buttons the host runs directly: **Commit** (a message field;
+      `git add -A && git commit`), **Push**, and on a file's diff view
+      **Revert file** (`git checkout -- <path>`, behind a confirm sheet
+      now, biometrics in `voice-and-biometrics`). Each is a `host` command
+      and shows as a tool-style row in the transcript so the session's
+      next turn sees it too. A push that needs credentials the host does
+      not have reports the error line verbatim.
+  - title: Acceptance
+    body: |
+      - Phone, default mode: "rename the title in home_screen.dart"; the
+        Edit ask shows a diff with the old line red and the new green;
+        Deny; the file is unchanged.
+      - Tap the path on that row: the file opens with line numbers; find
+        "title" jumps to it; Ask about this prefills `path:line`.
+      - Git card: dirty count matches `git status --short | wc -l`;
+        Commit "wip: title" → `git log -1` shows it; Push → the remote
+        has it; Revert file on a dirty file → `git status` no longer lists it.
+      - A read_file for `/etc/passwd` is refused and the row says why.
+      - 1.0 / 2.0 / 3.12x: the diff scrolls sideways inside its own box;
+        the page never scrolls horizontally.
+  - title: QA walkthrough
+    body: |
+      1. Phone: MODE → DEFAULT; "change the app title to KATYA Test" → the Edit ask; read the diff; Allow.
+      2. Phone: tap the file path; find the line; Ask about this: "why is this a const?".
+      3. Phone: Git card → Commit "test: title" → Push; Mac: `git log -1`.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/screens/ask_card.dart` (diff), `app/lib/src/screens/deck_tab.dart` (tool rows, file view), `app/lib/src/host/bridge_session.dart` (diff on ask), `app/lib/src/host/host_project.dart` (host commands: read_file, git), `app/lib/src/relay.dart` (files, host commands), `kit/lib/src/diff.dart` (new, pure Dart unified diff)
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — agent parity" }

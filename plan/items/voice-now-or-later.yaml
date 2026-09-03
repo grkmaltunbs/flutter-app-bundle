@@ -1,6 +1,6 @@
 id: voice-now-or-later
 title: Decide when voice ships — it is on-device and free, but it is a step of its own
-status: open
+status: done
 needs: [decision]
 blocks: [voice-and-biometrics]
 step: dogfood-plan
@@ -21,3 +21,5 @@ question:
     - label: "Not at all"
       why: "Keep the step for biometrics only."
   answer: null
+done_at: 2026-09-04
+note: "Decided 2026-09-04 with the phase 3b list: later, and narrowed to asks and summaries; step 26 after the agent-parity steps, before the iPhone"

@@ -2,7 +2,7 @@ id: confirm-headless-accounting
 title: Confirm how headless Claude use is counted on your plan before the first unattended run
 status: open
 needs: [know, console]
-blocks: []
+blocks: [autopilot]
 step: bridge-core
 added: "2026-08-30"
 body: |

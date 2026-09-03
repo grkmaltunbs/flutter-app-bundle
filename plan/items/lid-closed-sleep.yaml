@@ -1,0 +1,13 @@
+id: lid-closed-sleep
+title: Know that a closed lid still sleeps the MacBook, whatever the host holds
+status: open
+needs: [know]
+blocks: []
+step: host-service
+added: "2026-09-04"
+body: |
+  The host's power assertion stops idle sleep while a session runs. It
+  cannot stop lid-close sleep: a MacBook with the lid shut sleeps unless
+  it is on power with an external display (clamshell). For a session to
+  run with you away, leave the lid open (screen off is fine) or dock it.
+  Nothing to do unless you meant to close the lid.

@@ -1,0 +1,61 @@
+id: blobs
+number: "10"
+title: Blobs — files, frames, builds and push images ride Firebase Storage, not Firestore parts
+status: pending
+rank: 710
+depends_on: [attachments]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      One transport for every byte that is not a row. Firebase Storage on
+      `flutterappbundle` (the relay), owner-only rules (`storage.rules`,
+      deployed beside `firestore.rules`), the client SDK on both roles —
+      the host is signed in as the same user, so no second key. Paths:
+
+      ```
+      projects/{slug}/uploads/{id}/{name}     a file from the phone, deleted by the host once saved
+      projects/{slug}/frames/live.jpg         the mirror's newest frame (`mirror`)
+      projects/{slug}/builds/{sha}.apk        a build for the phone (`try-it`)
+      projects/{slug}/shots/{id}.jpg          a picture a push points at (`rich-pushes`)
+      projects/{slug}/files/{id}              a file too big for a row (`review`)
+      ```
+
+      The phone's send puts each attachment up with `putFile` and the
+      `send` command names the storage paths; the host downloads, saves
+      under `~/.flutter_kit/attachments/<project>/` as today, deletes the
+      object. The 600 KB base64 parts under `uploads/{id}/parts` go, with
+      their tests. A download URL (token-bearing, unguessable) is what a
+      push may carry as an image later. Progress shows on the chip on both
+      devices; a failed upload takes the message back into the composer as
+      today.
+
+      Storage rules deploy from `app/` with `firebase deploy --only
+      storage --project flutterappbundle`; the step refuses any other
+      project, as every deploy in this kit does.
+  - title: Acceptance
+    body: |
+      - Phone: attach a 12 MB PDF and a screenshot; both arrive under
+        `~/.flutter_kit/attachments/<project>/`; the bucket is empty of
+        `uploads/` afterwards; the answer describes the screenshot.
+      - Mac: the same by paperclip and by drop.
+      - Airplane mode mid-upload: the chip shows the failure and the
+        message returns to the composer; nothing half-written remains in
+        the bucket after the host's next sweep.
+      - A signed-out client cannot read or write any object (rules test).
+      - No `parts` subcollection is written anywhere; the old code and
+        tests are gone.
+  - title: QA walkthrough
+    body: |
+      1. Phone: paperclip → a screenshot and a PDF → "what is on the image and how many pages is the PDF?"; watch the chips fill; read the answer.
+      2. Firebase console → Storage: nothing under `projects/<slug>/uploads`.
+      3. Mac: drop a PNG on the Deck; the same.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/attachments.dart`, `app/lib/src/host/attachment_store.dart`, `app/lib/src/relay.dart` (uploads), `app/storage.rules`, `app/firebase.json`, `app/pubspec.yaml` (`firebase_storage`)
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — subtracts the base64 parts; unlocks mirror, try-it, rich-pushes" }

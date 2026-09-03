@@ -1,0 +1,61 @@
+id: host-service
+number: "11"
+title: Host as a service — starts at login, holds the Mac awake, and the phone knows when it is gone
+status: pending
+rank: 720
+depends_on: [bridge-core]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The phone is only as good as the host behind it, and a closed lid
+      or a reboot is the most common way a session dies today.
+
+      **Start at login.** A switch on the Session tab registers the app
+      as a login item (`launch_at_startup`; a LaunchAgent with KeepAlive
+      as the fallback), so the host is up after a reboot without anyone at
+      the Mac. The host reopens the folders it had open and re-adopts a
+      running session by id, as it already does after a restart.
+
+      **Stay awake.** While any session or run bay process runs, the host
+      holds a power assertion — `caffeinate -is -w <pid>` on the bridge
+      process — and releases it when the last one ends. The Session tab
+      says "holding the Mac awake" while it does.
+
+      **Presence.** The host writes `hosts/{hostId}` — `{seenAt
+      (server time), name, appVersion, cli, projects: [slugs]}` — every
+      thirty seconds while it runs, and once more with `stopping: true`
+      on a clean quit. The phone shows the host's state in the Deck
+      header's facts line: "Mac · 12 s ago"; past ninety seconds it turns
+      amber: "Mac unreachable since 4 min". A command written while the
+      host is unreachable shows as *queued* under the composer with a way
+      to withdraw it; the host drains `commands` in order when it returns,
+      as it already does. A session that was running when the host went
+      away is shown as *lost* until the host reports it again.
+
+      A stopped host (clean quit) reads as "Mac stopped", not
+      "unreachable"; the phone's Start then says the host must be up.
+  - title: Acceptance
+    body: |
+      - Start at login on: reboot the Mac, do not log into the app; the
+        phone's facts line shows the Mac within a minute of the desktop;
+        the project list is back.
+      - Lid open, on battery, a session running: the Mac does not idle-sleep
+        in 20 min (`pmset -g assertions` lists the assertion); Stop releases it.
+      - Quit the host: the phone says "Mac stopped" within a heartbeat;
+        kill -9 it: "Mac unreachable since …" within ninety seconds.
+      - Send while unreachable: the row says queued; bring the host back;
+        the row runs and the answer streams.
+  - title: QA walkthrough
+    body: |
+      1. Mac: Session tab → Start at login on; `pmset -g assertions` while a session runs.
+      2. Phone: watch the facts line; kill the host from a terminal; send "hello"; relaunch the host; the reply arrives.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/host/host_projects.dart`, `app/lib/src/host/bridge_session.dart` (power assertion), `app/lib/src/relay.dart` (hosts), `app/lib/src/screens/session_tab.dart`, `app/lib/src/screens/deck_tab.dart` (facts line, queued rows), `app/pubspec.yaml`
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b foundation" }

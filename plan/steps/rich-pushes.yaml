@@ -1,0 +1,49 @@
+id: rich-pushes
+number: "23"
+title: Rich pushes — a finished turn with its summary and a frame, a plan and a diff in the push, quiet hours
+status: pending
+rank: 840
+depends_on: [notifications, mirror]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      **Pictures.** When a turn ends while the run bay has the app up,
+      the host captures one frame (the mirror's path), puts it at
+      `projects/{slug}/shots/{id}.jpg`, and the Done push carries its
+      download URL as the notification's image, under the reply's first
+      lines; the tap opens the Deck on that turn. No run, no picture.
+
+      **Text that tells you enough to decide.** The ask push for an edit
+      carries the diff's first three changed lines; the plan push
+      ("Plan ready") carries the plan's first heading and its step
+      count; the problem push carries the error line verbatim.
+
+      **Quiet hours.** Per project, on the Session screen and in the
+      phone's settings: a window (default 23:00–08:00 in the phone's
+      zone, stored on the device doc) in which Turn ended and Problems
+      are held on the host and sent as one digest at the window's end —
+      "While you slept · 3 turns ended · 1 problem". Asks always push;
+      a Problem that is a dead session pushes at once regardless.
+  - title: Acceptance
+    body: |
+      - RUN, then a turn that changes the screen: the Done push shows the
+        frame; expand it on the notification; tap opens that turn.
+      - An Edit ask's push shows three diff lines; a plan push shows the
+        heading; a Problem push shows the error text.
+      - Quiet hours set to now: a finished turn does not push; move the
+        window's end to a minute ahead; one digest arrives naming the count.
+      - An ask during quiet hours pushes at once.
+  - title: QA walkthrough
+    body: |
+      1. Phone: RUN; "change the home title"; lock; the Done push with the frame.
+      2. Phone: quiet hours → now+1 min; a turn; wait; the digest.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/host/push_sender.dart` (image, digest, hold), `app/lib/src/host/mirror.dart` (one frame), `app/lib/src/relay.dart` (devices.quiet), `app/lib/src/screens/session_tab.dart`, `app/lib/src/push/push_listener.dart`
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b" }

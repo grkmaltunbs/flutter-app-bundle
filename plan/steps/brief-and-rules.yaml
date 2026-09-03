@@ -1,0 +1,48 @@
+id: brief-and-rules
+number: "25"
+title: Brief and rules — the standing brief and CLAUDE.md edited on the phone, committed on save
+status: pending
+rank: 860
+depends_on: [session-options, review]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      The human's rules evolve where the human is. Two editors, both on
+      the Session screen and in the Deck's fold:
+
+      **Brief.** The standing brief has a fixed part (the kit's lines:
+      driven from a phone, the browser, sign-ins as questions, store
+      actions asked first) and gains a per-project part the user writes
+      — kept in the bridge record, shown as its own block under the
+      fixed text, applied on the next start or dial change. Saving while
+      a session runs says when it will apply.
+
+      **Rules.** `CLAUDE.md` and the `qa.note` paragraph of
+      `plan/kit.yaml` open in a plain editor with the mono face; **Save**
+      writes the file through the host and commits just that file —
+      "rules: <first changed line>" — using the Git card's path; a dirty
+      tree elsewhere is left alone. The editor refuses to save over a
+      file that changed on disk since it was opened and offers to reload.
+  - title: Acceptance
+    body: |
+      - Phone: add "Always answer in Turkish" to the brief; Start; "hi" →
+        Turkish; the Session tab shows the block under the fixed text.
+      - Phone: append a line to CLAUDE.md; Save; `git log -1 --stat` on
+        the Mac shows one file in a commit named after the line.
+      - Edit CLAUDE.md on the Mac while it is open on the phone; Save on
+        the phone is refused with the reload offer.
+      - 3.12x: the editor scrolls, the Save row stays reachable.
+  - title: QA walkthrough
+    body: |
+      1. Phone: Session → Brief → add a line → Save → Start → "hi".
+      2. Phone: Session → Rules → CLAUDE.md → append → Save; Mac: `git log -1 --stat`.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/screens/session_tab.dart`, `app/lib/src/screens/rules_editor.dart` (new), `app/lib/src/host/bridge_session.dart` (brief parts), `app/lib/src/host/host_project.dart` (write_file, commit one file), `kit/lib/src/bridge.dart` (brief assembly)
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b" }

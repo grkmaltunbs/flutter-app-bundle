@@ -1,14 +1,14 @@
 id: session-dials
 number: "5d"
 title: Session dials — model and effort from either device; the conversation as one selection
-status: active
+status: done
 rank: 665
 depends_on: [session-options]
 meta: { qa_required: true }
 gates:
   analyze: { at: 2026-09-03, note: kit and app analyzers clean 2026-09-03, status: passed}
   tests: { at: 2026-09-03, note: "kit 74, app 69: dials become flags; record, relay, one command per lift; a change while live restarts on the same session between turns and waits for a running turn; header folds while running with Stop on the row; 1.0\/2.0\/3.12x no overflow", status: passed}
-  qa: { status: pending }
+  qa: { at: 2026-09-04, note: "Verified by the user on the phone and the Mac, 2026-09-04: dials set from the phone reach the process, a live change restarts between turns, the header folds while running, the conversation copies whole", status: passed}
 sections:
   - title: Description
     body: |
@@ -59,3 +59,8 @@ history:
   - at: 2026-09-03
     event: gate tests passed
     note: "kit 74, app 69: dials become flags; record, relay, one command per lift; a change while live restarts on the same session between turns and waits for a running turn; header folds while running with Stop on the row; 1.0\/2.0\/3.12x no overflow"
+  - at: 2026-09-04
+    event: gate qa passed
+    note: "Verified by the user on the phone and the Mac, 2026-09-04: dials set from the phone reach the process, a live change restarts between turns, the header folds while running, the conversation copies whole"
+  - at: 2026-09-04
+    event: done

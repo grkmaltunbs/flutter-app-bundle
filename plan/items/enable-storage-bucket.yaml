@@ -1,0 +1,19 @@
+id: enable-storage-bucket
+title: Turn on Firebase Storage for flutterappbundle so blobs have a bucket
+status: done
+needs: [console]
+blocks: [blobs]
+step: blobs
+added: "2026-09-04"
+body: |
+  The relay has Firestore only. Storage's default bucket is created from
+  the console once (Blaze is already on); after that the host deploys the
+  owner-only `storage.rules` itself and no key is needed — both roles are
+  signed in as the relay user.
+runbook:
+  - do: Firebase console → flutterappbundle → Build → Storage → Get started; keep the location beside Firestore (europe-west3); start in production mode.
+    expect: A bucket listed on the Storage page.
+    if_fails: A location prompt that is greyed out means the project's default GCP resource location is already set; accept it.
+    verify: gcloud storage buckets list --project flutterappbundle --format='value(name)'
+done_at: 2026-09-04
+note: "Created 2026-09-04 from the Mac: POST firebasestorage.googleapis.com\/v1beta\/projects\/flutterappbundle\/defaultBucket {location: EUROPE-WEST3} signed with the Firebase CLI login — bucket flutterappbundle.firebasestorage.app; rules come with the blobs step"

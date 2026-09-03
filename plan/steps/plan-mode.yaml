@@ -1,0 +1,63 @@
+id: plan-mode
+number: "12"
+title: Plan mode — the mode dial, and the plan as a card you approve from the phone
+status: pending
+rank: 730
+depends_on: [session-dials]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      A third dial beside MODEL and EFFORT: **MODE** — `default · plan ·
+      accept edits · bypass`, the CLI's `--permission-mode` values. It
+      absorbs the Skip permissions pill (bypass is what the pill did; the
+      pill goes). Kept in the bridge record, flipped from either device,
+      and while live it changes like the other dials: at once between
+      turns, at the end of a running turn otherwise (restart on `--resume`
+      today; the `set_permission_mode` control request if `interrupt`
+      proves it).
+
+      In plan mode the session reads and thinks but does not edit, and
+      when it is ready it calls `ExitPlanMode` — which arrives on the ask
+      channel like any tool, with the plan text in its input. That ask
+      renders as a **plan card**: the plan in markdown, scrollable, with
+      **Approve** (allow) and **Revise** (deny, with a message the user
+      types — what to change — which the session reads and plans again).
+      A push for it: "Plan ready · Nahmatik". After Approve the dial shows
+      the mode the CLI reports in the next init, and the session builds.
+
+      The question card also learns previews: an `AskUserQuestion` option
+      that carries `preview` shows it (markdown, monospaced) under the
+      option, so a choice between two layouts or two snippets reads on
+      the phone as it does in the terminal.
+
+      Spike first, from the Mac: what `ExitPlanMode`'s `control_request`
+      carries on the pinned CLI version (the plan field's name, and
+      whether the allow response takes a mode), and record it in
+      `DESIGN.md` beside the protocol table.
+  - title: Acceptance
+    body: |
+      - Phone: MODE → plan; Start; send "add a settings screen". The
+        session explores, then a plan card appears with headings and code
+        blocks rendered; Approve; the next tool rows are edits.
+      - Revise with "no new packages": the session re-plans and the new
+        card reflects it.
+      - Mode flipped to plan mid-turn waits and says so; between turns it
+        applies at once; the facts line shows the mode the CLI reports.
+      - A question with previews shows them; the answer round-trips.
+      - The Skip permissions pill is gone from both Decks and the Session
+        tab; bypass on the dial does what it did.
+  - title: QA walkthrough
+    body: |
+      1. Phone: MODE → PLAN; Start; "plan a settings screen with a theme toggle".
+      2. Phone: the plan card; scroll; Revise: "keep it to one file"; the second card; Approve.
+      3. Mac: Session tab process output shows the mode; the Deck's tool rows show Edit asks.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/screens/deck_tab.dart` (`_Dial`, header), `app/lib/src/screens/ask_card.dart` (plan card, previews), `app/lib/src/host/bridge_session.dart` (record, mode), `kit/lib/src/bridge.dart` (choices, ExitPlanMode parse), `app/lib/src/host/push_sender.dart` (notice text), `app/DESIGN.md`
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — agent parity; absorbs the Skip permissions pill" }

@@ -1,0 +1,61 @@
+id: autopilot
+number: "17"
+title: Autopilot — the host keeps stepping within a budget, waits for the pool, and stops for you
+status: pending
+rank: 780
+depends_on: [notification-actions, host-service, instruments, interrupt]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      Rapid means "keep going". A toggle in the Deck's fold, **AUTOPILOT**,
+      with a budget sheet: how many steps (1–10), and **night shift** —
+      whether to wait out an empty pool and continue. The rest is fixed:
+      an ask always stops the loop until it is answered (the push carries
+      it, as today); a step whose gate fails twice stops it; a `kit next`
+      that says the human's move stops it; Stop or INTERRUPT stops it.
+
+      The loop lives in the host, about a hundred lines beside the
+      bridge: on the `result` of a turn the loop started, run `kit next
+      --step` through the library; if a step is ready for Claude, send
+      `/step <id>` as the next user message; otherwise stop with the
+      reason. On a `rate_limit_event` that refuses the turn, night shift
+      waits until the reset time plus a minute and sends again — the
+      process is resumed on the same id if it died meanwhile. Every
+      start, every step that flips, every stop pushes one line on the
+      Turn ended channel: "Autopilot · step 12 done · 2 of 5", "Autopilot
+      stopped · needs you: register the iPhone". The transcript shows
+      the loop's messages as its own rows, labelled, so the record is
+      whole.
+
+      The parked Python runner is what this replaces: `runner/` and
+      `docs/autobuild.md` are deleted in this step, and the README's
+      mention goes with them. A biometric gate on the toggle comes with
+      `voice-and-biometrics`; until then the toggle asks for a confirm.
+  - title: Acceptance
+    body: |
+      - Budget 2, two ready steps in a scratch project: the host sends two
+        `/step`s in sequence and stops with "budget reached"; three pushes.
+      - A step whose tests gate fails twice: the loop stops and the push
+        names the step.
+      - An ask mid-loop: the loop waits; Allow from the lock screen; it
+        continues.
+      - Night shift on, pool refused (simulated by a scripted event in the
+        test; live if the pool happens to be empty): the fold shows
+        "waiting for the pool · 0:42:10"; at reset it sends again.
+      - INTERRUPT or Stop ends the loop; the toggle is off afterwards.
+      - `runner/` and `docs/autobuild.md` no longer exist; README has no
+        dead link.
+  - title: QA walkthrough
+    body: |
+      1. Phone: AUTOPILOT → budget 2 → confirm; watch two steps run and the stop push.
+      2. Phone: during a step, an Allow arrives on the lock screen; Allow; the loop continues.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/host/autopilot.dart` (new), `app/lib/src/host/bridge_session.dart`, `app/lib/src/host/push_sender.dart`, `app/lib/src/relay.dart` (session.autopilot), `app/lib/src/screens/deck_tab.dart` (toggle, sheet, waiting line), `runner/` (deleted), `docs/autobuild.md` (deleted), `README.md`
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — replaces the parked runner" }

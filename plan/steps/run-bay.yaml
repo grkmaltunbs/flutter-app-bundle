@@ -1,0 +1,67 @@
+id: run-bay
+number: "18"
+title: Run bay — the host runs the app under test; reload, restart, the device and the log from the phone
+status: pending
+rank: 790
+depends_on: [host-service]
+meta: { qa_required: true }
+gates:
+  analyze: { status: pending }
+  tests: { status: pending }
+  qa: { status: pending }
+sections:
+  - title: Description
+    body: |
+      "Does it run" stops being a question for Claude and becomes a thing
+      you watch. The host owns the app process: `flutter run -d <device>
+      --machine --print-dtd` in the project folder, speaking the daemon
+      protocol IDEs use — `app.start` and `app.debugPort` events in,
+      `app.restart {appId, fullRestart}` and `app.stop` commands out. No
+      quota is spent on any of it.
+
+      A **RUN** control in the Deck's fold and on the Session screen:
+      the device picker (`flutter devices --machine`, plus booting a
+      simulator or emulator that is listed but off; the default is the
+      class `plan/kit.yaml` → `qa.runtime` names), then RUN · RELOAD ·
+      RESTART · STOP. The run's state sits on the project doc
+      (`run: {device, appId, state, since, vmUri, dtdUri}`), so both
+      devices show the same pill: "Running · iPhone 16 · 4 min".
+
+      **The log.** stdout and stderr of the run stream to
+      `runs/{id}/log/{n}` in lines, coalesced to one write a second and
+      kept to the last two thousand lines; the phone shows a monospaced
+      tail with a pause, a find, and a copy. An exception in the log
+      lights the pill amber and the line is a tap away.
+
+      **Claude at the same app.** The session's standing brief gains the
+      run's VM service and DTD URIs while a run is up, so the Dart MCP
+      server can connect to the running app for runtime errors, widget
+      trees and hot reload, and the brief says the host owns the process
+      — the session must not start its own `flutter run` while the bay
+      runs. **Reload on edit**, a switch: the host watches `lib/` and
+      hot-reloads on a save, so a session's edits show up on the device
+      without a turn.
+  - title: Acceptance
+    body: |
+      - Phone: RUN on the default device; the pill goes Running with the
+        device name within the build time; the log tail shows the
+        launch lines.
+      - Edit a string on the Mac with reload on edit on: the simulator
+        shows the change and the log shows the reload line; RELOAD and
+        RESTART from the phone do the same on demand.
+      - A thrown exception in the app shows amber on the pill and the
+        stack trace in the log.
+      - A session asked "what runtime errors are there?" reads them
+        through the Dart MCP server from the bay's app, and does not start
+        a second `flutter run`.
+      - STOP ends the process; the pill reads Idle; the log stays readable.
+  - title: QA walkthrough
+    body: |
+      1. Phone: RUN → the simulator boots and the app launches; watch the tail.
+      2. Mac: change a visible string; the app reloads; phone: RESTART.
+      3. Phone: "what runtime errors are there?" with an intentional throw in the app.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/host/run_bay.dart` (new, the daemon protocol), `app/lib/src/host/host_project.dart`, `app/lib/src/relay.dart` (run, runs/log), `app/lib/src/screens/deck_tab.dart` (fold), `app/lib/src/screens/session_tab.dart`, `app/lib/src/screens/log_sheet.dart` (new), `kit/lib/src/bridge.dart` (brief lines)
+history:
+  - { at: "2026-09-04", event: added, note: "phase 3b — the host owns the app process" }

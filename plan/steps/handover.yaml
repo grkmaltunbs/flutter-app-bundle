@@ -1,10 +1,10 @@
 id: handover
-number: "7"
-title: Hand over — the Claude app takes the same conversation, and takes it back
+number: "28"
+title: Parked — Hand over to the Claude app on the same conversation, and take it back
 status: pending
-rank: 800
-depends_on: [deck-on-the-phone]
-meta: { qa_required: true }
+rank: 2000
+depends_on: [deck-on-the-phone, iphone]
+meta: { qa_required: true, parked: true }
 gates:
   analyze: { status: pending }
   tests: { status: pending }
@@ -12,12 +12,18 @@ gates:
 sections:
   - title: Description
     body: |
+      **Parked 2026-09-04.** With the mode dial, the plan card, interrupt,
+      compaction, session history and the diffs in the bridge, nothing
+      remains that only the Claude app can do on this conversation; the
+      step is a spike with an unknown answer that registers an
+      environment on the account. Kept last, not removed: it is the
+      fallback if the control protocol ever breaks under the pinned CLI.
+
       **Hand over** stops the bridge and starts `claude remote-control
       --session-id <the bridge's id>`; **Take back** stops Remote Control and
       resumes the bridge on the same id. One driver per project at a time:
       the host refuses a second from the bridge pointer and the process
-      table. The Session screen exists on the phone from this step: mode,
-      links, the CLI version, the rate-limit pool and its reset time.
+      table.
 
       Spike first: whether Remote Control adopts a session created by `-p`.
       If it does not, hand over starts a fresh Remote Control session and
@@ -36,3 +42,4 @@ sections:
       - `app/lib/src/host/host_project.dart`, `app/lib/src/host/remote_control.dart`, `app/lib/src/screens/session_tab.dart`
 history:
   - { at: "2026-08-30", event: added }
+  - { at: "2026-09-04", event: parked, note: "7 → 28, rank 2000; the bridge covers what hand-over was for" }
