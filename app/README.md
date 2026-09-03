@@ -31,7 +31,12 @@ command runs; Claude's questions still reach the phone) and **Drive
 Chrome** (`--chrome` — the session works in the Mac's own signed-in
 browser through the Claude in Chrome extension; the pill shows whether
 the browser answered). They sit in `~/.flutter_kit/bridge/<project>.json`
-beside the session to resume.
+beside the session to resume. Every session the app starts is also told,
+through `--append-system-prompt`, that it is driven from a phone, what the
+browser is, that a sign-in is asked for as a question (you sign in on the
+Mac over remote desktop and answer *Signed in — continue*), and that store
+actions that cannot be undone are asked about first. The Session tab shows
+the text.
 
 The relay is the Firebase project `flutterappbundle` (Firestore in
 europe-west3, Email/Password auth, one user, owner-only rules in

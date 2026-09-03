@@ -36,6 +36,7 @@ void main() {
     expect(s.state, BridgeState.starting);
     expect(fake.startedIn, project.path);
     expect(fake.startedWith, containsAllInOrder(['-p', '--permission-prompt-tool', 'stdio', '--session-id', s.sessionId]));
+    expect(fake.startedWith[fake.startedWith.indexOf('--append-system-prompt') + 1], contains('no browser tools'), reason: 'the brief, for the default options');
     expect(s.cliVersion, '2.1.251');
 
     s.send('/plan-status');
@@ -129,6 +130,10 @@ void main() {
 
     await s.start();
     expect(fake.startedWith, containsAllInOrder(['--permission-mode', 'bypassPermissions', '--chrome', '--session-id', s.sessionId]));
+    final brief = fake.startedWith[fake.startedWith.indexOf('--append-system-prompt') + 1];
+    expect(brief, contains('Claude in Chrome tools'));
+    expect(brief, contains('runs without asking'));
+    expect(brief, s.brief);
     expect(s.setOptions(chrome: false), isFalse, reason: 'fixed while running');
     expect(s.chrome, isTrue);
     fake.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'm', 'permissionMode': 'bypassPermissions', 'mcp_servers': [{'name': 'claude-in-chrome', 'status': 'connected'}]});

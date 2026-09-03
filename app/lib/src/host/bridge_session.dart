@@ -167,6 +167,10 @@ class BridgeSession extends ChangeNotifier {
   /// before init or when [chrome] was off.
   String? get chromeStatus => transcript.mcpServers['claude-in-chrome'];
 
+  /// What the next Start tells the session, on top of its own system
+  /// prompt — the phone, the browser, sign-ins as questions.
+  String get brief => deckBrief(chrome: chrome, skipPermissions: skipPermissions);
+
   /// "This session": the exact requests the user allowed once for the life
   /// of the process. Cleared on stop; never persisted.
   final Set<String> _sessionAllows = {};
@@ -209,7 +213,7 @@ class BridgeSession extends ChangeNotifier {
     final bin = await _findBinary();
     if (bin == null) return _fail('claude is not installed (looked on your shell PATH, ~/.local/bin, /opt/homebrew/bin).');
     sessionId = resume ? prev!.sessionId : _uuid4();
-    final args = bridgeArgs(sessionId: sessionId!, resume: resume, model: model, permissionMode: skipPermissions ? 'bypassPermissions' : 'default', chrome: chrome);
+    final args = bridgeArgs(sessionId: sessionId!, resume: resume, model: model, permissionMode: skipPermissions ? 'bypassPermissions' : 'default', chrome: chrome, appendSystemPrompt: brief);
     try {
       _proc = await _starter(bin, args, workingDirectory: dir, environment: {...Platform.environment, 'PATH': await _shellPath()});
     } on ProcessException catch (e) {

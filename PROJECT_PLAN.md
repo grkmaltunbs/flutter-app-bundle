@@ -351,6 +351,14 @@ The phone flips an option with an `options` command; the host writes
 its record and republishes the session. Browser tool rows read as
 `chrome · navigate · <url>`.
 
+Every session is also told, through `--append-system-prompt`
+(`deckBrief`), that it is driven from a phone; what the browser is;
+that a sign-in, second factor, captcha or payment confirmation is
+asked for with `AskUserQuestion` and one option, "Signed in —
+continue" (the user signs in on the Mac over remote desktop and
+answers); and that store actions that cannot be undone are asked
+about first. The Session tab shows the text.
+
 ### Acceptance
 - Flip Skip permissions on the phone, Start: a `/step` runs with no
   Allow card; a question still pins on the Deck.
@@ -358,6 +366,9 @@ its record and republishes the session. Browser tool rows read as
   Connect and tell me the app's status" opens a tab in the Mac's
   Chrome and answers from it.
 - The pills and switches are frozen while a session runs.
+- On a page that wants a sign-in, the session asks "Signed in —
+  continue" instead of typing anything; after the answer it reads the
+  page again.
 
 ### QA walkthrough
 1. Phone → Deck → PERMISSIONS · ASK → SKIP; CHROME · OFF → ON; START.

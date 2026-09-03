@@ -34,8 +34,30 @@ void main() {
     expect(again, containsAllInOrder(['--resume', 'abc', '--model', 'opus']));
     expect(again, isNot(contains('--session-id')));
     expect(fresh, isNot(contains('--chrome')));
-    final options = bridgeArgs(sessionId: 'abc', permissionMode: 'bypassPermissions', chrome: true);
-    expect(options, containsAllInOrder(['--permission-mode', 'bypassPermissions', '--chrome', '--session-id', 'abc']));
+    final options = bridgeArgs(sessionId: 'abc', permissionMode: 'bypassPermissions', chrome: true, appendSystemPrompt: 'be brief');
+    expect(options, containsAllInOrder(['--permission-mode', 'bypassPermissions', '--chrome', '--append-system-prompt', 'be brief', '--session-id', 'abc']));
+    expect(fresh, isNot(contains('--append-system-prompt')));
+  });
+
+  test('the brief every session gets fits its options', () {
+    final withChrome = deckBrief(chrome: true, skipPermissions: false);
+    expect(withChrome, contains('K.A.T.Y.A'));
+    expect(withChrome, contains('phone screen'));
+    expect(withChrome, contains('Claude in Chrome tools'));
+    expect(withChrome, contains('~/.flutter_kit/attachments/'));
+    expect(withChrome, contains('AskUserQuestion'));
+    expect(withChrome, contains('"Signed in — continue"'));
+    expect(withChrome, contains('remote desktop'));
+    expect(withChrome, contains('Never type or guess a password'));
+    expect(withChrome, contains('cannot undo'));
+    expect(withChrome, contains('may wait for the user to allow'));
+    expect(withChrome, contains('subagent'));
+    final without = deckBrief(chrome: false, skipPermissions: true);
+    expect(without, contains('no browser tools'));
+    expect(without, contains('Drive Chrome'));
+    expect(without, contains('runs without asking'));
+    expect(without, isNot(contains('Claude in Chrome tools')));
+    expect(without, contains('"Signed in — continue"'), reason: 'a sign-in is asked for either way');
   });
 
   test('init names the MCP servers; a browser tool reads as one', () {

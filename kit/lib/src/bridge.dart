@@ -32,7 +32,7 @@ const bridgeProvenOn = '2.1.251';
 /// [chrome] adds the Claude in Chrome tools, which reach the Mac's own
 /// browser through the extension; the `init` event then lists
 /// `claude-in-chrome` among [InitEvent.mcpServers] (proven the same day).
-List<String> bridgeArgs({required String sessionId, bool resume = false, String? model, String permissionMode = 'default', bool chrome = false}) => [
+List<String> bridgeArgs({required String sessionId, bool resume = false, String? model, String permissionMode = 'default', bool chrome = false, String? appendSystemPrompt}) => [
       '-p',
       '--verbose',
       '--input-format', 'stream-json',
@@ -42,9 +42,36 @@ List<String> bridgeArgs({required String sessionId, bool resume = false, String?
       '--permission-prompt-tool', 'stdio',
       '--permission-mode', permissionMode,
       if (chrome) '--chrome',
+      if (appendSystemPrompt != null) ...['--append-system-prompt', appendSystemPrompt],
       resume ? '--resume' : '--session-id', sessionId,
       if (model != null) ...['--model', model],
     ];
+
+/// What every session the app starts is told, on top of Claude Code's own
+/// system prompt (`--append-system-prompt`, honoured in stream mode —
+/// proven 2026-09-03). The user reads on a phone; the browser, when it is
+/// there, is the Mac's own signed-in Chrome; a sign-in is the user's to do,
+/// over remote desktop, so it is asked for as a question; and what a store
+/// cannot undo is asked about first.
+String deckBrief({required bool chrome, required bool skipPermissions}) => [
+      'You are driven from K.A.T.Y.A, a phone app that talks to this Claude Code session on the user\'s Mac. The user reads you on a phone screen: answer short and concrete, and lead with the result.',
+      '',
+      if (chrome)
+        'Browser: this session has the Claude in Chrome tools. The browser is the Mac\'s own Chrome, already signed in as the user — use it for anything that needs a website (App Store Connect, Google Play Console, RevenueCat, documentation). Downloads land in ~/Downloads on the Mac; a file the user attached is saved under ~/.flutter_kit/attachments/ and its path is in the message; file_upload takes a Mac path.'
+      else
+        'Browser: this session has no browser tools. If a task needs a website, say so in one line — the user can turn on Drive Chrome under Start and start the session again.',
+      '',
+      'When a site wants a sign-in, a second factor, a captcha, or a payment confirmation: stop and ask with the AskUserQuestion tool — one question naming the site and the tab, with the single option "Signed in — continue". The user reaches the Mac over remote desktop, signs in there, and answers; then look at the page again. Never type or guess a password, and never work around a sign-in.',
+      '',
+      'Before anything a store cannot undo — submitting for review, publishing a release, changing a price or an in-app product, deleting anything — ask with AskUserQuestion first, in one line.',
+      '',
+      if (skipPermissions)
+        'Permissions: every command runs without asking. Be deliberate with anything destructive.'
+      else
+        'Permissions: a command may wait for the user to allow it on the phone; that is expected.',
+      '',
+      'If you hand work to a subagent that will use the browser, put these rules in its prompt.',
+    ].join('\n');
 
 /// A tool's name as a row shows it: `Bash` stays `Bash`; an MCP tool —
 /// `mcp__claude-in-chrome__find` — becomes `chrome · find`.

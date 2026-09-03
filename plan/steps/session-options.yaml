@@ -7,7 +7,7 @@ depends_on: [asks]
 meta: { qa_required: true }
 gates:
   analyze: { at: 2026-09-03, note: "flutter analyze + dart analyze: no issues", status: passed}
-  tests: { at: 2026-09-03, note: "kit 70 (args with bypass + --chrome, init mcp_servers, browser tool labels), app 57 (options in the record and on the command line, frozen while running, chromeStatus relayed; pills on both Decks, the phone's options command); bypass + AskUserQuestion and --chrome proven live on claude 2.1.258, 2026-09-03", status: passed}
+  tests: { at: 2026-09-03, note: "kit 71 (args with bypass + --chrome + the brief, init mcp_servers, browser tool labels, the brief per option), app 57 (options in the record and on the command line, frozen while running, chromeStatus relayed, the brief on the command line; pills on both Decks, the phone's options command); bypass + AskUserQuestion, --chrome and --append-system-prompt proven live on claude 2.1.258, 2026-09-03", status: passed}
   qa: { status: pending }
 sections:
   - title: Description
@@ -30,6 +30,14 @@ sections:
       The phone flips an option with an `options` command; the host writes
       its record and republishes the session. Browser tool rows read as
       `chrome · navigate · <url>`.
+
+      Every session is also told, through `--append-system-prompt`
+      (`deckBrief`), that it is driven from a phone; what the browser is;
+      that a sign-in, second factor, captcha or payment confirmation is
+      asked for with `AskUserQuestion` and one option, "Signed in —
+      continue" (the user signs in on the Mac over remote desktop and
+      answers); and that store actions that cannot be undone are asked
+      about first. The Session tab shows the text.
   - title: Acceptance
     body: |
       - Flip Skip permissions on the phone, Start: a `/step` runs with no
@@ -38,6 +46,9 @@ sections:
         Connect and tell me the app's status" opens a tab in the Mac's
         Chrome and answers from it.
       - The pills and switches are frozen while a session runs.
+      - On a page that wants a sign-in, the session asks "Signed in —
+        continue" instead of typing anything; after the answer it reads the
+        page again.
   - title: QA walkthrough
     body: |
       1. Phone → Deck → PERMISSIONS · ASK → SKIP; CHROME · OFF → ON; START.
@@ -59,3 +70,6 @@ history:
   - at: 2026-09-03
     event: gate tests passed
     note: "kit 70 (args with bypass + --chrome, init mcp_servers, browser tool labels), app 57 (options in the record and on the command line, frozen while running, chromeStatus relayed; pills on both Decks, the phone's options command); bypass + AskUserQuestion and --chrome proven live on claude 2.1.258, 2026-09-03"
+  - at: 2026-09-03
+    event: gate tests passed
+    note: "kit 71 (args with bypass + --chrome + the brief, init mcp_servers, browser tool labels, the brief per option), app 57 (options in the record and on the command line, frozen while running, chromeStatus relayed, the brief on the command line; pills on both Decks, the phone's options command); bypass + AskUserQuestion, --chrome and --append-system-prompt proven live on claude 2.1.258, 2026-09-03"

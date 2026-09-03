@@ -88,6 +88,14 @@ class _SessionTabState extends State<SessionTab> {
                       title: Text('Drive Chrome', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
                       subtitle: Text('--chrome: the session gets the Claude in Chrome tools and works in this Mac\'s own browser — App Store Connect, Play Console, RevenueCat, signed in as you. Each browser action asks unless permissions are skipped.${b.running && b.chromeStatus != null ? ' Now: ${b.chromeStatus}.' : ''}', style: TextStyle(fontSize: 12.5, color: t.ink2)),
                     ),
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: Text('What every session is told', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
+                      subtitle: Text('Appended to Claude Code\'s system prompt at Start: the phone, the browser, a sign-in as a question for you, store actions asked first.', style: TextStyle(fontSize: 12.5, color: t.ink2)),
+                      children: [
+                        Padding(padding: const EdgeInsets.only(bottom: 12), child: SelectableText(b.brief, style: t.mono(12, color: t.ink2))),
+                      ],
+                    ),
                     if (rules.isNotEmpty) ...[
                       const SectionHead('Allowed always', sub: 'Rules Claude Code wrote to this project because an ask was answered Always. Remove one and it asks again.'),
                       for (final r in rules)
