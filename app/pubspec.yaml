@@ -45,6 +45,9 @@ dependencies:
   flutter_markdown_plus: ^1.0.12
   path: ^1.9.1
   desktop_drop: ^0.8.4
+  firebase_messaging: ^16.6.0
+  googleapis_auth: ^2.3.3
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

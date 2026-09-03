@@ -121,6 +121,35 @@ lib/src/
 `flutter_kit` (`../kit`) is a path dependency: model, graph, layout, inbox
 and the hook spool are the same code the CLI runs.
 
+## Notifications
+
+The host pushes to the phone itself, over FCM HTTP v1 — no Cloud
+Functions. It needs a service-account key for `flutterappbundle` at
+`~/.flutter_kit/flutterappbundle-service-account.json` (Firebase console
+→ Project settings → Service accounts → Generate new private key; the
+file is gitignored under any name with `service-account` in it). Without
+the key the Session tab's Checks line says so and nothing else changes.
+
+The phone asks for notification permission at sign-in (the bell in the
+app bar shows the state and asks again on a tap) and writes its token
+under `devices/`. **PUSH · TEST** on the Deck header, either device,
+sends one to every registered phone and toasts what came of it. The
+host sends when a session raises an ask — Allow,
+a question, a sign-in — or hits a problem: the process died, or a turn
+ended in an error — and when a turn ends well, so a task sent from the
+phone reports back while the phone is in a pocket. Three Android
+channels, **Claude needs you**, **Problems** and **Turn ended**, so any
+one can be silenced on its own. A tap opens the project; while the app
+is open a bar with OPEN shows instead (none for a turn that ended — the
+reply is on the screen), since Android shows no tray notification for a
+foreground app. The session is told all this in its brief, because the
+CLI's own PushNotification tool has no route from a bridge session: it
+only knows Anthropic's Remote Control pairing with the Claude app.
+
+`dart run tool/push_probe.dart [fcm-token]` (from `app/`) proves the key
+mints a token and FCM answers; without a token it sends to a probe token
+and FCM's 400 about that token is the proof.
+
 ## Firestore shape
 
 ```
@@ -133,6 +162,7 @@ projects/{slug}/threads/{about}          `item:<id>` or `step:<id>` — {about, 
 projects/{slug}/threads/{about}/messages the scoped rows, append-only; they outlive sessions and the chat window
 projects/{slug}/uploads/{id}             a file on its way from the phone {name, mime, size, parts, complete}; parts/{n} hold 600 KB
                                          of base64 each; the host saves it under ~/.flutter_kit/attachments/ and deletes the upload
+devices/{fcmToken}                       a phone that takes pushes {platform, name, uid, registeredAt, seenAt}; the host drops one FCM no longer knows
 ```
 
 The phone rebuilds a `Plan` from the documents and runs the same `Graph`,

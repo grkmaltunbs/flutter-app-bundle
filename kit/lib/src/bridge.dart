@@ -53,6 +53,11 @@ List<String> bridgeArgs({required String sessionId, bool resume = false, String?
 /// there, is the Mac's own signed-in Chrome; a sign-in is the user's to do,
 /// over remote desktop, so it is asked for as a question; and what a store
 /// cannot undo is asked about first.
+/// The one option a sign-in question carries — the brief asks for it by
+/// this exact label, and [Ask.isSignIn] recognises it, so a sign-in takes
+/// its own road to the phone (its own notification text).
+const signedInOption = 'Signed in — continue';
+
 String deckBrief({required bool chrome, required bool skipPermissions}) => [
       'You are driven from K.A.T.Y.A, a phone app that talks to this Claude Code session on the user\'s Mac. The user reads you on a phone screen: answer short and concrete, and lead with the result.',
       '',
@@ -61,7 +66,7 @@ String deckBrief({required bool chrome, required bool skipPermissions}) => [
       else
         'Browser: this session has no browser tools. If a task needs a website, say so in one line — the user can turn on Drive Chrome under Start and start the session again.',
       '',
-      'When a site wants a sign-in, a second factor, a captcha, or a payment confirmation: stop and ask with the AskUserQuestion tool — one question naming the site and the tab, with the single option "Signed in — continue". The user reaches the Mac over remote desktop, signs in there, and answers; then look at the page again. Never type or guess a password, and never work around a sign-in.',
+      'When a site wants a sign-in, a second factor, a captcha, or a payment confirmation: stop and ask with the AskUserQuestion tool — one question naming the site and the tab, with the single option "$signedInOption". The user reaches the Mac over remote desktop, signs in there, and answers; then look at the page again. Never type or guess a password, and never work around a sign-in.',
       '',
       'Before anything a store cannot undo — submitting for review, publishing a release, changing a price or an in-app product, deleting anything — ask with AskUserQuestion first, in one line.',
       '',
@@ -69,6 +74,9 @@ String deckBrief({required bool chrome, required bool skipPermissions}) => [
         'Permissions: every command runs without asking. Be deliberate with anything destructive.'
       else
         'Permissions: a command may wait for the user to allow it on the phone; that is expected.',
+      '',
+      '',
+      'Notifications: the app tells the user itself when you ask something, when a turn ends, and when something fails. The PushNotification tool has no route from this session — do not use it, and do not offer to.',
       '',
       'If you hand work to a subagent that will use the browser, put these rules in its prompt.',
     ].join('\n');
@@ -238,6 +246,10 @@ class Ask {
 
   bool get isQuestion => toolName == 'AskUserQuestion';
 
+  /// A question the brief shaped: one option, [signedInOption] — the
+  /// session is parked on a website until the user signs in on the Mac.
+  bool get isSignIn => isQuestion && questions.any((q) => q.options.length == 1 && q.options.single.label.trim().toLowerCase() == signedInOption.toLowerCase());
+
   /// What "this session" remembers: the tool and its exact input. A second
   /// request with the same key is the same request.
   String get key => '$toolName ${stableJson(input)}';
@@ -269,6 +281,76 @@ class Ask {
         'suggestions': suggestions,
         'requiresUserInteraction': requiresUserInteraction,
       };
+}
+
+/// What a session wants a person for, as a notification says it.
+enum NoticeKind {
+  /// A tool waits on Allow.
+  permission,
+
+  /// An `AskUserQuestion`.
+  question,
+
+  /// A question with the single option [signedInOption].
+  signIn,
+
+  /// The session failed, or a turn ended in an error.
+  problem,
+
+  /// A turn ended well — the reply is on the phone.
+  done,
+}
+
+/// One notification: what to show, and what it is about, so a tap opens
+/// the right project and a repeat of the same thing replaces the last.
+class Notice {
+  const Notice({required this.kind, required this.title, required this.body, this.requestId});
+
+  final NoticeKind kind;
+  final String title;
+  final String body;
+
+  /// The ask this is about — null for a problem.
+  final String? requestId;
+
+  /// The Android channel — `asks`, `problems`, `done` — one the user can
+  /// silence without the others. Each kind keeps one notification a
+  /// project: the newest ask replaces the last (only one is ever
+  /// pending), a repeated problem does not stack.
+  String get channel => switch (kind) {
+        NoticeKind.problem => 'problems',
+        NoticeKind.done => 'done',
+        NoticeKind.permission || NoticeKind.question || NoticeKind.signIn => 'asks',
+      };
+
+  bool get isAsk => channel == 'asks';
+
+  Map<String, String> data(String slug) => {'slug': slug, 'kind': kind.name, if (requestId != null) 'requestId': requestId!};
+}
+
+/// The notification for an ask: the project in the title, the thing to
+/// decide in the body, clipped for a lock screen.
+Notice noticeForAsk(Ask ask, {required String project}) {
+  if (ask.isSignIn) {
+    return Notice(kind: NoticeKind.signIn, title: 'Sign in needed · $project', body: _clip(ask.questions.map((q) => q.question).join(' · '), 240), requestId: ask.requestId);
+  }
+  if (ask.isQuestion) {
+    return Notice(kind: NoticeKind.question, title: 'Claude asks · $project', body: _clip(ask.summary, 240), requestId: ask.requestId);
+  }
+  final what = ask.toolName == 'Bash' ? 'Run' : toolLabel(ask.toolName);
+  return Notice(kind: NoticeKind.permission, title: 'Allow $what? · $project', body: _clip(ask.summary, 240), requestId: ask.requestId);
+}
+
+/// The notification for a problem: the session died, or a turn ended in
+/// an error the user would otherwise find hours later.
+Notice noticeForProblem(String error, {required String project}) => Notice(kind: NoticeKind.problem, title: 'Problem · $project', body: _clip(error.trim(), 240));
+
+/// The notification for a turn that ended well: how long it took when
+/// that is worth saying, and the start of the reply.
+Notice noticeForDone(ResultEvent r, {required String project}) {
+  final secs = r.durationMs ~/ 1000;
+  final took = secs < 60 ? '' : ' in ${secs ~/ 60}m ${(secs % 60).toString().padLeft(2, '0')}s';
+  return Notice(kind: NoticeKind.done, title: 'Done$took · $project', body: _clip(r.text.trim().isEmpty ? 'The turn ended.' : r.text.trim(), 240));
 }
 
 /// The user's answer to an [Ask], as the `response` of a control_response.

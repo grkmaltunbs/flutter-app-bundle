@@ -279,4 +279,66 @@ void main() {
     expect(t.addUser('no files').toMap().containsKey('attachments'), isFalse);
     expect(DeckMessage.fromMap({'id': 'x', 'role': 'user', 'text': 'old row', 'at': '2026-08-30T12:00:00Z'}).attachments, isEmpty, reason: 'rows from before carry none');
   });
+
+  test('a notification says what the session wants: allow, a question, a sign-in, a problem', () {
+    final ask = (parseBridgeLine(_askBash)! as AskEvent).ask;
+    final n = noticeForAsk(ask, project: 'kit');
+    expect(n.kind, NoticeKind.permission);
+    expect(n.title, 'Allow Run? · kit');
+    expect(n.body, ask.summary);
+    expect(n.requestId, ask.requestId);
+    expect(n.data('kit'), {'slug': 'kit', 'kind': 'permission', 'requestId': ask.requestId});
+
+    final q = (parseBridgeLine(_askQuestion)! as AskEvent).ask;
+    expect(q.isSignIn, isFalse);
+    final qn = noticeForAsk(q, project: 'kit');
+    expect(qn.kind, NoticeKind.question);
+    expect(qn.title, 'Claude asks · kit');
+    expect(qn.body, 'Tea or coffee?');
+
+    // The sign-in question the brief shapes: one option, the exact label.
+    final signIn = Ask.fromMap({
+      'requestId': 'req_s',
+      'toolName': 'AskUserQuestion',
+      'toolUseId': 'toolu_s',
+      'at': '2026-09-03T10:00:00Z',
+      'input': {
+        'questions': [
+          {'question': 'App Store Connect wants a sign-in (tab 2). Sign in on the Mac, then continue.', 'header': 'Sign in', 'options': [{'label': 'Signed in — continue', 'description': ''}]}
+        ]
+      },
+    });
+    expect(signIn.isSignIn, isTrue);
+    final sn = noticeForAsk(signIn, project: 'kit');
+    expect(sn.kind, NoticeKind.signIn);
+    expect(sn.title, 'Sign in needed · kit');
+    expect(sn.body, startsWith('App Store Connect wants a sign-in'));
+    expect(sn.isAsk, isTrue);
+
+    final chrome = Ask.fromMap({'requestId': 'r', 'toolName': 'mcp__claude-in-chrome__navigate', 'toolUseId': 't', 'at': '2026-09-03T10:00:00Z', 'input': {'url': 'https://example.com'}});
+    expect(noticeForAsk(chrome, project: 'kit').title, 'Allow chrome · navigate? · kit');
+
+    final p = noticeForProblem('claude exited with code 1 — boom', project: 'kit');
+    expect(p.kind, NoticeKind.problem);
+    expect(p.title, 'Problem · kit');
+    expect(p.body, 'claude exited with code 1 — boom');
+    expect(p.requestId, isNull);
+    expect(p.isAsk, isFalse);
+    expect(p.data('kit'), {'slug': 'kit', 'kind': 'problem'});
+    expect(noticeForProblem('x' * 500, project: 'kit').body.length, 240, reason: 'clipped for a lock screen');
+
+    expect(deckBrief(chrome: true, skipPermissions: false), contains('"$signedInOption"'), reason: 'the brief and the detector agree on the label');
+    expect(deckBrief(chrome: false, skipPermissions: false), contains('PushNotification tool has no route'), reason: 'a session is told the app notifies, so it stops trying the built-in tool');
+
+    final done = noticeForDone(const ResultEvent(subtype: 'success', sessionId: 's', durationMs: 85_000, text: 'All 3383 tests passed.'), project: 'Nahmatik');
+    expect(done.kind, NoticeKind.done);
+    expect(done.title, 'Done in 1m 25s · Nahmatik');
+    expect(done.body, 'All 3383 tests passed.');
+    expect(done.channel, 'done');
+    expect(done.isAsk, isFalse);
+    expect(noticeForDone(const ResultEvent(subtype: 'success', sessionId: 's', durationMs: 4_000), project: 'kit').title, 'Done · kit', reason: 'under a minute, the time is not worth a word');
+    expect(noticeForDone(const ResultEvent(subtype: 'success', sessionId: 's'), project: 'kit').body, 'The turn ended.');
+    expect(n.channel, 'asks');
+    expect(p.channel, 'problems');
+  });
 }

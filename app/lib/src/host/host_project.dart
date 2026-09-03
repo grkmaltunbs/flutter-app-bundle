@@ -12,6 +12,7 @@ import '../relay.dart';
 import 'bridge_session.dart';
 import 'claude_cli.dart';
 import 'hook_watcher.dart';
+import 'push_sender.dart';
 import 'remote_control.dart';
 
 /// Everything the host runs for one open project: the plan on disk, its
@@ -19,10 +20,15 @@ import 'remote_control.dart';
 /// Claude session — the bridge (this app talks to it) and Remote Control
 /// (the Claude app does).
 class HostProject extends ChangeNotifier {
-  HostProject({required this.dir, required this.db});
+  HostProject({required this.dir, required this.db, this.push});
 
   final String dir;
   final FirebaseFirestore db;
+
+  /// The Mac's one push sender, shared by every open project; null in a
+  /// test that has no phone to reach.
+  final PushSender? push;
+  final TurnWatch _turns = TurnWatch();
   late final LocalPlanSource source = LocalPlanSource(dir);
   late final HookWatcher hooks = HookWatcher(dir);
   late final RemoteControlSession session = RemoteControlSession(dir: dir, name: p.basename(dir));
@@ -62,7 +68,11 @@ class HostProject extends ChangeNotifier {
     hooks.onEvent = _onHook;
     source.start();
     hooks.start();
+    push?.start();
   }
+
+  /// The project as a notification names it.
+  String get projectName => source.plan?.manifest.projectName ?? p.basename(dir);
 
   /// What the phone sees as the session: the bridge while it runs, else
   /// Remote Control, else idle.
@@ -79,10 +89,38 @@ class HostProject extends ChangeNotifier {
     _publisher?.publishTranscript(bridge.transcript);
     final pub = _publisher;
     if (pub != null) unawaited(pub.publishThreads(bridge.transcript));
+    final turn = _turns.check(state: bridge.state, error: bridge.error, lastResult: bridge.transcript.lastResult, project: projectName);
+    if (turn != null) _notify(turn);
     notifyListeners();
   }
 
-  void _onAsk(Ask ask) => _publisher?.publishAsk(ask);
+  void _onAsk(Ask ask) {
+    _publisher?.publishAsk(ask);
+    _notify(noticeForAsk(ask, project: projectName));
+  }
+
+  /// A push to every registered phone, on request — the PUSH · TEST pill
+  /// on either device. Returns the one line the pill toasts.
+  Future<String> testPush() async {
+    final ps = push;
+    final s = slug;
+    if (ps == null || s == null) return 'no relay for this project yet';
+    if (!ps.ready) return ps.status;
+    if (ps.devices.isEmpty) return 'no phone registered — open the app on the phone and allow notifications';
+    final now = DateTime.now();
+    final hm = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final n = await ps.send(Notice(kind: NoticeKind.done, title: 'Test push · $projectName', body: 'The Mac reaches this phone — $hm.'), slug: s);
+    return n > 0 ? 'sent to $n phone${n == 1 ? '' : 's'}' : (ps.lastError ?? 'nothing sent');
+  }
+
+  /// To the phone's lock screen — when there is a key on this Mac, a
+  /// phone registered, and a slug to open on a tap.
+  void _notify(Notice n) {
+    final s = slug;
+    final ps = push;
+    if (s == null || ps == null) return;
+    unawaited(ps.send(n, slug: s));
+  }
 
   void _onAnswered(Ask ask, AskAnswer a, String by) => _publisher?.resolveAsk(ask.requestId, summary: a.summary, by: by);
 
@@ -117,6 +155,8 @@ class HostProject extends ChangeNotifier {
       case 'options':
         final ok = bridge.setOptions(skipPermissions: cmd['skipPermissions'] as bool?, chrome: cmd['chrome'] as bool?);
         return ok ? 'options saved' : 'the session is running — stop it first';
+      case 'push-test':
+        return testPush();
       default:
         return 'unknown command ${cmd['type']}';
     }

@@ -18,16 +18,17 @@ import 'host/bridge_session.dart' show BridgeState;
 /// projects/{slug}/inbox/{auto}    a batch from the phone; the host stamps appliedAt
 /// projects/{slug}/events/{auto}   milestones from hooks (prompt, stop, notification)
 /// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
-/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|options, …}; the host stamps doneAt, result
+/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|options|push-test, …}; the host stamps doneAt, result
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
 /// projects/{slug}/uploads/{id}      a file on its way from the phone: {name, mime, size, parts, complete, from, sentAt}
 /// projects/{slug}/uploads/{id}/parts/{n}  base64 of [uploadChunk] bytes each; the host reassembles, saves, deletes
+/// devices/{fcmToken}                a phone that takes pushes: {platform, name, uid, registeredAt, seenAt}; the host drops one FCM no longer knows
 /// ```
 ///
 /// The host is the only writer of `asks`, `chat` and `session`; the phone
-/// only ever writes `inbox`, `commands` and `uploads`.
+/// only ever writes `inbox`, `commands`, `uploads` and its own `devices` row.
 class ProjectSummary {
   ProjectSummary({required this.slug, required this.name, required this.dir, required this.machine, required this.session, required this.now, required this.counts, this.updatedAt});
 
@@ -446,6 +447,29 @@ class RemoteDeck extends ChangeNotifier {
   /// The options the host's next Start runs with.
   Future<void> setOptions({bool? skipPermissions, bool? chrome}) =>
       CommandSender(db, slug).send({'type': 'options', 'skipPermissions': ?skipPermissions, 'chrome': ?chrome}, from: from);
+
+  /// Asks the Mac to push to every registered phone, and waits for what
+  /// came of it — or says so when the Mac does not answer.
+  Future<String?> testPush() async {
+    final ref = await CommandSender(db, slug).send({'type': 'push-test'}, from: from);
+    final done = Completer<String?>();
+    late final StreamSubscription<DocumentSnapshot<Map<String, dynamic>>> sub;
+    void finish(String r) {
+      if (!done.isCompleted) done.complete(r);
+      sub.cancel();
+    }
+
+    sub = ref.snapshots().listen((d) {
+      final m = d.data();
+      if (m == null || m['doneAt'] == null) return;
+      finish((m['result'] ?? '').toString());
+    }, onError: (Object e) => finish('Could not send: $e'));
+    _subs.add(sub);
+    final giveUp = Timer(const Duration(seconds: 20), () => finish('The Mac did not answer — is the app open there?'));
+    final r = await done.future;
+    giveUp.cancel();
+    return r;
+  }
 
   @override
   void dispose() {

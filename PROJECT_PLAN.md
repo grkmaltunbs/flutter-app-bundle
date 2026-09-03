@@ -381,38 +381,76 @@ about first. The Session tab shows the text.
 
 ---
 
-## Step 6 — Notifications — an ask reaches the lock screen and Allow runs the command
+## Step 6 — Notifications — an ask, a sign-in or a problem reaches the phone
 - [ ]
+- state: active — gates pending: qa
 - id: notifications
 - depends_on: deck-on-the-phone
 - qa_required: true
 
 ### Description
 The host sends FCM HTTP v1 messages with a service-account key kept
-outside the repo (`~/.flutter_kit/`); no Cloud Functions, no Blaze.
-Data messages for asks — the Android notification carries Allow and
-Deny actions that write `commands` without opening the app — and
-milestone notifications: needs you, turn ended, step flipped. A
-channel per kind so the user can silence milestones and keep asks.
+outside the repo (`~/.flutter_kit/flutterappbundle-service-account.json`);
+no Cloud Functions, no Blaze. The phone registers its token under
+`devices/{token}` after the system's permission prompt; the host
+watches that list and pushes when a session raises an ask (allow, a
+question, a sign-in — the question whose one option is "Signed in —
+continue") or hits a problem (the process died, a turn ended in an
+error), and when a turn ends well — the task sent from the phone
+reports back. Three Android channels — Claude needs you, Problems,
+Turn ended — so any one can be silenced alone. A tap opens the
+project. Allow / Deny on the notification itself is
+`notification-actions`.
 
 ### Acceptance
 - App closed, phone locked: a Bash ask arrives as a notification within
-  five seconds; Allow from the lock screen runs the command on the Mac.
-- A finished `/step` notifies once.
-- No key on the Mac → the Session tab says so and nothing else breaks.
+  five seconds; a tap opens the project with the ask card up.
+- A sign-in question arrives titled "Sign in needed"; a session that
+  dies arrives titled "Problem"; a finished turn arrives titled "Done"
+  with the start of the reply — each once, not on every repaint.
+- No key on the Mac → the Session tab says so and nothing else breaks;
+  a token FCM no longer knows is dropped from `devices/`.
 
 ### QA walkthrough
-1. Mac: Start; lock the phone; send `touch /tmp/kit-push`.
-2. Phone: the notification; Allow. Mac: the file exists.
+1. Phone: open the app, allow notifications; the bell turns on.
+2. Mac: Session tab → Checks says "Pushes go as … · 1 phone registered". Either device: PUSH · TEST on the Deck → "Test push · Kit" on the phone.
+3. Mac: Start; lock the phone; send `touch /tmp/kit-push`.
+4. Phone: the notification "Allow Run? · Kit — touch /tmp/kit-push"; tap; the ask card; Allow. Mac: the file exists.
+5. Mac: Stop; kill the process from a terminal while a session runs → "Problem · Kit" on the phone.
 
 ### Touchpoints
-- `app/lib/src/host/push_sender.dart`, `app/lib/src/push/**`, `app/android/**` (channels, actions)
+- `app/lib/src/host/push_sender.dart` (key, token, FCM v1, ProblemWatch), `app/lib/src/push/**` (registrar, listener, tap), `kit/lib/src/bridge.dart` (Notice, `Ask.isSignIn`), `app/android/**` (channels, POST_NOTIFICATIONS)
 
 ### Your part (human)
 
 The step's checkbox stays `[ ]` until these are checked:
 
-  - [ ] Put a Firebase service-account key for flutterappbundle on the Mac, outside the repo *(item `service-account-key-on-the-mac`)*
+  - [x] Put a Firebase service-account key for flutterappbundle on the Mac, outside the repo *(item `service-account-key-on-the-mac`)*
+
+---
+
+## Step 6b — Notification actions — Allow and Deny from the lock screen
+- [ ]
+- state: blocked — waiting on notifications
+- id: notification-actions
+- depends_on: notifications
+- qa_required: true
+
+### Description
+The Android notification for an ask carries Allow and Deny actions
+that write `commands` without opening the app — a data message the
+app renders itself (flutter_local_notifications, a background isolate
+that answers over Firestore), instead of the tray notification FCM
+draws today. A step that flipped, on its own channel.
+
+### Acceptance
+- Phone locked: Allow on the notification runs the command on the Mac;
+  the app never opens.
+- Deny from the notification is the deny the deck would have sent.
+- A step that flipped to done notifies once, on a channel the user can silence.
+
+### Touchpoints
+- `app/lib/src/push/**`, `app/android/**`
 
 ---
 

@@ -219,6 +219,15 @@ void main() {
     await tester.tap(find.text('CHROME · FAILED'));
     await _settle(tester);
     expect((await project.collection('commands').get()).docs.length, 1, reason: 'no command while running');
+    // The test pill works while running: a command, then the host's answer toasted.
+    await tester.tap(find.text('PUSH · TEST'));
+    await _settle(tester);
+    final cmds = (await project.collection('commands').get()).docs;
+    expect(cmds.length, 2);
+    final test = cmds.firstWhere((d) => d.data()['type'] == 'push-test');
+    await test.reference.set({'doneAt': FieldValue.serverTimestamp(), 'result': 'sent to 1 phone'}, SetOptions(merge: true));
+    await _settle(tester);
+    expect(find.text('sent to 1 phone'), findsOneWidget, reason: 'what came of it, toasted');
     expect(tester.takeException(), isNull);
   });
 }

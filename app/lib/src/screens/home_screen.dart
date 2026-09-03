@@ -8,6 +8,7 @@ import '../app.dart';
 import '../host/host_projects.dart';
 import '../host/project_registry.dart';
 import '../plan_source.dart';
+import '../push/push_listener.dart';
 import '../relay.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -73,6 +74,21 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('K.A.T.Y.A'),
         actions: [
+          if (!isHost)
+            ListenableBuilder(
+              listenable: Pushes.registrar,
+              builder: (context, _) {
+                final r = Pushes.registrar;
+                return IconButton(
+                  tooltip: r.status,
+                  icon: Icon(r.registered ? Icons.notifications_active : Icons.notifications_off_outlined, color: r.registered ? t.good : t.warn),
+                  onPressed: () async {
+                    await r.register();
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.status)));
+                  },
+                );
+              },
+            ),
           IconButton(tooltip: 'Sign out', icon: const Icon(Icons.logout), onPressed: () => FirebaseAuth.instance.signOut()),
         ],
       ),

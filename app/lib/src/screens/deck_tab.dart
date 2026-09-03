@@ -45,6 +45,7 @@ class DeckView extends StatefulWidget {
     this.chrome = false,
     this.chromeStatus,
     this.onOptions,
+    this.onTestPush,
   });
 
   final BridgeState state;
@@ -90,6 +91,10 @@ class DeckView extends StatefulWidget {
   /// Changes an option — the host writes its record, the phone sends a
   /// command. Null where the surface cannot.
   final void Function({bool? skipPermissions, bool? chrome})? onOptions;
+
+  /// Sends a push to every registered phone, to see one arrive; returns
+  /// the one-line result to toast. Null where the surface cannot.
+  final Future<String?> Function()? onTestPush;
 
   @override
   State<DeckView> createState() => _DeckViewState();
@@ -658,8 +663,11 @@ class _Attachments extends StatelessWidget {
 
 /// The host's Deck: straight off its own bridge.
 class DeckTab extends StatelessWidget {
-  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick});
+  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush});
   final BridgeSession bridge;
+
+  /// The host's push sender, on request — the PUSH · TEST pill.
+  final Future<String?> Function()? testPush;
   final String? title;
   final Widget? nowSlot;
   final Future<List<PendingAttachment>> Function()? pick;
@@ -693,6 +701,7 @@ class DeckTab extends StatelessWidget {
           chrome: b.chrome,
           chromeStatus: b.chromeStatus,
           onOptions: ({skipPermissions, chrome}) => b.setOptions(skipPermissions: skipPermissions, chrome: chrome),
+          onTestPush: testPush,
           askSlot: pending == null
               ? null
               : AskCard(
@@ -760,6 +769,7 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         chrome: d.chrome,
         chromeStatus: d.chromeStatus,
         onOptions: ({skipPermissions, chrome}) => d.setOptions(skipPermissions: skipPermissions, chrome: chrome),
+        onTestPush: d.testPush,
         askSlot: RemoteAskPanel(db: widget.db, slug: widget.slug, from: widget.from),
         onStart: () => d.startSession(),
         onResume: () => d.startSession(resume: true),
@@ -889,6 +899,17 @@ class _Header extends StatelessWidget {
                     enabled: !w.running,
                     onTap: () => w.onOptions!(chrome: !w.chrome),
                   ),
+                  if (w.onTestPush != null)
+                    _OptionPill(
+                      text: 'PUSH · TEST',
+                      color: t.accent,
+                      on: false,
+                      enabled: true,
+                      onTap: () async {
+                        final r = await w.onTestPush!();
+                        if (context.mounted && r != null) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(r)));
+                      },
+                    ),
                 ],
               ),
             ),

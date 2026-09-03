@@ -257,10 +257,16 @@ void main() {
     addTearDown(tester.view.reset);
     final fake = FakeClaude();
     final s = fakeSession(fake, dir: project.path, home: home.path);
-    await tester.pumpWidget(_app(DeckTab(bridge: s), size: const Size(390, 844), scale: 1.0));
+    var pushes = 0;
+    await tester.pumpWidget(_app(DeckTab(bridge: s, testPush: () async => 'sent to ${++pushes} phone'), size: const Size(390, 844), scale: 1.0));
     await tester.pump();
     expect(find.text('PERMISSIONS · ASK'), findsOneWidget);
     expect(find.text('CHROME · OFF'), findsOneWidget);
+    await tester.tap(find.text('PUSH · TEST'));
+    await tester.pump();
+    await tester.pump();
+    expect(pushes, 1);
+    expect(find.text('sent to 1 phone'), findsOneWidget, reason: 'what came of it, toasted');
     await tester.tap(find.text('PERMISSIONS · ASK'));
     await tester.pump();
     expect(find.text('PERMISSIONS · SKIP'), findsOneWidget);

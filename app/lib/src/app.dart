@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart' hide Step, StepState;
 
+import 'push/push_listener.dart';
 import 'screens/home_screen.dart';
 import 'screens/sign_in_screen.dart';
 import 'theme.dart';
@@ -30,7 +31,8 @@ class KitApp extends StatelessWidget {
             return const Scaffold(body: Center(child: CircularProgressIndicator()));
           }
           if (snap.data == null) return const SignInScreen();
-          return const HomeScreen();
+          // A phone takes pushes from the Mac; the host sends them.
+          return isHost ? const HomeScreen() : const PushListener(child: HomeScreen());
         },
       ),
     );
