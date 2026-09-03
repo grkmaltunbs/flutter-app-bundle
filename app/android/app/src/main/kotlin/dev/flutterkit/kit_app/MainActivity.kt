@@ -13,8 +13,9 @@ class MainActivity : FlutterActivity() {
     }
 
     // The channels the Mac's pushes name (app/lib/src/host/push_sender.dart):
-    // asks — allow, a question, a sign-in — problems, and turns that ended,
-    // so any one can be silenced in the phone's settings without the others.
+    // asks — allow, a question, a sign-in — problems, turns that ended, and
+    // steps that flipped, so any one can be silenced in the phone's settings
+    // without the others. The same four are in push/local_notices.dart.
     // High importance: heads-up and sound, the way a person waiting on the
     // other end deserves. FCM falls back to "Miscellaneous" for a channel
     // that does not exist, which is why they are made here, before any
@@ -37,6 +38,11 @@ class MainActivity : FlutterActivity() {
         nm.createNotificationChannel(
             NotificationChannel("done", "Turn ended", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Claude finished what you sent, while you were away"
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel("steps", "Steps", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "A step of the plan flipped to done"
             }
         )
     }

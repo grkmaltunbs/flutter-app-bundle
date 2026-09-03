@@ -68,6 +68,26 @@ void main() {
     final d = fcmMessage(noticeForDone(const ResultEvent(subtype: 'success', sessionId: 's', text: 'ok'), project: 'kit'), slug: 'kit', token: 'T');
     expect((d['android'] as Map)['notification'], {'channel_id': 'done', 'tag': 'done-kit', 'sound': 'default'});
     expect(d['data'], {'slug': 'kit', 'kind': 'done'});
+
+    // An Android phone draws the notification itself: a data message with
+    // the words, the channel and the buttons — no tray block.
+    final a = fcmMessage(n, slug: 'kit', token: 'T', android: true);
+    expect(a.containsKey('notification'), isFalse);
+    expect(a['android'], {'priority': 'high'});
+    final data = a['data'] as Map<String, String>;
+    expect(data['title'], 'Allow Run? · kit');
+    expect(data['body'], 'git push');
+    expect(data['channel'], 'asks');
+    expect(data['tag'], 'asks-kit');
+    expect(data['requestId'], 'req_1');
+    expect(data['kind'], 'permission');
+    expect(jsonDecode(data['actions']!), [{'id': 'allow', 'label': 'Allow'}, {'id': 'deny', 'label': 'Deny'}]);
+    expect((fcmMessage(noticeForProblem('x', project: 'kit'), slug: 'kit', token: 'T', android: true)['data'] as Map).containsKey('actions'), isFalse);
+
+    final w = withdrawMessage(slug: 'kit', requestId: 'req_1', token: 'T');
+    expect(w['data'], {'slug': 'kit', 'kind': 'withdraw', 'requestId': 'req_1'});
+    expect(w.containsKey('notification'), isFalse);
+    expect(((w['apns'] as Map)['payload'] as Map)['aps'], {'content-available': 1});
   });
 
   test('no key on the Mac: not ready, the status says where it goes, nothing is sent', () async {
@@ -115,11 +135,32 @@ void main() {
     expect(posted.first.url.toString(), 'https://fcm.googleapis.com/v1/projects/flutterappbundle/messages:send');
     expect(posted.first.headers['Authorization'], 'Bearer tok-1');
     expect(posted.map((r) => ((jsonDecode(r.body) as Map)['message'] as Map)['token']).toSet(), {'T1', 'T2'});
+    final byToken = {for (final r in posted) (((jsonDecode(r.body) as Map)['message'] as Map)['token']).toString(): (jsonDecode(r.body) as Map)['message'] as Map};
+    expect(byToken['T1']!.containsKey('notification'), isFalse, reason: 'the Android phone draws its own');
+    expect((byToken['T1']!['data'] as Map)['actions'], isNotNull);
+    expect(byToken['T2']!['notification'], isNotNull, reason: 'the iPhone takes the tray notification');
     expect(s.sent, 2);
     expect(s.lastSentAt, now);
     expect(s.lastError, isNull);
     expect(s.status, contains('last sent 14:05'));
     expect(s.status, contains('pusher@flutterappbundle'));
+  });
+
+  test('a withdrawal reaches every phone as a silent message and counts as no push', () async {
+    await db.collection('devices').doc('T1').set({'platform': 'android'});
+    await db.collection('devices').doc('T2').set({'platform': 'ios'});
+    final s = PushSender(db: db, home: home.path, client: fcm((_) => 200), minter: _FixedMinter())..start();
+    addTearDown(s.dispose);
+    await _settle();
+    expect(await s.withdraw('req_9', slug: 'kit'), 2);
+    expect(posted.length, 2);
+    for (final r in posted) {
+      final m = (jsonDecode(r.body) as Map)['message'] as Map;
+      expect(m['data'], {'slug': 'kit', 'kind': 'withdraw', 'requestId': 'req_9'});
+      expect(m.containsKey('notification'), isFalse);
+    }
+    expect(s.sent, 0);
+    expect(s.lastSentAt, isNull);
   });
 
   test('a token FCM no longer knows is forgotten; the others still hear', () async {

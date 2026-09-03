@@ -123,7 +123,43 @@ class HostProject extends ChangeNotifier {
     unawaited(ps.send(n, slug: s));
   }
 
-  void _onAnswered(Ask ask, AskAnswer a, String by) => _publisher?.resolveAsk(ask.requestId, summary: a.summary, by: by);
+  void _onAnswered(Ask ask, AskAnswer a, String by) {
+    _publisher?.resolveAsk(ask.requestId, summary: a.summary, by: by);
+    // Whichever surface answered, the notification comes off the others.
+    _withdraw(ask.requestId);
+  }
+
+  /// The silent push that takes an ask's notification off every phone.
+  void _withdraw(String requestId) {
+    final s = slug;
+    final ps = push;
+    if (s == null || ps == null || requestId.isEmpty) return;
+    unawaited(ps.withdraw(requestId, slug: s));
+  }
+
+  /// Asks a dead process or a fresh conversation left open: closed in the
+  /// relay, and taken off every lock screen.
+  Future<void> _sweepAsks(RelayPublisher pub) async {
+    List<String> ids;
+    try {
+      ids = await pub.withdrawOpenAsks();
+    } on Object {
+      return;
+    }
+    for (final id in ids) {
+      _withdraw(id);
+    }
+  }
+
+  /// A step that flipped to done on disk — `kit step done` from the
+  /// session, or the phone — reaches the phone once, on its own channel.
+  void _notifyFlips(Plan plan) {
+    final pub = _publisher;
+    if (pub == null) return;
+    for (final s in flippedDone(pub.lastChanges, plan)) {
+      _notify(noticeForStep(number: s.number ?? s.id, title: s.title, project: projectName));
+    }
+  }
 
   /// A command from the phone. `answer` lands on the pending ask only if it
   /// is still the one the phone saw; `send`, `start` and `stop` are what
@@ -136,6 +172,7 @@ class HostProject extends ChangeNotifier {
           // Close it in the relay too, so no phone keeps offering it.
           final pub = _publisher;
           if (requestId.isNotEmpty && pub != null) unawaited(pub.resolveAsk(requestId, summary: 'Stale — no longer pending', by: 'host'));
+          _withdraw(requestId);
           return 'stale: that ask was already answered';
         }
         bridge.answer(AskAnswer.fromMap(cmd), requestId: requestId, by: (cmd['from'] ?? 'phone').toString(), remember: cmd['remember'] == true);
@@ -155,7 +192,7 @@ class HostProject extends ChangeNotifier {
       case 'start':
         // A fresh conversation has nothing pending; a resumed one neither.
         final sweep = _publisher;
-        if (sweep != null) unawaited(sweep.withdrawOpenAsks().catchError((Object _) => 0));
+        if (sweep != null) unawaited(_sweepAsks(sweep));
         await bridge.start(resume: cmd['resume'] == true);
         return bridge.error ?? (bridge.running ? 'started' : 'did not start');
       case 'stop':
@@ -185,7 +222,7 @@ class HostProject extends ChangeNotifier {
       // Files a phone put up and nobody collected.
       unawaited(UploadReader(db, slug!).prune().catchError((Object _) => 0));
       // Asks a dead process left open: nothing can answer them now.
-      unawaited(_publisher!.withdrawOpenAsks().catchError((Object _) => 0));
+      unawaited(_sweepAsks(_publisher!));
     }
     _inbox ??= InboxListener(db, slug!, apply: applyBatch)..start();
     _commands ??= CommandListener(db, slug!, apply: applyCommand)..start();
@@ -203,6 +240,7 @@ class HostProject extends ChangeNotifier {
         relayStatus = n == 0 ? 'mirror up to date' : 'published $n document${n == 1 ? '' : 's'}';
         relayError = null;
         _stampThreadUpdate();
+        _notifyFlips(source.plan!);
       } while (_dirty);
     } on Object catch (e) {
       relayError = e.toString();

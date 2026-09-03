@@ -64,21 +64,61 @@ class ServiceAccountMinter implements TokenMinter {
   }
 }
 
-/// The FCM v1 message for one phone: what the tray shows, what a tap
-/// carries, and the channel — each kind keeps one notification a project
-/// (the `tag`), so the newest replaces the last.
-Map<String, Object?> fcmMessage(Notice n, {required String slug, required String token}) => {
+/// The FCM v1 message for one phone. An Android phone takes a **data**
+/// message and draws the notification itself (`push/local_notices.dart`)
+/// — that is how Allow and Deny get onto the lock screen, and how an ask
+/// answered elsewhere comes off it. Any other platform takes the tray
+/// notification FCM draws: what the tray shows, what a tap carries, and
+/// the channel — each kind keeps one notification a project (the `tag`),
+/// so the newest replaces the last.
+Map<String, Object?> fcmMessage(Notice n, {required String slug, required String token, bool android = false}) {
+  if (android) {
+    return {
       'token': token,
-      'notification': {'title': n.title, 'body': n.body},
-      'data': n.data(slug),
-      'android': {
-        'priority': 'high',
-        'notification': {'channel_id': n.channel, 'tag': '${n.channel}-$slug', 'sound': 'default'},
+      'data': androidData(n, slug: slug),
+      'android': {'priority': 'high'},
+    };
+  }
+  return {
+    'token': token,
+    'notification': {'title': n.title, 'body': n.body},
+    'data': n.data(slug),
+    'android': {
+      'priority': 'high',
+      'notification': {'channel_id': n.channel, 'tag': '${n.channel}-$slug', 'sound': 'default'},
+    },
+    'apns': {
+      'headers': {'apns-priority': '10'},
+      'payload': {
+        'aps': {'sound': 'default', 'thread-id': slug},
       },
+    },
+  };
+}
+
+/// What an Android phone needs to draw the notification: what a tap
+/// carries, the words, the channel, and the buttons as JSON. Every value a
+/// string — FCM data takes nothing else.
+Map<String, String> androidData(Notice n, {required String slug}) => {
+      ...n.data(slug),
+      'title': n.title,
+      'body': n.body,
+      'channel': n.channel,
+      'tag': '${n.channel}-$slug',
+      if (n.actions.isNotEmpty) 'actions': jsonEncode([for (final a in n.actions) {'id': a.id, 'label': a.label}]),
+    };
+
+/// The silent message that takes an ask's notification down on every phone
+/// once it was answered somewhere — the Mac, a phone, a button on another
+/// phone — or withdrawn by the host. Nothing is shown; the phone cancels.
+Map<String, Object?> withdrawMessage({required String slug, required String requestId, required String token}) => {
+      'token': token,
+      'data': {'slug': slug, 'kind': 'withdraw', 'requestId': requestId},
+      'android': {'priority': 'high'},
       'apns': {
-        'headers': {'apns-priority': '10'},
+        'headers': {'apns-priority': '5', 'apns-push-type': 'background'},
         'payload': {
-          'aps': {'sound': 'default', 'thread-id': slug},
+          'aps': {'content-available': 1},
         },
       },
     };
@@ -88,6 +128,7 @@ Map<String, Object?> fcmMessage(Notice n, {required String slug, required String
 const askChannel = 'asks';
 const problemChannel = 'problems';
 const doneChannel = 'done';
+const stepChannel = 'steps';
 
 /// Sends pushes from this Mac: reads the key when there is one, keeps the
 /// list of registered phones live, and sends every [Notice] to each of
@@ -184,7 +225,17 @@ class PushSender extends ChangeNotifier {
 
   /// Sends [n] to every registered phone. Returns how many took it; a
   /// phone whose token FCM no longer knows is forgotten on the spot.
-  Future<int> send(Notice n, {required String slug}) async {
+  Future<int> send(Notice n, {required String slug}) => _broadcast((token) => fcmMessage(n, slug: slug, token: token, android: isAndroid(token)));
+
+  /// Takes an ask's notification down on every phone — it was answered, or
+  /// withdrawn. Not counted as a push sent.
+  Future<int> withdraw(String requestId, {required String slug}) =>
+      _broadcast((token) => withdrawMessage(slug: slug, requestId: requestId, token: token), count: false);
+
+  /// The phone registered under [token] draws its own notifications.
+  bool isAndroid(String token) => devices[token]?['platform'] == 'android';
+
+  Future<int> _broadcast(Map<String, Object?> Function(String token) build, {bool count = true}) async {
     _loadKey();
     final m = _minter;
     if (m == null) return 0;
@@ -193,7 +244,7 @@ class PushSender extends ChangeNotifier {
     String? failure;
     for (final token in devices.keys.toList()) {
       try {
-        final r = await _post(m, fcmMessage(n, slug: slug, token: token));
+        final r = await _post(m, build(token));
         if (r == null) {
           ok++;
         } else if (r.stale) {
@@ -206,7 +257,7 @@ class PushSender extends ChangeNotifier {
         failure = e.toString();
       }
     }
-    if (ok > 0) {
+    if (ok > 0 && count) {
       sent += ok;
       lastSentAt = _now();
     }

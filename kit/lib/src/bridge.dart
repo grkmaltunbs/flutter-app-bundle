@@ -310,12 +310,62 @@ enum NoticeKind {
 
   /// A line Claude sent on purpose, with `kit notify`.
   note,
+
+  /// A step of the plan flipped to done — the constellation moved while
+  /// the user was away.
+  step,
+}
+
+/// One button on an ask's notification: [id] comes back as the action the
+/// phone tapped, [label] is what it reads.
+class NoticeAction {
+  const NoticeAction(this.id, this.label);
+  final String id;
+  final String label;
+}
+
+/// Android shows three buttons at most, and a label longer than this wraps
+/// to nothing useful on a lock screen.
+const maxNoticeActions = 3;
+const maxNoticeLabel = 24;
+
+/// The one-tap answers an ask allows from the lock screen: Allow / Deny for
+/// a permission; the single option of a sign-in; the options of a single
+/// pick-one question when they are few and short. Anything else — several
+/// questions, a multi-select, long labels — has no button: the tap opens
+/// the card.
+List<NoticeAction> noticeActions(Ask ask) {
+  if (!ask.isQuestion) return const [NoticeAction('allow', 'Allow'), NoticeAction('deny', 'Deny')];
+  final qs = ask.questions;
+  if (qs.length != 1) return const [];
+  final q = qs.single;
+  if (q.multiSelect || q.options.isEmpty || q.options.length > maxNoticeActions) return const [];
+  if (q.options.any((o) => o.label.trim().isEmpty || o.label.trim().length > maxNoticeLabel)) return const [];
+  return [for (var i = 0; i < q.options.length; i++) NoticeAction('option:$i', q.options[i].label.trim())];
+}
+
+/// The answer a notification button stands for, or null when [actionId]
+/// names nothing this ask offers — a stale button, or a tap on the body.
+/// [here] is where the user was, for the deny message the model reads.
+AskAnswer? answerForAction(Ask ask, String actionId, {String here = 'notification'}) {
+  if (!ask.isQuestion) {
+    return switch (actionId) {
+      'allow' => AskAnswer.allow(ask),
+      'deny' => AskAnswer.deny('The user declined from the $here.'),
+      _ => null,
+    };
+  }
+  if (!noticeActions(ask).any((a) => a.id == actionId)) return null;
+  final i = int.tryParse(actionId.substring('option:'.length));
+  final q = ask.questions.single;
+  if (i == null || i < 0 || i >= q.options.length) return null;
+  return AskAnswer.answers(ask, {q.question: q.options[i].label});
 }
 
 /// One notification: what to show, and what it is about, so a tap opens
 /// the right project and a repeat of the same thing replaces the last.
 class Notice {
-  const Notice({required this.kind, required this.title, required this.body, this.requestId});
+  const Notice({required this.kind, required this.title, required this.body, this.requestId, this.actions = const []});
 
   final NoticeKind kind;
   final String title;
@@ -324,13 +374,18 @@ class Notice {
   /// The ask this is about — null for a problem.
   final String? requestId;
 
-  /// The Android channel — `asks`, `problems`, `done` — one the user can
+  /// The buttons a lock-screen notification offers for an ask — see
+  /// [noticeActions]; empty for anything that is not an ask.
+  final List<NoticeAction> actions;
+
+  /// The Android channel — `asks`, `problems`, `done`, `steps` — one the user can
   /// silence without the others. Each kind keeps one notification a
   /// project: the newest ask replaces the last (only one is ever
   /// pending), a repeated problem does not stack.
   String get channel => switch (kind) {
         NoticeKind.problem => 'problems',
         NoticeKind.done || NoticeKind.note => 'done',
+        NoticeKind.step => 'steps',
         NoticeKind.permission || NoticeKind.question || NoticeKind.signIn => 'asks',
       };
 
@@ -343,14 +398,19 @@ class Notice {
 /// decide in the body, clipped for a lock screen.
 Notice noticeForAsk(Ask ask, {required String project}) {
   if (ask.isSignIn) {
-    return Notice(kind: NoticeKind.signIn, title: 'Sign in needed · $project', body: _clip(ask.questions.map((q) => q.question).join(' · '), 240), requestId: ask.requestId);
+    return Notice(kind: NoticeKind.signIn, title: 'Sign in needed · $project', body: _clip(ask.questions.map((q) => q.question).join(' · '), 240), requestId: ask.requestId, actions: noticeActions(ask));
   }
   if (ask.isQuestion) {
-    return Notice(kind: NoticeKind.question, title: 'Claude asks · $project', body: _clip(ask.summary, 240), requestId: ask.requestId);
+    return Notice(kind: NoticeKind.question, title: 'Claude asks · $project', body: _clip(ask.summary, 240), requestId: ask.requestId, actions: noticeActions(ask));
   }
   final what = ask.toolName == 'Bash' ? 'Run' : toolLabel(ask.toolName);
-  return Notice(kind: NoticeKind.permission, title: 'Allow $what? · $project', body: _clip(ask.summary, 240), requestId: ask.requestId);
+  return Notice(kind: NoticeKind.permission, title: 'Allow $what? · $project', body: _clip(ask.summary, 240), requestId: ask.requestId, actions: noticeActions(ask));
 }
+
+/// The notification for a step that flipped to done on disk — once, when
+/// the mirror sees the change, on a channel of its own.
+Notice noticeForStep({required String number, required String title, required String project}) =>
+    Notice(kind: NoticeKind.step, title: 'Step $number done · $project', body: _clip(title.trim(), 240));
 
 /// The notification for a problem: the session died, or a turn ended in
 /// an error the user would otherwise find hours later.

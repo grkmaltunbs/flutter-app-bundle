@@ -170,16 +170,17 @@ class RelayPublisher {
 
   /// Every ask still open in the relay, closed as withdrawn — a host that
   /// just came up, or a fresh conversation, has nothing pending, so an ask
-  /// a dead process left behind must not haunt the phone. Returns how many.
-  Future<int> withdrawOpenAsks({String reason = 'Withdrawn — the session stopped'}) async {
+  /// a dead process left behind must not haunt the phone. Returns their
+  /// ids, so the host can take them off the lock screens too.
+  Future<List<String>> withdrawOpenAsks({String reason = 'Withdrawn — the session stopped'}) async {
     final q = await ref.collection('asks').where('answeredAt', isNull: true).get();
-    if (q.docs.isEmpty) return 0;
+    if (q.docs.isEmpty) return const [];
     final b = db.batch();
     for (final d in q.docs) {
       b.set(d.reference, {'answeredAt': FieldValue.serverTimestamp(), 'answer': reason, 'by': 'host'}, SetOptions(merge: true));
     }
     await b.commit();
-    return q.docs.length;
+    return [for (final d in q.docs) d.id];
   }
 
   int _asks = 0;
@@ -776,3 +777,11 @@ String slugFor(Manifest m) {
   final s = base.toLowerCase().replaceAll(RegExp('[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
   return s.isEmpty ? 'project' : s;
 }
+
+/// The steps whose `status` the last [RelayPublisher.publish] changed to
+/// done — what the phone hears about, once, on the `steps` channel.
+List<Step> flippedDone(Map<String, List<String>> lastChanges, Plan plan) => [
+      for (final e in lastChanges.entries)
+        if (e.key.startsWith('steps/') && e.value.contains('status'))
+          if (plan.step(e.key.substring('steps/'.length)) case final s? when s.status == StepStatus.done) s,
+    ];

@@ -349,6 +349,49 @@ void main() {
     expect(deckBrief(chrome: false, skipPermissions: false), contains('kit notify'), reason: 'a session is told how to say something mid-task');
   });
 
+  test('a notification offers one-tap answers: Allow / Deny, a short single question, a sign-in — and no button for the rest', () {
+    final bash = (parseBridgeLine(_askBash)! as AskEvent).ask;
+    expect(noticeActions(bash).map((a) => '${a.id}=${a.label}'), ['allow=Allow', 'deny=Deny']);
+    expect(noticeForAsk(bash, project: 'kit').actions, hasLength(2));
+    final allow = answerForAction(bash, 'allow')!;
+    expect(allow.response, {'behavior': 'allow', 'updatedInput': bash.input});
+    expect(allow.allowed, isTrue);
+    final deny = answerForAction(bash, 'deny')!;
+    expect(deny.response, {'behavior': 'deny', 'message': 'The user declined from the notification.'});
+    expect(deny.allowed, isFalse);
+    expect(answerForAction(bash, 'deny', here: 'lock screen')!.response['message'], 'The user declined from the lock screen.');
+    expect(answerForAction(bash, 'option:0'), isNull, reason: 'a button this ask never offered');
+    expect(answerForAction(bash, ''), isNull);
+
+    final q = (parseBridgeLine(_askQuestion)! as AskEvent).ask;
+    expect(noticeActions(q).map((a) => '${a.id}=${a.label}'), ['option:0=Tea', 'option:1=Coffee']);
+    final tea = answerForAction(q, 'option:0')!;
+    expect(tea.response['updatedInput'], {...q.input, 'answers': {'Tea or coffee?': 'Tea'}});
+    expect(tea.summary, 'Tea');
+    expect(answerForAction(q, 'option:2'), isNull);
+    expect(answerForAction(q, 'allow'), isNull, reason: 'a question is not allowed, it is answered');
+
+    Ask question(List<Map<String, Object?>> questions) => Ask.fromMap({'requestId': 'r', 'toolName': 'AskUserQuestion', 'toolUseId': 't', 'at': '2026-09-04T10:00:00Z', 'input': {'questions': questions}});
+    Map<String, Object?> one(String text, List<String> labels, {bool multi = false}) => {'question': text, 'header': 'H', 'multiSelect': multi, 'options': [for (final l in labels) {'label': l, 'description': ''}]};
+    final signIn = question([one('Sign in to the App Store, then continue.', [signedInOption])]);
+    expect(signIn.isSignIn, isTrue);
+    expect(noticeActions(signIn).map((a) => a.label), [signedInOption]);
+    expect(answerForAction(signIn, 'option:0')!.summary, signedInOption);
+    expect(noticeActions(question([one('A?', ['x', 'y'], multi: true)])), isEmpty, reason: 'a multi-select is not one tap');
+    expect(noticeActions(question([one('A?', ['x']), one('B?', ['y'])])), isEmpty, reason: 'two questions need the card');
+    expect(noticeActions(question([one('A?', ['a', 'b', 'c', 'd'])])), isEmpty, reason: 'Android shows three buttons');
+    expect(noticeActions(question([one('A?', ['a', 'a label far too long for a lock screen button'])])), isEmpty);
+    expect(noticeActions(question([one('A?', ['a', 'b', 'c'])])), hasLength(3));
+
+    final flip = noticeForStep(number: '6b', title: '  Notification actions — Allow and Deny from the lock screen ', project: 'Kit');
+    expect(flip.kind, NoticeKind.step);
+    expect(flip.title, 'Step 6b done · Kit');
+    expect(flip.body, 'Notification actions — Allow and Deny from the lock screen');
+    expect(flip.channel, 'steps');
+    expect(flip.actions, isEmpty);
+    expect(flip.data('kit'), {'slug': 'kit', 'kind': 'step'});
+  });
+
   test('the dials become flags; default leaves the CLI to itself', () {
     expect(bridgeArgs(sessionId: 'abc', model: 'opus', effort: 'high'), containsAllInOrder(['--model', 'opus', '--effort', 'high']));
     final plain = bridgeArgs(sessionId: 'abc');

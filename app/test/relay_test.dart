@@ -219,7 +219,7 @@ void main() {
     await pub.publishAsk(ask('old_2'));
     await pub.publishAsk(ask('done_1'));
     await pub.resolveAsk('done_1', summary: 'Allowed', by: 'Mac');
-    expect(await pub.withdrawOpenAsks(), 2);
+    expect(await pub.withdrawOpenAsks(), unorderedEquals(['old_1', 'old_2']));
     final asks = db.collection('projects').doc('demo').collection('asks');
     for (final id in ['old_1', 'old_2']) {
       final d = (await asks.doc(id).get()).data()!;
@@ -229,7 +229,28 @@ void main() {
     }
     expect((await asks.doc('done_1').get()).data()!['answer'], 'Allowed');
     expect((await asks.where('answeredAt', isNull: true).get()).docs, isEmpty, reason: 'nothing left for a phone to show');
-    expect(await pub.withdrawOpenAsks(), 0);
+    expect(await pub.withdrawOpenAsks(), isEmpty);
+  });
+
+  test('a step that flipped to done is what the phone hears about — once, and only a flip to done', () async {
+    final pub = RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test');
+    await pub.publish(store.load());
+    expect(flippedDone(pub.lastChanges, store.load()), isEmpty, reason: 'the first publish knew nothing before');
+    store.writeStep(Step(id: 'b', title: 'B', rank: 2, dependsOn: ['a'], status: StepStatus.done));
+    var plan = store.load();
+    await pub.publish(plan);
+    expect(pub.lastChanges['steps/b'], contains('status'));
+    expect(flippedDone(pub.lastChanges, plan).map((s) => s.id), ['b']);
+    await pub.publish(plan);
+    expect(flippedDone(pub.lastChanges, plan), isEmpty, reason: 'nothing changed — no second notification');
+    store.writeStep(Step(id: 'b', title: 'B renamed', rank: 2, dependsOn: ['a'], status: StepStatus.done));
+    plan = store.load();
+    await pub.publish(plan);
+    expect(flippedDone(pub.lastChanges, plan), isEmpty, reason: 'a title is not a flip');
+    store.writeStep(Step(id: 'b', title: 'B renamed', rank: 2, dependsOn: ['a'], status: StepStatus.active));
+    plan = store.load();
+    await pub.publish(plan);
+    expect(flippedDone(pub.lastChanges, plan), isEmpty, reason: 'active is not done');
   });
 
   test('an ask reaches the phone; its answer comes back as a command; the host stamps both', () async {
