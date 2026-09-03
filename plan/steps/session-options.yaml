@@ -1,14 +1,14 @@
 id: session-options
 number: "5c"
 title: Session options — skip permissions, and drive the Mac's Chrome, from either device
-status: active
+status: done
 rank: 660
 depends_on: [asks]
 meta: { qa_required: true }
 gates:
   analyze: { at: 2026-09-03, note: "flutter analyze + dart analyze: no issues", status: passed}
   tests: { at: 2026-09-03, note: "kit 71 (args with bypass + --chrome + the brief, init mcp_servers, browser tool labels, the brief per option), app 57 (options in the record and on the command line, frozen while running, chromeStatus relayed, the brief on the command line; pills on both Decks, the phone's options command); bypass + AskUserQuestion, --chrome and --append-system-prompt proven live on claude 2.1.258, 2026-09-03", status: passed}
-  qa: { status: pending }
+  qa: { at: 2026-09-03, note: "Verified by the user on the devices, 2026-09-03: the pills, skip permissions, Drive Chrome", status: passed}
 sections:
   - title: Description
     body: |
@@ -73,3 +73,9 @@ history:
   - at: 2026-09-03
     event: gate tests passed
     note: "kit 71 (args with bypass + --chrome + the brief, init mcp_servers, browser tool labels, the brief per option), app 57 (options in the record and on the command line, frozen while running, chromeStatus relayed, the brief on the command line; pills on both Decks, the phone's options command); bypass + AskUserQuestion, --chrome and --append-system-prompt proven live on claude 2.1.258, 2026-09-03"
+  - at: 2026-09-03
+    event: gate qa passed
+    note: "Verified by the user on the devices, 2026-09-03: the pills, skip permissions, Drive Chrome"
+  - at: 2026-09-03
+    event: done
+    note: "Skip permissions and Drive Chrome per project from either device; every session told the standing brief — sign-ins as questions, store actions asked first"

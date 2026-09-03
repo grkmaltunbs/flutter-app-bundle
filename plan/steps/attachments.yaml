@@ -1,14 +1,14 @@
 id: attachments
 number: "5b"
 title: Attachments — a screenshot or any file rides with a message from either device; the Deck reads freely while Claude writes
-status: active
+status: done
 rank: 650
 depends_on: [item-threads]
 meta: { qa_required: true }
 gates:
   analyze: { at: 2026-09-02, note: "flutter analyze + dart analyze: no issues", status: passed}
   tests: { at: 2026-09-02, note: "kit 69 (the image-block line, attachment rows and the prompt trailer), app 54 (files inline and by path, uploads in parts and back whole, a screenshot shrunk to 1568, free scrolling with LATEST, a phone upload named by the send command and its echo taken back on failure, a Finder drop on the Mac Deck with the veil and a refused folder); the image block proven live on claude 2.1.258", status: passed}
-  qa: { status: pending }
+  qa: { at: 2026-09-03, note: "Verified by the user on the devices, 2026-09-03: attach on the phone, drop on the Mac, free scrolling with LATEST", status: passed}
 sections:
   - title: Description
     body: |
@@ -71,3 +71,9 @@ history:
   - at: 2026-09-02
     event: gate tests passed
     note: "kit 69 (the image-block line, attachment rows and the prompt trailer), app 54 (files inline and by path, uploads in parts and back whole, a screenshot shrunk to 1568, free scrolling with LATEST, a phone upload named by the send command and its echo taken back on failure, a Finder drop on the Mac Deck with the veil and a refused folder); the image block proven live on claude 2.1.258"
+  - at: 2026-09-03
+    event: gate qa passed
+    note: "Verified by the user on the devices, 2026-09-03: attach on the phone, drop on the Mac, free scrolling with LATEST"
+  - at: 2026-09-03
+    event: done
+    note: "Attachments from either device (paperclip, Finder drop), images inline to claude, files by path, uploads in parts over the relay; the Deck reads freely while Claude writes"

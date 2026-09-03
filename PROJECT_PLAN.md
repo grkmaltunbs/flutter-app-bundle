@@ -268,8 +268,7 @@ card shows its thread count and last reply.
 ---
 
 ## Step 5b — Attachments — a screenshot or any file rides with a message from either device; the Deck reads freely while Claude writes
-- [ ]
-- state: active — gates pending: qa
+- [x]
 - id: attachments
 - depends_on: item-threads
 - qa_required: true
@@ -325,8 +324,7 @@ LATEST chip offers the way down; sending pins the list again.
 ---
 
 ## Step 5c — Session options — skip permissions, and drive the Mac's Chrome, from either device
-- [ ]
-- state: active — gates pending: qa
+- [x]
 - id: session-options
 - depends_on: asks
 - qa_required: true
