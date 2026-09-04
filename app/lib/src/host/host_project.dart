@@ -240,10 +240,12 @@ class HostProject extends ChangeNotifier {
         await bridge.stop();
         return 'stopped';
       case 'options':
-        final ok = bridge.setOptions(skipPermissions: cmd['skipPermissions'] as bool?, chrome: cmd['chrome'] as bool?, model: cmd['model'] as String?, effort: cmd['effort'] as String?);
+        final ok = bridge.setOptions(mode: cmd['mode'] as String?, chrome: cmd['chrome'] as bool?, model: cmd['model'] as String?, effort: cmd['effort'] as String?);
         if (!ok) return 'nothing to change';
         if (bridge.restartPending) return 'applies when this turn ends';
-        return bridge.running ? 'restarting on the same conversation' : 'options saved';
+        if (bridge.modePending) return 'the mode switches when this turn ends';
+        if (!bridge.running) return 'options saved';
+        return cmd['chrome'] == null && cmd['model'] == null && cmd['effort'] == null ? 'mode switched' : 'restarting on the same conversation';
       case 'push-test':
         return testPush();
       default:

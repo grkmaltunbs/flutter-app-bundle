@@ -40,7 +40,7 @@ void main() {
   });
 
   test('the brief every session gets fits its options', () {
-    final withChrome = deckBrief(chrome: true, skipPermissions: false);
+    final withChrome = deckBrief(chrome: true, mode: 'default');
     expect(withChrome, contains('K.A.T.Y.A'));
     expect(withChrome, contains('phone screen'));
     expect(withChrome, contains('Claude in Chrome tools'));
@@ -52,7 +52,7 @@ void main() {
     expect(withChrome, contains('cannot undo'));
     expect(withChrome, contains('may wait for the user to allow'));
     expect(withChrome, contains('subagent'));
-    final without = deckBrief(chrome: false, skipPermissions: true);
+    final without = deckBrief(chrome: false, mode: 'bypassPermissions');
     expect(without, contains('no browser tools'));
     expect(without, contains('Drive Chrome'));
     expect(without, contains('runs without asking'));
@@ -92,7 +92,7 @@ void main() {
     expect(r.overageStatus, 'rejected');
     expect(parseBridgeLine(''), isNull);
     expect(parseBridgeLine('not json'), isNull);
-    expect(parseBridgeLine('{"type":"system","subtype":"status"}'), isA<OtherEvent>().having((e) => e.subtype, 'subtype', 'status'));
+    expect(parseBridgeLine('{"type":"system","subtype":"status"}'), isA<StatusEvent>().having((e) => e.permissionMode, 'permissionMode', isNull));
   });
 
   test('a question arrives as an ask with its options, and is answered by label', () {
@@ -327,8 +327,8 @@ void main() {
     expect(p.data('kit'), {'slug': 'kit', 'kind': 'problem'});
     expect(noticeForProblem('x' * 500, project: 'kit').body.length, 240, reason: 'clipped for a lock screen');
 
-    expect(deckBrief(chrome: true, skipPermissions: false), contains('"$signedInOption"'), reason: 'the brief and the detector agree on the label');
-    expect(deckBrief(chrome: false, skipPermissions: false), contains('PushNotification tool has no route'), reason: 'a session is told the app notifies, so it stops trying the built-in tool');
+    expect(deckBrief(chrome: true, mode: 'default'), contains('"$signedInOption"'), reason: 'the brief and the detector agree on the label');
+    expect(deckBrief(chrome: false, mode: 'default'), contains('PushNotification tool has no route'), reason: 'a session is told the app notifies, so it stops trying the built-in tool');
 
     final done = noticeForDone(const ResultEvent(subtype: 'success', sessionId: 's', durationMs: 85_000, text: 'All 3383 tests passed.'), project: 'Nahmatik');
     expect(done.kind, NoticeKind.done);
@@ -346,7 +346,7 @@ void main() {
     expect(note.title, 'Claude · Nahmatik');
     expect(note.body, 'Build uploaded to TestFlight.');
     expect(note.channel, 'done');
-    expect(deckBrief(chrome: false, skipPermissions: false), contains('kit notify'), reason: 'a session is told how to say something mid-task');
+    expect(deckBrief(chrome: false, mode: 'default'), contains('kit notify'), reason: 'a session is told how to say something mid-task');
   });
 
   test('a notification offers one-tap answers: Allow / Deny, a short single question, a sign-in — and no button for the rest', () {
@@ -399,5 +399,96 @@ void main() {
     expect(plain, isNot(contains('--effort')));
     expect(modelChoices.first, 'default');
     expect(effortChoices, ['default', 'low', 'medium', 'high', 'xhigh', 'max']);
+  });
+
+  test('the mode dial: the CLI\'s modes, their words, and the stdin line that switches one in place', () {
+    expect(modeChoices, ['default', 'plan', 'acceptEdits', 'bypassPermissions']);
+    expect(modeChoices.map(modeLabel), ['default', 'plan', 'accept edits', 'bypass']);
+    expect(knownMode('plan'), 'plan');
+    expect(knownMode('skip'), 'default', reason: 'a word this build does not have');
+    expect(knownMode(null), 'default');
+    final line = jsonDecode(encodeSetPermissionMode('mode-1', 'plan')) as Map;
+    expect(line['type'], 'control_request');
+    expect(line['request_id'], 'mode-1');
+    expect(line['request'], {'subtype': 'set_permission_mode', 'mode': 'plan'});
+    expect(bridgeArgs(sessionId: 'abc', permissionMode: 'plan'), containsAllInOrder(['--permission-mode', 'plan']));
+    expect(deckBrief(chrome: false, mode: 'plan'), contains('ExitPlanMode'));
+    expect(deckBrief(chrome: false, mode: 'acceptEdits'), contains('may wait for the user to allow'));
+    // What the CLI says back: the response, then a status the transcript takes.
+    final ok = parseBridgeLine('{"type":"control_response","response":{"subtype":"success","request_id":"mode-1","response":{"mode":"plan"}}}') as ControlResponseEvent;
+    expect(ok.ok, isTrue);
+    expect(ok.requestId, 'mode-1');
+    expect(ok.response['mode'], 'plan');
+    final bad = parseBridgeLine('{"type":"control_response","response":{"subtype":"error","request_id":"mode-2","error":"nope"}}') as ControlResponseEvent;
+    expect(bad.ok, isFalse);
+    expect(bad.error, 'nope');
+    final t = Transcript();
+    t.apply(parseBridgeLine('{"type":"system","subtype":"init","session_id":"s1","model":"m","permissionMode":"default"}')!);
+    expect(t.permissionMode, 'default');
+    t.apply(parseBridgeLine('{"type":"system","subtype":"status","status":null,"permissionMode":"plan"}')!);
+    expect(t.permissionMode, 'plan');
+    t.apply(parseBridgeLine('{"type":"system","subtype":"status","status":"compacting"}')!);
+    expect(t.permissionMode, 'plan', reason: 'a status without a mode changes nothing');
+  });
+
+  test('ExitPlanMode is a plan: the card\'s words, the one lock-screen button, approve with a mode, revise with words', () {
+    final e = parseBridgeLine('{"type":"control_request","request_id":"r9","request":{"subtype":"can_use_tool","tool_name":"ExitPlanMode","display_name":"ExitPlanMode","input":{"plan":"# Plan: a settings screen\\n\\n## Steps\\n- one\\n- two\\n","planFilePath":"/Users/me/.claude/plans/x.md"},"tool_use_id":"t9","requires_user_interaction":true}}') as AskEvent;
+    final ask = e.ask;
+    expect(ask.isPlan, isTrue);
+    expect(ask.isQuestion, isFalse);
+    expect(ask.plan, startsWith('# Plan: a settings screen'));
+    expect(ask.planTitle, 'Plan: a settings screen');
+    expect(ask.summary, 'Plan: a settings screen');
+    expect(Ask.fromMap(ask.toMap()).plan, ask.plan, reason: 'the plan rides the relay in the input');
+    final n = noticeForAsk(ask, project: 'Nahmatik');
+    expect(n.kind, NoticeKind.plan);
+    expect(n.title, 'Plan ready · Nahmatik');
+    expect(n.body, 'Plan: a settings screen');
+    expect(n.channel, 'asks');
+    expect(n.isAsk, isTrue);
+    expect(n.actions.map((a) => '${a.id}=${a.label}'), ['allow=Approve']);
+    final approve = answerForAction(ask, 'allow')!;
+    expect(approve.allowed, isTrue);
+    expect(approve.modeAfter, 'default');
+    expect(approve.appliesAlways, isFalse, reason: 'a setMode is not a rule for a settings file');
+    expect(approve.response['updatedPermissions'], [
+      {'type': 'setMode', 'mode': 'default', 'destination': 'session'}
+    ]);
+    expect(answerForAction(ask, 'deny'), isNull, reason: 'revise needs words');
+    final auto = AskAnswer.approvePlan(ask, mode: 'acceptEdits');
+    expect(auto.modeAfter, 'acceptEdits');
+    expect(auto.summary, contains('edits'));
+    expect(AskAnswer.fromMap(auto.toMap()).modeAfter, 'acceptEdits');
+    final revise = AskAnswer.revisePlan('  keep it to one file ');
+    expect(revise.allowed, isFalse);
+    expect(revise.response['behavior'], 'deny');
+    expect(revise.response['message'], 'The user asks for changes to the plan: keep it to one file\nRevise the plan and call ExitPlanMode again.');
+    expect(revise.summary, 'Revise: keep it to one file');
+    // An edit's "allow all edits" suggestion is a session mode too — not a rule.
+    final edit = Ask(requestId: 'r1', toolName: 'Edit', toolUseId: 't1', input: {'file_path': 'a.dart'}, at: DateTime(2026), suggestions: [
+      {'type': 'setMode', 'mode': 'acceptEdits', 'destination': 'session'}
+    ]);
+    expect(AskAnswer.always(edit).modeAfter, 'acceptEdits');
+    expect(AskAnswer.always(edit).appliesAlways, isFalse);
+    expect(AskAnswer.allow(edit).modeAfter, isNull);
+    final m = DeckMessage(id: 'm', role: DeckRole.tool, text: '', at: DateTime(2026), toolName: 'ExitPlanMode', toolInput: ask.input);
+    expect(m.toolSummary, 'proposed a plan');
+    final blank = Ask(requestId: 'r2', toolName: 'ExitPlanMode', toolUseId: 't2', input: {'plan': '   '}, at: DateTime(2026));
+    expect(blank.summary, 'A plan is ready');
+  });
+
+  test('an option\'s preview rides along', () {
+    final q = AskQuestion.fromMap({
+      'question': 'Which layout?',
+      'header': 'Layout',
+      'options': [
+        {'label': 'Stacked', 'description': 'one column', 'preview': '| a |\n| b |'},
+        {'label': 'Side by side', 'preview': '   '},
+      ],
+    });
+    expect(q.options[0].preview, '| a |\n| b |');
+    expect(q.options[1].preview, isNull, reason: 'blank is none');
+    expect(q.options[0].toMap()['preview'], '| a |\n| b |');
+    expect(q.options[1].toMap().containsKey('preview'), isFalse);
   });
 }

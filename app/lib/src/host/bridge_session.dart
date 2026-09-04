@@ -42,7 +42,7 @@ enum BridgeState {
 /// conversation; the rules the user answered Always to, so the Session
 /// tab can list them; and the options the next Start runs with.
 class BridgeRecord {
-  const BridgeRecord({this.sessionId, required this.startedAt, this.pid, this.always = const [], this.skipPermissions = false, this.chrome = false, this.model, this.effort});
+  const BridgeRecord({this.sessionId, required this.startedAt, this.pid, this.always = const [], this.mode = 'default', this.chrome = false, this.model, this.effort});
 
   /// Null when no session has run here yet — only options are recorded.
   final String? sessionId;
@@ -50,8 +50,10 @@ class BridgeRecord {
   final int? pid;
   final List<AppliedRule> always;
 
-  /// `--permission-mode bypassPermissions`: nothing waits on Allow.
-  final bool skipPermissions;
+  /// `--permission-mode`: one of [modeChoices]. `bypassPermissions` is
+  /// the old Skip permissions switch; a record from before the dial
+  /// still reads as it was set.
+  final String mode;
 
   /// `--chrome`: the Claude in Chrome tools, on this Mac's browser.
   final bool chrome;
@@ -65,7 +67,7 @@ class BridgeRecord {
         'startedAt': startedAt.toUtc().toIso8601String(),
         if (pid != null) 'pid': pid,
         'always': [for (final r in always) r.toJson()],
-        'skipPermissions': skipPermissions,
+        'mode': mode,
         'chrome': chrome,
         if (model != null) 'model': model,
         if (effort != null) 'effort': effort,
@@ -78,7 +80,7 @@ class BridgeRecord {
       startedAt: DateTime.tryParse(v['startedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
       pid: (v['pid'] as num?)?.toInt(),
       always: [for (final r in (v['always'] as List? ?? const [])) if (r is Map) AppliedRule.fromJson({for (final e in r.entries) e.key.toString(): e.value})],
-      skipPermissions: v['skipPermissions'] == true,
+      mode: v['mode'] != null ? knownMode(v['mode']) : (v['skipPermissions'] == true ? 'bypassPermissions' : 'default'),
       chrome: v['chrome'] == true,
       model: _choice(v['model']),
       effort: _choice(v['effort']),
@@ -116,7 +118,7 @@ class BridgeSession extends ChangeNotifier {
         _shellPath = shellPath ?? ClaudeCli.shellPath {
     final prev = previous();
     alwaysApplied.addAll(prev?.always ?? const []);
-    skipPermissions = prev?.skipPermissions ?? false;
+    modeChoice = prev?.mode ?? 'default';
     chrome = prev?.chrome ?? false;
     modelChoice = prev?.model;
     effort = prev?.effort;
@@ -167,9 +169,12 @@ class BridgeSession extends ChangeNotifier {
   /// the record; the Session tab lists and removes them.
   final List<AppliedRule> alwaysApplied = [];
 
-  /// The next Start runs `--permission-mode bypassPermissions`: no Allow /
-  /// Deny cards, every command runs. Questions still come. Persisted.
-  bool skipPermissions = false;
+  /// The mode dial — `--permission-mode` for the next Start, and, while a
+  /// session runs, what it is switched to in place. One of [modeChoices];
+  /// `bypassPermissions` runs every command without an Allow card
+  /// (questions still come). Persisted. Distinct from
+  /// [Transcript.permissionMode], what the CLI last reported.
+  String modeChoice = 'default';
 
   /// The next Start runs `--chrome`: the session drives this Mac's own
   /// browser through the Claude in Chrome extension. Persisted.
@@ -183,25 +188,49 @@ class BridgeSession extends ChangeNotifier {
   String? effort;
 
   /// Options for the next Start — and, while a session runs, for this
-  /// one: the flags belong to the process, not the conversation, so the
-  /// process is stopped and started again on the same session
-  /// (`--resume`) with the new flags. At once between turns; while a turn
-  /// runs or an ask is open, when that turn ends, so nothing in flight is
-  /// cut. `default` for [model] or [effort] hands the choice back to the
-  /// CLI. Returns false only when nothing was given.
-  bool setOptions({bool? skipPermissions, bool? chrome, String? model, String? effort}) {
-    if (skipPermissions == null && chrome == null && model == null && effort == null) return false;
-    if (skipPermissions != null) this.skipPermissions = skipPermissions;
+  /// one. [chrome], [model] and [effort] are flags of the process, not the
+  /// conversation, so the process is stopped and started again on the
+  /// same session (`--resume`) with the new flags. [mode] the CLI switches
+  /// in place (`set_permission_mode`), nothing restarted. Either way: at
+  /// once between turns; while a turn runs or an ask is open, when that
+  /// turn ends, so nothing in flight is cut. `default` for [model] or
+  /// [effort] hands the choice back to the CLI. Returns false only when
+  /// nothing was given.
+  bool setOptions({String? mode, bool? chrome, String? model, String? effort}) {
+    if (mode == null && chrome == null && model == null && effort == null) return false;
+    if (mode != null) modeChoice = knownMode(mode);
     if (chrome != null) this.chrome = chrome;
     if (model != null) modelChoice = BridgeRecord._choice(model);
     if (effort != null) this.effort = BridgeRecord._choice(effort);
     _writeRecord();
     if (running) {
-      restartPending = true;
-      _applyPendingRestart();
+      if (mode != null && modeChoice != transcript.permissionMode) {
+        _modeWanted = modeChoice;
+        _applyPendingMode();
+      }
+      if (chrome != null || model != null || effort != null) {
+        restartPending = true;
+        _applyPendingRestart();
+      }
     }
     notifyListeners();
     return true;
+  }
+
+  /// A mode the running session is not in yet — sent when the turn ends.
+  String? _modeWanted;
+  int _modeSeq = 0;
+
+  /// The dial moved while a turn ran; the switch waits for the turn's end.
+  bool get modePending => _modeWanted != null;
+
+  void _applyPendingMode() {
+    final proc = _proc;
+    final want = _modeWanted;
+    if (proc == null || want == null || state != BridgeState.ready || restartPending) return;
+    _modeWanted = null;
+    proc.stdin.writeln(encodeSetPermissionMode('mode-${++_modeSeq}', want));
+    unawaited(proc.stdin.flush());
   }
 
   /// A change made while a turn was running — applied when it ends.
@@ -230,7 +259,7 @@ class BridgeSession extends ChangeNotifier {
 
   /// What the next Start tells the session, on top of its own system
   /// prompt — the phone, the browser, sign-ins as questions.
-  String get brief => deckBrief(chrome: chrome, skipPermissions: skipPermissions);
+  String get brief => deckBrief(chrome: chrome, mode: modeChoice);
 
   /// "This session": the exact requests the user allowed once for the life
   /// of the process. Cleared on stop; never persisted.
@@ -291,6 +320,7 @@ class BridgeSession extends ChangeNotifier {
     log.clear();
     if (fresh != null) _logLine(fresh);
     _sessionAllows.clear();
+    _modeWanted = null; // the flags carry the dial
     if (!resume) {
       // A fresh session is a fresh conversation; Resume keeps the old one.
       transcript.messages.clear();
@@ -303,7 +333,7 @@ class BridgeSession extends ChangeNotifier {
     final bin = await _findBinary();
     if (bin == null) return _fail('claude is not installed (looked on your shell PATH, ~/.local/bin, /opt/homebrew/bin).');
     sessionId = resume ? prev!.sessionId : _uuid4();
-    final args = bridgeArgs(sessionId: sessionId!, resume: resume, model: modelChoice, effort: effort, permissionMode: skipPermissions ? 'bypassPermissions' : 'default', chrome: chrome, appendSystemPrompt: brief);
+    final args = bridgeArgs(sessionId: sessionId!, resume: resume, model: modelChoice, effort: effort, permissionMode: modeChoice, chrome: chrome, appendSystemPrompt: brief);
     try {
       _proc = await _starter(bin, args, workingDirectory: dir, environment: {...Platform.environment, 'PATH': await _shellPath()});
     } on ProcessException catch (e) {
@@ -349,6 +379,7 @@ class BridgeSession extends ChangeNotifier {
           _writeRecord();
         }
         _applyPendingRestart();
+        _applyPendingMode();
       case AskEvent():
         if (!e.ask.isQuestion && _sessionAllows.contains(e.ask.key)) {
           _answerRemembered(e.ask);
@@ -359,6 +390,12 @@ class BridgeSession extends ChangeNotifier {
       case ResultEvent():
         state = BridgeState.ready;
         _applyPendingRestart();
+        _applyPendingMode();
+      case ControlResponseEvent():
+        if (!e.ok) _logLine('${e.requestId} refused: ${e.error ?? 'no reason given'}');
+      case StatusEvent():
+        // The transcript took the mode; a fresh init follows.
+        break;
       case TextDeltaEvent():
       case AssistantEvent():
       case ToolResultEvent():
@@ -427,6 +464,15 @@ class BridgeSession extends ChangeNotifier {
       _writeRecord();
     }
     final line = transcript.answer(a, note: remember && !a.appliesAlways ? 'Allowed (this session): ${ask.summary}' : null);
+    final after = a.modeAfter;
+    if (after != null) {
+      // A plan approved, or every edit allowed: the CLI switches the
+      // session's mode and says nothing — the dial follows the answer.
+      modeChoice = knownMode(after);
+      transcript.permissionMode = after;
+      _modeWanted = null;
+      _writeRecord();
+    }
     proc.stdin.writeln(line);
     unawaited(proc.stdin.flush());
     state = BridgeState.busy;
@@ -488,6 +534,7 @@ class BridgeSession extends ChangeNotifier {
     // A restart for new options is on its way; anything else that ended
     // takes the record with it on the next Start.
     if (!_restarting) restartPending = false;
+    _modeWanted = null;
     _writeRecord();
     notifyListeners();
   }
@@ -508,7 +555,7 @@ class BridgeSession extends ChangeNotifier {
           startedAt: startedAt ?? prev?.startedAt ?? DateTime.now(),
           pid: pid,
           always: alwaysApplied,
-          skipPermissions: skipPermissions,
+          mode: modeChoice,
           chrome: chrome,
           model: modelChoice,
           effort: effort,
@@ -523,7 +570,9 @@ class BridgeSession extends ChangeNotifier {
         'state': state.name,
         'pendingAsks': transcript.pending == null ? 0 : 1,
         'canResume': !running && previous()?.sessionId != null,
-        'skipPermissions': skipPermissions,
+        'modeChoice': modeChoice,
+        'modePending': modePending,
+        if (transcript.permissionMode != null) 'permissionMode': transcript.permissionMode,
         'chrome': chrome,
         'modelChoice': modelChoice ?? 'default',
         'effort': effort ?? 'default',

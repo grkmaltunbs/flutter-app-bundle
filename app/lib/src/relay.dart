@@ -19,7 +19,7 @@ import 'presence.dart';
 /// projects/{slug}/inbox/{auto}    a batch from the phone; the host stamps appliedAt
 /// projects/{slug}/events/{auto}   milestones from hooks (prompt, stop, notification)
 /// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
-/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|options|push-test, …}; options carry skipPermissions, chrome, model, effort; the host stamps doneAt, result
+/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|options|push-test, …}; options carry mode, chrome, model, effort; the host stamps doneAt, result
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
@@ -417,7 +417,11 @@ class RemoteDeck extends ChangeNotifier {
   String? get model => session['model']?.toString();
   String? get cliVersion => session['cliVersion']?.toString();
   String? get machine => session['machine']?.toString();
-  bool get skipPermissions => session['skipPermissions'] == true;
+  /// The mode dial; [permissionMode] is what the CLI last reported, and
+  /// [modePending] that the dial moved mid-turn and waits for its end.
+  String get modeChoice => knownMode(session['modeChoice']);
+  bool get modePending => session['modePending'] == true;
+  String? get permissionMode => session['permissionMode']?.toString();
   bool get chrome => session['chrome'] == true;
   String get modelChoice => (session['modelChoice'] ?? 'default').toString();
   String get effort => (session['effort'] ?? 'default').toString();
@@ -577,8 +581,8 @@ class RemoteDeck extends ChangeNotifier {
 
   /// The options the host's next Start runs with; `default` for a dial
   /// hands the choice back to the CLI.
-  Future<void> setOptions({bool? skipPermissions, bool? chrome, String? model, String? effort}) =>
-      CommandSender(db, slug).send({'type': 'options', 'skipPermissions': ?skipPermissions, 'chrome': ?chrome, 'model': ?model, 'effort': ?effort}, from: from);
+  Future<void> setOptions({String? mode, bool? chrome, String? model, String? effort}) =>
+      CommandSender(db, slug).send({'type': 'options', 'mode': ?mode, 'chrome': ?chrome, 'model': ?model, 'effort': ?effort}, from: from);
 
   /// Asks the Mac to push to every registered phone, and waits for what
   /// came of it — or says so when the Mac does not answer.

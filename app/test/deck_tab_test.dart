@@ -5,8 +5,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter/services.dart';
+import 'package:flutter_kit/kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kit_app/src/attachments.dart';
+import 'package:kit_app/src/host/bridge_session.dart';
 import 'package:kit_app/src/screens/deck_tab.dart';
 import 'package:kit_app/src/theme.dart';
 
@@ -73,6 +75,7 @@ void main() {
         expect(find.text('AUTHORIZATION REQUESTED'), findsOneWidget);
         // The bottom pane scrolls at large scales; bring the button into view.
         await tester.ensureVisible(find.text('DENY'));
+        await tester.pump(); // a viewport's offset lands on the next frame
         await tester.tap(find.text('DENY'));
         await _settle(tester);
         final deny = jsonDecode(fake.written.last) as Map;
@@ -86,9 +89,11 @@ void main() {
         final answer = find.widgetWithText(FilledButton, 'ANSWER');
         expect(tester.widget<FilledButton>(answer).onPressed, isNull, reason: 'nothing picked yet');
         await tester.ensureVisible(find.text('Public, documented'));
+        await tester.pump(); // a viewport's offset lands on the next frame
         await tester.tap(find.text('Public, documented'));
         await tester.pump();
         await tester.ensureVisible(answer);
+        await tester.pump(); // a viewport's offset lands on the next frame
         await tester.tap(answer);
         await _settle(tester);
         final ans = jsonDecode(fake.written.last) as Map;
@@ -260,17 +265,19 @@ void main() {
     var pushes = 0;
     await tester.pumpWidget(_app(DeckTab(bridge: s, testPush: () async => 'sent to ${++pushes} phone'), size: const Size(390, 844), scale: 1.0));
     await tester.pump();
-    expect(find.text('PERMISSIONS · ASK'), findsOneWidget);
+    expect(find.text('PERMISSIONS · ASK'), findsNothing, reason: 'the pill is gone; the mode dial holds bypass');
     expect(find.text('CHROME · OFF'), findsOneWidget);
     await tester.tap(find.text('PUSH · TEST'));
     await tester.pump();
     await tester.pump();
     expect(pushes, 1);
     expect(find.text('sent to 1 phone'), findsOneWidget, reason: 'what came of it, toasted');
-    await tester.tap(find.text('PERMISSIONS · ASK'));
+    expect(find.text('MODE · DEFAULT'), findsOneWidget);
+    // The mode dial's last notch is bypass — what the Skip permissions pill did.
+    await tester.drag(find.byType(Slider).last, const Offset(400, 0));
     await tester.pump();
-    expect(find.text('PERMISSIONS · SKIP'), findsOneWidget);
-    expect(s.previous()!.skipPermissions, isTrue, reason: 'written to the record at once');
+    expect(find.text('MODE · BYPASS'), findsOneWidget);
+    expect(s.previous()!.mode, 'bypassPermissions', reason: 'written to the record at once');
     await tester.tap(find.text('CHROME · OFF'));
     await tester.pump();
     expect(find.text('CHROME · ON'), findsOneWidget);
@@ -281,7 +288,7 @@ void main() {
     await tester.pump();
     expect(find.text('MODEL · FABLE'), findsOneWidget);
     expect(s.previous()!.model, 'fable');
-    await tester.drag(find.byType(Slider).last, const Offset(400, 0));
+    await tester.drag(find.byType(Slider).at(1), const Offset(400, 0));
     await tester.pump();
     expect(find.text('EFFORT · MAX'), findsOneWidget);
     expect(s.previous()!.effort, 'max');
@@ -299,7 +306,8 @@ void main() {
     expect(find.text('CHROME · CONNECTED'), findsOneWidget, reason: 'while running, what init said');
     expect(fake.startedWith, containsAllInOrder(['--model', 'fable', '--effort', 'max']));
     expect(tester.widget<Slider>(find.byType(Slider).first).onChanged, isNotNull, reason: 'dials move while live');
-    expect(find.textContaining('restarts the session on the same conversation'), findsOneWidget);
+    expect(find.textContaining('restart the session on the same conversation'), findsOneWidget);
+    expect(find.textContaining('BYPASS MODE'), findsOneWidget, reason: 'the facts line shows the mode the CLI reported');
     await tester.tap(find.textContaining('SESSION '));
     await tester.pump();
     expect(find.byType(Slider), findsNothing, reason: 'a tap on the title row folds them again');
@@ -326,5 +334,88 @@ void main() {
     expect(jsonDecode(fake.written.single)['message']['content'], '/next');
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
     expect(find.text('/next'), findsWidgets);
+  });
+
+  testWidgets('on a phone the ask is the last row of one scroll, and a drag up folds the chrome to a status row', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final hidden = <bool>[];
+    final messages = [
+      for (var i = 0; i < 40; i++)
+        DeckMessage(id: 'm$i', role: i.isEven ? DeckRole.user : DeckRole.assistant, text: 'Row $i of the conversation, long enough to wrap onto a second line on a phone.', at: DateTime(2026, 9, 4, 10, i)),
+    ];
+    await tester.pumpWidget(_app(
+      DeckView(
+        state: BridgeState.ready,
+        title: 'Nahmatik',
+        facts: const ['session abc'],
+        messages: messages,
+        running: true,
+        canResume: false,
+        onStart: () {},
+        onResume: () {},
+        onStop: () {},
+        onSend: (_, _) async {},
+        nowSlot: const Text('NOW LINE'),
+        askSlot: const Text('ASK CARD'),
+        foldOnScroll: true,
+        onChromeHidden: hidden.add,
+      ),
+      size: const Size(390, 844),
+      scale: 1.0,
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('NOW LINE'), findsOneWidget);
+    expect(find.text('NAHMATIK'), findsOneWidget);
+    // Finger up: the chrome folds to one row; the screen is told.
+    await tester.drag(find.byType(ListView), const Offset(0, -120));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('NOW LINE'), findsNothing);
+    expect(find.text('NAHMATIK'), findsNothing);
+    expect(find.text('NAHMATIK · LIVE'), findsOneWidget);
+    expect(find.byTooltip('Stop'), findsOneWidget, reason: 'Stop stays one tap away');
+    expect(hidden, [true]);
+    // Down to the end: the ask is the last row of the same scroll.
+    await tester.drag(find.byType(ListView), const Offset(0, -8000));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.descendant(of: find.byType(ListView), matching: find.text('ASK CARD')), findsOneWidget, reason: 'the ask is a row of the transcript');
+    expect(hidden, [true], reason: 'still folded');
+    // Finger down: it all comes back.
+    await tester.drag(find.byType(ListView), const Offset(0, 120));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('NOW LINE'), findsOneWidget);
+    expect(find.text('NAHMATIK'), findsOneWidget);
+    expect(hidden, [true, false]);
+    // The chevron on the row is the other way back.
+    await tester.drag(find.byType(ListView), const Offset(0, -120));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('NAHMATIK · LIVE'), findsOneWidget);
+    await tester.tap(find.byTooltip('Show the header'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('NOW LINE'), findsOneWidget);
+    expect(hidden, [true, false, true, false]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('on the Mac nothing folds on a drag', (tester) async {
+    final hidden = <bool>[];
+    final messages = [for (var i = 0; i < 40; i++) DeckMessage(id: 'm$i', role: DeckRole.assistant, text: 'Row $i, long enough to wrap onto a second line.', at: DateTime(2026, 9, 4, 10, i))];
+    await tester.pumpWidget(_app(
+      DeckView(state: BridgeState.ready, title: 'Nahmatik', facts: const [], messages: messages, running: true, canResume: false, onStart: () {}, onResume: () {}, onStop: () {}, onSend: (_, _) async {}, nowSlot: const Text('NOW LINE'), foldOnScroll: false, onChromeHidden: hidden.add),
+      size: const Size(390, 844),
+      scale: 1.0,
+    ));
+    await tester.pump();
+    await tester.drag(find.byType(ListView), const Offset(0, -120));
+    await tester.pump();
+    expect(find.text('NOW LINE'), findsOneWidget);
+    expect(hidden, isEmpty);
   });
 }

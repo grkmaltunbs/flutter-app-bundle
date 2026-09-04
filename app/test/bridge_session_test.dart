@@ -112,24 +112,24 @@ void main() {
   test('session options live in the record and shape the command line; fixed while running', () async {
     final fake = FakeClaude();
     final s = fakeSession(fake, dir: project.path, home: home.path);
-    expect(s.skipPermissions, isFalse);
+    expect(s.modeChoice, 'default');
     expect(s.chrome, isFalse);
     expect(s.previous(), isNull, reason: 'nothing recorded yet');
 
-    expect(s.setOptions(skipPermissions: true, chrome: true, model: 'opus', effort: 'high'), isTrue);
+    expect(s.setOptions(mode: 'bypassPermissions', chrome: true, model: 'opus', effort: 'high'), isTrue);
     expect(s.previous()!.sessionId, isNull, reason: 'options alone make a record; nothing to resume yet');
-    expect(s.previous()!.skipPermissions, isTrue);
+    expect(s.previous()!.mode, 'bypassPermissions');
     expect(s.previous()!.model, 'opus');
     expect(s.previous()!.effort, 'high');
     expect(s.toRelay()['modelChoice'], 'opus');
     expect(s.toRelay()['effort'], 'high');
     expect(s.toRelay()['canResume'], isFalse);
-    expect(s.toRelay()['skipPermissions'], isTrue);
+    expect(s.toRelay()['modeChoice'], 'bypassPermissions');
     expect(s.toRelay()['chrome'], isTrue);
 
     // A fresh session on the same folder reads them back.
     final again = fakeSession(FakeClaude(), dir: project.path, home: home.path);
-    expect(again.skipPermissions, isTrue);
+    expect(again.modeChoice, 'bypassPermissions');
     expect(again.chrome, isTrue);
     expect(again.modelChoice, 'opus');
     expect(again.effort, 'high');
@@ -152,12 +152,12 @@ void main() {
     final rec = s.previous()!;
     expect(rec.sessionId, s.sessionId, reason: 'the session is recorded beside the options');
     expect(rec.chrome, isTrue);
-    expect(s.setOptions(skipPermissions: false, model: 'default', effort: 'default'), isTrue);
+    expect(s.setOptions(mode: 'default', model: 'default', effort: 'default'), isTrue);
     expect(s.previous()!.sessionId, s.sessionId, reason: 'changing an option keeps the session to resume');
     expect(s.modelChoice, isNull, reason: 'default hands the choice back to the CLI');
     expect(s.previous()!.model, isNull);
     expect(s.toRelay()['effort'], 'default');
-    expect(s.previous()!.skipPermissions, isFalse);
+    expect(s.previous()!.mode, 'default');
   });
 
   test('a change while live restarts the process on the same conversation; mid-turn it waits for the turn to end', () async {
@@ -585,5 +585,79 @@ void main() {
       expect(r.transcript.messages.where((m) => m.role == DeckRole.assistant).last.text.toLowerCase(), contains('coffee'));
       await r.stop();
     }, skip: live ? false : 'set KIT_LIVE=1 to run against the real claude (spends subscription quota)', timeout: const Timeout(Duration(minutes: 8)));
+  });
+
+  test('a record from before the mode dial reads as it was set', () {
+    expect(BridgeRecord.fromJson({'startedAt': '2026-09-01T00:00:00Z', 'skipPermissions': true})!.mode, 'bypassPermissions');
+    expect(BridgeRecord.fromJson({'startedAt': '2026-09-01T00:00:00Z', 'skipPermissions': false})!.mode, 'default');
+    expect(BridgeRecord.fromJson({'startedAt': '2026-09-01T00:00:00Z', 'mode': 'plan'})!.mode, 'plan');
+    expect(BridgeRecord.fromJson({'startedAt': '2026-09-01T00:00:00Z', 'mode': 'weird'})!.mode, 'default');
+    expect(BridgeRecord.fromJson(BridgeRecord(startedAt: DateTime(2026), mode: 'acceptEdits').toJson())!.mode, 'acceptEdits');
+  });
+
+  test('the mode switches in place: at once between turns, at the turn\'s end otherwise; an approved plan moves the dial', () async {
+    final fake = FakeClaude();
+    final s = fakeSession(fake, dir: project.path, home: home.path);
+    await s.start();
+    fake.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'm', 'permissionMode': 'default'});
+    await pumpEventQueue();
+    expect(s.state, BridgeState.ready);
+    expect(s.setOptions(mode: 'plan'), isTrue);
+    await fake.writtenLines(1);
+    final req = jsonDecode(fake.written.last) as Map;
+    expect(req['type'], 'control_request');
+    expect((req['request'] as Map)['subtype'], 'set_permission_mode');
+    expect((req['request'] as Map)['mode'], 'plan');
+    expect(s.running, isTrue, reason: 'no restart');
+    expect(s.restartPending, isFalse);
+    expect(s.modePending, isFalse);
+    expect(s.previous()!.mode, 'plan');
+    fake.emitJson({'type': 'control_response', 'response': {'subtype': 'success', 'request_id': req['request_id'], 'response': {'mode': 'plan'}}});
+    fake.emitJson({'type': 'system', 'subtype': 'status', 'status': null, 'permissionMode': 'plan'});
+    await pumpEventQueue();
+    expect(s.transcript.permissionMode, 'plan');
+    expect(s.toRelay()['permissionMode'], 'plan');
+    expect(s.toRelay()['modeChoice'], 'plan');
+    expect(s.setOptions(mode: 'plan'), isTrue);
+    await pumpEventQueue(times: 20);
+    expect(fake.written.length, 1, reason: 'already there: nothing sent');
+
+    // Mid-turn: it waits.
+    s.send('plan a settings screen');
+    await fake.writtenLines(2);
+    expect(s.setOptions(mode: 'acceptEdits'), isTrue);
+    expect(s.modePending, isTrue);
+    expect(s.toRelay()['modePending'], isTrue);
+    await pumpEventQueue(times: 20);
+    expect(fake.written.length, 2, reason: 'nothing sent mid-turn');
+    // The plan arrives; approving it names the mode, and the dial follows the answer.
+    fake.emitJson({'type': 'control_request', 'request_id': 'r-plan', 'request': {'subtype': 'can_use_tool', 'tool_name': 'ExitPlanMode', 'input': {'plan': '# Plan\n- one', 'planFilePath': '/x.md'}, 'tool_use_id': 't1', 'requires_user_interaction': true}});
+    await pumpEventQueue();
+    expect(s.state, BridgeState.waiting);
+    expect(s.transcript.pending!.isPlan, isTrue);
+    s.answer(AskAnswer.approvePlan(s.transcript.pending!, mode: 'acceptEdits'));
+    await fake.writtenLines(3);
+    final resp = jsonDecode(fake.written.last) as Map;
+    expect(((resp['response'] as Map)['response'] as Map)['updatedPermissions'], [
+      {'type': 'setMode', 'mode': 'acceptEdits', 'destination': 'session'}
+    ]);
+    expect(s.modeChoice, 'acceptEdits');
+    expect(s.transcript.permissionMode, 'acceptEdits');
+    expect(s.modePending, isFalse, reason: 'the answer took the session where the dial wanted');
+    expect(s.previous()!.mode, 'acceptEdits');
+    fake.emitJson({'type': 'result', 'subtype': 'success', 'is_error': false, 'duration_ms': 10, 'num_turns': 1, 'result': 'done', 'session_id': s.sessionId});
+    await pumpEventQueue(times: 20);
+    expect(fake.written.length, 3, reason: 'nothing left to send');
+    expect(s.transcript.messages.map((m) => m.text), contains('Approved — edits run without asking: Plan'));
+
+    // Sent back: a denial with the words; the session stays where it is.
+    fake.emitJson({'type': 'control_request', 'request_id': 'r-plan-2', 'request': {'subtype': 'can_use_tool', 'tool_name': 'ExitPlanMode', 'input': {'plan': '# Plan two'}, 'tool_use_id': 't2', 'requires_user_interaction': true}});
+    await pumpEventQueue();
+    s.answer(AskAnswer.revisePlan('keep it to one file'));
+    await fake.writtenLines(4);
+    final back = jsonDecode(fake.written.last) as Map;
+    expect(((back['response'] as Map)['response'] as Map)['behavior'], 'deny');
+    expect(((back['response'] as Map)['response'] as Map)['message'], contains('keep it to one file'));
+    expect(s.modeChoice, 'acceptEdits');
   });
 }

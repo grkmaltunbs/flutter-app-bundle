@@ -292,20 +292,21 @@ void main() {
     addTearDown(tester.view.reset);
     final db = FakeFirebaseFirestore();
     final project = db.collection('projects').doc('demo');
-    await project.set({'name': 'Demo', 'machine': 'mac-mini', 'session': {'mode': 'idle', 'state': 'idle', 'canResume': false, 'pendingAsks': 0, 'skipPermissions': false, 'chrome': true}});
+    await project.set({'name': 'Demo', 'machine': 'mac-mini', 'session': {'mode': 'idle', 'state': 'idle', 'canResume': false, 'pendingAsks': 0, 'modeChoice': 'default', 'chrome': true}});
     await tester.pumpWidget(MaterialApp(
       theme: kitTheme(KitTokens.dark),
       home: MediaQuery(data: const MediaQueryData(size: Size(360, 780)), child: Scaffold(body: RemoteDeckTab(db: db, slug: 'demo'))),
     ));
     await _settle(tester);
-    expect(find.text('PERMISSIONS · ASK'), findsOneWidget);
+    expect(find.text('PERMISSIONS · ASK'), findsNothing, reason: 'the pill is gone; bypass is a notch on the mode dial');
     expect(find.text('CHROME · ON'), findsOneWidget);
     expect(find.text('MODEL · DEFAULT'), findsOneWidget);
-    await tester.tap(find.text('PERMISSIONS · ASK'));
+    expect(find.text('MODE · DEFAULT'), findsOneWidget);
+    await tester.drag(find.byType(Slider).last, const Offset(400, 0));
     await _settle(tester);
     final cmd = (await project.collection('commands').get()).docs.single.data();
     expect(cmd['type'], 'options');
-    expect(cmd['skipPermissions'], isTrue);
+    expect(cmd['mode'], 'bypassPermissions');
     expect(cmd.containsKey('chrome'), isFalse);
     expect(cmd.containsKey('model'), isFalse);
     // A dial is one command, sent when the finger lifts.
@@ -318,9 +319,9 @@ void main() {
     expect(find.text('MODEL · FABLE'), findsOneWidget);
     expect(find.text('EFFORT · XHIGH'), findsOneWidget);
     // The host wrote its record and republished.
-    await project.set({'session': {'skipPermissions': true}}, SetOptions(merge: true));
+    await project.set({'session': {'modeChoice': 'plan', 'modePending': true}}, SetOptions(merge: true));
     await _settle(tester);
-    expect(find.text('PERMISSIONS · SKIP'), findsOneWidget);
+    expect(find.text('MODE · PLAN'), findsOneWidget);
     // Running: frozen, and the browser's status shows.
     await project.set({'session': {'mode': 'bridge', 'state': 'ready', 'chromeStatus': 'failed'}}, SetOptions(merge: true));
     await _settle(tester);

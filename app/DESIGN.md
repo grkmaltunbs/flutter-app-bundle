@@ -44,7 +44,7 @@ usage page before relying on long unattended runs.
 | Asking about one item | A message carries `about: {item: id}` or `{step: id}`. The host prefixes the prompt with `kit show <id>` and a standing instruction: answer for a phone screen; if the item should change, change it with `kit` or by editing its YAML and say what changed. The plan watcher mirrors the edit; the card shows the thread and an **UPDATED** strip. Threads persist under `projects/{slug}/threads/{about}`. | Appearance is derived from data; Claude changes the data. No second state. |
 | Notifications | FCM HTTP v1 **from the host**, with a service-account key at `~/.flutter_kit/flutterappbundle-service-account.json` (gitignored). The phone writes its token under `devices/{token}` after the system prompt; the host watches that list and sends one message per phone when a session raises an ask (*Allow Run? · project*, *Claude asks*, *Sign in needed* — a question whose single option is *Signed in — continue*) or hits a problem (the process died, a turn ended in an error), and when a turn ends well (*Done in 1m 25s · project* and the start of the reply) — the CLI's built-in `PushNotification` tool has no route from a bridge session (it only knows Remote Control), so the app is the route and the brief says so. Three Android channels, made in `MainActivity` — **Claude needs you**, **Problems**, **Turn ended** — so any one can be silenced alone; a `tag` per project and kind, so the newest replaces the last. A tap opens the project; in the foreground, a bar with OPEN (none for a turn that ended). **PUSH · TEST** on the Deck header sends one on request from either device. `kit notify "one line"` from the session writes a `Notify` event to the hook spool and the host pushes it as *Claude · project* — the brief says when to use it. A token FCM reports `UNREGISTERED` is dropped. The Session tab's Checks line says whether the key is there, how many phones, and the last error. | No Cloud Functions, no Blaze, no server. Allow / Deny from the lock screen itself is the next step (`notification-actions`); iOS needs an APNs key — a human item. |
 | Attaching a file | The paperclip on the composer, both devices; on the Mac, a drop on the Deck too. The phone puts the bytes up in 600 KB base64 parts under `uploads/`; the host reassembles, saves under `~/.flutter_kit/attachments/`, sends images inline and every file by path, and deletes the upload. Images are shrunk on the device to the 1568-px edge the API scales to. | No Storage bucket (Blaze), no second transport. Firestore's free tier carries a screenshot in a second, and nothing stays in it. |
-| Skipping permissions | A per-project option, kept in the bridge record and flipped from either device while no session runs: Start adds `--permission-mode bypassPermissions`. Questions still arrive — an `AskUserQuestion` under bypass came over stdio and its answer was read back (2026-09-03, 2.1.258). | It is `--dangerously-skip-permissions` by another name, so it is a switch the user throws, never a default; and the phone still gets the questions, which is the half of the ask model that matters when nothing else is asked. |
+| Skipping permissions | A per-project option, kept in the bridge record and flipped from either device while no session runs: Start adds `--permission-mode bypassPermissions`. Questions still arrive — an `AskUserQuestion` under bypass came over stdio and its answer was read back (2026-09-03, 2.1.258). Since 2026-09-04 the switch is the **bypass** notch of the MODE dial (phase 3b); a record with `skipPermissions: true` reads as `mode: bypassPermissions`. | It is `--dangerously-skip-permissions` by another name, so it is a switch the user throws, never a default; and the phone still gets the questions, which is the half of the ask model that matters when nothing else is asked. |
 | The browser | A second option: Start adds `--chrome`. Headless, the session's `init` listed `claude-in-chrome: connected` and the browser tools (navigate, find, form_input, get_page_text, computer, file_upload) on 2026-09-03; the pill shows that status while running. App Store Connect, Play Console, RevenueCat are the Mac's own logged-in Chrome tabs, driven from the phone; each browser action asks unless permissions are skipped. | The extension is on the Mac already; no Playwright profile to sign in, no second browser. |
 | Model and effort | Two dials on the Deck header, both devices: `--model` by the CLI's aliases (haiku, sonnet, opus, fable) and `--effort` (low … max), `default` for the CLI's own choice. Kept in the bridge record with the two switches. All four work while a session runs: the flags belong to the process, not the conversation, so the host stops it and starts it again on the same session (`--resume`) with the new flags — at once between turns, at the end of a running turn otherwise. The facts line shows what init actually reported. | The user picks the brain and the budget per project from the phone, mid-conversation, and a wrong pick shows as a failed Start, not a silent downgrade. |
 | The header folds | Start/Stop, the pills and the dials sit behind a chevron on the title row: open while idle (Start is there), folded while a session runs (the transcript is what matters), a compact Stop kept on the row, a tap overrides until the state changes. | On a phone the controls took half the screen; the conversation is the point of the screen. |
@@ -193,8 +193,8 @@ order. This section records the decisions the steps are built on.
 |---|---|---|
 | Bytes that are not rows | **Firebase Storage** on the relay, owner-only rules, the client SDK on both roles (both are signed in as the relay user — no key). Uploads, mirror frames, builds, push images, big files. The 600 KB base64 parts in Firestore go. | One transport unlocks four steps; Blaze is on already. |
 | The host when nobody is at the Mac | A **service**: start at login, a power assertion (`caffeinate -is -w <pid>`) while anything runs, a `hosts/{id}` heartbeat every 30 s so the phone says *unreachable since* instead of hanging. | A closed lid or a reboot is how sessions die today. Lid-close sleep is not preventable; the `lid-closed-sleep` item says so. Built 2026-09-04 as a LaunchAgent (`~/Library/LaunchAgents/dev.flutterkit.kitApp.plist`, RunAtLoad, KeepAlive on an unclean exit only) written but not bootstrapped on enable — bootstrapping would start a second copy beside the running one; it takes effect at the next login. |
-| Permission mode | A **MODE dial** — default · plan · accept edits · bypass — replaces the Skip permissions pill. `ExitPlanMode` arrives on the ask channel with the plan in its input and renders as a **plan card**: Approve / Revise. | Reading and approving the plan from the phone is the most agent-like thing that was missing. |
-| Stopping a turn | An **interrupt** control request on stdin — `{"type":"control_request","request_id":…,"request":{"subtype":"interrupt"}}` — ends the turn and keeps the session. Messages sent mid-turn are **queued** by the host. `set_model` / `set_permission_mode` are a spike; if honoured, the dials stop restarting the process. | Stop kills the process; the SDK has a brake that does not. |
+| Permission mode | A **MODE dial** — default · plan · accept edits · bypass — replaces the Skip permissions pill. `ExitPlanMode` arrives on the ask channel with the plan in its input and renders as a **plan card**: Approve (edits ask) · Approve, auto edits · Revise (words the session reads, then plans again). Built 2026-09-04: the dial switches a running session in place with `set_permission_mode` — at once between turns, at the turn's end otherwise — and follows an answer that carries a `setMode` (a plan approved, "allow all edits" on an edit), which the CLI applies without an event. The facts line shows the mode the CLI last reported. | Reading and approving the plan from the phone is the most agent-like thing that was missing. |
+| Stopping a turn | An **interrupt** control request on stdin — `{"type":"control_request","request_id":…,"request":{"subtype":"interrupt"}}` — ends the turn and keeps the session. Messages sent mid-turn are **queued** by the host. `set_permission_mode` is honoured (2026-09-04, below) and the MODE dial no longer restarts; `set_model` is still a spike — if honoured too, the MODEL dial stops restarting the process. | Stop kills the process; the SDK has a brake that does not. |
 | Reviewing the agent | **Diffs on Edit/Write asks** (host-computed, ≤ 24 KB), any path a tap to a **file view**, a **Git card** (branch, dirty, last commit; Commit / Push / Revert file) the host runs directly. | The human half of an agent is reading what it changed. |
 | Actions that need no model | **`host` commands** — `{type: host, action: read_file|git|blocks|step_done|reorder|…}` — the host runs the kit library, git or the toolchain and answers in the relay; no quota. Everything on the Git card, the constellation's controls, the run bay and the mirror are host commands. | Half of what the phone asks Claude today is a shell command. The app must stay useful with the pool empty. |
 | Instruments | Context in use from each assistant message's `usage` (input + cache creation + cache read) against the model's window; the pools from `rate_limit_event`. **Compact** offered past 80 % (a spike: `/compact` as a message in `-p`). Tokens, never dollars. | The JARVIS reading: the state of the machine at a glance. |
@@ -204,14 +204,23 @@ order. This section records the decisions the steps are built on.
 | Hand-over to the Claude app | **Parked** last (step 28, rank 2000). | With the dial, the plan card, interrupt, compaction and history in the bridge, nothing remains that only the Claude app can do; it registers an environment on the account for a spike with an unknown answer. Kept as the fallback if the protocol breaks. |
 | Voice | Narrowed: read the ask and the finished summary aloud, answer an ask by voice; never the streamed reply. Biometrics widened to bypass, Autopilot, Revert, Merge, Remove; a kill switch. After the agent-parity steps, before the iPhone. | Resolves `voice-now-or-later`: later, and less. |
 | The Mac window | The host's console, not a second product: every host feature has a Mac control for QA, but phone-only polish (crew strip, since-you-looked, share intake, install) is not mirrored there. | The phone is the product; the Mac is the engine. |
+| Focus on the phone | The Deck is **one scroll**: the ask card is the last row of the transcript (a plan card renders whole, no box of its own), and the composer alone keeps the bottom. A drag upward (reading down) folds the chrome — the tab strip, the NOW strip, and the header to one row with the status, the title and Stop; a drag downward, or the row's chevron, brings it back. The Mac never folds. Built 2026-09-04 from the user's QA of plan-mode: three stacked scrollables hid the last rows behind a tall plan card. | Most of a phone's screen for the conversation, and nothing lost — the status stays on the row. |
 
 ### Protocol additions (stdin, client → CLI)
 
 ```json
 {"type":"control_request","request_id":"<uuid>","request":{"subtype":"interrupt"}}
 {"type":"control_request","request_id":"<uuid>","request":{"subtype":"set_model","model":"opus"}}                  // spike
-{"type":"control_request","request_id":"<uuid>","request":{"subtype":"set_permission_mode","mode":"plan"}}       // spike
+{"type":"control_request","request_id":"<uuid>","request":{"subtype":"set_permission_mode","mode":"plan"}}       // proven 2026-09-04
 ```
+
+`set_permission_mode` (2.1.260): the CLI answers
+`{"type":"control_response","response":{"subtype":"success","request_id":…,"response":{"mode":"plan"}}}`,
+then writes `{"type":"system","subtype":"status","status":null,"permissionMode":"plan"}`
+and a fresh `system/init` naming the mode. The session, its transcript
+and its context are untouched; the next turn runs under the new mode
+(an `Edit` under `default` asked, under `acceptEdits` it ran). The host
+reads the `status` into the transcript and logs a refused response.
 
 And on stdout, two things the host now reads that it ignored: `usage` on
 every `assistant` message (the context gauge) and `parent_tool_use_id`
@@ -222,9 +231,22 @@ user message. A process still alive 1.5 s after Start is therefore
 *ready*, not *starting*, and nothing may wait on the init before the
 first send. The CLI also writes a session to `~/.claude/projects/` only
 on its first turn, so `--resume` of one that never spoke fails with "No
-conversation found" — the bridge starts fresh instead. `ExitPlanMode` is a
-`can_use_tool` request like any other; the exact field carrying the plan
-is the first spike of `plan-mode`.
+conversation found" — the bridge starts fresh instead.
+
+`ExitPlanMode` (proven 2026-09-04, 2.1.260) is a `can_use_tool` request
+with `requires_user_interaction: true` and no `permission_suggestions`;
+its `input` is `{plan: <markdown>, planFilePath: ~/.claude/plans/<slug>.md}`.
+Under `--permission-mode plan` the CLI writes that plan file itself
+without asking. The allow response takes a mode:
+`updatedPermissions: [{type: setMode, mode: acceptEdits|default, destination: session}]`
+switches the session at once and silently — no `status`, no `init`; the
+tool result reads *"User has approved your plan. You can now start
+coding"* and the next `Write` ran without asking under `acceptEdits`. An
+allow without a `setMode` lands on `default` (the next `Edit` asked). A
+deny with a message keeps plan mode; the session reads the message and
+plans again. An `Edit` ask's `permission_suggestions` carry the same
+`setMode acceptEdits` — Always on an edit is a session mode, not a rule
+in a settings file, and the dial follows it.
 
 ### Relay shape (additions to phase 3)
 
@@ -257,8 +279,8 @@ puts objects in Storage. The host is the only writer of session truth.
 ### Spikes to run first, each recorded here when answered
 
 1. `interrupt` on the pinned CLI: the `control_response` and the `result` that follow.
-2. `set_model` / `set_permission_mode`: honoured, or not.
-3. `ExitPlanMode`'s request: the plan field, and whether the allow response takes a mode.
+2. `set_model` / `set_permission_mode`: `set_permission_mode` **honoured** (2026-09-04, above); `set_model` still to run, with `interrupt`.
+3. `ExitPlanMode`'s request: **answered** 2026-09-04 (above) — `input.plan`, and the allow takes `setMode`.
 4. `/compact` as a user message in `-p`: compacts, or not.
 5. `xcrun simctl io <udid> screenshot` to a pipe, and the frame rate it sustains.
 6. The CLI's transcript file under `~/.claude/projects/<cwd-key>/` for session history.

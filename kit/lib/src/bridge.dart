@@ -26,9 +26,12 @@ const bridgeProvenOn = '2.1.251';
 /// `resume: true` reattaches to [sessionId] instead. `--verbose` is not a
 /// choice: without it the CLI refuses `--output-format stream-json`.
 ///
-/// [permissionMode] `bypassPermissions` is `--dangerously-skip-permissions`
-/// by another name: no `can_use_tool` for permissions — but an
-/// `AskUserQuestion` still arrives on stdio (proven 2026-09-03, 2.1.258).
+/// [permissionMode] is one of [modeChoices]. `bypassPermissions` is
+/// `--dangerously-skip-permissions` by another name: no `can_use_tool` for
+/// permissions — but an `AskUserQuestion` still arrives on stdio (proven
+/// 2026-09-03, 2.1.258). `plan` lets the session read and think; its plan
+/// file under ~/.claude/plans is written without asking, and the plan
+/// arrives as an `ExitPlanMode` ask (proven 2026-09-04, 2.1.260).
 /// [chrome] adds the Claude in Chrome tools, which reach the Mac's own
 /// browser through the extension; the `init` event then lists
 /// `claude-in-chrome` among [InitEvent.mcpServers] (proven the same day).
@@ -38,6 +41,34 @@ const modelChoices = ['default', 'haiku', 'sonnet', 'opus', 'fable'];
 
 /// The effort dial: `--effort`'s levels, and `default` for the CLI's own.
 const effortChoices = ['default', 'low', 'medium', 'high', 'xhigh', 'max'];
+
+/// The mode dial: the CLI's `--permission-mode` values. `bypassPermissions`
+/// is what the Skip permissions switch did before the dial absorbed it.
+const modeChoices = ['default', 'plan', 'acceptEdits', 'bypassPermissions'];
+
+/// A mode as the dial reads it: `accept edits`, `bypass`.
+String modeLabel(String mode) => switch (mode) {
+      'acceptEdits' => 'accept edits',
+      'bypassPermissions' => 'bypass',
+      _ => mode,
+    };
+
+/// A mode the dial knows, or `default` for anything else — an old record,
+/// a word the relay carried that this build does not have.
+String knownMode(Object? v) {
+  final s = v?.toString().trim() ?? '';
+  return modeChoices.contains(s) ? s : 'default';
+}
+
+/// The stdin line that switches a running session's mode in place. The CLI
+/// answers with a `control_response` carrying `{mode}`, then a
+/// `system/status` and a fresh `init` that name it (proven 2026-09-04,
+/// 2.1.260) — no restart, nothing in the conversation lost.
+String encodeSetPermissionMode(String requestId, String mode) => jsonEncode({
+      'type': 'control_request',
+      'request_id': requestId,
+      'request': {'subtype': 'set_permission_mode', 'mode': mode},
+    });
 
 List<String> bridgeArgs({required String sessionId, bool resume = false, String? model, String? effort, String permissionMode = 'default', bool chrome = false, String? appendSystemPrompt}) => [
       '-p',
@@ -66,7 +97,7 @@ List<String> bridgeArgs({required String sessionId, bool resume = false, String?
 /// its own road to the phone (its own notification text).
 const signedInOption = 'Signed in — continue';
 
-String deckBrief({required bool chrome, required bool skipPermissions}) => [
+String deckBrief({required bool chrome, required String mode}) => [
       'You are driven from K.A.T.Y.A, a phone app that talks to this Claude Code session on the user\'s Mac. The user reads you on a phone screen: answer short and concrete, and lead with the result.',
       '',
       if (chrome)
@@ -78,8 +109,10 @@ String deckBrief({required bool chrome, required bool skipPermissions}) => [
       '',
       'Before anything a store cannot undo — submitting for review, publishing a release, changing a price or an in-app product, deleting anything — ask with AskUserQuestion first, in one line.',
       '',
-      if (skipPermissions)
+      if (mode == 'bypassPermissions')
         'Permissions: every command runs without asking. Be deliberate with anything destructive.'
+      else if (mode == 'plan')
+        'Permissions: this session starts in plan mode. Read and think; when the plan is ready call ExitPlanMode — the user reads the plan on the phone and approves it there, or sends back what to change. After approval a command may wait for the user to allow it on the phone; that is expected.'
       else
         'Permissions: a command may wait for the user to allow it on the phone; that is expected.',
       '',
@@ -184,10 +217,14 @@ String encodeControlResponse(String requestId, Map<String, Object?> response) =>
 
 /// One option of one question in an `AskUserQuestion`.
 class AskOption {
-  const AskOption({required this.label, this.description = ''});
+  const AskOption({required this.label, this.description = '', this.preview});
   final String label;
   final String description;
-  Map<String, Object?> toMap() => {'label': label, 'description': description};
+
+  /// Markdown the terminal shows in a monospace box beside the option — a
+  /// mockup, a snippet, a layout to compare. Null when the option has none.
+  final String? preview;
+  Map<String, Object?> toMap() => {'label': label, 'description': description, if (preview != null) 'preview': preview};
 }
 
 class AskQuestion {
@@ -199,7 +236,7 @@ class AskQuestion {
         multiSelect: m['multiSelect'] == true,
         options: [
           for (final o in (m['options'] as List? ?? const []))
-            if (o is Map) AskOption(label: (o['label'] ?? '').toString(), description: (o['description'] ?? '').toString()),
+            if (o is Map) AskOption(label: (o['label'] ?? '').toString(), description: (o['description'] ?? '').toString(), preview: _text(o['preview'])),
         ],
       );
 
@@ -254,6 +291,22 @@ class Ask {
 
   bool get isQuestion => toolName == 'AskUserQuestion';
 
+  /// An `ExitPlanMode`: the session finished planning and waits for the
+  /// plan to be approved. [plan] is the markdown it wrote — `input.plan`,
+  /// beside `planFilePath` (proven 2026-09-04, 2.1.260).
+  bool get isPlan => toolName == 'ExitPlanMode';
+  String get plan => (input['plan'] ?? '').toString();
+
+  /// The plan's first line, without its heading marks — what a
+  /// notification and a folded card say.
+  String get planTitle {
+    for (final line in plan.split('\n')) {
+      final t = line.replaceFirst(RegExp(r'^\s*#+\s*'), '').trim();
+      if (t.isNotEmpty) return t;
+    }
+    return '';
+  }
+
   /// A question the brief shaped: one option, [signedInOption] — the
   /// session is parked on a website until the user signs in on the Mac.
   bool get isSignIn => isQuestion && questions.any((q) => q.options.length == 1 && q.options.single.label.trim().toLowerCase() == signedInOption.toLowerCase());
@@ -271,6 +324,7 @@ class Ask {
   /// for a question, the tool and its input otherwise.
   String get summary {
     if (isQuestion) return questions.map((q) => q.question).join(' · ');
+    if (isPlan) return planTitle.isEmpty ? 'A plan is ready' : planTitle;
     if (toolName == 'Bash') return (input['command'] ?? '').toString();
     final path = input['file_path'] ?? input['path'] ?? input['pattern'] ?? input['url'];
     final name = toolLabel(toolName);
@@ -301,6 +355,9 @@ enum NoticeKind {
 
   /// A question with the single option [signedInOption].
   signIn,
+
+  /// An `ExitPlanMode`: a plan waits to be approved.
+  plan,
 
   /// The session failed, or a turn ended in an error.
   problem,
@@ -335,6 +392,7 @@ const maxNoticeLabel = 24;
 /// questions, a multi-select, long labels — has no button: the tap opens
 /// the card.
 List<NoticeAction> noticeActions(Ask ask) {
+  if (ask.isPlan) return const [NoticeAction('allow', 'Approve')];
   if (!ask.isQuestion) return const [NoticeAction('allow', 'Allow'), NoticeAction('deny', 'Deny')];
   final qs = ask.questions;
   if (qs.length != 1) return const [];
@@ -348,6 +406,8 @@ List<NoticeAction> noticeActions(Ask ask) {
 /// names nothing this ask offers — a stale button, or a tap on the body.
 /// [here] is where the user was, for the deny message the model reads.
 AskAnswer? answerForAction(Ask ask, String actionId, {String here = 'notification'}) {
+  // Revise needs words; the lock screen has one button, Approve.
+  if (ask.isPlan) return actionId == 'allow' ? AskAnswer.approvePlan(ask) : null;
   if (!ask.isQuestion) {
     return switch (actionId) {
       'allow' => AskAnswer.allow(ask),
@@ -386,7 +446,7 @@ class Notice {
         NoticeKind.problem => 'problems',
         NoticeKind.done || NoticeKind.note => 'done',
         NoticeKind.step => 'steps',
-        NoticeKind.permission || NoticeKind.question || NoticeKind.signIn => 'asks',
+        NoticeKind.permission || NoticeKind.question || NoticeKind.signIn || NoticeKind.plan => 'asks',
       };
 
   bool get isAsk => channel == 'asks';
@@ -397,6 +457,9 @@ class Notice {
 /// The notification for an ask: the project in the title, the thing to
 /// decide in the body, clipped for a lock screen.
 Notice noticeForAsk(Ask ask, {required String project}) {
+  if (ask.isPlan) {
+    return Notice(kind: NoticeKind.plan, title: 'Plan ready · $project', body: _clip(ask.summary, 240), requestId: ask.requestId, actions: noticeActions(ask));
+  }
   if (ask.isSignIn) {
     return Notice(kind: NoticeKind.signIn, title: 'Sign in needed · $project', body: _clip(ask.questions.map((q) => q.question).join(' · '), 240), requestId: ask.requestId, actions: noticeActions(ask));
   }
@@ -448,6 +511,31 @@ class AskAnswer {
   factory AskAnswer.answers(Ask ask, Map<String, String> answers) =>
       AskAnswer._({'behavior': 'allow', 'updatedInput': {...ask.input, 'answers': answers}}, answers.values.join(' · '), true);
 
+  /// Approve a plan and leave plan mode. [mode] is what the session runs
+  /// in from here — `default` (edits ask) or `acceptEdits` — carried as a
+  /// `setMode` update the CLI applies to the session at once, with no
+  /// event to say so; an allow without one lands on `default` too (proven
+  /// 2026-09-04, 2.1.260).
+  factory AskAnswer.approvePlan(Ask ask, {String mode = 'default'}) => AskAnswer._(
+        {
+          'behavior': 'allow',
+          'updatedInput': ask.input,
+          'updatedPermissions': [
+            {'type': 'setMode', 'mode': mode, 'destination': 'session'},
+          ],
+        },
+        mode == 'acceptEdits' ? 'Approved — edits run without asking' : 'Approved',
+        true,
+      );
+
+  /// Send a plan back with what to change. The session stays in plan
+  /// mode, reads [message] as the tool result, and plans again.
+  factory AskAnswer.revisePlan(String message) => AskAnswer._(
+        {'behavior': 'deny', 'message': 'The user asks for changes to the plan: ${message.trim()}\nRevise the plan and call ExitPlanMode again.'},
+        'Revise: ${_clip(message.trim(), 80)}',
+        false,
+      );
+
   /// An answer that travelled through the relay.
   factory AskAnswer.fromMap(Map<String, Object?> m) => AskAnswer._(_map(m['response']), (m['summary'] ?? '').toString(), m['allowed'] == true);
 
@@ -455,7 +543,20 @@ class AskAnswer {
   final String summary;
   final bool allowed;
 
-  bool get appliesAlways => response['updatedPermissions'] != null;
+  /// Rules the CLI writes to a settings file — an Always answer. A
+  /// `setMode` update is not one: it changes the session, not a file.
+  bool get appliesAlways => _updates.any((u) => u['type'] != 'setMode');
+
+  /// The mode a `setMode` update in this answer switches the session to —
+  /// a plan approved, or "allow all edits" on an edit — or null.
+  String? get modeAfter {
+    for (final u in _updates) {
+      if (u['type'] == 'setMode' && u['destination'] == 'session') return u['mode']?.toString();
+    }
+    return null;
+  }
+
+  List<Map<String, Object?>> get _updates => [for (final u in (response['updatedPermissions'] as List? ?? const [])) if (u is Map) _map(u)];
 
   Map<String, Object?> toMap() => {'response': response, 'summary': summary, 'allowed': allowed};
 }
@@ -481,6 +582,24 @@ class InitEvent extends BridgeEvent {
 }
 
 /// A piece of the assistant's text, as it is written.
+/// `system` / `status` — the CLI's mode changed (a `set_permission_mode`
+/// honoured); a fresh `init` follows it.
+class StatusEvent extends BridgeEvent {
+  const StatusEvent({this.permissionMode});
+  final String? permissionMode;
+}
+
+/// `control_response` — the CLI's answer to a control request the host
+/// sent (`set_permission_mode`, `interrupt`): success with a body, or an
+/// error.
+class ControlResponseEvent extends BridgeEvent {
+  const ControlResponseEvent({required this.requestId, required this.ok, this.response = const {}, this.error});
+  final String requestId;
+  final bool ok;
+  final Map<String, Object?> response;
+  final String? error;
+}
+
 class TextDeltaEvent extends BridgeEvent {
   const TextDeltaEvent(this.text);
   final String text;
@@ -581,7 +700,11 @@ BridgeEvent? parseBridgeLine(String line) {
           },
         );
       }
+      if (sub == 'status') return StatusEvent(permissionMode: m['permissionMode']?.toString());
       return OtherEvent(type, sub);
+    case 'control_response':
+      final r = _map(m['response']);
+      return ControlResponseEvent(requestId: (r['request_id'] ?? '').toString(), ok: r['subtype'] == 'success', response: _map(r['response']), error: r['error']?.toString());
     case 'stream_event':
       final ev = _map(m['event']);
       if (ev['type'] == 'content_block_delta') {
@@ -733,6 +856,7 @@ class DeckMessage {
     final path = input['file_path'] ?? input['path'] ?? input['pattern'] ?? input['query'] ?? input['url'];
     if (path != null) return '$name · $path';
     if (name == 'AskUserQuestion') return 'asked you a question';
+    if (name == 'ExitPlanMode') return 'proposed a plan';
     return input.isEmpty ? name : '$name · ${_clip(jsonEncode(input), 100)}';
   }
 
@@ -853,6 +977,9 @@ class Transcript {
         if (e.isError && e.text.isNotEmpty) addNote(e.text);
       case RateLimitEvent():
         pool = e;
+      case StatusEvent():
+        if (e.permissionMode != null) permissionMode = e.permissionMode;
+      case ControlResponseEvent():
       case UserEchoEvent():
       case OtherEvent():
         break;
@@ -886,5 +1013,10 @@ class Transcript {
 }
 
 Map<String, Object?> _map(Object? v) => v is Map ? {for (final e in v.entries) e.key.toString(): e.value} : <String, Object?>{};
+
+String? _text(Object? v) {
+  final s = v?.toString() ?? '';
+  return s.trim().isEmpty ? null : s;
+}
 
 String _clip(String s, int n) => s.length <= n ? s : '${s.substring(0, n - 1)}…';

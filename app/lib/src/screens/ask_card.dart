@@ -6,9 +6,12 @@ import '../widgets/common.dart';
 
 /// What Claude is asking, on whichever screen is looking — the amber card
 /// with the corner ticks. A permission shows the command with
-/// ALLOW · THIS SESSION · ALWAYS · DENY; a question shows its options and
-/// takes one answer per question. [here] names the surface in the denial
-/// the model reads.
+/// ALLOW · THIS SESSION · ALWAYS · DENY; a question shows its options (and
+/// an option's preview, when it carries one) and takes one answer per
+/// question; a plan shows the markdown whole — the card is the last row
+/// of the transcript, which scrolls — with APPROVE and REVISE: what to
+/// change, in the user's words, goes back to the session. [here] names
+/// the surface in the denial the model reads.
 class AskCard extends StatefulWidget {
   const AskCard({super.key, required this.ask, required this.onAnswer, this.here = 'Mac'});
   final Ask ask;
@@ -28,6 +31,10 @@ class _AskCardState extends State<AskCard> {
 
   TextEditingController _ownFor(AskQuestion q) => _own.putIfAbsent(q.question, () => TextEditingController());
 
+  /// A plan being sent back: the field is open, its words are the answer.
+  bool _revising = false;
+  final _revision = TextEditingController();
+
   String _answerFor(AskQuestion q) {
     final own = _own[q.question]?.text.trim() ?? '';
     return own.isNotEmpty ? own : (_picked[q.question] ?? const {}).join(', ');
@@ -40,6 +47,7 @@ class _AskCardState extends State<AskCard> {
     for (final c in _own.values) {
       c.dispose();
     }
+    _revision.dispose();
     super.dispose();
   }
 
@@ -48,7 +56,7 @@ class _AskCardState extends State<AskCard> {
     final t = context.tokens;
     final ask = widget.ask;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
       child: CornerTicks(
         color: t.warn,
         radius: 12,
@@ -64,11 +72,70 @@ class _AskCardState extends State<AskCard> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(children: [
-                Expanded(child: Text(ask.isQuestion ? 'CLAUDE ASKS' : 'AUTHORIZATION REQUESTED', style: t.display(13, ls: 2.3, color: t.warn))),
-                Text((ask.isQuestion ? 'question' : ask.toolName).toUpperCase(), style: t.readout(11)),
+                Expanded(child: Text(ask.isPlan ? 'PLAN READY' : ask.isQuestion ? 'CLAUDE ASKS' : 'AUTHORIZATION REQUESTED', style: t.display(13, ls: 2.3, color: t.warn))),
+                Text((ask.isPlan ? 'plan' : ask.isQuestion ? 'question' : ask.toolName).toUpperCase(), style: t.readout(11)),
               ]),
               const SizedBox(height: 10),
-              if (ask.isQuestion) ...[
+              if (ask.isPlan) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.line)),
+                  child: Md(ask.plan.trim().isEmpty ? '_The plan came without words._' : ask.plan),
+                ),
+                const SizedBox(height: 12),
+                if (_revising) ...[
+                  Container(
+                    decoration: BoxDecoration(color: t.surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.accent.withValues(alpha: 0.55))),
+                    child: TextField(
+                      controller: _revision,
+                      autofocus: true,
+                      minLines: 2,
+                      maxLines: 6,
+                      style: TextStyle(fontSize: 14, color: t.ink),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        hintText: 'What to change…',
+                        hintStyle: TextStyle(fontSize: 14, color: t.muted),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: t.warn, foregroundColor: t.onWarn, minimumSize: const Size(120, 44)),
+                        onPressed: _revision.text.trim().isEmpty ? null : () => widget.onAnswer(AskAnswer.revisePlan(_revision.text)),
+                        child: const Text('SEND BACK'),
+                      ),
+                      TextButton(onPressed: () => setState(() => _revising = false), child: const Text('CANCEL')),
+                    ],
+                  ),
+                ] else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: t.warn, foregroundColor: t.onWarn, minimumSize: const Size(120, 44)),
+                        onPressed: () => widget.onAnswer(AskAnswer.approvePlan(ask)),
+                        child: const Text('APPROVE'),
+                      ),
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(foregroundColor: t.warn, side: BorderSide(color: t.warn.withValues(alpha: 0.55))),
+                        onPressed: () => widget.onAnswer(AskAnswer.approvePlan(ask, mode: 'acceptEdits')),
+                        child: const Text('APPROVE · AUTO EDITS'),
+                      ),
+                      TextButton(onPressed: () => setState(() => _revising = true), child: const Text('REVISE')),
+                    ],
+                  ),
+              ] else if (ask.isQuestion) ...[
                 for (final q in ask.questions) ...[
                   if (q.header.isNotEmpty) ...[
                     Text(q.header.toUpperCase(), style: t.readout(10.5)),
@@ -201,6 +268,14 @@ class _AskCardState extends State<AskCard> {
                 children: [
                   Text(o.label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: on ? t.ink : t.ink2)),
                   if (o.description.isNotEmpty) Text(o.description, style: TextStyle(fontSize: 12.5, color: t.muted)),
+                  if (o.preview != null)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                      decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(6), border: Border.all(color: t.line)),
+                      child: Md(o.preview!, compact: true, mono: true),
+                    ),
                 ],
               ),
             ),

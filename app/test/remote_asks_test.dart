@@ -42,7 +42,89 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
+Map<String, Object?> _planAsk(String id) => {
+      'requestId': id,
+      'toolName': 'ExitPlanMode',
+      'toolUseId': 'toolu_$id',
+      'input': {'plan': '# Plan: a settings screen\n\n## Steps\n- one screen, one file\n- a theme toggle\n\n```dart\nfinal x = 1;\n```\n', 'planFilePath': '/Users/me/.claude/plans/x.md'},
+      'at': '2026-09-04T08:00:00Z',
+      'requiresUserInteraction': true,
+      'answeredAt': null,
+    };
+
 void main() {
+  testWidgets('a plan is a card: approve names the mode, revise sends the words back', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = FakeFirebaseFirestore();
+    final project = db.collection('projects').doc('demo');
+    await project.collection('asks').doc('p_1').set(_planAsk('p_1'));
+    await tester.pumpWidget(MaterialApp(theme: kitTheme(KitTokens.dark), home: Scaffold(body: SingleChildScrollView(child: Column(children: [RemoteAskPanel(db: db, slug: 'demo')])))));
+    await _settle(tester);
+    expect(find.text('PLAN READY'), findsOneWidget);
+    expect(find.text('PLAN'), findsOneWidget, reason: 'the tool name reads as what it is');
+    expect(find.textContaining('a settings screen', findRichText: true), findsWidgets, reason: 'the markdown is rendered');
+    expect(find.textContaining('final x = 1;', findRichText: true), findsWidgets, reason: 'a code block too');
+    expect(find.text('APPROVE'), findsOneWidget);
+    expect(find.text('APPROVE · AUTO EDITS'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing, reason: 'no field until Revise');
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('REVISE'));
+    await _settle(tester);
+    final send = find.widgetWithText(FilledButton, 'SEND BACK');
+    expect(tester.widget<FilledButton>(send).onPressed, isNull, reason: 'no words yet');
+    await tester.enterText(find.byType(TextField), 'keep it to one file');
+    await _settle(tester);
+    await tester.tap(send);
+    await _settle(tester);
+    expect(find.text('PLAN READY'), findsNothing, reason: 'answered: the card drops');
+    final cmd = (await project.collection('commands').get()).docs.single.data();
+    expect(cmd['type'], 'answer');
+    expect(cmd['requestId'], 'p_1');
+    expect((cmd['response'] as Map)['behavior'], 'deny');
+    expect((cmd['response'] as Map)['message'], 'The user asks for changes to the plan: keep it to one file\nRevise the plan and call ExitPlanMode again.');
+    expect(cmd['summary'], 'Revise: keep it to one file');
+
+    // The second plan: approved, with the mode the session goes on in.
+    await project.collection('asks').doc('p_2').set({..._planAsk('p_2'), 'at': '2026-09-04T08:01:00Z'});
+    await _settle(tester);
+    await tester.tap(find.text('APPROVE · AUTO EDITS'));
+    await _settle(tester);
+    final ok = (await project.collection('commands').orderBy('sentAt').get()).docs.last.data();
+    expect((ok['response'] as Map)['behavior'], 'allow');
+    expect((ok['response'] as Map)['updatedPermissions'], [
+      {'type': 'setMode', 'mode': 'acceptEdits', 'destination': 'session'}
+    ]);
+    expect(ok['summary'], 'Approved — edits run without asking');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an option with a preview shows it under the label', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = FakeFirebaseFirestore();
+    final asks = db.collection('projects').doc('demo').collection('asks');
+    final q = _questionAsk('q_p');
+    (((q['input'] as Map)['questions'] as List).first as Map)['options'] = [
+      {'label': 'Stacked', 'description': 'one column', 'preview': '+-----+\n| a   |\n| b   |\n+-----+'},
+      {'label': 'Side by side', 'description': ''},
+    ];
+    await asks.doc('q_p').set(q);
+    await tester.pumpWidget(MaterialApp(theme: kitTheme(KitTokens.light), home: Scaffold(body: SingleChildScrollView(child: Column(children: [RemoteAskPanel(db: db, slug: 'demo')])))));
+    await _settle(tester);
+    expect(find.text('Stacked'), findsOneWidget);
+    expect(find.textContaining('| a   |', findRichText: true), findsWidgets, reason: 'the preview, as the terminal shows it');
+    await tester.tap(find.text('Stacked'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'ANSWER'));
+    await _settle(tester);
+    final cmd = (await db.collection('projects').doc('demo').collection('commands').get()).docs.single.data();
+    expect(((cmd['response'] as Map)['updatedInput'] as Map)['answers'], {'Ship the artwork slots?': 'Stacked'});
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('the oldest unanswered ask shows; Deny becomes a command; the card drops', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter/services.dart';
+import 'package:flutter_kit/kit.dart' show modeChoices, modeLabel;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../host/host_presence.dart';
@@ -107,13 +108,25 @@ class _SessionTabState extends State<SessionTab> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SectionHead('Session options', sub: b.running ? 'How Start runs claude -p in this folder. Fixed while a session runs — stop it to change them.' : 'How Start runs claude -p in this folder. The phone can flip these too.'),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: b.skipPermissions,
-                      onChanged: b.running ? null : (v) => b.setOptions(skipPermissions: v),
-                      title: Text('Skip permissions', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
-                      subtitle: Text('--dangerously-skip-permissions: nothing waits on Allow, every command runs. Questions still reach the phone. Only for a folder you trust.', style: TextStyle(fontSize: 12.5, color: t.ink2)),
+                    SectionHead('Session options', sub: b.running ? 'How claude -p runs in this folder. The mode switches in place; Chrome waits for a stop. The phone can flip these too.' : 'How Start runs claude -p in this folder. The phone can flip these too.'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Mode', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
+                          const SizedBox(height: 8),
+                          SegmentedButton<String>(
+                            showSelectedIcon: false,
+                            style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                            segments: [for (final m in modeChoices) ButtonSegment(value: m, label: Text(modeLabel(m).toUpperCase()))],
+                            selected: {b.modeChoice},
+                            onSelectionChanged: (v) => b.setOptions(mode: v.first),
+                          ),
+                          const SizedBox(height: 6),
+                          Text('${_modeNote(b.modeChoice)}${b.modePending ? ' Switches when this turn ends.' : ''}', style: TextStyle(fontSize: 12.5, color: b.modeChoice == 'bypassPermissions' ? t.warn : t.ink2)),
+                        ],
+                      ),
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -212,3 +225,11 @@ class _Link extends StatelessWidget {
     );
   }
 }
+
+/// What each position of the mode dial means, in the words of the flag.
+String _modeNote(String mode) => switch (mode) {
+      'plan' => '--permission-mode plan: the session reads and thinks but edits nothing. When its plan is ready it comes to the phone as a card — approve it there, or send back what to change.',
+      'acceptEdits' => '--permission-mode acceptEdits: edits to files run without asking; commands still wait on Allow.',
+      'bypassPermissions' => '--permission-mode bypassPermissions is --dangerously-skip-permissions: nothing waits on Allow, every command runs. Questions still reach the phone. Only for a folder you trust.',
+      _ => '--permission-mode default: a command or an edit waits on Allow, on the phone or here.',
+    };

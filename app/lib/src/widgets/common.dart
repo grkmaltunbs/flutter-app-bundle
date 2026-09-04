@@ -87,15 +87,21 @@ class SectionHead extends StatelessWidget {
 }
 
 class Md extends StatelessWidget {
-  const Md(this.data, {super.key, this.compact = false, this.color});
+  const Md(this.data, {super.key, this.compact = false, this.color, this.mono = false});
   final String data;
   final bool compact;
   final Color? color;
 
+  /// Body text in the monospace face — a preview the terminal would show
+  /// in a monospace box, where a mockup's columns must line up.
+  final bool mono;
+
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final base = Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: compact ? 13 : 14.5, height: 1.5, color: color ?? t.ink2);
+    final base = mono
+        ? t.mono(compact ? 12 : 13, color: color ?? t.ink2, height: 1.45)
+        : Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: compact ? 13 : 14.5, height: 1.5, color: color ?? t.ink2);
     return MarkdownBody(
       data: data,
       selectable: true,

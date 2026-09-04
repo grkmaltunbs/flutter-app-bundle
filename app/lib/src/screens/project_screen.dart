@@ -55,6 +55,13 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
   String? _selected;
   bool _sending = false;
 
+  /// The Deck folded its chrome on a drag; the tab strip goes with it.
+  bool _chromeHidden = false;
+
+  void _onChromeHidden(bool hidden) {
+    if (hidden != _chromeHidden) setState(() => _chromeHidden = hidden);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -243,7 +250,15 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
             bottom: false,
             child: Column(
               children: [
-                Container(
+                // On a phone the Deck folds the strip away while the user
+                // reads down; a drag up brings it back.
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  alignment: Alignment.topCenter,
+                  child: _chromeHidden && _tabs.index == 0
+                      ? const SizedBox(width: double.infinity)
+                      : Container(
                   decoration: BoxDecoration(border: Border(bottom: BorderSide(color: t.line))),
                   child: Row(
                     children: [
@@ -272,6 +287,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                     ],
                   ),
                 ),
+                ),
                 if (_tabs.index != 0) _NowLine(host: widget.host, summary: _summary),
                 Expanded(
                   child: plan == null
@@ -284,8 +300,8 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                           physics: const NeverScrollableScrollPhysics(),
                           children: [
                             widget.isHost
-                                ? DeckTab(bridge: widget.host!.bridge, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), testPush: widget.host!.testPush)
-                                : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph)),
+                                ? DeckTab(bridge: widget.host!.bridge, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), testPush: widget.host!.testPush, onChromeHidden: _onChromeHidden)
+                                : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), onChromeHidden: _onChromeHidden),
                             wide
                                 ? Row(
                                     children: [
