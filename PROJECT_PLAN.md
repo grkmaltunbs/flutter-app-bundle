@@ -557,7 +557,7 @@ The step's checkbox stays `[ ]` until these are checked:
 ---
 
 ## Step 11 — Host as a service — starts at login, holds the Mac awake, and the phone knows when it is gone
-- [ ]
+- [x]
 - id: host-service
 - depends_on: bridge-core
 - qa_required: true
@@ -884,7 +884,7 @@ when the user scrolls past it, and there is one, not one per turn.
 
 ## Step 17 — Autopilot — the host keeps stepping within a budget, waits for the pool, and stops for you
 - [ ]
-- state: blocked — waiting on host-service, instruments, interrupt
+- state: blocked — waiting on instruments, interrupt
 - id: autopilot
 - depends_on: notification-actions, host-service, instruments, interrupt
 - qa_required: true
@@ -946,7 +946,6 @@ The step's checkbox stays `[ ]` until these are checked:
 
 ## Step 18 — Run bay — the host runs the app under test; reload, restart, the device and the log from the phone
 - [ ]
-- state: blocked — waiting on host-service
 - id: run-bay
 - depends_on: host-service
 - qa_required: true

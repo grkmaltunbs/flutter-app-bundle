@@ -1,14 +1,14 @@
 id: host-service
 number: "11"
 title: Host as a service — starts at login, holds the Mac awake, and the phone knows when it is gone
-status: pending
+status: done
 rank: 720
 depends_on: [bridge-core]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-04, note: kit and app analyzers clean 2026-09-04, status: passed}
+  tests: { at: 2026-09-04, note: "kit 75, app 91: the heartbeat row, stopping on a clean quit; online\/unreachable\/stopped\/unknown from the row and the clock; one caffeinate per pid; the LaunchAgent written on enable and unloaded on disable; a send on a gone Mac queued and withdrawable, Start and Stop refused on a stopped Mac and queued on an unreachable one; the Mac line, LOST and the queued row at 1.0\/2.0\/3.12x; the bridge ready after a grace since the CLI's init only comes with the first message, awaitReady, a resume of a session never written down starts fresh", status: passed}
+  qa: { at: 2026-09-04, note: "Verified by the user 2026-09-04 on the Android phone and the Mac: the Mac line under the facts; kill -9 of the host → LOST and unreachable after the window, a send queued with Withdraw, the message ran and answered when the app was reopened; Cmd-Q → Mac stopped, the session reported stopped, Start refused with the line; Start at login on, a reboot brought the host up without a touch; caffeinate held while a session ran. Two rounds: the first found the bridge waiting on an init the CLI only sends with the first message, fixed with a 1.5 s ready grace", status: passed}
 sections:
   - title: Description
     body: |
@@ -59,3 +59,19 @@ sections:
       - `app/lib/src/host/host_projects.dart`, `app/lib/src/host/bridge_session.dart` (power assertion), `app/lib/src/relay.dart` (hosts), `app/lib/src/screens/session_tab.dart`, `app/lib/src/screens/deck_tab.dart` (facts line, queued rows), `app/pubspec.yaml`
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b foundation" }
+  - at: 2026-09-04
+    event: started
+  - at: 2026-09-04
+    event: gate analyze passed
+    note: kit and app analyzers clean 2026-09-04
+  - at: 2026-09-04
+    event: gate tests passed
+    note: "kit 75, app 88: the heartbeat row with projects and sessions, stopping on a clean quit; online\/unreachable\/stopped\/unknown from the row and the clock; one caffeinate per pid released by hand or on exit; the LaunchAgent written on enable, unloaded and removed on disable, never bootstrapped beside a running copy; a send on a gone Mac is queued and withdrawable, Start on a stopped Mac refused, on an unreachable one queued; the Mac line, LOST and the queued row at 1.0\/2.0\/3.12x"
+  - at: 2026-09-04
+    event: gate tests passed
+    note: "kit 75, app 91: the heartbeat row, stopping on a clean quit; online\/unreachable\/stopped\/unknown from the row and the clock; one caffeinate per pid; the LaunchAgent written on enable and unloaded on disable; a send on a gone Mac queued and withdrawable, Start and Stop refused on a stopped Mac and queued on an unreachable one; the Mac line, LOST and the queued row at 1.0\/2.0\/3.12x; the bridge ready after a grace since the CLI's init only comes with the first message, awaitReady, a resume of a session never written down starts fresh"
+  - at: 2026-09-04
+    event: gate qa passed
+    note: "Verified by the user 2026-09-04 on the Android phone and the Mac: the Mac line under the facts; kill -9 of the host → LOST and unreachable after the window, a send queued with Withdraw, the message ran and answered when the app was reopened; Cmd-Q → Mac stopped, the session reported stopped, Start refused with the line; Start at login on, a reboot brought the host up without a touch; caffeinate held while a session ran. Two rounds: the first found the bridge waiting on an init the CLI only sends with the first message, fixed with a 1.5 s ready grace"
+  - at: 2026-09-04
+    event: done

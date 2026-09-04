@@ -192,7 +192,7 @@ order. This section records the decisions the steps are built on.
 | decision | answer | why |
 |---|---|---|
 | Bytes that are not rows | **Firebase Storage** on the relay, owner-only rules, the client SDK on both roles (both are signed in as the relay user — no key). Uploads, mirror frames, builds, push images, big files. The 600 KB base64 parts in Firestore go. | One transport unlocks four steps; Blaze is on already. |
-| The host when nobody is at the Mac | A **service**: start at login, a power assertion (`caffeinate -is -w <pid>`) while anything runs, a `hosts/{id}` heartbeat every 30 s so the phone says *unreachable since* instead of hanging. | A closed lid or a reboot is how sessions die today. Lid-close sleep is not preventable; the `lid-closed-sleep` item says so. |
+| The host when nobody is at the Mac | A **service**: start at login, a power assertion (`caffeinate -is -w <pid>`) while anything runs, a `hosts/{id}` heartbeat every 30 s so the phone says *unreachable since* instead of hanging. | A closed lid or a reboot is how sessions die today. Lid-close sleep is not preventable; the `lid-closed-sleep` item says so. Built 2026-09-04 as a LaunchAgent (`~/Library/LaunchAgents/dev.flutterkit.kitApp.plist`, RunAtLoad, KeepAlive on an unclean exit only) written but not bootstrapped on enable — bootstrapping would start a second copy beside the running one; it takes effect at the next login. |
 | Permission mode | A **MODE dial** — default · plan · accept edits · bypass — replaces the Skip permissions pill. `ExitPlanMode` arrives on the ask channel with the plan in its input and renders as a **plan card**: Approve / Revise. | Reading and approving the plan from the phone is the most agent-like thing that was missing. |
 | Stopping a turn | An **interrupt** control request on stdin — `{"type":"control_request","request_id":…,"request":{"subtype":"interrupt"}}` — ends the turn and keeps the session. Messages sent mid-turn are **queued** by the host. `set_model` / `set_permission_mode` are a spike; if honoured, the dials stop restarting the process. | Stop kills the process; the SDK has a brake that does not. |
 | Reviewing the agent | **Diffs on Edit/Write asks** (host-computed, ≤ 24 KB), any path a tap to a **file view**, a **Git card** (branch, dirty, last commit; Commit / Push / Revert file) the host runs directly. | The human half of an agent is reading what it changed. |
@@ -215,7 +215,14 @@ order. This section records the decisions the steps are built on.
 
 And on stdout, two things the host now reads that it ignored: `usage` on
 every `assistant` message (the context gauge) and `parent_tool_use_id`
-on messages a subagent produced (the crew strip). `ExitPlanMode` is a
+on messages a subagent produced (the crew strip). One thing it learned
+the hard way (2026-09-04): with `--input-format stream-json` the CLI
+writes **nothing** at spawn — its `system/init` line comes with the first
+user message. A process still alive 1.5 s after Start is therefore
+*ready*, not *starting*, and nothing may wait on the init before the
+first send. The CLI also writes a session to `~/.claude/projects/` only
+on its first turn, so `--resume` of one that never spoke fails with "No
+conversation found" — the bridge starts fresh instead. `ExitPlanMode` is a
 `can_use_tool` request like any other; the exact field carrying the plan
 is the first spike of `plan-mode`.
 
