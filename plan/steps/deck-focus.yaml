@@ -1,0 +1,53 @@
+id: deck-focus
+number: "12b"
+title: Focus — the phone's Deck as one scroll; the header, the now line and the tabs fold away as you read
+status: done
+rank: 735
+depends_on: [plan-mode]
+meta: { qa_required: true }
+gates:
+  analyze: { at: 2026-09-04, note: "app: no issues (2026-09-04)", status: passed}
+  tests: { at: 2026-09-04, note: "app 97 — the ask as the last row of one scroll; chrome folds on a drag up, returns on a drag down or the chevron; the Mac never folds", status: passed}
+  qa: { at: 2026-09-04, note: "user's QA on the phone, 2026-09-04: one scroll, chrome folds and returns, the newest row stays in view", status: passed}
+sections:
+  - title: Description
+    body: |
+      From the user's QA of plan-mode (2026-09-04): the Deck stacked three
+      scrollables — the header, the transcript, the ask with the composer
+      — and the last rows hid behind a tall plan card. Now the ask card is
+      the last row of the transcript, so the conversation and what it
+      asks are one scroll, and the plan card no longer scrolls inside
+      itself. On a phone, a drag upward (reading down) folds the chrome
+      away: the tab strip, the NOW strip, and the header — which shrinks
+      to one row, the status and the title with Stop, so nothing is lost.
+      A drag downward brings everything back; so does the chevron on the
+      row. The Mac keeps its layout.
+  - title: Acceptance
+    body: |
+      - Phone: a long transcript with an open ask — scroll to the end and the card is there, under the last row; nothing hides behind it.
+      - Phone: drag up — the tabs, the NOW strip and the header fold to one row with the status, the title and Stop; drag down — they return; so does the chevron.
+      - Phone: a plan card renders whole in the scroll; APPROVE is reached by scrolling, not inside a box.
+      - Mac: nothing folds; the window reads as before.
+  - title: QA walkthrough
+    body: |
+      1. Phone: open Nahmatik on a session with a long transcript; drag up — the tabs and the NOW strip go, one status row stays; drag down — they return.
+      2. Phone: MODE → PLAN, ask for a plan; the card sits under the last row and scrolls with it.
+  - title: Touchpoints
+    body: |
+      - `app/lib/src/screens/deck_tab.dart` (`DeckView`, `_Header`), `app/lib/src/screens/project_screen.dart` (tab strip), `app/lib/src/screens/ask_card.dart`
+history:
+  - { at: "2026-09-04", event: added, note: "from the user's QA of plan-mode — one scroll, chrome that folds" }
+  - at: 2026-09-04
+    event: started
+  - at: 2026-09-04
+    event: gate analyze passed
+    note: "app: no issues (2026-09-04)"
+  - at: 2026-09-04
+    event: gate tests passed
+    note: "app 97 — the ask as the last row of one scroll; chrome folds on a drag up, returns on a drag down or the chevron; the Mac never folds"
+  - at: 2026-09-04
+    event: gate qa passed
+    note: "user's QA on the phone, 2026-09-04: one scroll, chrome folds and returns, the newest row stays in view"
+  - at: 2026-09-04
+    event: done
+    note: the Deck as one scroll; chrome folds on a drag up

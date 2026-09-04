@@ -1,14 +1,14 @@
 id: plan-mode
 number: "12"
 title: Plan mode — the mode dial, and the plan as a card you approve from the phone
-status: pending
+status: done
 rank: 730
 depends_on: [session-dials]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-04, note: "kit and app: no issues (2026-09-04)", status: passed}
+  tests: { at: 2026-09-04, note: "kit 78, app 95 — mode dial in place via set_permission_mode, plan card approve\/revise, previews, record migration", status: passed}
+  qa: { at: 2026-09-04, note: "user's QA on the phone and the Mac, 2026-09-04: plan card approve\/revise, mode in place, previews", status: passed}
 sections:
   - title: Description
     body: |
@@ -61,3 +61,17 @@ sections:
       - `app/lib/src/screens/deck_tab.dart` (`_Dial`, header), `app/lib/src/screens/ask_card.dart` (plan card, previews), `app/lib/src/host/bridge_session.dart` (record, mode), `kit/lib/src/bridge.dart` (choices, ExitPlanMode parse), `app/lib/src/host/push_sender.dart` (notice text), `app/DESIGN.md`
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — agent parity; absorbs the Skip permissions pill" }
+  - at: 2026-09-04
+    event: started
+  - at: 2026-09-04
+    event: gate analyze passed
+    note: "kit and app: no issues (2026-09-04)"
+  - at: 2026-09-04
+    event: gate tests passed
+    note: "kit 78, app 95 — mode dial in place via set_permission_mode, plan card approve\/revise, previews, record migration"
+  - at: 2026-09-04
+    event: gate qa passed
+    note: "user's QA on the phone and the Mac, 2026-09-04: plan card approve\/revise, mode in place, previews"
+  - at: 2026-09-04
+    event: done
+    note: MODE dial replaces the Skip permissions pill; set_permission_mode proven live; plan card; previews
