@@ -68,13 +68,19 @@ class FakeClaude implements Process {
 
 /// A session wired to a [FakeClaude]: no real binary, shell or home folder,
 /// so it also runs inside a widget test's fake clock.
-BridgeSession fakeSession(FakeClaude fake, {required String dir, required String home}) => BridgeSession(
+/// [readyGrace] zero (the default) makes the session ready the moment it
+/// starts — a widget test's pumps never elapse time, so a real grace would
+/// hang as a pending timer; a bridge test that wants "starting until init"
+/// passes a short one.
+BridgeSession fakeSession(FakeClaude fake, {required String dir, required String home, Duration readyGrace = Duration.zero}) => BridgeSession(
       dir: dir,
       starter: fake.starter,
       findBinary: () async => '/fake/claude',
       versionOf: (_) async => '2.1.251',
       shellPath: () async => '/fake/bin',
       home: home,
+      transcriptExists: (_) => true,
+      readyGrace: readyGrace,
     );
 
 /// A session that gets a fresh [FakeClaude] on every start — a single fake's
@@ -92,6 +98,8 @@ BridgeSession fakeSessionEach(List<FakeClaude> spawned, {required String dir, re
       versionOf: (_) async => '2.1.251',
       shellPath: () async => '/fake/bin',
       home: home,
+      transcriptExists: (_) => true,
+      readyGrace: Duration.zero,
     );
 
 /// A short scripted turn: init, a streamed sentence, its final block, a

@@ -6,6 +6,7 @@ import 'package:flutter_kit/kit.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../draft.dart';
+import '../host/host_projects.dart';
 import '../host/bridge_session.dart';
 import '../host/host_project.dart';
 import '../plan_source.dart';
@@ -308,7 +309,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                                   )
                                 : StepsTab(plan: plan, graph: graph!, selected: _selected, session: _sessionGlyph(), onSelect: (id) => setState(() => _selected = id), onOpenDetail: _openDetail, onAskStep: (id) => _askAbout({'step': id}, plan.step(id)?.title ?? id)),
                             WorkTab(plan: plan, graph: graph, draft: _draft, threads: _threads, onAskItem: (i) => _askAbout({'item': i.id}, i.title)),
-                            if (widget.isHost) SessionTab(host: widget.host!),
+                            if (widget.isHost) SessionTab(host: widget.host!, presence: HostProjects.presence, power: HostProjects.power, loginItem: HostProjects.loginItem),
                           ],
                         ),
                 ),

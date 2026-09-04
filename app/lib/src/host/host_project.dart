@@ -13,6 +13,7 @@ import '../relay.dart';
 import 'bridge_session.dart';
 import 'claude_cli.dart';
 import 'hook_watcher.dart';
+import 'power.dart';
 import 'push_sender.dart';
 import 'remote_control.dart';
 
@@ -21,13 +22,16 @@ import 'remote_control.dart';
 /// Claude session — the bridge (this app talks to it) and Remote Control
 /// (the Claude app does).
 class HostProject extends ChangeNotifier {
-  HostProject({required this.dir, required this.db, this.push, this.blobs});
+  HostProject({required this.dir, required this.db, this.push, this.blobs, this.power});
 
   final String dir;
   final FirebaseFirestore db;
 
   /// The bucket the phone's files come from; null in a test without one.
   final BlobStore? blobs;
+
+  /// Holds the Mac awake while a session runs; null in a test.
+  final PowerHold? power;
 
   /// The Mac's one push sender, shared by every open project; null in a
   /// test that has no phone to reach.
@@ -90,6 +94,7 @@ class HostProject extends ChangeNotifier {
   }
 
   void _onBridge() {
+    _holdWhile(running: bridge.running, pid: bridge.pid);
     _publisher?.publishSession(sessionRelay());
     _publisher?.publishTranscript(bridge.transcript);
     final pub = _publisher;
@@ -155,6 +160,20 @@ class HostProject extends ChangeNotifier {
     }
   }
 
+  /// A clean quit: the session this folder runs is stopped (its process
+  /// would die with the app anyway), the relay reads stopped rather than
+  /// a session the Mac can no longer see, and the "now" line says so.
+  Future<void> quit() async {
+    if (bridge.running) await bridge.stop();
+    if (session.running) await session.stop();
+    final pub = _publisher;
+    final id = bridge.sessionId;
+    if (pub != null && id != null) {
+      pub.publishNow(HookEvent(at: DateTime.now(), name: 'SessionEnd', cwd: dir, sessionId: id, payload: const {}));
+    }
+    _publisher?.publishSession(sessionRelay());
+  }
+
   /// A step that flipped to done on disk — `kit step done` from the
   /// session, or the phone — reaches the phone once, on its own channel.
   void _notifyFlips(Plan plan) {
@@ -182,6 +201,19 @@ class HostProject extends ChangeNotifier {
         bridge.answer(AskAnswer.fromMap(cmd), requestId: requestId, by: (cmd['from'] ?? 'phone').toString(), remember: cmd['remember'] == true);
         return 'answered';
       case 'send':
+        // A send that waited on a Mac that was gone finds no process when
+        // the Mac is back — the session died with it. It was live when the
+        // phone sent, so the last conversation is resumed first.
+        if (!bridge.running && bridge.previous()?.sessionId != null) {
+          await bridge.start(resume: true);
+          if (!await bridge.awaitReady()) {
+            // Nothing to resume — the session died before it ever spoke,
+            // so the CLI never wrote it down. A fresh one loses nothing.
+            final reason = bridge.error ?? 'the session did not come up';
+            await bridge.start();
+            if (!await bridge.awaitReady()) return 'not running: $reason';
+          }
+        }
         if (!bridge.running) return 'not running';
         final about = cmd['about'];
         // The files the phone put in the bucket first, back whole.
@@ -298,8 +330,20 @@ class HostProject extends ChangeNotifier {
   String _today() => DateTime.now().toIso8601String().substring(0, 10);
 
   void _onSession() {
+    _holdWhile(running: session.running, pid: session.pid);
     _publisher?.publishSession(sessionRelay());
     notifyListeners();
+  }
+
+  /// The Mac stays awake as long as the process with [pid] runs.
+  void _holdWhile({required bool running, required int? pid}) {
+    final pw = power;
+    if (pw == null || pid == null) return;
+    if (running) {
+      unawaited(pw.hold(pid));
+    } else {
+      pw.release(pid);
+    }
   }
 
   void _onHook(HookEvent e) {

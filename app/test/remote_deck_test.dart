@@ -200,6 +200,67 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the Mac\'s line sits under the facts; a live session on a Mac that is gone reads LOST; a queued send offers WITHDRAW', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = FakeFirebaseFirestore();
+    final project = db.collection('projects').doc('demo');
+    await project.set({'name': 'Demo', 'machine': 'MacBook-Pro.local', 'session': {'mode': 'bridge', 'state': 'ready', 'sessionId': 'sess-1', 'canResume': false, 'pendingAsks': 0}});
+    final hosts = db.collection('hosts').doc('macbook-pro-local');
+    await hosts.set({'seenAt': Timestamp.fromDate(DateTime.now().subtract(const Duration(seconds: 20))), 'stopping': false});
+    await tester.pumpWidget(MaterialApp(
+      theme: kitTheme(KitTokens.dark),
+      home: MediaQuery(data: const MediaQueryData(size: Size(360, 780)), child: Scaffold(body: RemoteDeckTab(db: db, slug: 'demo'))),
+    ));
+    await _settle(tester);
+    expect(find.textContaining('MAC · 20 S AGO'), findsOneWidget);
+    expect(find.text('LIVE'), findsOneWidget);
+
+    await hosts.set({'seenAt': Timestamp.fromDate(DateTime.now().subtract(const Duration(minutes: 7))), 'stopping': false});
+    await _settle(tester);
+    expect(find.textContaining('MAC UNREACHABLE SINCE 7 MIN'), findsOneWidget);
+    expect(find.text('LOST'), findsOneWidget, reason: 'the relay still says live; the Mac cannot be running it');
+    expect(find.text('LIVE'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'anyone there?');
+    await tester.tap(find.byIcon(Icons.arrow_forward));
+    await _settle(tester);
+    expect(find.text('QUEUED · MAC UNREACHABLE'), findsOneWidget);
+    expect((await project.collection('commands').get()).docs, hasLength(1));
+    await tester.tap(find.text('WITHDRAW'));
+    await _settle(tester);
+    expect(find.text('anyone there?'), findsNothing, reason: 'the echo is taken back');
+    expect((await project.collection('commands').get()).docs, isEmpty);
+
+    await hosts.set({'seenAt': Timestamp.fromDate(DateTime.now()), 'stopping': true});
+    await _settle(tester);
+    expect(find.textContaining('MAC STOPPED'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final scale in [1.0, 2.0, 3.12]) {
+    testWidgets('phone at ${scale}x: the Mac line, LOST and a queued send do not overflow', (tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final db = FakeFirebaseFirestore();
+      await db.collection('projects').doc('demo').set({'name': 'Demo', 'machine': 'MacBook-Pro.local', 'session': {'mode': 'bridge', 'state': 'ready', 'sessionId': 'sess-1', 'canResume': false, 'pendingAsks': 0}});
+      await db.collection('hosts').doc('macbook-pro-local').set({'seenAt': Timestamp.fromDate(DateTime.now().subtract(const Duration(minutes: 7))), 'stopping': false});
+      await tester.pumpWidget(MaterialApp(
+        theme: kitTheme(KitTokens.dark),
+        home: MediaQuery(data: MediaQueryData(size: const Size(360, 780), textScaler: TextScaler.linear(scale)), child: Scaffold(body: RemoteDeckTab(db: db, slug: 'demo'))),
+      ));
+      await _settle(tester);
+      await tester.enterText(find.byType(TextField), 'a send that waits on the Mac, long enough to wrap at the largest size');
+      await tester.tap(find.byIcon(Icons.arrow_forward));
+      await _settle(tester);
+      expect(find.text('LOST'), findsOneWidget);
+      expect(find.text('QUEUED · MAC UNREACHABLE'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'no overflow at ${scale}x');
+    });
+  }
+
   testWidgets('a send the host ran keeps its echo until the mirror replaces it', (tester) async {
     tester.view.physicalSize = const Size(360, 780);
     tester.view.devicePixelRatio = 1;

@@ -1,10 +1,15 @@
+import 'dart:ui' show AppExitResponse;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:flutter/material.dart' hide Step, StepState;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 
 import '../app.dart';
+import '../host/claude_cli.dart';
 import '../host/host_projects.dart';
 import '../host/project_registry.dart';
 import '../plan_source.dart';
@@ -22,6 +27,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _registry = ProjectRegistry();
+  AppLifecycleListener? _exit;
 
   @override
   void initState() {
@@ -37,11 +43,25 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         setState(() {});
       });
+      // The phone hears this Mac is up from here on, and hears a clean
+      // quit as "stopped" rather than a silence.
+      final presence = HostProjects.presence..start();
+      PackageInfo.fromPlatform().then((i) {
+        presence.appVersion = '${i.version}+${i.buildNumber}';
+      }).catchError((Object _) {});
+      ClaudeCli.version().then((v) => presence.cli = v);
+      _exit = AppLifecycleListener(onExitRequested: () async {
+        await HostProjects.quitAll();
+        await presence.stop();
+        HostProjects.power.releaseAll();
+        return AppExitResponse.exit;
+      });
     }
   }
 
   @override
   void dispose() {
+    _exit?.dispose();
     _registry.dispose();
     super.dispose();
   }

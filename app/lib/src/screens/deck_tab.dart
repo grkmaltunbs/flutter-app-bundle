@@ -51,6 +51,11 @@ class DeckView extends StatefulWidget {
     this.onOptions,
     this.onTestPush,
     this.uploadProgress = const {},
+    this.hostLine,
+    this.hostWarn = false,
+    this.hostGone = false,
+    this.queued = const {},
+    this.onWithdraw,
   });
 
   final BridgeState state;
@@ -103,6 +108,19 @@ class DeckView extends StatefulWidget {
   /// How far a file of an echo has gone up — `'<message id>/<name>'` → 0…1;
   /// the chip shows it in place of the size until the file is there.
   final Map<String, double> uploadProgress;
+
+  /// The Mac's line under the facts on a phone — "Mac · 12 s ago", or
+  /// amber "Mac unreachable since 4 min"; null on the Mac itself.
+  final String? hostLine;
+  final bool hostWarn;
+
+  /// The Mac is unreachable or stopped: a session the relay still calls
+  /// live is shown as LOST until the Mac reports it again.
+  final bool hostGone;
+
+  /// Echo ids whose command waits on a Mac that is gone.
+  final Set<String> queued;
+  final void Function(String echoId)? onWithdraw;
 
   /// Changes an option — the host writes its record, the phone sends a
   /// command. Null where the surface cannot.
@@ -333,7 +351,12 @@ class _DeckViewState extends State<DeckView> {
                             controller: _scroll,
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                             itemCount: w.messages.length,
-                            itemBuilder: (context, i) => _Row(message: w.messages[i], progress: w.uploadProgress),
+                            itemBuilder: (context, i) => _Row(
+                              message: w.messages[i],
+                              progress: w.uploadProgress,
+                              queued: w.queued.contains(w.messages[i].id),
+                              onWithdraw: w.onWithdraw == null ? null : () => w.onWithdraw!(w.messages[i].id),
+                            ),
                           ),
                         ),
                       ),
@@ -822,6 +845,11 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         onOptions: ({skipPermissions, chrome, model, effort}) => d.setOptions(skipPermissions: skipPermissions, chrome: chrome, model: model, effort: effort),
         onTestPush: d.testPush,
         uploadProgress: d.uploadProgress,
+        hostLine: d.presence.line,
+        hostWarn: d.presence.warn,
+        hostGone: d.presence.gone,
+        queued: d.queued,
+        onWithdraw: d.withdraw,
         askSlot: RemoteAskPanel(db: widget.db, slug: widget.slug, from: widget.from),
         onStart: () => d.startSession(),
         onResume: () => d.startSession(resume: true),
@@ -853,27 +881,35 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tokens;
     final w = view;
-    final color = switch (w.state) {
-      BridgeState.waiting => t.warn,
-      BridgeState.busy || BridgeState.ready || BridgeState.starting => t.accent,
-      BridgeState.failed => t.critical,
-      _ => t.muted,
-    };
-    final label = switch (w.state) {
-      BridgeState.waiting => 'NEEDS YOU',
-      BridgeState.busy => 'WORKING',
-      BridgeState.ready => 'LIVE',
-      BridgeState.starting => 'STARTING',
-      BridgeState.stopped => 'STOPPED',
-      BridgeState.failed => 'FAILED',
-      BridgeState.idle => 'IDLE',
-    };
-    final glyph = switch (w.state) {
-      BridgeState.waiting => GlyphMode.ask,
-      BridgeState.busy || BridgeState.starting => GlyphMode.busy,
-      BridgeState.ready => GlyphMode.live,
-      _ => GlyphMode.idle,
-    };
+    // A session the relay still calls live, on a Mac that is gone.
+    final lost = w.hostGone && w.running;
+    final color = lost
+        ? t.warn
+        : switch (w.state) {
+            BridgeState.waiting => t.warn,
+            BridgeState.busy || BridgeState.ready || BridgeState.starting => t.accent,
+            BridgeState.failed => t.critical,
+            _ => t.muted,
+          };
+    final label = lost
+        ? 'LOST'
+        : switch (w.state) {
+            BridgeState.waiting => 'NEEDS YOU',
+            BridgeState.busy => 'WORKING',
+            BridgeState.ready => 'LIVE',
+            BridgeState.starting => 'STARTING',
+            BridgeState.stopped => 'STOPPED',
+            BridgeState.failed => 'FAILED',
+            BridgeState.idle => 'IDLE',
+          };
+    final glyph = lost
+        ? GlyphMode.idle
+        : switch (w.state) {
+            BridgeState.waiting => GlyphMode.ask,
+            BridgeState.busy || BridgeState.starting => GlyphMode.busy,
+            BridgeState.ready => GlyphMode.live,
+            _ => GlyphMode.idle,
+          };
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
       child: Column(
@@ -935,6 +971,13 @@ class _Header extends StatelessWidget {
               ),
             ],
           ),
+          // The Mac's line on its own row: at the folded width beside the
+          // pill, "unreachable since" would lose its since.
+          if (w.hostLine case final line?)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(line.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(11, color: w.hostWarn ? t.warn : t.muted)),
+            ),
           if (w.error != null)
             Padding(padding: const EdgeInsets.only(top: 8), child: Text(w.error!, maxLines: 3, overflow: TextOverflow.ellipsis, style: t.mono(12, color: t.critical))),
           if (open) ..._controls(context, w, t),
@@ -1122,9 +1165,13 @@ class _OptionPill extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.message, this.progress = const {}});
+  const _Row({required this.message, this.progress = const {}, this.queued = false, this.onWithdraw});
   final DeckMessage message;
   final Map<String, double> progress;
+
+  /// This echo's command waits on a Mac that is gone.
+  final bool queued;
+  final VoidCallback? onWithdraw;
 
   @override
   Widget build(BuildContext context) {
@@ -1156,6 +1203,23 @@ class _Row extends StatelessWidget {
                     borderRadius: const BorderRadius.only(topLeft: Radius.circular(14), topRight: Radius.circular(14), bottomLeft: Radius.circular(14), bottomRight: Radius.circular(4)),
                   ),
                   child: Text(m.text, style: TextStyle(fontSize: 15, height: 1.4, color: m.streaming ? t.ink2 : t.ink)),
+                ),
+              if (queued)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    children: [
+                      Text('QUEUED · MAC UNREACHABLE', style: t.readout(10, color: t.warn)),
+                      if (onWithdraw != null)
+                        InkWell(
+                          onTap: onWithdraw,
+                          child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), child: Text('WITHDRAW', style: t.readout(10, color: t.accent))),
+                        ),
+                    ],
+                  ),
                 ),
             ],
           ),

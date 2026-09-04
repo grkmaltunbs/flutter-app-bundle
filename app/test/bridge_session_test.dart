@@ -28,7 +28,7 @@ void main() {
 
   test('a turn: start, send, stream, tool row, end — and the record for Resume', () async {
     final fake = FakeClaude();
-    final s = fakeSession(fake, dir: project.path, home: home.path);
+    final s = fakeSession(fake, dir: project.path, home: home.path, readyGrace: const Duration(seconds: 5));
     final states = <BridgeState>[];
     s.addListener(() => states.add(s.state));
 
@@ -422,6 +422,69 @@ void main() {
     expect(s.alwaysApplied, isEmpty);
     expect(s.previous()!.always, isEmpty);
     expect(s.forgetAlways(rule), isFalse, reason: 'already gone');
+  });
+
+  test('awaitReady: true once the init came, false when the process ended first — a resume of a session never written down', () async {
+    final fake = FakeClaude();
+    final s = fakeSession(fake, dir: project.path, home: home.path, readyGrace: const Duration(seconds: 5));
+    await s.start();
+    final ready = s.awaitReady();
+    await pumpEventQueue();
+    fake.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'claude-fable-5', 'permissionMode': 'default'});
+    expect(await ready, isTrue);
+    expect(s.state, BridgeState.ready);
+    await s.stop();
+
+    final dead = FakeClaude();
+    final d = fakeSession(dead, dir: project.path, home: home.path, readyGrace: const Duration(seconds: 5));
+    await d.start(resume: true);
+    final came = d.awaitReady();
+    await pumpEventQueue();
+    dead.emitErr('No conversation found with session ID: ${d.sessionId}');
+    dead.exit(1);
+    expect(await came, isFalse);
+    expect(d.state, BridgeState.failed);
+    expect(d.error, contains('No conversation found'));
+    expect(await d.awaitReady(timeout: const Duration(milliseconds: 50)), isFalse, reason: 'not starting, not running');
+  });
+
+  test('Resume of a session the CLI never wrote down starts fresh, and says so in the log', () async {
+    final first = FakeClaude();
+    final s = fakeSession(first, dir: project.path, home: home.path);
+    await s.start();
+    final id = s.sessionId!;
+    await s.stop();
+    final second = FakeClaude();
+    final again = BridgeSession(dir: project.path, starter: second.starter, findBinary: () async => '/fake/claude', versionOf: (_) async => '2.1.251', shellPath: () async => '/fake/bin', home: home.path, transcriptExists: (_) => false);
+    await again.start(resume: true);
+    expect(second.startedWith, isNot(contains('--resume')), reason: 'nothing to resume');
+    expect(again.sessionId, isNot(id));
+    expect(again.log.join('\n'), contains('never spoke'));
+    await again.stop();
+  });
+
+  test('a process alive past the grace is ready before its init — the CLI only speaks with the first message', () async {
+    final fake = FakeClaude();
+    final s = BridgeSession(dir: project.path, starter: fake.starter, findBinary: () async => '/fake/claude', versionOf: (_) async => '2.1.251', shellPath: () async => '/fake/bin', home: home.path, transcriptExists: (_) => true, readyGrace: const Duration(milliseconds: 40));
+    await s.start();
+    expect(s.state, BridgeState.starting);
+    expect(await s.awaitReady(), isTrue);
+    expect(s.state, BridgeState.ready);
+    // The init that comes with the first turn keeps it live, not starting.
+    s.send('hello');
+    await pumpEventQueue();
+    fake.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'claude-fable-5', 'permissionMode': 'default'});
+    await pumpEventQueue();
+    expect(s.state, isNot(BridgeState.starting));
+    await s.stop();
+
+    final dead = FakeClaude();
+    final d = BridgeSession(dir: project.path, starter: dead.starter, findBinary: () async => '/fake/claude', versionOf: (_) async => '2.1.251', shellPath: () async => '/fake/bin', home: home.path, transcriptExists: (_) => true, readyGrace: const Duration(milliseconds: 40));
+    await d.start();
+    dead.exit(1);
+    await pumpEventQueue();
+    expect(await d.awaitReady(), isFalse, reason: 'it died inside the grace');
+    expect(d.state, BridgeState.failed);
   });
 
   test('a crash is a failure with the last stderr line; stdout that is not protocol goes to the log', () async {

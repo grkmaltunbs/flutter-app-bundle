@@ -2,7 +2,10 @@ import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../host/host_presence.dart';
 import '../host/host_project.dart';
+import '../host/login_item.dart';
+import '../host/power.dart';
 import '../host/remote_control.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -10,8 +13,14 @@ import '../widgets/common.dart';
 /// Host only: start and stop the Remote Control server for this folder,
 /// hand the phone its link, and watch what the session is doing.
 class SessionTab extends StatefulWidget {
-  const SessionTab({super.key, required this.host});
+  const SessionTab({super.key, required this.host, this.presence, this.power, this.loginItem});
   final HostProject host;
+
+  /// Mac-wide, not per project: the heartbeat, the power hold, the login
+  /// item. Null in a test that has none.
+  final HostPresence? presence;
+  final PowerHold? power;
+  final LoginItem? loginItem;
   @override
   State<SessionTab> createState() => _SessionTabState();
 }
@@ -32,11 +41,35 @@ class _SessionTabState extends State<SessionTab> {
     final s = h.session;
     final existing = s.running ? null : s.existing();
     return ListenableBuilder(
-      listenable: Listenable.merge([h, s, h.hooks, ?h.push]),
+      listenable: Listenable.merge([h, s, h.hooks, ?h.push, ?widget.presence, ?widget.power, ?widget.loginItem]),
       builder: (context, _) {
+        final presence = widget.presence;
+        final power = widget.power;
+        final login = widget.loginItem;
         return ListView(
           padding: const EdgeInsets.all(18),
           children: [
+            if (presence != null || power != null || login != null) ...[
+              Text('THIS MAC', style: t.display(16, weight: FontWeight.w600, ls: 2)),
+              const SizedBox(height: 6),
+              Text('The phone hears from this app every half minute; without it, the phone says the Mac is unreachable and queues what you send.', style: TextStyle(fontSize: 13, color: t.ink2)),
+              const SizedBox(height: 10),
+              if (presence != null) _check(context, ok: presence.error == null && presence.lastBeat != null, text: presence.status),
+              if (power != null) _check(context, ok: power.error == null, text: power.status),
+              if (login != null)
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: login.enabled,
+                  onChanged: (v) async {
+                    final ok = v ? await login.enable() : await login.disable();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? (v ? 'Starts at the next login.' : 'Login item removed.') : (login.error ?? 'Could not change the login item'))));
+                  },
+                  title: Text('Start at login', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
+                  subtitle: Text(login.status, style: TextStyle(fontSize: 12.5, color: t.ink2)),
+                ),
+              const SizedBox(height: 18),
+            ],
             Row(children: [
               Expanded(child: Text('REMOTE CONTROL', style: t.display(16, weight: FontWeight.w600, ls: 2))),
               Pill(s.state.name, color: s.running ? t.good : (s.state == RcState.failed ? t.critical : t.muted), filled: s.running),

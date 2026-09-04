@@ -12,6 +12,21 @@ class ClaudeCli {
 
   static String? _binary;
   static String? _shellPath;
+  static String? _version;
+
+  /// `claude --version`, the number only, once.
+  static Future<String?> version() async {
+    if (_version != null) return _version;
+    final bin = await findBinary();
+    if (bin == null) return null;
+    try {
+      final r = await Process.run(bin, ['--version']).timeout(const Duration(seconds: 15));
+      final out = (r.stdout as String).trim();
+      return _version = out.isEmpty ? null : out.split(' ').first;
+    } on Object {
+      return null;
+    }
+  }
 
   /// A GUI app inherits a bare PATH; the user's shell has the real one
   /// (`~/.local/bin` for claude, the Flutter SDK for `dart` — which the

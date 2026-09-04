@@ -107,7 +107,10 @@ class BridgeSession extends ChangeNotifier {
     Future<String?> Function(String bin)? versionOf,
     Future<String> Function()? shellPath,
     this.home,
+    bool Function(String sessionId)? transcriptExists,
+    this.readyGrace = const Duration(milliseconds: 1500),
   })  : _starter = starter ?? _startProcess,
+        _transcriptExists = transcriptExists ?? ((id) => File(p.join(ClaudeCli.projectStateDir(dir), '$id.jsonl')).existsSync()),
         _findBinary = findBinary ?? ClaudeCli.findBinary,
         _versionOf = versionOf ?? _claudeVersion,
         _shellPath = shellPath ?? ClaudeCli.shellPath {
@@ -236,6 +239,7 @@ class BridgeSession extends ChangeNotifier {
   Process? _proc;
   StreamSubscription<String>? _out;
   StreamSubscription<String>? _err;
+  Timer? _grace;
 
   bool get running => state == BridgeState.starting || state == BridgeState.ready || state == BridgeState.busy || state == BridgeState.waiting;
 
@@ -252,12 +256,40 @@ class BridgeSession extends ChangeNotifier {
     }
   }
 
+  /// True once the process reported its init; false when it ended first
+  /// or [timeout] passed — a `--resume` of a session the CLI never wrote
+  /// down exits with "No conversation found" a second after it starts.
+  Future<bool> awaitReady({Duration timeout = const Duration(seconds: 15)}) async {
+    final end = DateTime.now().add(timeout);
+    while (state == BridgeState.starting && DateTime.now().isBefore(end)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    return running && state != BridgeState.starting;
+  }
+
+  /// Whether the CLI wrote the session down — it does on the first turn,
+  /// so a session that never spoke has nothing to resume.
+  final bool Function(String sessionId) _transcriptExists;
+
+  /// With stream-json input the CLI says nothing until the first message —
+  /// its init comes with the first turn. A process still alive this long
+  /// after Start is waiting for input: ready, not starting.
+  final Duration readyGrace;
+
   Future<void> start({bool resume = false}) async {
     if (running) return;
     final prev = resume ? previous() : null;
     if (resume && prev?.sessionId == null) return _fail('Nothing to resume for this folder.');
+    String? fresh;
+    if (resume && !_transcriptExists(prev!.sessionId!)) {
+      // `--resume` of it would report its init and then fail on the first
+      // message with "No conversation found". A fresh one loses nothing.
+      fresh = 'Nothing to resume: session ${prev.sessionId} never spoke — starting fresh.';
+      resume = false;
+    }
     error = null;
     log.clear();
+    if (fresh != null) _logLine(fresh);
     _sessionAllows.clear();
     if (!resume) {
       // A fresh session is a fresh conversation; Resume keeps the old one.
@@ -282,6 +314,19 @@ class BridgeSession extends ChangeNotifier {
     _out = _proc!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(_line);
     _err = _proc!.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(_logLine);
     unawaited(_proc!.exitCode.then(_exited));
+    final spawned = _proc;
+    _grace?.cancel();
+    if (readyGrace == Duration.zero) {
+      state = BridgeState.ready;
+    } else {
+      _grace = Timer(readyGrace, () {
+        _grace = null;
+        if (identical(_proc, spawned) && state == BridgeState.starting) {
+          state = BridgeState.ready;
+          notifyListeners();
+        }
+      });
+    }
     _writeRecord();
     notifyListeners();
     cliVersion = await _versionOf(bin);
@@ -425,6 +470,8 @@ class BridgeSession extends ChangeNotifier {
   }
 
   void _exited(int code) {
+    _grace?.cancel();
+    _grace = null;
     final clean = code == 0 || code == 143 || code == -15;
     state = clean ? BridgeState.stopped : BridgeState.failed;
     if (!clean && error == null) error = 'claude exited with code $code${log.isEmpty ? '' : ' — ${log.last}'}';
@@ -494,6 +541,7 @@ class BridgeSession extends ChangeNotifier {
   void dispose() {
     _out?.cancel();
     _err?.cancel();
+    _grace?.cancel();
     super.dispose();
   }
 }

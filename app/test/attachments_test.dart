@@ -105,7 +105,7 @@ void main() {
     final a = newBlobId(Random(1));
     final b = newBlobId(Random(2));
     expect(a, matches(RegExp(r'^[0-9a-z]+-[a-z0-9]{6}$')));
-    expect(a.split('-').first, b.split('-').first, reason: 'the same millisecond, or the next');
+    expect(int.parse(b.split('-').first, radix: 36) - int.parse(a.split('-').first, radix: 36), inInclusiveRange(0, 50), reason: 'time first: two ids made together sort together');
     expect(safeBlobName('İş planı v2 (final).PDF'), '_plan_v2_final_.PDF', reason: 'a run of anything else is one underscore; the dot and the extension stay');
     expect(safeBlobName('???'), 'file');
     expect(uploadBlobPath('demo', 'x', 'a b.png'), 'projects/demo/uploads/x/a_b.png');

@@ -8,6 +8,7 @@ import 'package:flutter_kit/kit.dart';
 import 'attachments.dart';
 import 'blobs.dart';
 import 'host/bridge_session.dart' show BridgeState;
+import 'presence.dart';
 
 /// The relay: Firestore on `flutterappbundle`, one user, owner-only rules.
 ///
@@ -22,6 +23,7 @@ import 'host/bridge_session.dart' show BridgeState;
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
+/// hosts/{hostId}                   the Mac's heartbeat: {seenAt, name, appVersion, cli, projects, sessions, stopping}; the phone reads "unreachable" from its age
 /// devices/{fcmToken}                a phone that takes pushes: {platform, name, uid, registeredAt, seenAt}; the host drops one FCM no longer knows
 /// ```
 ///
@@ -354,11 +356,31 @@ class RelayPublisher {
 /// commands out. A message sent from here shows at once as an echo and is
 /// replaced by the host's copy when the mirror catches up.
 class RemoteDeck extends ChangeNotifier {
-  RemoteDeck(this.db, this.slug, {this.from = 'phone', this.blobs});
+  RemoteDeck(this.db, this.slug, {this.from = 'phone', this.blobs, DateTime Function()? now, this.tick = const Duration(seconds: 10)}) : _now = now ?? DateTime.now;
 
   final FirebaseFirestore db;
   final String slug;
   final String from;
+  final DateTime Function() _now;
+
+  /// How often the "ago" in the Mac's line is redrawn.
+  final Duration tick;
+
+  /// The Mac's `hosts/{id}` row, once the project doc named the machine.
+  Map<String, Object?>? hostDoc;
+  String? _hostId;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _hostSub;
+  Timer? _ticker;
+
+  /// Commands this device wrote that the host has not stamped yet, by echo id.
+  final Map<String, DocumentReference<Map<String, dynamic>>> _pending = {};
+
+  /// What the phone says about the Mac right now.
+  HostPresenceView get presence => HostPresenceView.from(hostDoc, now: _now());
+
+  /// The echoes whose command sits unread because the Mac is gone — shown
+  /// as queued, with a way to withdraw. Empty while the Mac is up.
+  Set<String> get queued => presence.gone ? {for (final e in echoes) if (_pending.containsKey(e.id)) e.id} : const {};
 
   /// The bucket the files go into — a test hands one in; the phone opens
   /// Firebase Storage on the first file.
@@ -412,8 +434,10 @@ class RemoteDeck extends ChangeNotifier {
       final m = d.data()?['session'];
       session = m is Map ? {for (final e in m.entries) e.key.toString(): e.value, 'machine': d.data()?['machine']} : const {};
       error = session['error']?.toString();
+      _watchHost((d.data()?['machine'] ?? '').toString());
       notifyListeners();
     }, onError: _onError));
+    _ticker ??= Timer.periodic(tick, (_) => notifyListeners());
     _subs.add(ref.collection('chat').snapshots().listen((q) {
       messages = (q.docs.map((d) => DeckMessage.fromMap({for (final e in d.data().entries) e.key: e.value as Object?})).toList()..sort((a, b) => a.id.compareTo(b.id)));
       // The host's copy of a message we sent replaces the echo.
@@ -425,6 +449,38 @@ class RemoteDeck extends ChangeNotifier {
 
   void _onError(Object e) {
     error = e.toString();
+    notifyListeners();
+  }
+
+  /// Follows the Mac's heartbeat row once the project says which Mac.
+  void _watchHost(String machine) {
+    if (machine.isEmpty) return;
+    final id = hostIdFor(machine);
+    if (id == _hostId) return;
+    _hostId = id;
+    _hostSub?.cancel();
+    _hostSub = db.collection('hosts').doc(id).snapshots().listen((d) {
+      final m = d.data();
+      hostDoc = m == null ? null : {for (final e in m.entries) e.key: e.value as Object?};
+      notifyListeners();
+    }, onError: (Object _) {});
+  }
+
+  /// Takes back a send the Mac never saw. Nothing happens when it ran.
+  Future<void> withdraw(String echoId) async {
+    final ref = _pending[echoId];
+    if (ref == null) return;
+    try {
+      final d = await ref.get();
+      if (d.exists && d.data()?['doneAt'] != null) return;
+      await ref.delete();
+    } on Object catch (e) {
+      error = 'Could not withdraw: $e';
+      notifyListeners();
+      return;
+    }
+    _pending.remove(echoId);
+    echoes.removeWhere((m) => m.id == echoId);
     notifyListeners();
   }
 
@@ -454,6 +510,7 @@ class RemoteDeck extends ChangeNotifier {
         }));
       }
       final ref = await CommandSender(db, slug).send({'type': 'send', 'text': t, 'about': ?about, if (ups.isNotEmpty) 'uploads': ups}, from: from);
+      _pending[echo.id] = ref;
       _watchResult(ref, echo);
     } on Object catch (e) {
       // The echo goes; the words and the files stay in the composer for
@@ -476,6 +533,7 @@ class RemoteDeck extends ChangeNotifier {
       final m = d.data();
       if (m == null || m['doneAt'] == null) return;
       sub.cancel();
+      _pending.remove(echo.id);
       final result = (m['result'] ?? '').toString();
       if (result.startsWith('sent')) return;
       echoes.remove(echo);
@@ -485,9 +543,37 @@ class RemoteDeck extends ChangeNotifier {
     _subs.add(sub);
   }
 
-  Future<void> startSession({bool resume = false}) => CommandSender(db, slug).send({'type': 'start', 'resume': resume}, from: from);
+  /// Start is a command like any other — except that a Mac that said it
+  /// stopped cannot run it, and the phone says so instead of queueing.
+  Future<void> startSession({bool resume = false}) async {
+    final p = presence;
+    if (p.state == HostState.stopped) {
+      error = 'The Mac app is stopped — open K.A.T.Y.A on the Mac first.';
+      notifyListeners();
+      return;
+    }
+    await CommandSender(db, slug).send({'type': 'start', 'resume': resume}, from: from);
+    if (p.state == HostState.unreachable) {
+      error = 'Start is queued — the Mac is unreachable; it starts when the Mac is back.';
+      notifyListeners();
+    }
+  }
 
-  Future<void> stopSession() => CommandSender(db, slug).send({'type': 'stop'}, from: from);
+  /// Stop, like Start, is a command — on a Mac that said it stopped there
+  /// is nothing to stop; on one that is unreachable it waits its turn.
+  Future<void> stopSession() async {
+    final p = presence;
+    if (p.state == HostState.stopped) {
+      error = 'The Mac app is stopped — nothing is running there.';
+      notifyListeners();
+      return;
+    }
+    await CommandSender(db, slug).send({'type': 'stop'}, from: from);
+    if (p.state == HostState.unreachable) {
+      error = 'Stop is queued — the Mac is unreachable; it stops when the Mac is back.';
+      notifyListeners();
+    }
+  }
 
   /// The options the host's next Start runs with; `default` for a dial
   /// hands the choice back to the CLI.
@@ -522,6 +608,8 @@ class RemoteDeck extends ChangeNotifier {
     for (final s in _subs) {
       s.cancel();
     }
+    _hostSub?.cancel();
+    _ticker?.cancel();
     super.dispose();
   }
 }
