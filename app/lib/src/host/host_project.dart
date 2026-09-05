@@ -73,7 +73,10 @@ class HostProject extends ChangeNotifier {
     };
     bridge.onAsk = _onAsk;
     bridge.onAnswered = _onAnswered;
-    bridge.onWithdrawn = (ask) => _publisher?.resolveAsk(ask.requestId, summary: 'Withdrawn — the session stopped', by: 'host');
+    bridge.onWithdrawn = (ask) {
+      _publisher?.resolveAsk(ask.requestId, summary: 'Withdrawn', by: 'host');
+      _withdraw(ask.requestId);
+    };
     hooks.onEvent = _onHook;
     source.start();
     hooks.start();
@@ -99,7 +102,7 @@ class HostProject extends ChangeNotifier {
     _publisher?.publishTranscript(bridge.transcript);
     final pub = _publisher;
     if (pub != null) unawaited(pub.publishThreads(bridge.transcript));
-    final turn = _turns.check(state: bridge.state, error: bridge.error, lastResult: bridge.transcript.lastResult, project: projectName);
+    final turn = _turns.check(state: bridge.state, error: bridge.error, lastResult: bridge.transcript.lastResult, interrupted: bridge.lastTurnInterrupted, project: projectName);
     if (turn != null) _notify(turn);
     notifyListeners();
   }
@@ -225,11 +228,16 @@ class HostProject extends ChangeNotifier {
         if (ups.isNotEmpty && store == null) return 'failed: this host has no bucket';
         final reader = store == null ? null : UploadReader(store, slug!);
         final files = <PendingAttachment>[for (final u in ups) await reader!.fetch(u)];
-        bridge.send((cmd['text'] ?? '').toString(), about: about is Map ? {for (final e in about.entries) e.key.toString(): e.value} : null, files: files);
+        final queued = bridge.send((cmd['text'] ?? '').toString(), about: about is Map ? {for (final e in about.entries) e.key.toString(): e.value} : null, files: files);
         for (final u in ups) {
           unawaited(reader!.delete(u).catchError((Object _) {}));
         }
-        return ups.isEmpty ? 'sent' : 'sent with ${ups.length} file${ups.length == 1 ? '' : 's'}';
+        final verb = queued ? 'queued' : 'sent';
+        return ups.isEmpty ? verb : '$verb with ${ups.length} file${ups.length == 1 ? '' : 's'}';
+      case 'interrupt':
+        return bridge.interrupt(by: cmd['from'] == 'phone' ? 'phone' : 'Mac') ? 'interrupted' : 'nothing to interrupt';
+      case 'withdraw':
+        return bridge.withdrawQueued((cmd['messageId'] ?? '').toString()) ? 'withdrawn' : 'already sent';
       case 'start':
         // A fresh conversation has nothing pending; a resumed one neither.
         final sweep = _publisher;
@@ -243,9 +251,9 @@ class HostProject extends ChangeNotifier {
         final ok = bridge.setOptions(mode: cmd['mode'] as String?, chrome: cmd['chrome'] as bool?, model: cmd['model'] as String?, effort: cmd['effort'] as String?);
         if (!ok) return 'nothing to change';
         if (bridge.restartPending) return 'applies when this turn ends';
-        if (bridge.modePending) return 'the mode switches when this turn ends';
+        if (bridge.modePending || bridge.modelPending) return 'applies when this turn ends';
         if (!bridge.running) return 'options saved';
-        return cmd['chrome'] == null && cmd['model'] == null && cmd['effort'] == null ? 'mode switched' : 'restarting on the same conversation';
+        return cmd['chrome'] == null && cmd['effort'] == null ? 'switched in place' : 'restarting on the same conversation';
       case 'push-test':
         return testPush();
       default:

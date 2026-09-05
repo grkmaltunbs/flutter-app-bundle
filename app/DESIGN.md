@@ -194,7 +194,7 @@ order. This section records the decisions the steps are built on.
 | Bytes that are not rows | **Firebase Storage** on the relay, owner-only rules, the client SDK on both roles (both are signed in as the relay user — no key). Uploads, mirror frames, builds, push images, big files. The 600 KB base64 parts in Firestore go. | One transport unlocks four steps; Blaze is on already. |
 | The host when nobody is at the Mac | A **service**: start at login, a power assertion (`caffeinate -is -w <pid>`) while anything runs, a `hosts/{id}` heartbeat every 30 s so the phone says *unreachable since* instead of hanging. | A closed lid or a reboot is how sessions die today. Lid-close sleep is not preventable; the `lid-closed-sleep` item says so. Built 2026-09-04 as a LaunchAgent (`~/Library/LaunchAgents/dev.flutterkit.kitApp.plist`, RunAtLoad, KeepAlive on an unclean exit only) written but not bootstrapped on enable — bootstrapping would start a second copy beside the running one; it takes effect at the next login. |
 | Permission mode | A **MODE dial** — default · plan · accept edits · bypass — replaces the Skip permissions pill. `ExitPlanMode` arrives on the ask channel with the plan in its input and renders as a **plan card**: Approve (edits ask) · Approve, auto edits · Revise (words the session reads, then plans again). Built 2026-09-04: the dial switches a running session in place with `set_permission_mode` — at once between turns, at the turn's end otherwise — and follows an answer that carries a `setMode` (a plan approved, "allow all edits" on an edit), which the CLI applies without an event. The facts line shows the mode the CLI last reported. | Reading and approving the plan from the phone is the most agent-like thing that was missing. |
-| Stopping a turn | An **interrupt** control request on stdin — `{"type":"control_request","request_id":…,"request":{"subtype":"interrupt"}}` — ends the turn and keeps the session. Messages sent mid-turn are **queued** by the host. `set_permission_mode` is honoured (2026-09-04, below) and the MODE dial no longer restarts; `set_model` is still a spike — if honoured too, the MODEL dial stops restarting the process. | Stop kills the process; the SDK has a brake that does not. |
+| Stopping a turn | An **interrupt** control request on stdin — `{"type":"control_request","request_id":…,"request":{"subtype":"interrupt"}}` — ends the turn and keeps the session (proven 2026-09-04, below). INTERRUPT sits on the Deck's title row while a turn runs; Stop waits in the fold. An ask open when the turn is cut is withdrawn with it; the cut turn's row says "Interrupted from the phone"; no Done push for it. Messages sent mid-turn are **queued** by the host — the row says so, WITHDRAW takes it back, and the first in line goes the moment the `result` lands. `set_permission_mode` and `set_model` are both honoured, so the MODE and MODEL dials switch in place; only Chrome and effort still restart on `--resume`. | Stop kills the process; the SDK has a brake that does not. |
 | Reviewing the agent | **Diffs on Edit/Write asks** (host-computed, ≤ 24 KB), any path a tap to a **file view**, a **Git card** (branch, dirty, last commit; Commit / Push / Revert file) the host runs directly. | The human half of an agent is reading what it changed. |
 | Actions that need no model | **`host` commands** — `{type: host, action: read_file|git|blocks|step_done|reorder|…}` — the host runs the kit library, git or the toolchain and answers in the relay; no quota. Everything on the Git card, the constellation's controls, the run bay and the mirror are host commands. | Half of what the phone asks Claude today is a shell command. The app must stay useful with the pool empty. |
 | Instruments | Context in use from each assistant message's `usage` (input + cache creation + cache read) against the model's window; the pools from `rate_limit_event`. **Compact** offered past 80 % (a spike: `/compact` as a message in `-p`). Tokens, never dollars. | The JARVIS reading: the state of the machine at a glance. |
@@ -209,10 +209,27 @@ order. This section records the decisions the steps are built on.
 ### Protocol additions (stdin, client → CLI)
 
 ```json
-{"type":"control_request","request_id":"<uuid>","request":{"subtype":"interrupt"}}
-{"type":"control_request","request_id":"<uuid>","request":{"subtype":"set_model","model":"opus"}}                  // spike
+{"type":"control_request","request_id":"<uuid>","request":{"subtype":"interrupt"}}                            // proven 2026-09-04
+{"type":"control_request","request_id":"<uuid>","request":{"subtype":"set_model","model":"opus"}}                  // proven 2026-09-04
 {"type":"control_request","request_id":"<uuid>","request":{"subtype":"set_permission_mode","mode":"plan"}}       // proven 2026-09-04
 ```
+
+`interrupt` (2.1.260): the CLI answers at once with
+`{"type":"control_response","response":{"subtype":"success","request_id":…,"response":{"still_queued":[]}}}`,
+echoes a user line `[Request interrupted by user]`, and ends the turn
+with a `result` (`stop_reason: null`). Cut while counting at 57, asked
+"what was the last number?", the session answered 57 — the conversation
+is intact. `still_queued` says the CLI has a queue of its own for user
+messages that arrive mid-turn; the host keeps its own anyway, so a
+queued message shows on the phone and can be withdrawn.
+
+`set_model` (2.1.260): a bare success
+`{"subtype":"success","request_id":…}`, a replayed user line
+`<local-command-stdout>Set model to \`haiku (claude-haiku-4-5-20251001)\`</local-command-stdout>`
+(`isReplay: true`), and a fresh `init` naming the model; the next
+`assistant` message carries it. `default` resolves to the CLI's own
+choice (`claude-opus-5[1m]` that day). No `set_effort` exists; effort
+still restarts the process.
 
 `set_permission_mode` (2.1.260): the CLI answers
 `{"type":"control_response","response":{"subtype":"success","request_id":…,"response":{"mode":"plan"}}}`,
@@ -278,8 +295,8 @@ puts objects in Storage. The host is the only writer of session truth.
 
 ### Spikes to run first, each recorded here when answered
 
-1. `interrupt` on the pinned CLI: the `control_response` and the `result` that follow.
-2. `set_model` / `set_permission_mode`: `set_permission_mode` **honoured** (2026-09-04, above); `set_model` still to run, with `interrupt`.
+1. `interrupt` on the pinned CLI: **answered** 2026-09-04 (above) — `{still_queued: []}`, an echoed user line, a `result`; the session lives.
+2. `set_model` / `set_permission_mode`: **both honoured** (2026-09-04, above); the dials switch in place.
 3. `ExitPlanMode`'s request: **answered** 2026-09-04 (above) — `input.plan`, and the allow takes `setMode`.
 4. `/compact` as a user message in `-p`: compacts, or not.
 5. `xcrun simctl io <udid> screenshot` to a pipe, and the frame rate it sustains.

@@ -44,7 +44,7 @@ class DeckView extends StatefulWidget {
     this.resumeLabel = 'RESUME',
     this.here = 'Mac',
     this.modeChoice = 'default',
-    this.modePending = false,
+    this.switchPending = false,
     this.chrome = false,
     this.chromeStatus,
     this.modelChoice = 'default',
@@ -60,6 +60,7 @@ class DeckView extends StatefulWidget {
     this.onWithdraw,
     this.onChromeHidden,
     this.foldOnScroll,
+    this.onInterrupt,
   });
 
   final BridgeState state;
@@ -101,12 +102,17 @@ class DeckView extends StatefulWidget {
   final String? chromeStatus;
 
   /// The dials: one of [modelChoices], one of [effortChoices], one of
-  /// [modeChoices]. The mode switches in place; [modePending] says the
-  /// dial moved mid-turn and the switch waits for the turn to end.
+  /// [modeChoices]. The mode and the model switch in place;
+  /// [switchPending] says a dial moved mid-turn and the switch waits for
+  /// the turn to end.
   final String modelChoice;
   final String effort;
   final String modeChoice;
-  final bool modePending;
+  final bool switchPending;
+
+  /// Ends the running turn and keeps the session — INTERRUPT on the title
+  /// row while a turn runs. Null: no such brake here.
+  final VoidCallback? onInterrupt;
 
   /// An option changed while a turn ran; it applies when the turn ends.
   final bool restartPending;
@@ -830,7 +836,7 @@ class DeckTab extends StatelessWidget {
           resumeLabel: resumable == null ? 'RESUME' : 'RESUME ${shortId(resumable).toUpperCase()}',
           turnOpen: b.transcript.turnOpen,
           modeChoice: b.modeChoice,
-          modePending: b.modePending,
+          switchPending: b.modePending || b.modelPending,
           chrome: b.chrome,
           chromeStatus: b.chromeStatus,
           modelChoice: b.modelChoice ?? 'default',
@@ -849,6 +855,8 @@ class DeckTab extends StatelessWidget {
           onStart: () => b.start(),
           onResume: () => b.start(resume: true),
           onStop: () => b.stop(),
+          onInterrupt: () => b.interrupt(),
+          onWithdraw: (id) => b.withdrawQueued(id),
           onSend: (text, files) async => b.send(text, files: files),
           pick: pick,
         );
@@ -910,7 +918,7 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         turnOpen: d.turnOpen,
         here: widget.from,
         modeChoice: d.modeChoice,
-        modePending: d.modePending,
+        switchPending: d.switchPending,
         chrome: d.chrome,
         chromeStatus: d.chromeStatus,
         modelChoice: d.modelChoice,
@@ -928,6 +936,7 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         onStart: () => d.startSession(),
         onResume: () => d.startSession(resume: true),
         onStop: d.stopSession,
+        onInterrupt: d.interrupt,
         onSend: (text, files) => d.send(text, files: files),
         pick: widget.pick,
       ),
@@ -1002,7 +1011,9 @@ class _Header extends StatelessWidget {
                 child: Text('${w.title == null ? '' : '${w.title!.toUpperCase()} · '}$label', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.display(13, weight: FontWeight.w600, ls: 2.0, color: color)),
               ),
             ),
-            if (w.running)
+            if (w.turnOpen && w.onInterrupt != null)
+              Flexible(child: _InterruptButton(onTap: w.onInterrupt!))
+            else if (w.running)
               IconButton(
                 tooltip: 'Stop',
                 visualDensity: VisualDensity.compact,
@@ -1064,8 +1075,11 @@ class _Header extends StatelessWidget {
                   ),
                 ),
               ),
-              // Folded while running: Stop stays one tap away.
-              if (!open && w.running)
+              // A turn running: INTERRUPT is the brake on the row; Stop
+              // waits in the fold. Folded otherwise: Stop stays one tap away.
+              if (w.turnOpen && w.onInterrupt != null)
+                Flexible(child: _InterruptButton(onTap: w.onInterrupt!))
+              else if (!open && w.running)
                 IconButton(
                   tooltip: 'Stop',
                   visualDensity: VisualDensity.compact,
@@ -1159,10 +1173,10 @@ class _Header extends StatelessWidget {
                 child: Text(
                   w.restartPending
                       ? 'Applies when this turn ends — the session restarts on the same conversation.'
-                      : w.modePending
-                          ? 'The mode switches when this turn ends.'
-                          : 'The mode switches in place; model and effort restart the session on the same conversation.',
-                  style: t.mono(11, color: w.restartPending || w.modePending ? t.warn : t.muted),
+                      : w.switchPending
+                          ? 'The change applies when this turn ends.'
+                          : 'Model and mode switch in place; Chrome and effort restart the session on the same conversation.',
+                  style: t.mono(11, color: w.restartPending || w.switchPending ? t.warn : t.muted),
                 ),
               ),
           ],
@@ -1254,6 +1268,28 @@ class _DialState extends State<_Dial> {
   }
 }
 
+/// The brake on the title row: ends the turn, keeps the session.
+class _InterruptButton extends StatelessWidget {
+  const _InterruptButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return TextButton(
+      style: TextButton.styleFrom(
+        foregroundColor: t.warn,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        minimumSize: const Size(0, 36),
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      onPressed: onTap,
+      child: Text('INTERRUPT', maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: t.display(12, weight: FontWeight.w600, ls: 1.8, color: t.warn)),
+    );
+  }
+}
+
 /// One session option, as a switch that reads: what it is · what it is set
 /// to. Fixed while a session runs.
 class _OptionPill extends StatelessWidget {
@@ -1291,7 +1327,8 @@ class _Row extends StatelessWidget {
   final DeckMessage message;
   final Map<String, double> progress;
 
-  /// This echo's command waits on a Mac that is gone.
+  /// This echo's command waits on a Mac that is gone. A row the host
+  /// holds behind a running turn says so itself ([DeckMessage.queued]).
   final bool queued;
   final VoidCallback? onWithdraw;
 
@@ -1326,7 +1363,7 @@ class _Row extends StatelessWidget {
                   ),
                   child: Text(m.text, style: TextStyle(fontSize: 15, height: 1.4, color: m.streaming ? t.ink2 : t.ink)),
                 ),
-              if (queued)
+              if (queued || m.queued)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Wrap(
@@ -1334,7 +1371,7 @@ class _Row extends StatelessWidget {
                     alignment: WrapAlignment.end,
                     spacing: 8,
                     children: [
-                      Text('QUEUED · MAC UNREACHABLE', style: t.readout(10, color: t.warn)),
+                      Text(queued ? 'QUEUED · MAC UNREACHABLE' : 'QUEUED · AFTER THIS TURN', style: t.readout(10, color: t.warn)),
                       if (onWithdraw != null)
                         InkWell(
                           onTap: onWithdraw,

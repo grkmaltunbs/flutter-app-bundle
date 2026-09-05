@@ -19,7 +19,7 @@ import 'presence.dart';
 /// projects/{slug}/inbox/{auto}    a batch from the phone; the host stamps appliedAt
 /// projects/{slug}/events/{auto}   milestones from hooks (prompt, stop, notification)
 /// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
-/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|options|push-test, …}; options carry mode, chrome, model, effort; the host stamps doneAt, result
+/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|interrupt|withdraw|options|push-test, …}; withdraw names a queued messageId; options carry mode, chrome, model, effort; the host stamps doneAt, result
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
@@ -421,6 +421,10 @@ class RemoteDeck extends ChangeNotifier {
   /// [modePending] that the dial moved mid-turn and waits for its end.
   String get modeChoice => knownMode(session['modeChoice']);
   bool get modePending => session['modePending'] == true;
+  bool get modelPending => session['modelPending'] == true;
+
+  /// A dial moved mid-turn; the switch waits for the turn to end.
+  bool get switchPending => modePending || modelPending;
   String? get permissionMode => session['permissionMode']?.toString();
   bool get chrome => session['chrome'] == true;
   String get modelChoice => (session['modelChoice'] ?? 'default').toString();
@@ -470,10 +474,20 @@ class RemoteDeck extends ChangeNotifier {
     }, onError: (Object _) {});
   }
 
-  /// Takes back a send the Mac never saw. Nothing happens when it ran.
-  Future<void> withdraw(String echoId) async {
-    final ref = _pending[echoId];
-    if (ref == null) return;
+  /// Ends the running turn and keeps the session — a command the host
+  /// turns into the `interrupt` control request.
+  Future<void> interrupt() => CommandSender(db, slug).send({'type': 'interrupt'}, from: from);
+
+  /// Takes back a send: one the Mac never saw (the command is deleted
+  /// unread), or one the host holds queued behind a running turn (a
+  /// `withdraw` command names the row). Nothing happens when it ran.
+  Future<void> withdraw(String id) async {
+    final ref = _pending[id];
+    if (ref == null) {
+      if (messages.any((m) => m.id == id && m.queued)) await CommandSender(db, slug).send({'type': 'withdraw', 'messageId': id}, from: from);
+      return;
+    }
+    final echoId = id;
     try {
       final d = await ref.get();
       if (d.exists && d.data()?['doneAt'] != null) return;
@@ -539,7 +553,7 @@ class RemoteDeck extends ChangeNotifier {
       sub.cancel();
       _pending.remove(echo.id);
       final result = (m['result'] ?? '').toString();
-      if (result.startsWith('sent')) return;
+      if (result.startsWith('sent') || result.startsWith('queued')) return;
       echoes.remove(echo);
       error = 'Not sent: $result';
       notifyListeners();

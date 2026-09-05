@@ -418,4 +418,34 @@ void main() {
     expect(find.text('NOW LINE'), findsOneWidget);
     expect(hidden, isEmpty);
   });
+
+  testWidgets('INTERRUPT sits on the title row while a turn runs; a row sent meanwhile says it waits and can be withdrawn', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final fake = FakeClaude();
+    final s = fakeSession(fake, dir: project.path, home: home.path);
+    await tester.pumpWidget(_app(DeckTab(bridge: s), size: const Size(390, 844), scale: 1.0));
+    await s.start();
+    fake.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'm', 'permissionMode': 'default'});
+    await _settle(tester);
+    expect(find.text('INTERRUPT'), findsNothing, reason: 'nothing runs');
+    s.send('count to 200');
+    await _settle(tester);
+    expect(find.text('INTERRUPT'), findsOneWidget);
+    await tester.tap(find.text('INTERRUPT'));
+    await _settle(tester);
+    await fake.writtenLines(2);
+    expect(((jsonDecode(fake.written.last) as Map)['request'] as Map)['subtype'], 'interrupt');
+    // Sent while the turn still runs: held, and said so.
+    s.send('and then say done');
+    await _settle(tester);
+    expect(find.text('QUEUED · AFTER THIS TURN'), findsOneWidget);
+    await tester.tap(find.text('WITHDRAW'));
+    await _settle(tester);
+    expect(find.text('QUEUED · AFTER THIS TURN'), findsNothing);
+    expect(find.text('and then say done'), findsNothing);
+    expect(fake.written.length, 2, reason: 'never sent');
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -322,7 +322,7 @@ class TurnWatch {
   String? _failure;
   ResultEvent? _result;
 
-  Notice? check({required BridgeState state, String? error, ResultEvent? lastResult, required String project}) {
+  Notice? check({required BridgeState state, String? error, ResultEvent? lastResult, bool interrupted = false, required String project}) {
     if (state == BridgeState.failed && error != null && error.isNotEmpty) {
       if (_failure == error) return null;
       _failure = error;
@@ -331,6 +331,8 @@ class TurnWatch {
     if (state != BridgeState.failed) _failure = null;
     if (lastResult != null && !identical(lastResult, _result)) {
       _result = lastResult;
+      // The user cut it; they know.
+      if (interrupted) return null;
       if (lastResult.isError) return noticeForProblem(lastResult.text.trim().isEmpty ? 'The turn ended in an error.' : lastResult.text, project: project);
       return noticeForDone(lastResult, project: project);
     }

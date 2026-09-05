@@ -198,6 +198,7 @@ class BridgeSession extends ChangeNotifier {
   /// nothing was given.
   bool setOptions({String? mode, bool? chrome, String? model, String? effort}) {
     if (mode == null && chrome == null && model == null && effort == null) return false;
+    final before = modelChoice;
     if (mode != null) modeChoice = knownMode(mode);
     if (chrome != null) this.chrome = chrome;
     if (model != null) modelChoice = BridgeRecord._choice(model);
@@ -208,7 +209,11 @@ class BridgeSession extends ChangeNotifier {
         _modeWanted = modeChoice;
         _applyPendingMode();
       }
-      if (chrome != null || model != null || effort != null) {
+      if (model != null && modelChoice != before) {
+        _modelWanted = modelChoice ?? 'default';
+        _applyPendingModel();
+      }
+      if (chrome != null || effort != null) {
         restartPending = true;
         _applyPendingRestart();
       }
@@ -217,19 +222,32 @@ class BridgeSession extends ChangeNotifier {
     return true;
   }
 
-  /// A mode the running session is not in yet — sent when the turn ends.
+  /// A mode, a model, the running session is not on yet — sent when the
+  /// turn ends (`set_permission_mode`, `set_model`; both proven live on
+  /// 2.1.260, 2026-09-04).
   String? _modeWanted;
-  int _modeSeq = 0;
+  String? _modelWanted;
+  int _ctlSeq = 0;
 
-  /// The dial moved while a turn ran; the switch waits for the turn's end.
+  /// A dial moved while a turn ran; the switch waits for the turn's end.
   bool get modePending => _modeWanted != null;
+  bool get modelPending => _modelWanted != null;
 
   void _applyPendingMode() {
     final proc = _proc;
     final want = _modeWanted;
     if (proc == null || want == null || state != BridgeState.ready || restartPending) return;
     _modeWanted = null;
-    proc.stdin.writeln(encodeSetPermissionMode('mode-${++_modeSeq}', want));
+    proc.stdin.writeln(encodeSetPermissionMode('mode-${++_ctlSeq}', want));
+    unawaited(proc.stdin.flush());
+  }
+
+  void _applyPendingModel() {
+    final proc = _proc;
+    final want = _modelWanted;
+    if (proc == null || want == null || state != BridgeState.ready || restartPending) return;
+    _modelWanted = null;
+    proc.stdin.writeln(encodeSetModel('model-${++_ctlSeq}', want));
     unawaited(proc.stdin.flush());
   }
 
@@ -320,10 +338,12 @@ class BridgeSession extends ChangeNotifier {
     log.clear();
     if (fresh != null) _logLine(fresh);
     _sessionAllows.clear();
-    _modeWanted = null; // the flags carry the dial
+    _modeWanted = null; // the flags carry the dials
+    _modelWanted = null;
     if (!resume) {
       // A fresh session is a fresh conversation; Resume keeps the old one.
       transcript.messages.clear();
+      _queue.clear();
       transcript.pending = null;
       transcript.lastResult = null;
       transcript.turnOpen = false;
@@ -380,6 +400,8 @@ class BridgeSession extends ChangeNotifier {
         }
         _applyPendingRestart();
         _applyPendingMode();
+        _applyPendingModel();
+        _flushQueue();
       case AskEvent():
         if (!e.ask.isQuestion && _sessionAllows.contains(e.ask.key)) {
           _answerRemembered(e.ask);
@@ -389,8 +411,16 @@ class BridgeSession extends ChangeNotifier {
         }
       case ResultEvent():
         state = BridgeState.ready;
+        final by = _interruptedBy;
+        lastTurnInterrupted = by != null;
+        if (by != null) {
+          _interruptedBy = null;
+          transcript.addNote('Interrupted from the $by.');
+        }
         _applyPendingRestart();
         _applyPendingMode();
+        _applyPendingModel();
+        _flushQueue();
       case ControlResponseEvent():
         if (!e.ok) _logLine('${e.requestId} refused: ${e.error ?? 'no reason given'}');
       case StatusEvent():
@@ -423,12 +453,18 @@ class BridgeSession extends ChangeNotifier {
   /// the store and named by path in the prompt; an image the API takes
   /// goes inline too, so the model sees it at once — a pasted screenshot,
   /// as in the terminal.
-  void send(String text, {Map<String, Object?>? about, List<PendingAttachment> files = const []}) {
+  ///
+  /// While a turn runs, the message is **queued**: the row shows so, the
+  /// host holds the stdin line and writes it the moment the `result`
+  /// lands — one queue per session, in order — unless [withdrawQueued]
+  /// takes it back first. Returns true when it was queued.
+  bool send(String text, {Map<String, Object?>? about, List<PendingAttachment> files = const []}) {
     final proc = _proc;
     final t = text.trim();
-    if (proc == null || !running || (t.isEmpty && files.isEmpty)) return;
+    if (proc == null || !running || (t.isEmpty && files.isEmpty)) return false;
     final saved = [for (final f in files) attachments.save(f)];
-    transcript.addUser(t, about: about, attachments: saved);
+    final queued = transcript.turnOpen || _queue.isNotEmpty;
+    final row = transcript.addUser(t, about: about, attachments: saved, queued: queued);
     var prompt = about == null ? t : scopedPrompt(t, about, describeAbout?.call(about));
     final images = <InlineImage>[];
     final inline = <int>{};
@@ -438,10 +474,71 @@ class BridgeSession extends ChangeNotifier {
       inline.add(i);
     }
     prompt = attachmentsPrompt(prompt, saved, inline: inline);
-    proc.stdin.writeln(encodeUserMessage(prompt, images: images));
+    final line = encodeUserMessage(prompt, images: images);
+    if (queued) {
+      _queue.add((row: row, line: line));
+      notifyListeners();
+      return true;
+    }
+    proc.stdin.writeln(line);
     unawaited(proc.stdin.flush());
     state = BridgeState.busy;
     notifyListeners();
+    return false;
+  }
+
+  /// Messages sent while a turn ran, with the stdin line each becomes.
+  final List<({DeckMessage row, String line})> _queue = [];
+
+  /// Ids of the rows still waiting, in order.
+  List<String> get queuedIds => [for (final q in _queue) q.row.id];
+
+  /// Takes a queued message back: gone from the queue and the transcript.
+  /// False when it already ran, or never queued.
+  bool withdrawQueued(String id) {
+    final i = _queue.indexWhere((q) => q.row.id == id);
+    if (i < 0) return false;
+    _queue.removeAt(i);
+    transcript.dropQueued(id);
+    notifyListeners();
+    return true;
+  }
+
+  /// The turn ended: the first queued message goes now.
+  void _flushQueue() {
+    final proc = _proc;
+    if (proc == null || _queue.isEmpty || state != BridgeState.ready || restartPending) return;
+    final next = _queue.removeAt(0);
+    transcript.release(next.row);
+    proc.stdin.writeln(next.line);
+    unawaited(proc.stdin.flush());
+    state = BridgeState.busy;
+  }
+
+  /// Who interrupted the running turn — the note the `result` gets.
+  String? _interruptedBy;
+
+  /// The last turn ended because someone interrupted it — no "Done" push.
+  bool lastTurnInterrupted = false;
+
+  /// Ends the running turn and keeps the session: the `interrupt` control
+  /// request. An open ask goes with the turn — withdrawn here and on
+  /// every surface. False when no turn is running.
+  bool interrupt({String by = 'Mac'}) {
+    final proc = _proc;
+    if (proc == null || !transcript.turnOpen) return false;
+    final open = transcript.pending;
+    if (open != null) {
+      transcript.pending = null;
+      transcript.addNote('Withdrawn — the turn was interrupted: ${open.summary}');
+      onWithdrawn?.call(open);
+    }
+    _interruptedBy = by;
+    proc.stdin.writeln(encodeInterrupt('int-${++_ctlSeq}'));
+    unawaited(proc.stdin.flush());
+    state = BridgeState.busy;
+    notifyListeners();
+    return true;
   }
 
   /// Answers the pending ask. A no-op when nothing is pending, or when
@@ -535,6 +632,8 @@ class BridgeSession extends ChangeNotifier {
     // takes the record with it on the next Start.
     if (!_restarting) restartPending = false;
     _modeWanted = null;
+    _modelWanted = null;
+    _interruptedBy = null;
     _writeRecord();
     notifyListeners();
   }
@@ -572,6 +671,7 @@ class BridgeSession extends ChangeNotifier {
         'canResume': !running && previous()?.sessionId != null,
         'modeChoice': modeChoice,
         'modePending': modePending,
+        'modelPending': modelPending,
         if (transcript.permissionMode != null) 'permissionMode': transcript.permissionMode,
         'chrome': chrome,
         'modelChoice': modelChoice ?? 'default',

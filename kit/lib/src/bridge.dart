@@ -70,6 +70,29 @@ String encodeSetPermissionMode(String requestId, String mode) => jsonEncode({
       'request': {'subtype': 'set_permission_mode', 'mode': mode},
     });
 
+/// The stdin line that switches a running session's model in place —
+/// an alias (`opus`, `haiku`) or `default` for the CLI's own choice. The
+/// CLI answers with a bare success, echoes "Set model to …" as a replayed
+/// user line, and writes a fresh `init` naming the model (proven
+/// 2026-09-04, 2.1.260).
+String encodeSetModel(String requestId, String model) => jsonEncode({
+      'type': 'control_request',
+      'request_id': requestId,
+      'request': {'subtype': 'set_model', 'model': model},
+    });
+
+/// The stdin line that ends the running turn and keeps the session — the
+/// Agent SDK's `interrupt()`. The CLI answers `{still_queued: []}` at
+/// once, echoes "[Request interrupted by user]" as a user line, and ends
+/// the turn with a `result`; the next message finds the conversation
+/// intact (proven 2026-09-04, 2.1.260: cut at 57, asked "the last
+/// number?", answered 57).
+String encodeInterrupt(String requestId) => jsonEncode({
+      'type': 'control_request',
+      'request_id': requestId,
+      'request': {'subtype': 'interrupt'},
+    });
+
 List<String> bridgeArgs({required String sessionId, bool resume = false, String? model, String? effort, String permissionMode = 'default', bool chrome = false, String? appendSystemPrompt}) => [
       '-p',
       '--verbose',
@@ -811,6 +834,7 @@ class DeckMessage {
     this.toolResult,
     this.isError = false,
     this.streaming = false,
+    this.queued = false,
     this.about,
     this.attachments = const [],
   });
@@ -826,6 +850,7 @@ class DeckMessage {
         toolResult: m['toolResult']?.toString(),
         isError: m['isError'] == true,
         streaming: m['streaming'] == true,
+        queued: m['queued'] == true,
         about: m['about'] is Map ? _map(m['about']) : null,
         attachments: [for (final a in (m['attachments'] as List? ?? const [])) if (a is Map) DeckAttachment.fromMap(_map(a))],
       );
@@ -840,6 +865,10 @@ class DeckMessage {
   String? toolResult;
   bool isError;
   bool streaming;
+
+  /// A user row the host holds until the running turn ends — sent then,
+  /// in order, unless withdrawn first.
+  bool queued;
 
   /// `{item: id}` or `{step: id}` when the message is about one thing.
   final Map<String, Object?>? about;
@@ -871,6 +900,7 @@ class DeckMessage {
         if (toolResult != null) 'toolResult': toolResult,
         'isError': isError,
         'streaming': streaming,
+        if (queued) 'queued': true,
         if (about != null) 'about': about,
         if (attachments.isNotEmpty) 'attachments': [for (final a in attachments) a.toMap()],
       };
@@ -914,13 +944,30 @@ class Transcript {
 
   String _nextId() => 'm${(_seq++).toString().padLeft(5, '0')}';
 
-  DeckMessage addUser(String text, {Map<String, Object?>? about, List<DeckAttachment> attachments = const []}) {
-    final m = DeckMessage(id: _nextId(), role: DeckRole.user, text: text, at: now(), about: about, attachments: attachments);
+  DeckMessage addUser(String text, {Map<String, Object?>? about, List<DeckAttachment> attachments = const [], bool queued = false}) {
+    final m = DeckMessage(id: _nextId(), role: DeckRole.user, text: text, at: now(), about: about, attachments: attachments, queued: queued);
     messages.add(m);
+    if (queued) return m; // the running turn keeps its scope
     turnOpen = true;
     _about = about;
     lastAbout = about;
     return m;
+  }
+
+  /// A queued row's turn: it opens now, with its own scope.
+  void release(DeckMessage m) {
+    m.queued = false;
+    turnOpen = true;
+    _about = m.about;
+    lastAbout = m.about;
+  }
+
+  /// A queued row taken back before it ran — gone from the transcript.
+  bool dropQueued(String id) {
+    final i = messages.indexWhere((m) => m.id == id && m.queued);
+    if (i < 0) return false;
+    messages.removeAt(i);
+    return true;
   }
 
   DeckMessage addNote(String text) {

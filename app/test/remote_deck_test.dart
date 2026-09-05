@@ -106,7 +106,12 @@ void main() {
       expect(cmds.docs.last.data()['type'], 'answer');
       expect((cmds.docs.last.data()['response'] as Map)['message'], 'The user declined from the phone.');
       expect(find.text('AUTHORIZATION REQUESTED'), findsNothing);
+      expect(find.text('INTERRUPT'), findsOneWidget, reason: 'a turn still runs: the brake on the row, Stop in the fold');
+      expect(find.byTooltip('Stop'), findsNothing);
 
+      // The turn over: Stop is back on the row.
+      await project.set({'session': {'state': 'ready', 'pendingAsks': 0}}, SetOptions(merge: true));
+      await _settle(tester);
       await tester.tap(find.byTooltip('Stop'));
       await _settle(tester);
       cmds = await project.collection('commands').orderBy('sentAt').get();
@@ -345,6 +350,39 @@ void main() {
     await test.reference.set({'doneAt': FieldValue.serverTimestamp(), 'result': 'sent to 1 phone'}, SetOptions(merge: true));
     await _settle(tester);
     expect(find.text('sent to 1 phone'), findsOneWidget, reason: 'what came of it, toasted');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('INTERRUPT on the title row is a command; a row the host holds reads queued, and WITHDRAW names it', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = FakeFirebaseFirestore();
+    final project = db.collection('projects').doc('demo');
+    await project.set({'name': 'Demo', 'machine': 'mac-mini', 'session': {'mode': 'bridge', 'state': 'busy', 'canResume': false, 'pendingAsks': 0}});
+    await project.collection('chat').doc('m00000').set(_row('m00000', DeckRole.user, 'count to 200'));
+    await project.collection('chat').doc('m00001').set({..._row('m00001', DeckRole.user, 'and then say done'), 'queued': true});
+    await tester.pumpWidget(MaterialApp(
+      theme: kitTheme(KitTokens.dark),
+      home: MediaQuery(data: const MediaQueryData(size: Size(390, 844)), child: Scaffold(body: RemoteDeckTab(db: db, slug: 'demo'))),
+    ));
+    await _settle(tester);
+    expect(find.text('INTERRUPT'), findsOneWidget);
+    expect(find.text('QUEUED · AFTER THIS TURN'), findsOneWidget);
+    await tester.tap(find.text('INTERRUPT'));
+    await _settle(tester);
+    var cmds = (await project.collection('commands').orderBy('sentAt').get()).docs.map((d) => d.data()).toList();
+    expect(cmds.last['type'], 'interrupt');
+    expect(cmds.last['from'], 'phone');
+    await tester.tap(find.text('WITHDRAW'));
+    await _settle(tester);
+    cmds = (await project.collection('commands').orderBy('sentAt').get()).docs.map((d) => d.data()).toList();
+    expect(cmds.last['type'], 'withdraw');
+    expect(cmds.last['messageId'], 'm00001');
+    // The turn over: the brake goes.
+    await project.set({'session': {'state': 'ready'}}, SetOptions(merge: true));
+    await _settle(tester);
+    expect(find.text('INTERRUPT'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

@@ -491,4 +491,37 @@ void main() {
     expect(q.options[0].toMap()['preview'], '| a |\n| b |');
     expect(q.options[1].toMap().containsKey('preview'), isFalse);
   });
+
+  test('interrupt and set_model lines; a queued row rides the relay; the transcript holds, releases and drops it', () {
+    final i = jsonDecode(encodeInterrupt('int-1')) as Map;
+    expect(i['type'], 'control_request');
+    expect(i['request_id'], 'int-1');
+    expect(i['request'], {'subtype': 'interrupt'});
+    final m = jsonDecode(encodeSetModel('model-1', 'haiku')) as Map;
+    expect(m['request'], {'subtype': 'set_model', 'model': 'haiku'});
+    final t = Transcript();
+    final first = t.addUser('count');
+    expect(t.turnOpen, isTrue);
+    final q = t.addUser('and then say done', about: {'step': 's1'}, queued: true);
+    expect(q.queued, isTrue);
+    expect(t.messages.length, 2);
+    expect(DeckMessage.fromMap(q.toMap()).queued, isTrue);
+    expect(first.toMap().containsKey('queued'), isFalse);
+    expect(t.lastAbout, isNull, reason: 'a queued row does not take the scope yet');
+    t.release(q);
+    expect(q.queued, isFalse);
+    expect(t.turnOpen, isTrue);
+    expect(t.lastAbout, {'step': 's1'});
+    final gone = t.addUser('never mind', queued: true);
+    expect(t.dropQueued(gone.id), isTrue);
+    expect(t.messages.map((r) => r.id), isNot(contains(gone.id)));
+    expect(t.dropQueued(first.id), isFalse, reason: 'not queued');
+    // What the CLI echoes on an interrupt and a set_model are user lines the transcript ignores.
+    t.apply(parseBridgeLine('{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]}}')!);
+    t.apply(parseBridgeLine('{"type":"user","message":{"role":"user","content":"<local-command-stdout>Set model to `haiku`</local-command-stdout>"},"isReplay":true}')!);
+    expect(t.messages.length, 2);
+    final r = parseBridgeLine('{"type":"control_response","response":{"subtype":"success","request_id":"int-1","response":{"still_queued":[]}}}') as ControlResponseEvent;
+    expect(r.ok, isTrue);
+    expect(r.response['still_queued'], isEmpty);
+  });
 }

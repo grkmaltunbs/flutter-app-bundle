@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kit_app/src/attachments.dart';
 import 'package:kit_app/src/host/bridge_session.dart';
 import 'package:kit_app/src/host/permission_rules.dart';
+import 'package:kit_app/src/host/push_sender.dart';
 import 'package:path/path.dart' as p;
 
 import 'helpers/fake_claude.dart';
@@ -95,7 +96,10 @@ void main() {
     expect('(shown above)'.allMatches(text).length, 1, reason: 'only the image is inline');
     expect(s.state, BridgeState.busy);
 
-    // No words at all: the file is the message.
+    // No words at all: the file is the message. (The first turn ends
+    // first — a send mid-turn would queue.)
+    fake.emitJson({'type': 'result', 'subtype': 'success', 'is_error': false, 'duration_ms': 10, 'num_turns': 1, 'result': 'ok', 'session_id': s.sessionId});
+    await pumpEventQueue();
     s.send('', files: [shot]);
     await fake.writtenLines(2);
     final again = (((jsonDecode(fake.written.last) as Map)['message'] as Map)['content']) as List;
@@ -170,10 +174,10 @@ void main() {
     expect(s.state, BridgeState.ready);
 
     // Between turns: at once.
-    expect(s.setOptions(model: 'opus'), isTrue);
+    expect(s.setOptions(chrome: true), isTrue);
     await pumpEventQueue(times: 200);
     expect(spawned.length, 2, reason: 'stopped and started again');
-    expect(spawned[1].startedWith, containsAllInOrder(['--resume', id, '--model', 'opus']));
+    expect(spawned[1].startedWith, containsAllInOrder(['--chrome', '--resume', id]));
     expect(s.sessionId, id, reason: 'the same conversation');
     expect(s.running, isTrue);
     expect(s.restartPending, isFalse);
@@ -184,7 +188,7 @@ void main() {
     // Mid-turn: the change waits for the end of the turn.
     s.send('do a thing');
     expect(s.state, BridgeState.busy);
-    expect(s.setOptions(effort: 'high', chrome: true), isTrue);
+    expect(s.setOptions(effort: 'high'), isTrue);
     expect(s.restartPending, isTrue);
     expect(s.toRelay()['restartPending'], isTrue);
     await pumpEventQueue(times: 50);
@@ -192,7 +196,7 @@ void main() {
     spawned[1].emitJson({'type': 'result', 'subtype': 'success', 'is_error': false, 'duration_ms': 10, 'num_turns': 1, 'result': 'done', 'session_id': id});
     await pumpEventQueue(times: 200);
     expect(spawned.length, 3);
-    expect(spawned[2].startedWith, containsAllInOrder(['--chrome', '--resume', id, '--model', 'opus', '--effort', 'high']));
+    expect(spawned[2].startedWith, containsAllInOrder(['--chrome', '--resume', id, '--effort', 'high']));
     expect(s.restartPending, isFalse);
     expect(s.transcript.messages.map((m) => m.text), contains('do a thing'), reason: 'the transcript carries on');
     expect(s.previous()!.effort, 'high');
@@ -659,5 +663,123 @@ void main() {
     expect(((back['response'] as Map)['response'] as Map)['behavior'], 'deny');
     expect(((back['response'] as Map)['response'] as Map)['message'], contains('keep it to one file'));
     expect(s.modeChoice, 'acceptEdits');
+  });
+
+  test('interrupt ends the turn and keeps the session; an open ask goes with it; no Done push for a cut turn', () async {
+    final fake = FakeClaude();
+    final s = fakeSession(fake, dir: project.path, home: home.path);
+    final withdrawn = <String>[];
+    s.onWithdrawn = (a) => withdrawn.add(a.requestId);
+    await s.start();
+    expect(s.interrupt(), isFalse, reason: 'no turn to interrupt');
+    s.send('count to 200');
+    await fake.writtenLines(1);
+    expect(s.interrupt(by: 'phone'), isTrue);
+    await fake.writtenLines(2);
+    final req = jsonDecode(fake.written.last) as Map;
+    expect(req['type'], 'control_request');
+    expect((req['request'] as Map)['subtype'], 'interrupt');
+    fake.emitJson({'type': 'control_response', 'response': {'subtype': 'success', 'request_id': req['request_id'], 'response': {'still_queued': []}}});
+    fake.emitJson({'type': 'user', 'message': {'role': 'user', 'content': [{'type': 'text', 'text': '[Request interrupted by user]'}]}});
+    fake.emitJson({'type': 'result', 'subtype': 'success', 'is_error': false, 'duration_ms': 10, 'num_turns': 1, 'result': '', 'session_id': s.sessionId});
+    await pumpEventQueue();
+    expect(s.state, BridgeState.ready);
+    expect(s.running, isTrue, reason: 'the session lives');
+    expect(s.lastTurnInterrupted, isTrue);
+    expect(s.transcript.messages.last.role, DeckRole.note);
+    expect(s.transcript.messages.last.text, 'Interrupted from the phone.');
+    expect(TurnWatch().check(state: s.state, lastResult: s.transcript.lastResult, interrupted: true, project: 'P'), isNull, reason: 'the user cut it; no Done push');
+    expect(TurnWatch().check(state: s.state, lastResult: s.transcript.lastResult, project: 'P'), isNotNull);
+    // The next message is a turn like any other.
+    s.send('what was the last number?');
+    await fake.writtenLines(3);
+    fake.emitJson({'type': 'result', 'subtype': 'success', 'is_error': false, 'duration_ms': 10, 'num_turns': 1, 'result': '57', 'session_id': s.sessionId});
+    await pumpEventQueue();
+    expect(s.lastTurnInterrupted, isFalse);
+    // An ask open when the turn is cut is withdrawn with it.
+    s.send('touch a marker');
+    await fake.writtenLines(4);
+    scriptBashAsk(fake);
+    await pumpEventQueue();
+    expect(s.state, BridgeState.waiting);
+    final pending = s.transcript.pending!;
+    expect(s.interrupt(), isTrue);
+    expect(s.transcript.pending, isNull);
+    expect(withdrawn, [pending.requestId]);
+    await fake.writtenLines(5);
+    expect(((jsonDecode(fake.written.last) as Map)['request'] as Map)['subtype'], 'interrupt');
+    expect(s.transcript.messages.map((m) => m.text), contains('Withdrawn — the turn was interrupted: touch /tmp/kit-ask'));
+  });
+
+  test('a message sent mid-turn queues, in order, and runs when the result lands; a withdrawn one never runs', () async {
+    final fake = FakeClaude();
+    final s = fakeSession(fake, dir: project.path, home: home.path);
+    await s.start();
+    expect(s.send('count to 200'), isFalse);
+    await fake.writtenLines(1);
+    expect(s.send('and then say done'), isTrue);
+    expect(s.send('and wave'), isTrue);
+    await pumpEventQueue(times: 20);
+    expect(fake.written.length, 1, reason: 'held on the host');
+    final rows = s.transcript.messages.where((m) => m.role == DeckRole.user).toList();
+    expect(rows.map((m) => m.queued), [false, true, true]);
+    expect(s.queuedIds, [rows[1].id, rows[2].id]);
+    expect(s.state, BridgeState.busy);
+    expect(s.withdrawQueued(rows[2].id), isTrue);
+    expect(s.withdrawQueued(rows[0].id), isFalse, reason: 'already sent');
+    expect(s.transcript.messages.map((m) => m.id), isNot(contains(rows[2].id)));
+    fake.emitJson({'type': 'result', 'subtype': 'success', 'is_error': false, 'duration_ms': 10, 'num_turns': 1, 'result': '200', 'session_id': s.sessionId});
+    await fake.writtenLines(2);
+    final sent = ((jsonDecode(fake.written.last) as Map)['message'] as Map)['content'];
+    expect(sent, 'and then say done');
+    expect(rows[1].queued, isFalse);
+    expect(s.state, BridgeState.busy);
+    expect(s.transcript.turnOpen, isTrue);
+    expect(s.queuedIds, isEmpty);
+    fake.emitJson({'type': 'result', 'subtype': 'success', 'is_error': false, 'duration_ms': 10, 'num_turns': 1, 'result': 'done', 'session_id': s.sessionId});
+    await pumpEventQueue(times: 20);
+    expect(fake.written.length, 2, reason: 'nothing else waited');
+    expect(s.state, BridgeState.ready);
+    expect(s.send('again'), isFalse, reason: 'between turns: straight through');
+  });
+
+  test('the model switches in place too — set_model, no restart; mid-turn it waits; effort still restarts', () async {
+    final spawned = <FakeClaude>[];
+    final s = fakeSessionEach(spawned, dir: project.path, home: home.path);
+    await s.start();
+    final first = spawned.single;
+    first.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'claude-opus-5', 'permissionMode': 'default'});
+    await pumpEventQueue();
+    expect(s.setOptions(model: 'haiku'), isTrue);
+    await first.writtenLines(1);
+    final req = jsonDecode(first.written.last) as Map;
+    expect(req['request'], {'subtype': 'set_model', 'model': 'haiku'});
+    expect(spawned.length, 1, reason: 'no restart');
+    expect(s.restartPending, isFalse);
+    expect(s.modelPending, isFalse);
+    expect(s.previous()!.model, 'haiku');
+    first.emitJson({'type': 'control_response', 'response': {'subtype': 'success', 'request_id': req['request_id']}});
+    first.emitJson({'type': 'user', 'message': {'role': 'user', 'content': '<local-command-stdout>Set model to `haiku`</local-command-stdout>'}, 'isReplay': true});
+    first.emitJson({'type': 'system', 'subtype': 'init', 'session_id': s.sessionId, 'model': 'claude-haiku-4-5-20251001', 'permissionMode': 'default'});
+    await pumpEventQueue();
+    expect(s.transcript.model, 'claude-haiku-4-5-20251001');
+    expect(s.transcript.messages, isEmpty, reason: 'the echo is not a row');
+    // Mid-turn: it waits; `default` hands the choice back to the CLI.
+    s.send('hi');
+    await first.writtenLines(2);
+    expect(s.setOptions(model: 'default'), isTrue);
+    expect(s.modelPending, isTrue);
+    expect(s.toRelay()['modelPending'], isTrue);
+    await pumpEventQueue(times: 20);
+    expect(first.written.length, 2);
+    first.emitJson({'type': 'result', 'subtype': 'success', 'is_error': false, 'duration_ms': 10, 'num_turns': 1, 'result': 'hi', 'session_id': s.sessionId});
+    await first.writtenLines(3);
+    expect((jsonDecode(first.written.last) as Map)['request'], {'subtype': 'set_model', 'model': 'default'});
+    expect(s.modelPending, isFalse);
+    // Effort has no live switch: the process restarts on the same conversation.
+    expect(s.setOptions(effort: 'high'), isTrue);
+    await pumpEventQueue(times: 200);
+    expect(spawned.length, 2);
+    expect(spawned[1].startedWith, containsAllInOrder(['--resume', s.sessionId, '--effort', 'high']));
   });
 }
