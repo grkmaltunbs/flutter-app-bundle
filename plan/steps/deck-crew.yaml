@@ -1,14 +1,14 @@
 id: deck-crew
 number: "16"
 title: Deck crew — subagents as a strip, tool rows that open, and the line since you last looked
-status: pending
+status: done
 rank: 770
 depends_on: [deck-on-the-phone]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-06, note: "flutter analyze + dart analyze: no issues", status: passed}
+  tests: { at: 2026-09-06, note: "kit 93 (parent_tool_use_id on every line, the task_* lines by kind, the transcript folding a subagent under its Agent row with progress\/doneAt\/report, crewOf per turn, 24 KB tool output kept and marked cut, the clock), app 121 (the crew chip at 1.0\/2.0\/3.12x with its rows folded and the sheet running then done, the Agent row opening the same member, a Bash row's sheet with the 24 KB note, the since-you-last-looked line above the first unread row, remembered on leaving and moved on return, another session all new, nothing remembered no line); the subagent protocol proven live on claude 2.1.261, 2026-09-06", status: passed}
+  qa: { at: 2026-09-06, note: "Run by Claude on the user's phone over adb, 2026-09-06, on Nahmatik: a Task\/Agent turn (Explore on haiku) put an EXPLORE chip on the strip with a pulse and a running clock (0:03 → 0:08), its find\/wc rows stayed out of the main list; done, the chip dimmed and its tap showed DONE · IN 0:08 · 2 TOOL USES, the report, and its two rows; a tap on a Bash row there opened INPUT · BASH with the command and RESULT 398; the turn's row read 48.6K CTX · 663 OUT. A second turn with the app sent home after 2 s: on return the SINCE YOU LAST LOOKED line sat above the reply and the list landed on it. Sizes covered by tests; the 24 KB cut by tests.", status: passed}
 sections:
   - title: Description
     body: |
@@ -49,3 +49,17 @@ sections:
       - `kit/lib/src/bridge.dart` (`parent_tool_use_id`), `app/lib/src/host/bridge_session.dart` (crew on the session doc), `app/lib/src/screens/deck_tab.dart` (strip, row sheet, marker), `app/lib/src/draft.dart` (last-seen)
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — improve the deck" }
+  - at: 2026-09-06
+    event: started
+  - at: 2026-09-06
+    event: gate analyze passed
+    note: "flutter analyze + dart analyze: no issues"
+  - at: 2026-09-06
+    event: gate tests passed
+    note: "kit 93 (parent_tool_use_id on every line, the task_* lines by kind, the transcript folding a subagent under its Agent row with progress\/doneAt\/report, crewOf per turn, 24 KB tool output kept and marked cut, the clock), app 121 (the crew chip at 1.0\/2.0\/3.12x with its rows folded and the sheet running then done, the Agent row opening the same member, a Bash row's sheet with the 24 KB note, the since-you-last-looked line above the first unread row, remembered on leaving and moved on return, another session all new, nothing remembered no line); the subagent protocol proven live on claude 2.1.261, 2026-09-06"
+  - at: 2026-09-06
+    event: gate qa passed
+    note: "Run by Claude on the user's phone over adb, 2026-09-06, on Nahmatik: a Task\/Agent turn (Explore on haiku) put an EXPLORE chip on the strip with a pulse and a running clock (0:03 → 0:08), its find\/wc rows stayed out of the main list; done, the chip dimmed and its tap showed DONE · IN 0:08 · 2 TOOL USES, the report, and its two rows; a tap on a Bash row there opened INPUT · BASH with the command and RESULT 398; the turn's row read 48.6K CTX · 663 OUT. A second turn with the app sent home after 2 s: on return the SINCE YOU LAST LOOKED line sat above the reply and the list landed on it. Sizes covered by tests; the 24 KB cut by tests."
+  - at: 2026-09-06
+    event: done
+    note: "Subagents as chips on a strip with their rows folded under (Agent tool, parent_tool_use_id, task_* lines), every tool row opening to its whole input and result (24 KB), and the since-you-last-looked line per project on the phone"
