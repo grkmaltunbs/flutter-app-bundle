@@ -1,14 +1,14 @@
 id: autopilot
 number: "17"
 title: Autopilot — the host keeps stepping within a budget, waits for the pool, and stops for you
-status: pending
+status: active
 rank: 780
 depends_on: [notification-actions, host-service, instruments, interrupt]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-06, note: "kit and app: no issues", status: passed}
+  tests: { at: 2026-09-06, note: "kit 101, app 140 (1 skip: the live bridge test)", status: passed}
+  qa: { at: 2026-09-06, note: "run by Claude on the user's phone against a scratch project (~\/kit-scratch): budget 2 → two \/steps, Step 2 done · 1 of 2, Stopped · budget reached · Step 3 done · 2 of 2; an ask allowed from the lock screen mid-loop; the pill, the sheet, the header line and the labelled rows seen live", status: passed}
 sections:
   - title: Description
     body: |
@@ -59,3 +59,14 @@ sections:
       - `app/lib/src/host/autopilot.dart` (new), `app/lib/src/host/bridge_session.dart`, `app/lib/src/host/push_sender.dart`, `app/lib/src/relay.dart` (session.autopilot), `app/lib/src/screens/deck_tab.dart` (toggle, sheet, waiting line), `runner/` (deleted), `docs/autobuild.md` (deleted), `README.md`
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — replaces the parked runner" }
+  - at: 2026-09-06
+    event: started
+  - at: 2026-09-06
+    event: gate analyze passed
+    note: "kit and app: no issues"
+  - at: 2026-09-06
+    event: gate tests passed
+    note: "kit 101, app 140 (1 skip: the live bridge test)"
+  - at: 2026-09-06
+    event: gate qa passed
+    note: "run by Claude on the user's phone against a scratch project (~\/kit-scratch): budget 2 → two \/steps, Step 2 done · 1 of 2, Stopped · budget reached · Step 3 done · 2 of 2; an ask allowed from the lock screen mid-loop; the pill, the sheet, the header line and the labelled rows seen live"
