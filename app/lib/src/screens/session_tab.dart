@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter/services.dart';
-import 'package:flutter_kit/kit.dart' show PoolWindow, modeChoices, modeLabel, thousands, untilLabel;
+import 'package:flutter_kit/kit.dart' show PoolWindow, autopilotLine, modeChoices, modeLabel, thousands, untilLabel;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../host/host_presence.dart';
@@ -186,6 +186,7 @@ class _SessionTabState extends State<SessionTab> {
                     _reading(context, 'Five-hour pool', pool == null ? '—' : window(pool.fiveHour ?? PoolWindow(resetsAt: pool.resetsAt))),
                     _reading(context, 'Weekly pool', window(pool?.sevenDay)),
                     if (pool?.exhausted == true) _reading(context, 'Status', 'Exhausted — nothing runs until a window resets', warn: true),
+                    _reading(context, 'Autopilot', autopilotLine(h.autopilot.state) ?? (h.autopilot.state.stoppedFor == null ? 'off' : 'off · last run stopped: ${h.autopilot.state.stoppedFor}'), warn: h.autopilot.state.waiting),
                     Padding(
                       padding: const EdgeInsets.only(top: 4, bottom: 8),
                       child: OutlinedButton(

@@ -244,8 +244,7 @@ class BridgeSession extends ChangeNotifier {
     final want = _modeWanted;
     if (proc == null || want == null || state != BridgeState.ready || restartPending) return;
     _modeWanted = null;
-    proc.stdin.writeln(encodeSetPermissionMode('mode-${++_ctlSeq}', want));
-    unawaited(proc.stdin.flush());
+    _write(proc, encodeSetPermissionMode('mode-${++_ctlSeq}', want));
   }
 
   void _applyPendingModel() {
@@ -253,8 +252,7 @@ class BridgeSession extends ChangeNotifier {
     final want = _modelWanted;
     if (proc == null || want == null || state != BridgeState.ready || restartPending) return;
     _modelWanted = null;
-    proc.stdin.writeln(encodeSetModel('model-${++_ctlSeq}', want));
-    unawaited(proc.stdin.flush());
+    _write(proc, encodeSetModel('model-${++_ctlSeq}', want));
   }
 
   /// A change made while a turn was running — applied when it ends.
@@ -462,6 +460,19 @@ class BridgeSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// One line to the CLI's stdin. Never flushed: an IOSink is bound
+  /// while a flush is pending, and the next write throws "StreamSink is
+  /// bound to a stream" — which is what happened when a mode switch and
+  /// the autopilot's next /step went out on the same turn's end. The pipe
+  /// takes the bytes as they come; nothing waits on them.
+  void _write(Process proc, String line) {
+    try {
+      proc.stdin.writeln(line);
+    } on Object catch (e) {
+      _logLine('stdin write failed: $e');
+    }
+  }
+
   void _logLine(String line) {
     final l = line.trim();
     if (l.isEmpty) return;
@@ -481,13 +492,14 @@ class BridgeSession extends ChangeNotifier {
   /// host holds the stdin line and writes it the moment the `result`
   /// lands — one queue per session, in order — unless [withdrawQueued]
   /// takes it back first. Returns true when it was queued.
-  bool send(String text, {Map<String, Object?>? about, List<PendingAttachment> files = const []}) {
+  bool send(String text, {Map<String, Object?>? about, List<PendingAttachment> files = const [], String? by}) {
     final proc = _proc;
     final t = text.trim();
     if (proc == null || !running || (t.isEmpty && files.isEmpty)) return false;
     final saved = [for (final f in files) attachments.save(f)];
     final queued = transcript.turnOpen || _queue.isNotEmpty;
-    final row = transcript.addUser(t, about: about, attachments: saved, queued: queued);
+    final row = transcript.addUser(t, about: about, attachments: saved, queued: queued, by: by);
+    lastSent = row;
     var prompt = about == null ? t : scopedPrompt(t, about, describeAbout?.call(about));
     final images = <InlineImage>[];
     final inline = <int>{};
@@ -507,8 +519,7 @@ class BridgeSession extends ChangeNotifier {
       notifyListeners();
       return true;
     }
-    proc.stdin.writeln(line);
-    unawaited(proc.stdin.flush());
+    _write(proc, line);
     state = BridgeState.busy;
     notifyListeners();
     return false;
@@ -519,6 +530,17 @@ class BridgeSession extends ChangeNotifier {
       if (m.toolUseId == toolUseId) return m.diff;
     }
     return null;
+  }
+
+  /// The row the last [send] made — sent or queued — so the sender can
+  /// recognise its turn's end ([Transcript.lastTurnRowId]).
+  DeckMessage? lastSent;
+
+  /// A line in the transcript from the host itself — the autopilot's
+  /// record, mirrored like any row.
+  void note(String text) {
+    transcript.addNote(text);
+    notifyListeners();
   }
 
   /// Messages sent while a turn ran, with the stdin line each becomes.
@@ -558,8 +580,7 @@ class BridgeSession extends ChangeNotifier {
     if (proc == null || _queue.isEmpty || state != BridgeState.ready || restartPending) return;
     final next = _queue.removeAt(0);
     transcript.release(next.row);
-    proc.stdin.writeln(next.line);
-    unawaited(proc.stdin.flush());
+    _write(proc, next.line);
     state = BridgeState.busy;
   }
 
@@ -582,8 +603,7 @@ class BridgeSession extends ChangeNotifier {
       onWithdrawn?.call(open);
     }
     _interruptedBy = by;
-    proc.stdin.writeln(encodeInterrupt('int-${++_ctlSeq}'));
-    unawaited(proc.stdin.flush());
+    _write(proc, encodeInterrupt('int-${++_ctlSeq}'));
     state = BridgeState.busy;
     notifyListeners();
     return true;
@@ -618,8 +638,7 @@ class BridgeSession extends ChangeNotifier {
       _modeWanted = null;
       _writeRecord();
     }
-    proc.stdin.writeln(line);
-    unawaited(proc.stdin.flush());
+    _write(proc, line);
     state = BridgeState.busy;
     onAnswered?.call(ask, a, by);
     notifyListeners();
@@ -630,8 +649,7 @@ class BridgeSession extends ChangeNotifier {
     if (proc == null) return;
     final a = AskAnswer.allow(ask);
     final line = transcript.answer(a, note: 'Allowed (this session): ${ask.summary}');
-    proc.stdin.writeln(line);
-    unawaited(proc.stdin.flush());
+    _write(proc, line);
     state = BridgeState.busy;
     onAnswered?.call(ask, a, 'host');
   }

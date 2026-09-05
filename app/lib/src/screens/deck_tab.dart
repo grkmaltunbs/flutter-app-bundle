@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -78,6 +79,8 @@ class DeckView extends StatefulWidget {
     this.seenScope,
     this.markUnread = false,
     this.onSeen,
+    this.autopilot,
+    this.onAutopilot,
   });
 
   final BridgeState state;
@@ -154,6 +157,12 @@ class DeckView extends StatefulWidget {
   final String? seenScope;
   final bool markUnread;
   final void Function(String seen)? onSeen;
+
+  /// Autopilot — the loop as the host reports it, and the toggle: on with
+  /// a budget and night shift (from the sheet), or off. [onAutopilot]
+  /// returns the one line to toast; null where the surface has no loop.
+  final AutopilotState? autopilot;
+  final Future<String?> Function({required bool on, int? budget, bool? nightShift})? onAutopilot;
 
   /// A file on the Mac, for the tap on a path — the Mac's disk, or the
   /// relay. Null: paths are not taps.
@@ -1045,8 +1054,12 @@ class _Attachments extends StatelessWidget {
 
 /// The host's Deck: straight off its own bridge.
 class DeckTab extends StatelessWidget {
-  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit});
+  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot});
   final BridgeSession bridge;
+
+  /// The host's loop, and its toggle — see [DeckView.autopilot].
+  final AutopilotState? autopilot;
+  final Future<String?> Function({required bool on, int? budget, bool? nightShift})? onAutopilot;
 
   /// The host's own hands, for the taps: files inside the project, git.
   final HostFiles? files;
@@ -1118,6 +1131,8 @@ class DeckTab extends StatelessWidget {
           loadFile: files == null ? null : (path) async => files!.read(path),
           git: git,
           onGit: onGit,
+          autopilot: autopilot,
+          onAutopilot: onAutopilot,
           onSend: (text, files) async => b.send(text, files: files),
           pick: pick,
         );
@@ -1229,6 +1244,11 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         loadFile: d.readFile,
         git: d.git,
         onGit: d.gitOp,
+        autopilot: d.autopilot,
+        onAutopilot: ({required on, budget, nightShift}) async {
+          await d.setAutopilot(on: on, budget: budget, nightShift: nightShift);
+          return on ? 'autopilot on — the Mac starts stepping' : 'autopilot off';
+        },
         onSend: (text, files) => d.send(text, files: files),
         pick: widget.pick,
       ),
@@ -1291,9 +1311,13 @@ class _Header extends StatelessWidget {
             _ => GlyphMode.idle,
           };
     if (compact) {
+      final auto = w.autopilot;
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 6, 4),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
           children: [
             StatusGlyph(color: color, mode: glyph),
             const SizedBox(width: 8),
@@ -1325,6 +1349,11 @@ class _Header extends StatelessWidget {
               icon: Icon(Icons.expand_more, color: t.ink2),
               onPressed: onExpand,
             ),
+          ],
+            ),
+            // Folded, the loop's line stays: the wait for the pool is
+            // what the person came to look at.
+            if (auto != null && auto.on) Padding(padding: const EdgeInsets.only(right: 10, bottom: 2), child: Align(alignment: Alignment.centerLeft, child: _AutopilotLine(state: auto, needsYou: w.state == BridgeState.waiting))),
           ],
         ),
       );
@@ -1418,6 +1447,8 @@ class _Header extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(line.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(11, color: t.warn)),
             ),
+          // The loop: which step, how far into the budget, or the wait.
+          if (w.autopilot case final a? when a.on) Padding(padding: const EdgeInsets.only(top: 4), child: _AutopilotLine(state: a, needsYou: w.state == BridgeState.waiting)),
           if (w.error != null)
             Padding(padding: const EdgeInsets.only(top: 8), child: Text(w.error!, maxLines: 3, overflow: TextOverflow.ellipsis, style: t.mono(12, color: t.critical))),
           if (open) ..._controls(context, w, t),
@@ -1474,6 +1505,11 @@ class _Header extends StatelessWidget {
                     ),
                 ],
               ),
+            ),
+          if (w.onAutopilot != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: _AutopilotControl(view: w),
             ),
           if (w.onOptions != null) ...[
             const SizedBox(height: 4),
@@ -1606,6 +1642,164 @@ class _InterruptButton extends StatelessWidget {
 
 /// One session option, as a switch that reads: what it is · what it is set
 /// to. Fixed while a session runs.
+/// The loop's line under the facts: the step and the budget, or the
+/// countdown to the pool's reset — ticking once a second while it waits.
+class _AutopilotLine extends StatefulWidget {
+  const _AutopilotLine({required this.state, this.needsYou = false});
+  final AutopilotState state;
+  final bool needsYou;
+
+  @override
+  State<_AutopilotLine> createState() => _AutopilotLineState();
+}
+
+class _AutopilotLineState extends State<_AutopilotLine> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _arm();
+  }
+
+  @override
+  void didUpdateWidget(_AutopilotLine old) {
+    super.didUpdateWidget(old);
+    _arm();
+  }
+
+  void _arm() {
+    final waiting = widget.state.waitingUntil != null;
+    if (waiting && _tick == null) {
+      _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else if (!waiting) {
+      _tick?.cancel();
+      _tick = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final line = autopilotLine(widget.state, needsYou: widget.needsYou) ?? '';
+    final color = widget.state.waitingUntil != null || widget.needsYou ? t.warn : t.accent;
+    return Text(line.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(11, color: color));
+  }
+}
+
+/// The AUTOPILOT pill in the fold, and why the last run stopped beside
+/// it. Off: a tap opens the budget sheet. On: a tap stops it.
+class _AutopilotControl extends StatelessWidget {
+  const _AutopilotControl({required this.view});
+  final DeckView view;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final w = view;
+    final a = w.autopilot ?? const AutopilotState();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _OptionPill(
+          text: autopilotPill(a),
+          color: a.on ? (a.waitingUntil != null ? t.warn : t.accent) : t.ink2,
+          on: a.on,
+          enabled: true,
+          onTap: () async {
+            if (a.on) {
+              final r = await w.onAutopilot!(on: false);
+              if (context.mounted && r != null) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(r)));
+            } else {
+              await showAutopilotSheet(context, w);
+            }
+          },
+        ),
+        if (!a.on && a.stoppedFor != null)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 240),
+            child: Text('stopped · ${a.stoppedFor}', maxLines: 2, overflow: TextOverflow.ellipsis, style: t.mono(11, color: t.muted)),
+          ),
+        if (a.on && a.done > 0) Text('${a.done} step${a.done == 1 ? '' : 's'} finished', style: t.mono(11, color: t.muted)),
+      ],
+    );
+  }
+}
+
+/// The budget sheet: how many steps, night shift, the fixed rules, and
+/// START — the confirm the toggle asks for until biometrics come.
+Future<void> showAutopilotSheet(BuildContext context, DeckView w) {
+  final t = context.tokens;
+  final a = w.autopilot ?? const AutopilotState();
+  var budget = a.budget.clamp(1, 10);
+  var night = a.nightShift;
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('AUTOPILOT', style: t.readout(11)),
+              const SizedBox(height: 8),
+              Text('The Mac keeps sending /step — the next step of the plan after each turn — and stops for you.', style: t.mono(11.5, color: t.ink2)),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(child: Text('STEPS', style: t.readout(10))),
+                  Text('$budget', style: t.display(20, weight: FontWeight.w600, color: t.accent)),
+                ],
+              ),
+              Slider(
+                value: budget.toDouble(),
+                min: 1,
+                max: 10,
+                divisions: 9,
+                label: '$budget',
+                onChanged: (v) => setState(() => budget = v.round()),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: night,
+                onChanged: (v) => setState(() => night = v),
+                title: Text('NIGHT SHIFT', style: t.readout(10)),
+                subtitle: Text(night ? 'When the pool runs dry, wait for its reset and carry on.' : 'When the pool runs dry, stop and say so.', style: t.mono(11, color: t.muted)),
+              ),
+              const SizedBox(height: 6),
+              Text('Fixed: an ask waits for you (the push carries it); a step whose gate fails twice stops the run; so does a plan that needs you, an error, Stop or INTERRUPT.', style: t.mono(11, color: t.muted)),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  final r = await w.onAutopilot!(on: true, budget: budget, nightShift: night);
+                  if (context.mounted && r != null) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(r)));
+                },
+                icon: const Icon(Icons.play_arrow, size: 18),
+                label: Text('START · $budget STEP${budget == 1 ? '' : 'S'}'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _OptionPill extends StatelessWidget {
   const _OptionPill({required this.text, required this.color, required this.on, required this.enabled, required this.onTap});
   final String text;
@@ -1665,6 +1859,8 @@ class _Row extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 3),
                   child: Text(key.replaceFirst(':', ' · ').toUpperCase(), style: t.readout(10, color: t.accent)),
                 ),
+              // The loop's own message, labelled — the record says who sent it.
+              if (m.by == 'autopilot') Padding(padding: const EdgeInsets.only(bottom: 3), child: Text('AUTOPILOT', style: t.readout(10, color: t.accent))),
               if (m.attachments.isNotEmpty)
                 Padding(
                   padding: EdgeInsets.only(bottom: m.text.isEmpty ? 0 : 6),

@@ -8,12 +8,6 @@
 .idea/
 .vscode/
 
-# Parked autobuild runner — local venv and generated artifacts
-runner/__pycache__/
-runner/.venv/
-autobuild.log
-.autobuild-stop
-AUTOBUILD_NEEDS_HUMAN.md
 
 # Never commit
 *.env

@@ -1102,6 +1102,7 @@ class DeckMessage {
     this.toolOutput,
     this.toolOutputCut = false,
     this.progress,
+    this.by,
   });
 
   factory DeckMessage.fromMap(Map<String, Object?> m) => DeckMessage(
@@ -1125,6 +1126,7 @@ class DeckMessage {
         toolOutput: m['toolOutput']?.toString(),
         toolOutputCut: m['toolOutputCut'] == true,
         progress: m['progress'] is Map ? _map(m['progress']) : null,
+        by: _text(m['by']),
       );
 
   final String id;
@@ -1166,6 +1168,10 @@ class DeckMessage {
   /// An `Agent` row: what the CLI said of the subagent as it ran —
   /// `{toolUses, tokens, lastTool, status, summary}`.
   Map<String, Object?>? progress;
+
+  /// Who wrote a user row when it was not the person — `autopilot` for
+  /// the loop's `/step`; null for the user's own words.
+  final String? by;
 
   /// A subagent, whichever name the CLI gives the tool (`Agent` on
   /// 2.1.261, `Task` in its tools list).
@@ -1229,6 +1235,7 @@ class DeckMessage {
         if (toolOutput != null) 'toolOutput': toolOutput,
         if (toolOutputCut) 'toolOutputCut': true,
         if (progress != null) 'progress': progress,
+        if (by != null) 'by': by,
         if (about != null) 'about': about,
         if (attachments.isNotEmpty) 'attachments': [for (final a in attachments) a.toMap()],
       };
@@ -1289,11 +1296,12 @@ class Transcript {
 
   String _nextId() => 'm${(_seq++).toString().padLeft(5, '0')}';
 
-  DeckMessage addUser(String text, {Map<String, Object?>? about, List<DeckAttachment> attachments = const [], bool queued = false}) {
-    final m = DeckMessage(id: _nextId(), role: DeckRole.user, text: text, at: now(), about: about, attachments: attachments, queued: queued);
+  DeckMessage addUser(String text, {Map<String, Object?>? about, List<DeckAttachment> attachments = const [], bool queued = false, String? by}) {
+    final m = DeckMessage(id: _nextId(), role: DeckRole.user, text: text, at: now(), about: about, attachments: attachments, queued: queued, by: by);
     messages.add(m);
     if (queued) return m; // the running turn keeps its scope
     turnOpen = true;
+    _turnRow = m;
     _about = about;
     lastAbout = about;
     return m;
@@ -1303,9 +1311,16 @@ class Transcript {
   void release(DeckMessage m) {
     m.queued = false;
     turnOpen = true;
+    _turnRow = m;
     _about = m.about;
     lastAbout = m.about;
   }
+
+  /// The user row whose turn is open, and the one whose turn the last
+  /// `result` ended — so whoever sent a message (the person, the
+  /// autopilot) can tell its own turn's end from another's.
+  DeckMessage? _turnRow;
+  String? lastTurnRowId;
 
   /// A queued row taken back before it ran — gone from the transcript.
   bool dropQueued(String id) {
@@ -1415,6 +1430,8 @@ class Transcript {
         turnOpen = false;
         _about = null;
         lastResult = e;
+        lastTurnRowId = _turnRow?.id;
+        _turnRow = null;
         if (e.contextWindows.isNotEmpty) _windows = {..._windows, ...e.contextWindows};
         if (e.isError && e.text.isNotEmpty) addNote(e.text);
         // The turn's cost on its last assistant row: the context of the

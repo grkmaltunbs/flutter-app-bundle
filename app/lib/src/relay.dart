@@ -20,7 +20,7 @@ import 'presence.dart';
 /// projects/{slug}/inbox/{auto}    a batch from the phone; the host stamps appliedAt
 /// projects/{slug}/events/{auto}   milestones from hooks (prompt, stop, notification)
 /// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
-/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|interrupt|withdraw|options|push-test|host, …}; withdraw names a queued messageId; options carry mode, chrome, model, effort; host carries action: read_file (path) | git (op: commit|push|revert, message?, path?); the host stamps doneAt, result
+/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|interrupt|withdraw|options|push-test|compact|autopilot|host, …}; withdraw names a queued messageId; options carry mode, chrome, model, effort; autopilot carries on, budget?, nightShift?; host carries action: read_file (path) | git (op: commit|push|revert, message?, path?); the host stamps doneAt, result
 /// projects/{slug}/files/{commandId} the host's answer to a read_file: FileRead.toMap() — {path, text, lines, bytes, truncated, blob?, refused?}; the phone deletes it once read
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
@@ -495,6 +495,13 @@ class RemoteDeck extends ChangeNotifier {
 
   /// `/compact`, sent by the host as a message on the session.
   Future<void> compact() => CommandSender(db, slug).send({'type': 'compact'}, from: from);
+
+  /// The autopilot as the host publishes it — `session.autopilot`.
+  AutopilotState get autopilot => session['autopilot'] is Map ? AutopilotState.fromMap({for (final e in (session['autopilot'] as Map).entries) e.key.toString(): e.value as Object?}) : const AutopilotState();
+
+  /// The toggle: on with a budget and night shift, or off.
+  Future<void> setAutopilot({required bool on, int? budget, bool? nightShift}) =>
+      CommandSender(db, slug).send({'type': 'autopilot', 'on': on, 'budget': ?budget, 'nightShift': ?nightShift}, from: from);
 
   /// The Git card's numbers, as the host last read them.
   GitStatus? get git => session['git'] is Map ? GitStatus.fromMap({for (final e in (session['git'] as Map).entries) e.key.toString(): e.value as Object?}) : null;

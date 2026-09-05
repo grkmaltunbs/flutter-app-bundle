@@ -10,6 +10,7 @@ import '../attachments.dart';
 import '../blobs.dart';
 import '../plan_source.dart';
 import '../relay.dart';
+import 'autopilot.dart';
 import 'bridge_session.dart';
 import 'claude_cli.dart';
 import 'hook_watcher.dart';
@@ -51,6 +52,9 @@ class HostProject extends ChangeNotifier {
   late final HookWatcher hooks = HookWatcher(dir);
   late final RemoteControlSession session = RemoteControlSession(dir: dir, name: p.basename(dir));
   late final BridgeSession bridge = BridgeSession(dir: dir);
+
+  /// The loop that keeps the session stepping — see [Autopilot].
+  late final Autopilot autopilot = Autopilot(bridge: bridge, loadPlan: _freshPlan, push: (line) => _notify(Notice(kind: NoticeKind.done, title: 'Autopilot · $projectName', body: line)));
   RelayPublisher? _publisher;
   InboxListener? _inbox;
   CommandListener? _commands;
@@ -68,6 +72,7 @@ class HostProject extends ChangeNotifier {
     source.addListener(_onPlan);
     session.addListener(_onSession);
     bridge.addListener(_onBridge);
+    autopilot.addListener(_onAutopilot);
     bridge.diffFor = (tool, input) => diffForAsk(toolName: tool, input: input, read: _readForDiff);
     _refreshGit(soon: true);
     // A scoped message carries what the plan holds on its item or step —
@@ -98,9 +103,30 @@ class HostProject extends ChangeNotifier {
   /// The project as a notification names it.
   String get projectName => source.plan?.manifest.projectName ?? p.basename(dir);
 
+  /// The plan as the files hold it this instant — the autopilot reads it
+  /// the moment a turn ends, before the watcher's debounce. The last
+  /// good plan when a file is half-written.
+  Plan? _freshPlan() {
+    try {
+      return source.store.load();
+    } on Object {
+      return source.plan;
+    }
+  }
+
+  void _onAutopilot() {
+    _publisher?.publishSession(sessionRelay());
+    notifyListeners();
+  }
+
+  /// The autopilot from the Mac's own Deck: the same command the phone
+  /// sends. Returns the one line to toast.
+  Future<String> setAutopilot({required bool on, int? budget, bool? nightShift}) =>
+      applyCommand({'type': 'autopilot', 'on': on, 'budget': ?budget, 'nightShift': ?nightShift, 'from': 'Mac'});
+
   /// What the phone sees as the session: the bridge while it runs, else
   /// Remote Control, else idle.
-  Map<String, Object?> sessionRelay() => {..._sessionCore(), if (gitStatus != null) 'git': gitStatus!.toMap()};
+  Map<String, Object?> sessionRelay() => {..._sessionCore(), if (gitStatus != null) 'git': gitStatus!.toMap(), 'autopilot': autopilot.state.toMap()};
 
   Map<String, Object?> _sessionCore() {
     if (bridge.running) return bridge.toRelay();
@@ -139,6 +165,9 @@ class HostProject extends ChangeNotifier {
   Future<String> gitOp(String op, {String? message, String? path}) => applyCommand({'type': 'host', 'action': 'git', 'op': op, 'message': ?message, 'path': ?path});
 
   void _onBridge() {
+    // Whose turn just ended — read before the loop moves on to its next.
+    final loopTurn = autopilot.on && autopilot.ownsLastTurn;
+    autopilot.check();
     _holdWhile(running: bridge.running, pid: bridge.pid);
     if (bridge.state != _lastState) {
       // A turn ended, a session started or stopped: the tree may have moved.
@@ -150,7 +179,8 @@ class HostProject extends ChangeNotifier {
     final pub = _publisher;
     if (pub != null) unawaited(pub.publishThreads(bridge.transcript));
     final turn = _turns.check(state: bridge.state, error: bridge.error, lastResult: bridge.transcript.lastResult, interrupted: bridge.lastTurnInterrupted, project: projectName);
-    if (turn != null) _notify(turn);
+    // The loop's own line replaces the plain Done for a turn it drove.
+    if (turn != null && !(loopTurn && turn.kind == NoticeKind.done)) _notify(turn);
     notifyListeners();
   }
 
@@ -214,6 +244,7 @@ class HostProject extends ChangeNotifier {
   /// would die with the app anyway), the relay reads stopped rather than
   /// a session the Mac can no longer see, and the "now" line says so.
   Future<void> quit() async {
+    autopilot.stop(by: 'the Mac quitting');
     if (bridge.running) await bridge.stop();
     if (session.running) await session.stop();
     final pub = _publisher;
@@ -282,6 +313,7 @@ class HostProject extends ChangeNotifier {
         final verb = queued ? 'queued' : 'sent';
         return ups.isEmpty ? verb : '$verb with ${ups.length} file${ups.length == 1 ? '' : 's'}';
       case 'interrupt':
+        autopilot.stop(by: 'INTERRUPT');
         return bridge.interrupt(by: cmd['from'] == 'phone' ? 'phone' : 'Mac') ? 'interrupted' : 'nothing to interrupt';
       case 'withdraw':
         return bridge.withdrawQueued((cmd['messageId'] ?? '').toString()) ? 'withdrawn' : 'already sent';
@@ -292,8 +324,14 @@ class HostProject extends ChangeNotifier {
         await bridge.start(resume: cmd['resume'] == true);
         return bridge.error ?? (bridge.running ? 'started' : 'did not start');
       case 'stop':
+        autopilot.stop(by: 'Stop');
         await bridge.stop();
         return 'stopped';
+      case 'autopilot':
+        // `{type: autopilot, on, budget?, nightShift?}` — the toggle on
+        // either device; off is immediate, on starts the run.
+        if (cmd['on'] != true) return autopilot.stop(by: cmd['from'] == 'phone' ? 'the phone' : 'the Mac');
+        return autopilot.start(budget: (cmd['budget'] as num?)?.toInt(), nightShift: cmd['nightShift'] as bool?);
       case 'options':
         final ok = bridge.setOptions(mode: cmd['mode'] as String?, chrome: cmd['chrome'] as bool?, model: cmd['model'] as String?, effort: cmd['effort'] as String?);
         if (!ok) return 'nothing to change';
@@ -474,6 +512,8 @@ class HostProject extends ChangeNotifier {
     source.removeListener(_onPlan);
     session.removeListener(_onSession);
     bridge.removeListener(_onBridge);
+    autopilot.removeListener(_onAutopilot);
+    autopilot.dispose();
     _inbox?.dispose();
     _commands?.dispose();
     _publisher?.dispose();

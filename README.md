@@ -275,13 +275,12 @@ on restart rather than on publish.
 gotchas, bootstrap order, iOS cold build times, CocoaPods conflicts, APNS on
 the iOS simulator, and more.
 
-## Autobuild runner (parked)
+## Autopilot
 
-`runner/` holds `autobuild.py`, a headless Agent SDK driver that ran the whole
-plan unattended. It is **not wired up in the plugin build** — it invoked `/step`
-via `setting_sources=["project"]`, which no longer finds the command now that it
-lives in a plugin. The code is kept for reference pending a rework. See
-`runner/autobuild.md`.
+Unattended runs are the K.A.T.Y.A host's **Autopilot** (`app/`): from the
+phone, a budget of steps and an optional night shift; the Mac sends `/step`
+after `/step` through the bridge and stops for an ask, a failed gate, the
+plan needing you, or the pool. The former Python runner was deleted with it.
 
 ## License
 
