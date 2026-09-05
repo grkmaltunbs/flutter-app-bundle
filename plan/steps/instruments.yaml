@@ -1,14 +1,14 @@
 id: instruments
 number: "15"
 title: Instruments — the context gauge and the pool gauges on the Deck, and compaction offered before the wall
-status: pending
+status: done
 rank: 760
 depends_on: [session-dials]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-06, note: "flutter analyze + dart analyze: no issues", status: passed}
+  tests: { at: 2026-09-06, note: "kit 89 (usage on assistant and result, both pool windows over the relay and back, the compaction lines, the window from modelUsage over the model name, the transcript's context\/turn cost\/compaction note, the readouts), app 115 (two arcs at 1.0\/2.0\/3.12x on a phone with INTERRUPT and the pill, the numbers on a tap, COMPACT only past 80 % and only idle, COMPACTING, the exhausted line; the host's session doc carries context\/pool\/compacting and \/compact goes as a message; the phone reads them and sends compact as a command); \/compact proven live headless on claude 2.1.261, 2026-09-06", status: passed}
+  qa: { at: 2026-09-06, note: "Run by Claude on the user's phone over adb, 2026-09-06, on Nahmatik: Start from the phone, 'read lib\/ and summarise' — the context arc climbed 0 → 6 → 8 and the relay's session.context.used (79,363 of 1,000,000) equalled the CLI transcript's last assistant usage summed (32 + 7,487 + 71,844); the pool arc read 28 with '3 h 10 m' under it; the tap opened the numbers (79,363 \/ 1,000,000 tokens · 8 %, five-hour 28 % resets in 3 h 10 m (04:30), weekly 6 %); COMPACT from the sheet: COMPACTING… on the facts row, then 'Compacted · 79.7K → 9.7K tokens.' and the arc at 1, session.compacting true then false, used 9,675; the folded row kept both arcs. The exhausted line is covered by tests only.", status: passed}
 sections:
   - title: Description
     body: |
@@ -58,3 +58,17 @@ sections:
       - `kit/lib/src/bridge.dart` (usage, rate_limit parse), `app/lib/src/host/bridge_session.dart` (context on the session doc), `app/lib/src/screens/deck_tab.dart` (arcs), `app/lib/src/screens/session_tab.dart`, `app/lib/src/widgets/common.dart` (the arc), `app/DESIGN.md`
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — the JARVIS reading" }
+  - at: 2026-09-06
+    event: started
+  - at: 2026-09-06
+    event: gate analyze passed
+    note: "flutter analyze + dart analyze: no issues"
+  - at: 2026-09-06
+    event: gate tests passed
+    note: "kit 89 (usage on assistant and result, both pool windows over the relay and back, the compaction lines, the window from modelUsage over the model name, the transcript's context\/turn cost\/compaction note, the readouts), app 115 (two arcs at 1.0\/2.0\/3.12x on a phone with INTERRUPT and the pill, the numbers on a tap, COMPACT only past 80 % and only idle, COMPACTING, the exhausted line; the host's session doc carries context\/pool\/compacting and \/compact goes as a message; the phone reads them and sends compact as a command); \/compact proven live headless on claude 2.1.261, 2026-09-06"
+  - at: 2026-09-06
+    event: gate qa passed
+    note: "Run by Claude on the user's phone over adb, 2026-09-06, on Nahmatik: Start from the phone, 'read lib\/ and summarise' — the context arc climbed 0 → 6 → 8 and the relay's session.context.used (79,363 of 1,000,000) equalled the CLI transcript's last assistant usage summed (32 + 7,487 + 71,844); the pool arc read 28 with '3 h 10 m' under it; the tap opened the numbers (79,363 \/ 1,000,000 tokens · 8 %, five-hour 28 % resets in 3 h 10 m (04:30), weekly 6 %); COMPACT from the sheet: COMPACTING… on the facts row, then 'Compacted · 79.7K → 9.7K tokens.' and the arc at 1, session.compacting true then false, used 9,675; the folded row kept both arcs. The exhausted line is covered by tests only."
+  - at: 2026-09-06
+    event: done
+    note: "Two arcs on both Decks (context against the model's window, the five-hour pool with its countdown), the numbers and COMPACT in a sheet, the weekly pool on the Session screen, a turn's tokens on its row; \/compact proven in -p (2.1.261) and recorded in DESIGN.md"
