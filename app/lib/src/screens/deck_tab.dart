@@ -13,10 +13,14 @@ import '../attachments.dart';
 import '../blobs.dart';
 import '../deck_commands.dart';
 import '../host/bridge_session.dart';
+import '../host/host_actions.dart';
 import '../relay.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/diff_view.dart';
+import '../widgets/git_card.dart';
 import 'ask_card.dart';
+import 'file_view.dart';
 import 'remote_asks.dart';
 
 /// The conversation with this project's session: what was said, what ran,
@@ -61,6 +65,9 @@ class DeckView extends StatefulWidget {
     this.onChromeHidden,
     this.foldOnScroll,
     this.onInterrupt,
+    this.loadFile,
+    this.git,
+    this.onGit,
   });
 
   final BridgeState state;
@@ -113,6 +120,15 @@ class DeckView extends StatefulWidget {
   /// Ends the running turn and keeps the session — INTERRUPT on the title
   /// row while a turn runs. Null: no such brake here.
   final VoidCallback? onInterrupt;
+
+  /// A file on the Mac, for the tap on a path — the Mac's disk, or the
+  /// relay. Null: paths are not taps.
+  final Future<FileRead> Function(String path)? loadFile;
+
+  /// The Git card in the fold, and Revert file on a diff: what the host
+  /// last read, and the command that runs one of commit · push · revert.
+  final GitStatus? git;
+  final Future<String> Function(String op, {String? message, String? path})? onGit;
 
   /// An option changed while a turn ran; it applies when the turn ends.
   final bool restartPending;
@@ -274,6 +290,43 @@ class _DeckViewState extends State<DeckView> {
     }
   }
 
+  /// A tool row is a tap when it has a diff to show or a file to open.
+  VoidCallback? _rowTap(DeckMessage m) {
+    if (m.role != DeckRole.tool) return null;
+    final path = m.path;
+    final diff = m.diff;
+    if (diff != null) {
+      return () => showDiffSheet(
+            context,
+            diff: diff,
+            path: path,
+            onOpen: path != null && widget.loadFile != null ? () => _openFile(path) : null,
+            onRevert: path != null && widget.onGit != null ? () => _revert(path) : null,
+          );
+    }
+    if (path != null && widget.loadFile != null) return () => _openFile(path);
+    return null;
+  }
+
+  Future<void> _revert(String path) async {
+    final line = await widget.onGit!('revert', path: path);
+    _toast(line);
+  }
+
+  /// The file view; Ask about this comes back as `path:line` and lands
+  /// in the composer as the scope of the next message.
+  Future<void> _openFile(String path) async {
+    final load = widget.loadFile;
+    if (load == null) return;
+    final about = await Navigator.of(context).push<String>(MaterialPageRoute(
+      builder: (_) => FileViewScreen(path: path, load: () => load(path), onRevert: widget.onGit == null ? null : () => widget.onGit!('revert', path: path)),
+    ));
+    if (!mounted || about == null) return;
+    _input.text = '$about ';
+    _input.selection = TextSelection.collapsed(offset: _input.text.length);
+    _focus.requestFocus();
+  }
+
   /// The command palette; [highlight] leads when a chip was long-pressed.
   void _palette(String? highlight) {
     showDeckCommandsSheet(context, highlight: highlight, onPick: (c) {
@@ -366,12 +419,16 @@ class _DeckViewState extends State<DeckView> {
     final body = LayoutBuilder(
       builder: (context, box) {
         // The header, like the bottom, scrolls inside its own share at the
-        // largest text sizes rather than pushing the transcript out.
+        // largest text sizes rather than pushing the transcript out. Open
+        // by choice — Start, the pills, three dials and the Git card — it
+        // may take more of the screen than folded, at the text sizes where
+        // the composer's own share leaves room.
+        final roomy = _headerOpen && !_chromeHidden && MediaQuery.textScalerOf(context).scale(1) <= 1.3;
         final chrome = Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: box.maxHeight * 0.48),
+              constraints: BoxConstraints(maxHeight: box.maxHeight * (roomy ? 0.62 : 0.48)),
               child: SingleChildScrollView(
                 child: _Header(
                   view: w,
@@ -425,6 +482,7 @@ class _DeckViewState extends State<DeckView> {
                                     progress: w.uploadProgress,
                                     queued: w.queued.contains(w.messages[i].id),
                                     onWithdraw: w.onWithdraw == null ? null : () => w.onWithdraw!(w.messages[i].id),
+                                    onTap: _rowTap(w.messages[i]),
                                   ),
                           ),
                         ),
@@ -796,8 +854,13 @@ class _Attachments extends StatelessWidget {
 
 /// The host's Deck: straight off its own bridge.
 class DeckTab extends StatelessWidget {
-  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden});
+  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit});
   final BridgeSession bridge;
+
+  /// The host's own hands, for the taps: files inside the project, git.
+  final HostFiles? files;
+  final GitStatus? git;
+  final Future<String> Function(String op, {String? message, String? path})? onGit;
 
   /// See [DeckView.onChromeHidden].
   final void Function(bool hidden)? onChromeHidden;
@@ -857,6 +920,9 @@ class DeckTab extends StatelessWidget {
           onStop: () => b.stop(),
           onInterrupt: () => b.interrupt(),
           onWithdraw: (id) => b.withdrawQueued(id),
+          loadFile: files == null ? null : (path) async => files!.read(path),
+          git: git,
+          onGit: onGit,
           onSend: (text, files) async => b.send(text, files: files),
           pick: pick,
         );
@@ -937,6 +1003,9 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         onResume: () => d.startSession(resume: true),
         onStop: d.stopSession,
         onInterrupt: d.interrupt,
+        loadFile: d.readFile,
+        git: d.git,
+        onGit: d.gitOp,
         onSend: (text, files) => d.send(text, files: files),
         pick: widget.pick,
       ),
@@ -1167,6 +1236,7 @@ class _Header extends StatelessWidget {
             _Dial(label: 'MODEL', choices: modelChoices, value: w.modelChoice, enabled: true, onChanged: (v) => w.onOptions!(model: v)),
             _Dial(label: 'EFFORT', choices: effortChoices, value: w.effort, enabled: true, onChanged: (v) => w.onOptions!(effort: v)),
             _Dial(label: 'MODE', choices: modeChoices, value: w.modeChoice, enabled: true, labelOf: modeLabel, warnOn: 'bypassPermissions', onChanged: (v) => w.onOptions!(mode: v)),
+            if (w.onGit != null) Padding(padding: const EdgeInsets.only(top: 8), child: GitCard(git: w.git, onOp: w.onGit!)),
             if (w.running)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
@@ -1323,9 +1393,12 @@ class _OptionPill extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.message, this.progress = const {}, this.queued = false, this.onWithdraw});
+  const _Row({required this.message, this.progress = const {}, this.queued = false, this.onWithdraw, this.onTap});
   final DeckMessage message;
   final Map<String, double> progress;
+
+  /// A tool row with a diff or a file behind it.
+  final VoidCallback? onTap;
 
   /// This echo's command waits on a Mac that is gone. A row the host
   /// holds behind a running turn says so itself ([DeckMessage.queued]).
@@ -1405,9 +1478,12 @@ class _Row extends StatelessWidget {
         final color = m.isError ? t.critical : (done ? t.good : t.accent);
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Container(
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(color: t.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: t.line)),
+            decoration: BoxDecoration(color: t.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: onTap == null ? t.line : t.accent.withValues(alpha: 0.35))),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1427,8 +1503,14 @@ class _Row extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4, left: 20),
                     child: Text(m.toolResult!.trim(), maxLines: 3, overflow: TextOverflow.ellipsis, style: t.mono(11, color: m.isError ? t.critical : t.muted)),
                   ),
+                if (m.diff != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 20),
+                    child: Text('DIFF · TAP', style: t.readout(10, color: t.accent)),
+                  ),
               ],
             ),
+          ),
           ),
         );
       case DeckRole.note:

@@ -160,6 +160,12 @@ class BridgeSession extends ChangeNotifier {
   /// and the phone must stop showing it.
   void Function(Ask ask)? onWithdrawn;
 
+  /// The diff for an editing tool's input against the file on disk —
+  /// injected by the host, which reads files. Computed when the tool call
+  /// streams in (before it runs) and again for its ask; null for other
+  /// tools.
+  String? Function(String toolName, Map<String, Object?> input)? diffFor;
+
   /// Renders what the plan holds on the thing a scoped message is about —
   /// injected by the host, which has the plan (`renderItem`/`renderStep`,
   /// the same text `kit show` prints).
@@ -344,6 +350,7 @@ class BridgeSession extends ChangeNotifier {
       // A fresh session is a fresh conversation; Resume keeps the old one.
       transcript.messages.clear();
       _queue.clear();
+      _hostNotes.clear();
       transcript.pending = null;
       transcript.lastResult = null;
       transcript.turnOpen = false;
@@ -403,6 +410,7 @@ class BridgeSession extends ChangeNotifier {
         _applyPendingModel();
         _flushQueue();
       case AskEvent():
+        e.ask.diff ??= _diffForRow(e.ask.toolUseId) ?? diffFor?.call(e.ask.toolName, e.ask.input);
         if (!e.ask.isQuestion && _sessionAllows.contains(e.ask.key)) {
           _answerRemembered(e.ask);
         } else {
@@ -426,8 +434,20 @@ class BridgeSession extends ChangeNotifier {
       case StatusEvent():
         // The transcript took the mode; a fresh init follows.
         break;
-      case TextDeltaEvent():
       case AssistantEvent():
+        // An edit's row gets its diff now, while the file is still as it
+        // was — the ask, if one comes, reuses it.
+        for (final b in e.blocks) {
+          if (!b.isToolUse || !isEditTool(b.toolName ?? '')) continue;
+          for (final m in transcript.messages.reversed) {
+            if (m.toolUseId == b.toolUseId) {
+              m.diff ??= diffFor?.call(b.toolName!, b.toolInput ?? const {});
+              break;
+            }
+          }
+        }
+        if (state != BridgeState.waiting) state = BridgeState.busy;
+      case TextDeltaEvent():
       case ToolResultEvent():
         if (state != BridgeState.waiting) state = BridgeState.busy;
       case OtherEvent():
@@ -474,6 +494,10 @@ class BridgeSession extends ChangeNotifier {
       inline.add(i);
     }
     prompt = attachmentsPrompt(prompt, saved, inline: inline);
+    if (_hostNotes.isNotEmpty) {
+      prompt = 'Since your last turn the user did this from the app, outside this session:\n${_hostNotes.map((l) => '- $l').join('\n')}\n\n$prompt';
+      _hostNotes.clear();
+    }
     final line = encodeUserMessage(prompt, images: images);
     if (queued) {
       _queue.add((row: row, line: line));
@@ -487,8 +511,29 @@ class BridgeSession extends ChangeNotifier {
     return false;
   }
 
+  String? _diffForRow(String toolUseId) {
+    for (final m in transcript.messages.reversed) {
+      if (m.toolUseId == toolUseId) return m.diff;
+    }
+    return null;
+  }
+
   /// Messages sent while a turn ran, with the stdin line each becomes.
   final List<({DeckMessage row, String line})> _queue = [];
+
+  /// What the host did on the user's behalf since the last turn — a commit
+  /// from the phone, a reverted file — told to the session with the next
+  /// message, so it does not work from a picture that is out of date.
+  final List<String> _hostNotes = [];
+  void noteHostAction(String line) => _hostNotes.add(line);
+
+  /// A row for something the host ran itself, in the transcript where it
+  /// happened and mirrored to the phone.
+  DeckMessage addHostRow({required String toolName, required Map<String, Object?> input, required String result, bool isError = false}) {
+    final m = transcript.addHostRow(toolName: toolName, input: input, result: result, isError: isError);
+    notifyListeners();
+    return m;
+  }
 
   /// Ids of the rows still waiting, in order.
   List<String> get queuedIds => [for (final q in _queue) q.row.id];

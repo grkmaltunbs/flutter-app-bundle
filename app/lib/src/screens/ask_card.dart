@@ -3,10 +3,12 @@ import 'package:flutter_kit/kit.dart';
 
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/diff_view.dart';
 
 /// What Claude is asking, on whichever screen is looking — the amber card
-/// with the corner ticks. A permission shows the command with
-/// ALLOW · THIS SESSION · ALWAYS · DENY; a question shows its options (and
+/// with the corner ticks. A permission shows the command — an edit, its
+/// diff against the file as it is — with ALLOW · THIS SESSION · ALWAYS ·
+/// DENY; a question shows its options (and
 /// an option's preview, when it carries one) and takes one answer per
 /// question; a plan shows the markdown whole — the card is the last row
 /// of the transcript, which scrolls — with APPROVE and REVISE: what to
@@ -155,12 +157,15 @@ class _AskCardState extends State<AskCard> {
                   ),
                 ),
               ] else ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.line)),
-                  child: SelectableText(ask.summary, style: t.mono(13, color: t.ink, height: 1.5)),
-                ),
+                if (ask.diff case final diff?)
+                  DiffView(diff)
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(color: t.bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.line)),
+                    child: SelectableText(ask.summary, style: t.mono(13, color: t.ink, height: 1.5)),
+                  ),
                 if ((ask.description ?? '').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(ask.description!, style: TextStyle(fontSize: 13.5, height: 1.45, color: t.ink2))),
                 const SizedBox(height: 12),
                 Wrap(

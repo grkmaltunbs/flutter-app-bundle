@@ -13,6 +13,7 @@ import '../relay.dart';
 import 'bridge_session.dart';
 import 'claude_cli.dart';
 import 'hook_watcher.dart';
+import 'host_actions.dart';
 import 'power.dart';
 import 'push_sender.dart';
 import 'remote_control.dart';
@@ -37,6 +38,15 @@ class HostProject extends ChangeNotifier {
   /// test that has no phone to reach.
   final PushSender? push;
   final TurnWatch _turns = TurnWatch();
+
+  /// The host's own hands: files inside the project for the phone, and git.
+  late final HostFiles files = HostFiles(dir: dir, attachmentsDir: bridge.attachments.folder.path);
+  late final GitOps git = GitOps(dir);
+
+  /// The Git card's numbers — read after every turn and every hook event.
+  GitStatus? gitStatus;
+  Timer? _gitTimer;
+  BridgeState _lastState = BridgeState.idle;
   late final LocalPlanSource source = LocalPlanSource(dir);
   late final HookWatcher hooks = HookWatcher(dir);
   late final RemoteControlSession session = RemoteControlSession(dir: dir, name: p.basename(dir));
@@ -58,6 +68,8 @@ class HostProject extends ChangeNotifier {
     source.addListener(_onPlan);
     session.addListener(_onSession);
     bridge.addListener(_onBridge);
+    bridge.diffFor = (tool, input) => diffForAsk(toolName: tool, input: input, read: _readForDiff);
+    _refreshGit(soon: true);
     // A scoped message carries what the plan holds on its item or step —
     // the same text `kit show` prints.
     bridge.describeAbout = (about) {
@@ -88,7 +100,9 @@ class HostProject extends ChangeNotifier {
 
   /// What the phone sees as the session: the bridge while it runs, else
   /// Remote Control, else idle.
-  Map<String, Object?> sessionRelay() {
+  Map<String, Object?> sessionRelay() => {..._sessionCore(), if (gitStatus != null) 'git': gitStatus!.toMap()};
+
+  Map<String, Object?> _sessionCore() {
     if (bridge.running) return bridge.toRelay();
     if (session.running) return {...session.toRelay(), 'mode': 'remote', 'pendingAsks': 0};
     // Idle carries the bridge's record too, so the phone still offers
@@ -96,8 +110,41 @@ class HostProject extends ChangeNotifier {
     return {...session.toRelay(), ...bridge.toRelay(), 'mode': 'idle', 'pendingAsks': 0};
   }
 
+  /// The file as it is on disk, for a diff — null when there is none.
+  /// Any path: the session edits what it edits, and the diff only shows
+  /// what that is.
+  String? _readForDiff(String path) {
+    try {
+      final f = File(p.isAbsolute(path) ? path : p.join(dir, path));
+      return f.existsSync() ? f.readAsStringSync() : null;
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Reads git after a short quiet — a turn's end, a hook event and a
+  /// git command all ask; the last one wins.
+  void _refreshGit({bool soon = false}) {
+    _gitTimer?.cancel();
+    _gitTimer = Timer(Duration(milliseconds: soon ? 50 : 1500), () async {
+      final s = await git.status();
+      gitStatus = s;
+      _publisher?.publishSession(sessionRelay());
+      notifyListeners();
+    });
+  }
+
+  /// A git command from either surface: run, shown as a row, told to the
+  /// session with the next message. Returns the one line to toast.
+  Future<String> gitOp(String op, {String? message, String? path}) => applyCommand({'type': 'host', 'action': 'git', 'op': op, 'message': ?message, 'path': ?path});
+
   void _onBridge() {
     _holdWhile(running: bridge.running, pid: bridge.pid);
+    if (bridge.state != _lastState) {
+      // A turn ended, a session started or stopped: the tree may have moved.
+      if (bridge.state == BridgeState.ready || bridge.state == BridgeState.idle || bridge.state == BridgeState.stopped) _refreshGit();
+      _lastState = bridge.state;
+    }
     _publisher?.publishSession(sessionRelay());
     _publisher?.publishTranscript(bridge.transcript);
     final pub = _publisher;
@@ -256,8 +303,62 @@ class HostProject extends ChangeNotifier {
         return cmd['chrome'] == null && cmd['effort'] == null ? 'switched in place' : 'restarting on the same conversation';
       case 'push-test':
         return testPush();
+      case 'host':
+        return _hostAction(cmd);
       default:
         return 'unknown command ${cmd['type']}';
+    }
+  }
+
+  /// `{type: host, action: read_file|git, …}` — the host's own hands.
+  Future<String> _hostAction(Map<String, Object?> cmd) async {
+    final id = (cmd['id'] ?? '').toString();
+    switch (cmd['action']) {
+      case 'read_file':
+        final path = (cmd['path'] ?? '').toString();
+        final r = files.read(path);
+        final doc = r.toMap();
+        if (r.ok && r.truncated) {
+          // The whole file rides in Storage; the document keeps the start.
+          final store = blobs;
+          final s = slug;
+          final abs = files.resolve(path);
+          if (store != null && s != null && abs != null && id.isNotEmpty) {
+            final blobPath = 'projects/$s/files/$id';
+            try {
+              await store.put(blobPath, File(abs).readAsBytesSync(), contentType: 'text/plain');
+              doc['blob'] = blobPath;
+            } on Object {
+              // The first part still shows, and says it is the first part.
+            }
+          }
+        }
+        final pub = _publisher;
+        if (id.isNotEmpty && pub != null) await pub.publishFile(id, doc);
+        if (!r.ok) return 'refused: ${r.refused}';
+        return r.truncated ? 'read — the first ${fileInlineBytes ~/ 1024} KB inline' : 'read';
+      case 'git':
+        final op = (cmd['op'] ?? '').toString();
+        final message = cmd['message']?.toString();
+        final path = cmd['path']?.toString();
+        final GitResult r;
+        switch (op) {
+          case 'commit':
+            r = await git.commit(message ?? '');
+          case 'push':
+            r = await git.push();
+          case 'revert':
+            r = await git.revertFile(path ?? '');
+          default:
+            return 'unknown git op $op';
+        }
+        final first = r.output.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => r.ok ? 'ok' : 'failed');
+        bridge.addHostRow(toolName: 'git', input: {'op': op, 'message': ?message, 'path': ?path}, result: r.output.isEmpty ? (r.ok ? 'ok' : 'failed') : r.output, isError: !r.ok);
+        bridge.noteHostAction('git $op${message != null ? ' "$message"' : ''}${path != null ? ' $path' : ''} — ${r.ok ? 'ok' : 'failed'}: $first');
+        _refreshGit(soon: true);
+        return r.ok ? 'ok: $first' : 'failed: $first';
+      default:
+        return 'unknown host action ${cmd['action']}';
     }
   }
 
@@ -357,6 +458,7 @@ class HostProject extends ChangeNotifier {
   }
 
   void _onHook(HookEvent e) {
+    _refreshGit();
     final pub = _publisher;
     if (pub == null) return;
     pub.publishNow(e);
@@ -374,6 +476,7 @@ class HostProject extends ChangeNotifier {
     _commands?.dispose();
     _publisher?.dispose();
     hooks.dispose();
+    _gitTimer?.cancel();
     session.dispose();
     bridge.dispose();
     source.dispose();

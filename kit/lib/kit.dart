@@ -14,3 +14,4 @@ export 'src/inbox.dart';
 export 'src/hook_spool.dart';
 export 'src/snapshot.dart';
 export 'src/bridge.dart';
+export 'src/diff.dart';

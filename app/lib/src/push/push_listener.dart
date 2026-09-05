@@ -67,12 +67,24 @@ class _PushListenerState extends State<PushListener> {
     if (kind == 'done' || kind == 'step') return;
     final text = snackText(m);
     if (text.isEmpty || !mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(text, maxLines: 3, overflow: TextOverflow.ellipsis),
-      duration: const Duration(seconds: 8),
-      action: PushTap.from(data) == null ? null : SnackBarAction(label: 'OPEN', onPressed: () => _open(data)),
-    ));
+    // One bar at a time, and the same words once: a push that reaches this
+    // phone by several tokens, or an ask repeated, must not queue a bar
+    // per copy and sit over the composer for a minute.
+    final now = DateTime.now();
+    if (text == _lastSnack && _lastSnackAt != null && now.difference(_lastSnackAt!) < const Duration(seconds: 20)) return;
+    _lastSnack = text;
+    _lastSnackAt = now;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        content: Text(text, maxLines: 3, overflow: TextOverflow.ellipsis),
+        duration: const Duration(seconds: 4),
+        action: PushTap.from(data) == null ? null : SnackBarAction(label: 'OPEN', onPressed: () => _open(data)),
+      ));
   }
+
+  String? _lastSnack;
+  DateTime? _lastSnackAt;
 
   /// The bar's line: the tray notification's words, or the data message's.
   static String snackText(RemoteMessage m) {

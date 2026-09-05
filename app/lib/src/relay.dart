@@ -8,6 +8,7 @@ import 'package:flutter_kit/kit.dart';
 import 'attachments.dart';
 import 'blobs.dart';
 import 'host/bridge_session.dart' show BridgeState;
+import 'host/host_actions.dart';
 import 'presence.dart';
 
 /// The relay: Firestore on `flutterappbundle`, one user, owner-only rules.
@@ -19,7 +20,8 @@ import 'presence.dart';
 /// projects/{slug}/inbox/{auto}    a batch from the phone; the host stamps appliedAt
 /// projects/{slug}/events/{auto}   milestones from hooks (prompt, stop, notification)
 /// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
-/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|interrupt|withdraw|options|push-test, …}; withdraw names a queued messageId; options carry mode, chrome, model, effort; the host stamps doneAt, result
+/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|interrupt|withdraw|options|push-test|host, …}; withdraw names a queued messageId; options carry mode, chrome, model, effort; host carries action: read_file (path) | git (op: commit|push|revert, message?, path?); the host stamps doneAt, result
+/// projects/{slug}/files/{commandId} the host's answer to a read_file: FileRead.toMap() — {path, text, lines, bytes, truncated, blob?, refused?}; the phone deletes it once read
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
@@ -161,6 +163,10 @@ class RelayPublisher {
 
   Future<void> publishSession(Map<String, Object?> session) =>
       ref.set({'session': session, 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+
+  /// The host's answer to a `read_file`, under the command's id.
+  Future<void> publishFile(String commandId, Map<String, Object?> file) =>
+      ref.collection('files').doc(commandId).set({...file, 'createdAt': FieldValue.serverTimestamp()});
 
   /// An ask the bridge raised, for the phone to answer.
   Future<void> publishAsk(Ask ask) async {
@@ -478,6 +484,47 @@ class RemoteDeck extends ChangeNotifier {
   /// turns into the `interrupt` control request.
   Future<void> interrupt() => CommandSender(db, slug).send({'type': 'interrupt'}, from: from);
 
+  /// The Git card's numbers, as the host last read them.
+  GitStatus? get git => session['git'] is Map ? GitStatus.fromMap({for (final e in (session['git'] as Map).entries) e.key.toString(): e.value as Object?}) : null;
+
+  /// A `host` command, waited on: the one line the host stamped as its
+  /// result. "queued" while the Mac is unreachable — it runs when the Mac
+  /// is back, and this waits up to [wait] for that.
+  Future<String> hostCommand(Map<String, Object?> command, {Duration wait = const Duration(seconds: 60)}) async {
+    final ref = await CommandSender(db, slug).send({'type': 'host', ...command}, from: from);
+    final done = await ref.snapshots().firstWhere((d) => d.data()?['doneAt'] != null).timeout(wait, onTimeout: () => throw TimeoutException('The Mac did not answer in ${wait.inSeconds} s.'));
+    return (done.data()?['result'] ?? '').toString();
+  }
+
+  /// git from the phone: commit, push, revert — the host runs it.
+  Future<String> gitOp(String op, {String? message, String? path}) => hostCommand({'action': 'git', 'op': op, 'message': ?message, 'path': ?path});
+
+  /// A file on the Mac, read by the host: the `files/{commandId}` document,
+  /// and the whole file from Storage when the document holds only the
+  /// start. The document goes once read.
+  Future<FileRead> readFile(String path) async {
+    final ref = await CommandSender(db, slug).send({'type': 'host', 'action': 'read_file', 'path': path}, from: from);
+    final done = await ref.snapshots().firstWhere((d) => d.data()?['doneAt'] != null).timeout(const Duration(seconds: 60), onTimeout: () => throw TimeoutException('The Mac did not answer in 60 s.'));
+    final result = (done.data()?['result'] ?? '').toString();
+    final fileRef = db.collection('projects').doc(slug).collection('files').doc(ref.id);
+    final fd = await fileRef.get();
+    final m = fd.data();
+    if (m == null) return FileRead.refused(path, result.isEmpty ? 'no answer from the Mac' : result);
+    var r = FileRead.fromMap({for (final e in m.entries) e.key: e.value as Object?});
+    if (r.truncated && r.blob != null) {
+      final blob = r.blob!;
+      try {
+        final bytes = await _store.get(blob);
+        r = FileRead.ok(path: r.path, text: utf8.decode(bytes, allowMalformed: true), lines: r.lines, bytes: r.bytes);
+        unawaited(_store.delete(blob).catchError((Object _) {}));
+      } on Object {
+        // The first part, then, and it says so.
+      }
+    }
+    unawaited(fileRef.delete().catchError((Object _) {}));
+    return r;
+  }
+
   /// Takes back a send: one the Mac never saw (the command is deleted
   /// unread), or one the host holds queued behind a running turn (a
   /// `withdraw` command names the row). Nothing happens when it ran.
@@ -766,7 +813,7 @@ class CommandListener {
         _seen.add(d.id);
         String result;
         try {
-          result = await apply({for (final e in d.data().entries) e.key: e.value as Object?});
+          result = await apply({for (final e in d.data().entries) e.key: e.value as Object?, 'id': d.id});
         } on Object catch (e) {
           result = 'failed: $e';
         }

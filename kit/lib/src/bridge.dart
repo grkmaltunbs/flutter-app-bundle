@@ -16,6 +16,7 @@ library;
 
 import 'dart:convert';
 
+import 'diff.dart' show editedPath;
 import 'snapshot.dart' show stableJson;
 
 /// The Claude Code version the shapes below were captured on. The host
@@ -296,7 +297,7 @@ class Ask {
         blockedPath: m['blockedPath']?.toString(),
         suggestions: [for (final s in (m['suggestions'] as List? ?? const [])) if (s is Map) _map(s)],
         requiresUserInteraction: m['requiresUserInteraction'] == true,
-      );
+      )..diff = m['diff']?.toString();
 
   final String requestId;
   final String toolName;
@@ -311,6 +312,14 @@ class Ask {
   /// `.claude/settings.json`, would stop this request from asking again.
   final List<Map<String, Object?>> suggestions;
   final bool requiresUserInteraction;
+
+  /// For an editing tool: the unified diff the host computed against the
+  /// file on disk (`diff.dart`), so the card shows what will change
+  /// instead of the input. Set on the host; rides the relay.
+  String? diff;
+
+  /// The file an editing tool would touch — the tap that opens it.
+  String? get path => editedPath(input);
 
   bool get isQuestion => toolName == 'AskUserQuestion';
 
@@ -365,6 +374,7 @@ class Ask {
         if (blockedPath != null) 'blockedPath': blockedPath,
         'suggestions': suggestions,
         'requiresUserInteraction': requiresUserInteraction,
+        if (diff != null) 'diff': diff,
       };
 }
 
@@ -835,6 +845,7 @@ class DeckMessage {
     this.isError = false,
     this.streaming = false,
     this.queued = false,
+    this.diff,
     this.about,
     this.attachments = const [],
   });
@@ -851,6 +862,7 @@ class DeckMessage {
         isError: m['isError'] == true,
         streaming: m['streaming'] == true,
         queued: m['queued'] == true,
+        diff: m['diff']?.toString(),
         about: m['about'] is Map ? _map(m['about']) : null,
         attachments: [for (final a in (m['attachments'] as List? ?? const [])) if (a is Map) DeckAttachment.fromMap(_map(a))],
       );
@@ -870,6 +882,12 @@ class DeckMessage {
   /// in order, unless withdrawn first.
   bool queued;
 
+  /// An editing tool's row: the diff the host computed before it ran.
+  String? diff;
+
+  /// The file a tool row names — the tap that opens it.
+  String? get path => toolInput == null ? null : editedPath(toolInput!);
+
   /// `{item: id}` or `{step: id}` when the message is about one thing.
   final Map<String, Object?>? about;
 
@@ -886,6 +904,12 @@ class DeckMessage {
     if (path != null) return '$name · $path';
     if (name == 'AskUserQuestion') return 'asked you a question';
     if (name == 'ExitPlanMode') return 'proposed a plan';
+    if (name == 'git') {
+      final op = input['op'] ?? '';
+      final message = input['message'];
+      final target = input['path'];
+      return 'git $op${message != null ? ' "$message"' : ''}${target != null ? ' $target' : ''}';
+    }
     return input.isEmpty ? name : '$name · ${_clip(jsonEncode(input), 100)}';
   }
 
@@ -901,6 +925,7 @@ class DeckMessage {
         'isError': isError,
         'streaming': streaming,
         if (queued) 'queued': true,
+        if (diff != null) 'diff': diff,
         if (about != null) 'about': about,
         if (attachments.isNotEmpty) 'attachments': [for (final a in attachments) a.toMap()],
       };
@@ -972,6 +997,14 @@ class Transcript {
 
   DeckMessage addNote(String text) {
     final m = DeckMessage(id: _nextId(), role: DeckRole.note, text: text, at: now());
+    messages.add(m);
+    return m;
+  }
+
+  /// A tool-style row for something the host ran itself — git from the
+  /// phone — so the transcript shows it where it happened.
+  DeckMessage addHostRow({required String toolName, required Map<String, Object?> input, required String result, bool isError = false}) {
+    final m = DeckMessage(id: _nextId(), role: DeckRole.tool, text: '', at: now(), toolName: toolName, toolInput: input, toolResult: _clip(result, 600), isError: isError, about: lastAbout);
     messages.add(m);
     return m;
   }

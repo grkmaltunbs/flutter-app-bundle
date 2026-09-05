@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../host/host_presence.dart';
 import '../host/host_project.dart';
+import '../widgets/git_card.dart';
 import '../host/login_item.dart';
 import '../host/power.dart';
 import '../host/remote_control.dart';
@@ -162,6 +163,8 @@ class _SessionTabState extends State<SessionTab> {
                 );
               },
             ),
+            const SectionHead('Git', sub: 'What the host reads after every turn. Commit and Push run here, no model; the session hears about them with the next message.'),
+            GitCard(git: h.gitStatus, onOp: h.gitOp),
             const SectionHead('Activity', sub: 'From the hooks, newest first.'),
             if (h.hooks.events.isEmpty) Text('Nothing yet.', style: TextStyle(color: t.muted))
             else
