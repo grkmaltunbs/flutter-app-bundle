@@ -1,14 +1,14 @@
 id: interrupt
 number: "13"
 title: Interrupt — end the turn and keep the session; a message sent while it works waits its turn
-status: pending
+status: done
 rank: 740
 depends_on: [session-dials]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-04, note: "kit and app: no issues (2026-09-04)", status: passed}
+  tests: { at: 2026-09-04, note: "kit 79, app 102 — interrupt keeps the session and withdraws an open ask; a host-side queue with withdraw; set_model in place", status: passed}
+  qa: { at: 2026-09-05, note: "user's QA on the phone, 2026-09-05: interrupt keeps the session, an open ask drops with it, queued sends run in order after withdraw, MODEL switches in place", status: passed}
 sections:
   - title: Description
     body: |
@@ -56,3 +56,17 @@ sections:
       - `kit/lib/src/bridge.dart` (interrupt line, control_response parse), `app/lib/src/host/bridge_session.dart` (queue, withdraw), `app/lib/src/relay.dart` (commands), `app/lib/src/screens/deck_tab.dart` (title row, queued rows), `app/DESIGN.md`
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — agent parity" }
+  - at: 2026-09-04
+    event: started
+  - at: 2026-09-04
+    event: gate analyze passed
+    note: "kit and app: no issues (2026-09-04)"
+  - at: 2026-09-04
+    event: gate tests passed
+    note: "kit 79, app 102 — interrupt keeps the session and withdraws an open ask; a host-side queue with withdraw; set_model in place"
+  - at: 2026-09-05
+    event: gate qa passed
+    note: "user's QA on the phone, 2026-09-05: interrupt keeps the session, an open ask drops with it, queued sends run in order after withdraw, MODEL switches in place"
+  - at: 2026-09-05
+    event: done
+    note: interrupt and set_model proven live; host-side queue with withdraw; INTERRUPT on the title row
