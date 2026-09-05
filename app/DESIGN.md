@@ -199,6 +199,7 @@ order. This section records the decisions the steps are built on.
 | Reviewing the agent | **Diffs on Edit/Write asks** (host-computed, ≤ 24 KB), any path a tap to a **file view**, a **Git card** (branch, dirty, last commit; Commit / Push / Revert file) the host runs directly. Built 2026-09-06: the diff is `kit/lib/src/diff.dart` (prefix/suffix trim, then an LCS over what is left when it is under 1500×1500 lines, else a whole replacement); the bridge computes it when the tool call streams in — before the tool runs, so the file is still as it was — and the ask for the same `tool_use_id` reuses it. The tool row of an edit that ran shows the same diff on tap. A file read is a `host` command answered in `files/{commandId}` (the first 200 KB inline, the whole file in Storage past that; refused outside the project and its attachments, or for a folder, a binary, or past 8 MB). git runs where the host is, with no model; each command becomes a tool-style row and a line the next prompt opens with ("Since your last turn the user did this from the app…"), so the session never works from a picture that is out of date. | The human half of an agent is reading what it changed. |
 | Actions that need no model | **`host` commands** — `{type: host, action: read_file|git|blocks|step_done|reorder|…}` — the host runs the kit library, git or the toolchain and answers in the relay; no quota. Everything on the Git card, the constellation's controls, the run bay and the mirror are host commands. | Half of what the phone asks Claude today is a shell command. The app must stay useful with the pool empty. |
 | Instruments | Two arcs on the Deck's facts row, both devices: the **context** each assistant message's `usage` reports (input + cache creation + cache read) against the model's window (the `result`'s `modelUsage[model].contextWindow` — 1,000,000 for `claude-fable-5-1` on 2.1.261 — else 1M for `[1m]` and Fable, 200k otherwise), amber past 70 %, red past 85 %; the **five-hour pool** from `rate_limit_event`'s `unifiedWindows`, the countdown to its reset under it, the weekly window in the sheet a tap opens and on the Session screen. **COMPACT** past 80 %: `/compact` as a message compacts in `-p` (spike answered 2026-09-06, below); the arc drops and a row says "Compacted · 80.6K → 3.6K tokens". A turn's cost rides on its last row (`24.4K CTX · 3.7K OUT`). Tokens, never dollars. Built 2026-09-06. | The JARVIS reading: the state of the machine at a glance. |
+| Deck crew | **Crew.** An `Agent` tool use (the CLI's name for its subagent tool on 2.1.261; `Task` in its tools list) is a chip on a strip under the header — kind and description, a pulse and a running clock, dim with its time once done; every message the subagent produces carries `parent_tool_use_id` and folds under the chip, so the main list stays the user's conversation. The CLI narrates the subagent as `system/task_started`, `task_progress` (tool uses, tokens, last tool) and `task_notification` (status, summary); the Agent row keeps that as `progress`, and its `tool_result` is the report. **Tool rows that open.** Every tool row is a tap: the whole input (the command, or indented JSON) and the result up to 24 KB, "the rest is on the Mac" past that, the diff and the file behind a path where there is one. **Since you last looked.** The phone remembers `<session id>:<row id>` of the newest row shown with the app in front (per project, on the device); the next open draws one line above the first row after it and lands there; another session means every row is new. Built 2026-09-06. | The Deck reads like a conversation with one agent, whatever runs underneath — and picks up where the eyes left it. |
 | Keeping the agent going | **Autopilot** in the host: `/step` after each passed step, within a budget; stops on an ask, a second failed gate, the human's move; **night shift** waits out the pool from the event's reset time. Replaces `runner/`, which is deleted in that step. | The runner was parked and unwireable; the bridge makes the loop a hundred lines. |
 | The app under test | The host owns the process: **run bay** — `flutter run -d <device> --machine --print-dtd`, the daemon protocol (`app.restart`, `app.stop`, `app.debugPort`), the log tail in the relay, the VM/DTD URIs in the brief for the Dart MCP server. **Mirror**: frames through Storage, taps back through `adb shell input` / `idb ui`. **Try it**: a debug APK built by the host, installed from a push; share-sheet intake. | "Does it run" becomes something you watch, then something you hold. |
 | Pushes on Android (step 6b, built 2026-09-04) | A **data message**, not a tray notification: the phone draws it with `flutter_local_notifications` on the same four channels (`asks`, `problems`, `done`, `steps`), with **Allow / Deny** — or a short single question's options, or a sign-in's one option — as buttons. A button runs in a background isolate: it reads the ask from the relay, writes the `answer` command the card would, and takes the notification down; a failure replaces the buttons with a line. An ask answered anywhere makes the host send a silent **withdraw** message so the notification comes off every phone. Other platforms still get FCM's tray notification. | Buttons on a notification need the app to draw it; the withdraw keeps a stale Allow off the lock screen. |
@@ -281,6 +282,22 @@ message. Every `assistant` message's `usage` is the call's own —
 what the model read — and the `result`'s `usage` is the turn's total, its
 `modelUsage` naming each model's `contextWindow`.
 
+A subagent (proven 2026-09-06, 2.1.261): the model calls a tool named
+`Agent` with `{subagent_type, model, description, prompt}` — the init's
+tools list still says `Task`. The CLI then writes `system/task_started
+{task_id, tool_use_id, description, subagent_type, is_backgrounded,
+prompt}`, a `user` line carrying the prompt with
+`parent_tool_use_id: <the Agent's tool_use_id>`, the subagent's own
+`assistant` tool uses and `user` tool results with the same parent,
+`system/task_progress {tool_use_id, description, usage: {total_tokens,
+tool_uses, duration_ms}, last_tool_name}` as it goes, then
+`system/task_updated {patch: {status: completed}}`,
+`system/task_notification {tool_use_id, status, summary, output_file,
+usage}`, and at last the parent's own `user` tool result for the Agent
+call (the report) with no parent. No text deltas arrived with a parent:
+a subagent's words come whole. `stream_event` lines for the parent carry
+`parent_tool_use_id: null`.
+
 ### Relay shape (additions to phase 3)
 
 ```
@@ -297,7 +314,7 @@ projects/{slug}/runs/{id}/log/{n}     lines, coalesced ≤ 1 write/s, last 2000 
 projects/{slug}/files/{id}            {path, text, lines, truncated}  (text in Storage past 900 KB)
 projects/{slug}/builds/{id}           {sha, branch, version, size, at, path}
 projects/{slug}/commands/{auto}       + {type: host|input, action, …}
-projects/{slug}/chat/{auto}           + sessionId, parentToolUseId?, diff?
+projects/{slug}/chat/{auto}           + sessionId, parent? (the Agent tool_use_id a subagent's row hangs under), doneAt?, toolOutput? (≤ 24 KB), toolOutputCut?, progress? (an Agent row), diff?, turn?
 projects/{slug}/asks/{id}             + diff?, plan?
 devices/{token}                       + quiet: {from, to, zone}
 ```

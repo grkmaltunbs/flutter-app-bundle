@@ -90,3 +90,16 @@ class Draft extends ChangeNotifier {
     await save();
   }
 }
+
+/// The last transcript row the phone showed with the app in front, per
+/// project — where the "since you last looked" line goes on the next
+/// open. Lives on the device.
+class LastSeen {
+  static String _key(String slug) => 'seen:$slug';
+
+  static Future<String?> load(String slug) async => (await SharedPreferences.getInstance()).getString(_key(slug));
+
+  static Future<void> save(String slug, String id) async {
+    await (await SharedPreferences.getInstance()).setString(_key(slug), id);
+  }
+}

@@ -12,13 +12,14 @@ import '../attachment_picker.dart';
 import '../attachments.dart';
 import '../blobs.dart';
 import '../deck_commands.dart';
+import '../draft.dart';
 import '../host/bridge_session.dart';
 import '../host/host_actions.dart';
 import '../relay.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../widgets/diff_view.dart';
 import '../widgets/git_card.dart';
+import '../widgets/tool_sheet.dart';
 import 'ask_card.dart';
 import 'file_view.dart';
 import 'remote_asks.dart';
@@ -73,6 +74,10 @@ class DeckView extends StatefulWidget {
     this.pool,
     this.compacting = false,
     this.onCompact,
+    this.lastSeenId,
+    this.seenScope,
+    this.markUnread = false,
+    this.onSeen,
   });
 
   final BridgeState state;
@@ -138,6 +143,18 @@ class DeckView extends StatefulWidget {
   final VoidCallback? onCompact;
   double get contextFraction => contextWindow == 0 ? 0 : contextUsed / contextWindow;
 
+  /// Since you last looked, on a phone: [lastSeenId] is what the device
+  /// remembered — `<session id>:<row id>` — and [seenScope] the session
+  /// the rows belong to now; a different session means every row is new.
+  /// With [markUnread] on, the first look at a transcript draws the line
+  /// above the first row not yet shown and lands the list on it. [onSeen]
+  /// is told the newest row shown with the app in front, when the app
+  /// leaves or the Deck closes. All null on the Mac: nothing is drawn.
+  final String? lastSeenId;
+  final String? seenScope;
+  final bool markUnread;
+  final void Function(String seen)? onSeen;
+
   /// A file on the Mac, for the tap on a path — the Mac's disk, or the
   /// relay. Null: paths are not taps.
   final Future<FileRead> Function(String path)? loadFile;
@@ -186,7 +203,7 @@ class DeckView extends StatefulWidget {
   State<DeckView> createState() => _DeckViewState();
 }
 
-class _DeckViewState extends State<DeckView> {
+class _DeckViewState extends State<DeckView> with WidgetsBindingObserver {
   final _input = TextEditingController();
   final _scroll = ScrollController();
   final _focus = FocusNode();
@@ -203,6 +220,143 @@ class _DeckViewState extends State<DeckView> {
 
   /// A drag from the Finder is over the Deck.
   bool _dragOver = false;
+
+  /// The main list: the user's own conversation — rows a subagent
+  /// produced stay under its chip.
+  List<DeckMessage> get _rows => [for (final m in widget.messages) if (m.parentToolUseId == null) m];
+
+  // --- since you last looked ------------------------------------------
+
+  /// The row the line sits above, once placed for this look; [_seenId]
+  /// the newest row shown with the app in front ('' when the remembered
+  /// row belongs to another session — everything here is new); and
+  /// [_seenIndex] how far down the list has been built, so a row is
+  /// seen once, when it first shows.
+  String? _markerId;
+  bool _markerPlaced = false;
+  String? _seenId;
+  int _seenIndex = -1;
+  bool _inFront = true;
+  final _markerKey = GlobalKey();
+
+  /// The row the look at hand measures from: the remembered row on the
+  /// first look, the newest row shown when the app comes back. Frozen
+  /// while the line is placed, since rows shown meanwhile move [_seenId].
+  /// After a resume the rows may still be on their way, so the placing
+  /// stays armed a moment ([_armedUntil]) when nothing is beyond it yet.
+  String? _markBase;
+  DateTime? _armedUntil;
+
+  void _takeLastSeen() {
+    final raw = widget.lastSeenId;
+    final scope = widget.seenScope;
+    if (raw == null) {
+      _seenId = null;
+    } else if (scope != null && raw.startsWith('$scope:')) {
+      _seenId = raw.substring(scope.length + 1);
+    } else {
+      _seenId = '';
+    }
+    _markBase = _seenId;
+  }
+
+  /// Draws the line above the first row not yet shown and lands there —
+  /// once per look, when the rows and the remembered row are both known.
+  void _maybePlaceMarker() {
+    if (_markerPlaced || !widget.markUnread) return;
+    final rows = _rows;
+    if (rows.isEmpty) return;
+    final seen = _markBase;
+    if (seen == null) {
+      _markerPlaced = true; // a first look: nothing is unread
+      return;
+    }
+    final idx = rows.indexWhere((m) => m.id == seen);
+    final first = idx < 0 ? 0 : idx + 1;
+    if (first >= rows.length) {
+      final until = _armedUntil;
+      if (until != null && DateTime.now().isBefore(until)) return;
+      _markerPlaced = true;
+      return;
+    }
+    _markerPlaced = true;
+    _armedUntil = null;
+    _markerId = rows[first].id;
+    _landOn(first, rows.length);
+  }
+
+  /// Lands the viewport on the marker: a jump to where the row should be
+  /// by count, then the row itself once it is built.
+  void _landOn(int index, int count) {
+    _pinned = false;
+    void settle(int tries) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scroll.hasClients) return;
+        final ctx = _markerKey.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(ctx, alignment: 0);
+          return;
+        }
+        final pos = _scroll.position;
+        _scroll.jumpTo((pos.maxScrollExtent * index / count).clamp(0.0, pos.maxScrollExtent));
+        if (tries > 1) settle(tries - 1);
+      });
+    }
+
+    settle(6);
+  }
+
+  String? _flushedSeen;
+
+  void _flushSeen() {
+    final id = _seenId;
+    final scope = widget.seenScope;
+    if (id == null || id.isEmpty || scope == null) return;
+    final seen = '$scope:$id';
+    if (seen == _flushedSeen) return;
+    _flushedSeen = seen;
+    widget.onSeen?.call(seen);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _inFront = true;
+        // A new look: the line moves to the first row that arrived while
+        // the app was away, if any — or arrives in the next moments.
+        _markerPlaced = false;
+        _markerId = null;
+        _markBase = _seenId;
+        _armedUntil = DateTime.now().add(const Duration(seconds: 5));
+        setState(_maybePlaceMarker);
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+        _inFront = false;
+        _flushSeen();
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        break;
+    }
+  }
+
+  /// One row of the main list; seen when built with the app in front.
+  Widget _row(List<DeckMessage> rows, int i) {
+    final m = rows[i];
+    if (_inFront && i > _seenIndex) {
+      _seenIndex = i;
+      _seenId = m.id;
+    }
+    final row = _Row(
+      message: m,
+      progress: widget.uploadProgress,
+      queued: widget.queued.contains(m.id),
+      onWithdraw: widget.onWithdraw == null ? null : () => widget.onWithdraw!(m.id),
+      onTap: _rowTap(m),
+    );
+    if (_markerId != m.id) return row;
+    return Column(key: _markerKey, crossAxisAlignment: CrossAxisAlignment.stretch, children: [const _SinceLine(), row]);
+  }
 
   /// The session controls under the title — Start/Stop, the pills, the
   /// dials — fold away so the transcript gets the screen. Open while idle
@@ -229,14 +383,32 @@ class _DeckViewState extends State<DeckView> {
   static const _chips = ['/step', '/qa', '/next', '/plan-status'];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _takeLastSeen();
+    _maybePlaceMarker();
+  }
+
+  @override
   void didUpdateWidget(DeckView old) {
     super.didUpdateWidget(old);
     if (old.running != widget.running) _openChoice = null;
+    if (old.lastSeenId != widget.lastSeenId || old.seenScope != widget.seenScope) {
+      if (!_markerPlaced) _takeLastSeen();
+    }
+    // Another transcript under the same view: what was built is moot.
+    final oldFirst = old.messages.isEmpty ? null : old.messages.first.id;
+    final first = widget.messages.isEmpty ? null : widget.messages.first.id;
+    if (oldFirst != first || widget.messages.length <= _seenIndex) _seenIndex = -1;
+    _maybePlaceMarker();
     _follow();
   }
 
   @override
   void dispose() {
+    _flushSeen();
+    WidgetsBinding.instance.removeObserver(this);
     _input.dispose();
     _scroll.dispose();
     _focus.dispose();
@@ -307,22 +479,21 @@ class _DeckViewState extends State<DeckView> {
     }
   }
 
-  /// A tool row is a tap when it has a diff to show or a file to open.
+  /// Every tool row opens: an `Agent` row as its crew member, any other
+  /// as the whole input and result — with the diff, the file behind a
+  /// path, and Revert where the host can.
   VoidCallback? _rowTap(DeckMessage m) {
     if (m.role != DeckRole.tool) return null;
-    final path = m.path;
-    final diff = m.diff;
-    if (diff != null) {
-      return () => showDiffSheet(
-            context,
-            diff: diff,
-            path: path,
-            onOpen: path != null && widget.loadFile != null ? () => _openFile(path) : null,
-            onRevert: path != null && widget.onGit != null ? () => _revert(path) : null,
-          );
+    if (m.isAgent) {
+      return () => showCrewSheet(context, CrewMember(row: m, rows: [for (final r in widget.messages) if (r.parentToolUseId != null && r.parentToolUseId == m.toolUseId) r]), rowTap: _rowTap);
     }
-    if (path != null && widget.loadFile != null) return () => _openFile(path);
-    return null;
+    final path = m.path;
+    return () => showToolSheet(
+          context,
+          m,
+          onOpen: path != null && widget.loadFile != null ? () => _openFile(path) : null,
+          onRevert: path != null && widget.onGit != null ? () => _revert(path) : null,
+        );
   }
 
   Future<void> _revert(String path) async {
@@ -433,6 +604,8 @@ class _DeckViewState extends State<DeckView> {
     final t = context.tokens;
     final w = widget;
     final canType = w.running && !_busy;
+    final rows = _rows;
+    final crew = crewOf(w.messages);
     final body = LayoutBuilder(
       builder: (context, box) {
         // The header, like the bottom, scrolls inside its own share at the
@@ -456,6 +629,13 @@ class _DeckViewState extends State<DeckView> {
                 ),
               ),
             ),
+            // The crew of the turn: on the row even when the chrome is
+            // folded — it is what is running now.
+            if (crew.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                child: CrewStrip(crew: crew, onTap: (c) => showCrewSheet(context, c, rowTap: _rowTap)),
+              ),
             if (w.nowSlot != null && !_chromeHidden) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 4), child: w.nowSlot!),
           ],
         );
@@ -463,7 +643,7 @@ class _DeckViewState extends State<DeckView> {
         children: [
           _folds ? AnimatedSize(duration: const Duration(milliseconds: 180), curve: Curves.easeOut, alignment: Alignment.topCenter, child: chrome) : chrome,
           Expanded(
-            child: w.messages.isEmpty
+            child: rows.isEmpty
                 ? Column(
                     children: [
                       Expanded(child: EmptyNote(w.running ? 'Session ready. Ask, or give an order.' : 'Start a session to talk to Claude Code in this folder.')),
@@ -481,8 +661,8 @@ class _DeckViewState extends State<DeckView> {
                           child: ListView.builder(
                             controller: _scroll,
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                            itemCount: w.messages.length + (w.askSlot == null ? 0 : 1),
-                            itemBuilder: (context, i) => i == w.messages.length
+                            itemCount: rows.length + (w.askSlot == null ? 0 : 1),
+                            itemBuilder: (context, i) => i == rows.length
                                 // The ask is the last row: the conversation
                                 // and what it asks are one scroll. When the
                                 // card grows in — a phone's panel fills on
@@ -494,13 +674,7 @@ class _DeckViewState extends State<DeckView> {
                                     },
                                     child: SizeChangedLayoutNotifier(child: w.askSlot!),
                                   )
-                                : _Row(
-                                    message: w.messages[i],
-                                    progress: w.uploadProgress,
-                                    queued: w.queued.contains(w.messages[i].id),
-                                    onWithdraw: w.onWithdraw == null ? null : () => w.onWithdraw!(w.messages[i].id),
-                                    onTap: _rowTap(w.messages[i]),
-                                  ),
+                                : _row(rows, i),
                           ),
                         ),
                       ),
@@ -975,6 +1149,25 @@ class RemoteDeckTab extends StatefulWidget {
 class _RemoteDeckTabState extends State<RemoteDeckTab> {
   late final RemoteDeck _deck = RemoteDeck(widget.db, widget.slug, from: widget.from, blobs: widget.blobs)..start();
 
+  /// Where this phone last looked, read once; the Deck draws its line
+  /// only once this is known.
+  String? _lastSeen;
+  bool _seenLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    LastSeen.load(widget.slug).then((v) {
+      if (!mounted) return;
+      setState(() {
+        _lastSeen = v;
+        _seenLoaded = true;
+      });
+    }, onError: (Object _) {
+      if (mounted) setState(() => _seenLoaded = true);
+    });
+  }
+
   @override
   void dispose() {
     _deck.dispose();
@@ -991,6 +1184,10 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         title: widget.title,
         nowSlot: widget.nowSlot,
         onChromeHidden: widget.onChromeHidden,
+        lastSeenId: _lastSeen,
+        seenScope: d.sessionId,
+        markUnread: _seenLoaded && (d.sessionId != null || d.view.isEmpty),
+        onSeen: (seen) => LastSeen.save(widget.slug, seen),
         facts: [
           if (d.sessionId != null) 'session ${shortId(d.sessionId!)}',
           if (d.model != null) d.model!,
@@ -1701,6 +1898,71 @@ class _Reading extends StatelessWidget {
         children: [
           SizedBox(width: 118, child: Text(label.toUpperCase(), style: t.readout(10))),
           Expanded(child: Text(value, style: t.mono(12, color: warn ? t.warn : t.ink))),
+        ],
+      ),
+    );
+  }
+}
+
+/// A subagent, opened: what it was asked, how it is doing, its report,
+/// and the rows it produced — each a tap like any tool row.
+Future<void> showCrewSheet(BuildContext context, CrewMember c, {required VoidCallback? Function(DeckMessage) rowTap}) {
+  final t = context.tokens;
+  final clock = clockLabel(c.elapsed(DateTime.now()));
+  final status = c.running
+      ? 'Running · $clock · ${c.toolUses} tool use${c.toolUses == 1 ? '' : 's'}'
+      : c.failed
+          ? 'Failed · after $clock'
+          : 'Done · in $clock · ${c.toolUses} tool use${c.toolUses == 1 ? '' : 's'}';
+  final summary = c.summary?.trim() ?? '';
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: t.surface,
+    builder: (sheet) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      maxChildSize: 0.96,
+      builder: (context, ctrl) => SelectionArea(
+        child: ListView(
+          controller: ctrl,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            Text('${c.kind.toUpperCase()} · ${c.description}', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
+            const SizedBox(height: 4),
+            Text(status.toUpperCase(), style: t.readout(10, color: c.failed ? t.critical : c.running ? t.accent : t.muted)),
+            const SizedBox(height: 12),
+            if (summary.isNotEmpty) ...[
+              const SheetHead('Report'),
+              MonoBlock(summary, error: c.failed),
+              const SizedBox(height: 12),
+            ],
+            SheetHead('Its rows · ${c.rows.length}'),
+            if (c.rows.isEmpty) Text('Nothing yet.', style: t.mono(12, color: t.muted)) else for (final r in c.rows) _Row(message: r, onTap: rowTap(r)),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// The thin labelled line above the first row not seen since the app
+/// was last in front.
+class _SinceLine extends StatelessWidget {
+  const _SinceLine();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final line = Expanded(child: Container(height: 1, color: t.accent.withValues(alpha: 0.5)));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 2),
+      child: Row(
+        children: [
+          line,
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text('SINCE YOU LAST LOOKED', style: t.readout(10, color: t.accent))),
+          line,
         ],
       ),
     );

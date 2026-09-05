@@ -639,8 +639,31 @@ class ControlResponseEvent extends BridgeEvent {
 }
 
 class TextDeltaEvent extends BridgeEvent {
-  const TextDeltaEvent(this.text);
+  const TextDeltaEvent(this.text, {this.parentToolUseId});
   final String text;
+
+  /// Set when a subagent wrote it — the `Agent` tool use it runs under.
+  final String? parentToolUseId;
+}
+
+/// `system` / `task_started` · `task_progress` · `task_notification` — a
+/// subagent's life, as the CLI narrates it (2.1.261): the `Agent` tool
+/// use it belongs to, its description, how many tools it has used, and
+/// at the end its status and one-line summary.
+class TaskEvent extends BridgeEvent {
+  const TaskEvent({required this.kind, required this.toolUseId, this.taskId, this.description, this.subagentType, this.status, this.summary, this.toolUses, this.tokens, this.lastTool});
+
+  /// `started`, `progress` or `done`.
+  final String kind;
+  final String toolUseId;
+  final String? taskId;
+  final String? description;
+  final String? subagentType;
+  final String? status;
+  final String? summary;
+  final int? toolUses;
+  final int? tokens;
+  final String? lastTool;
 }
 
 /// A finished content block of the assistant's message.
@@ -658,11 +681,15 @@ class ContentBlock {
 }
 
 class AssistantEvent extends BridgeEvent {
-  const AssistantEvent(this.blocks, {this.usage});
+  const AssistantEvent(this.blocks, {this.usage, this.parentToolUseId});
   final List<ContentBlock> blocks;
 
   /// The call's own `usage` — what the model read to write this message.
   final Usage? usage;
+
+  /// Set when a subagent wrote it — the `Agent` tool use it runs under;
+  /// its usage is the subagent's own context, not the session's.
+  final String? parentToolUseId;
 }
 
 /// Tokens, as the CLI counts them: on every `assistant` message the call's
@@ -718,6 +745,64 @@ String thousands(int n) {
   return n < 0 ? '-$b' : b.toString();
 }
 
+/// How much of a tool's result a row keeps for the sheet a tap opens;
+/// past this the row says the Mac has the rest.
+const toolOutputLimit = 24 * 1024;
+
+/// One subagent on the crew strip: its `Agent` row, the rows it produced,
+/// and whether it is still running.
+class CrewMember {
+  const CrewMember({required this.row, required this.rows});
+  final DeckMessage row;
+  final List<DeckMessage> rows;
+
+  String get id => row.toolUseId ?? row.id;
+  String get description {
+    final d = row.agentDescription;
+    return d.isNotEmpty ? d : (row.progress?['description']?.toString() ?? 'subagent');
+  }
+
+  String get kind => (row.toolInput?['subagent_type'] ?? row.progress?['subagentType'] ?? 'agent').toString();
+  bool get running => row.running;
+  bool get failed => row.isError || row.progress?['status'] == 'failed';
+
+  /// The subagent's report: the Agent tool's result, else the CLI's
+  /// one-line summary.
+  String? get summary => row.fullResult ?? row.progress?['summary']?.toString();
+  int get toolUses => (row.progress?['toolUses'] as num?)?.toInt() ?? rows.where((m) => m.role == DeckRole.tool).length;
+
+  /// How long it has run, or ran.
+  Duration elapsed(DateTime now) => (row.doneAt ?? now).difference(row.at);
+}
+
+/// The crew of the turn now open or last closed: every `Agent` row since
+/// the user's last message, with the rows that ran under it.
+List<CrewMember> crewOf(List<DeckMessage> messages) {
+  var start = 0;
+  for (var i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role == DeckRole.user && messages[i].parentToolUseId == null && !messages[i].queued) {
+      start = i;
+      break;
+    }
+  }
+  final crew = <CrewMember>[];
+  for (var i = start; i < messages.length; i++) {
+    final m = messages[i];
+    if (m.role != DeckRole.tool || !m.isAgent || m.parentToolUseId != null) continue;
+    crew.add(CrewMember(row: m, rows: [for (final r in messages) if (r.parentToolUseId != null && r.parentToolUseId == m.toolUseId) r]));
+  }
+  return crew;
+}
+
+/// `0:42`, `12:05`, `1:02:09` — a running clock.
+String clockLabel(Duration d) {
+  final s = d.inSeconds.clamp(0, 359999);
+  final h = s ~/ 3600;
+  final m = (s % 3600) ~/ 60;
+  final sec = s % 60;
+  return h > 0 ? '$h:${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}' : '$m:${sec.toString().padLeft(2, '0')}';
+}
+
 /// `24.4K`, `1.2M`, `850` — tokens as a readout.
 String tokensLabel(int n) {
   if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(n >= 10000000 ? 0 : 1)}M';
@@ -740,16 +825,19 @@ class CompactEvent extends BridgeEvent {
 
 /// The result of a tool call, as the model sees it.
 class ToolResultEvent extends BridgeEvent {
-  const ToolResultEvent({required this.toolUseId, required this.content, this.isError = false});
+  const ToolResultEvent({required this.toolUseId, required this.content, this.isError = false, this.parentToolUseId});
   final String toolUseId;
   final String content;
   final bool isError;
+  final String? parentToolUseId;
 }
 
-/// `--replay-user-messages`: our own message, acknowledged.
+/// `--replay-user-messages`: our own message, acknowledged — or, with
+/// [parentToolUseId], a subagent's prompt as the CLI handed it over.
 class UserEchoEvent extends BridgeEvent {
-  const UserEchoEvent(this.text);
+  const UserEchoEvent(this.text, {this.parentToolUseId});
   final String text;
+  final String? parentToolUseId;
 }
 
 class AskEvent extends BridgeEvent {
@@ -849,9 +937,25 @@ BridgeEvent? parseBridgeLine(String line) {
   if (raw is! Map) return null;
   final m = _map(raw);
   final type = (m['type'] ?? '').toString();
+  final parent = _text(m['parent_tool_use_id']);
   switch (type) {
     case 'system':
       final sub = (m['subtype'] ?? '').toString();
+      if (sub == 'task_started' || sub == 'task_progress' || sub == 'task_notification') {
+        final usage = _map(m['usage']);
+        return TaskEvent(
+          kind: sub == 'task_started' ? 'started' : sub == 'task_progress' ? 'progress' : 'done',
+          toolUseId: (m['tool_use_id'] ?? '').toString(),
+          taskId: m['task_id']?.toString(),
+          description: _text(m['description']),
+          subagentType: _text(m['subagent_type']),
+          status: _text(m['status']),
+          summary: _text(m['summary']),
+          toolUses: (usage['tool_uses'] as num?)?.toInt(),
+          tokens: (usage['total_tokens'] as num?)?.toInt(),
+          lastTool: _text(m['last_tool_name']),
+        );
+      }
       if (sub == 'init') {
         return InitEvent(
           sessionId: (m['session_id'] ?? '').toString(),
@@ -878,7 +982,7 @@ BridgeEvent? parseBridgeLine(String line) {
       final ev = _map(m['event']);
       if (ev['type'] == 'content_block_delta') {
         final d = _map(ev['delta']);
-        if (d['type'] == 'text_delta') return TextDeltaEvent((d['text'] ?? '').toString());
+        if (d['type'] == 'text_delta') return TextDeltaEvent((d['text'] ?? '').toString(), parentToolUseId: parent);
       }
       return OtherEvent(type, ev['type']?.toString());
     case 'assistant':
@@ -893,18 +997,18 @@ BridgeEvent? parseBridgeLine(String line) {
           blocks.add(ContentBlock.toolUse(toolUseId: (cm['id'] ?? '').toString(), toolName: (cm['name'] ?? '').toString(), toolInput: _map(cm['input'])));
         }
       }
-      return AssistantEvent(blocks, usage: msg['usage'] is Map ? Usage.fromMap(_map(msg['usage'])) : null);
+      return AssistantEvent(blocks, usage: msg['usage'] is Map ? Usage.fromMap(_map(msg['usage'])) : null, parentToolUseId: parent);
     case 'user':
       final msg = _map(m['message']);
       final content = msg['content'];
-      if (content is String) return UserEchoEvent(content);
+      if (content is String) return UserEchoEvent(content, parentToolUseId: parent);
       if (content is List) {
         for (final c in content) {
           if (c is Map && c['type'] == 'tool_result') {
-            return ToolResultEvent(toolUseId: (c['tool_use_id'] ?? '').toString(), content: _contentText(c['content']), isError: c['is_error'] == true);
+            return ToolResultEvent(toolUseId: (c['tool_use_id'] ?? '').toString(), content: _contentText(c['content']), isError: c['is_error'] == true, parentToolUseId: parent);
           }
         }
-        return UserEchoEvent(content.whereType<Map>().map((c) => (c['text'] ?? '').toString()).join());
+        return UserEchoEvent(content.whereType<Map>().map((c) => (c['text'] ?? '').toString()).join(), parentToolUseId: parent);
       }
       return OtherEvent(type, null);
     case 'control_request':
@@ -993,6 +1097,11 @@ class DeckMessage {
     this.about,
     this.attachments = const [],
     this.turn,
+    this.parentToolUseId,
+    this.doneAt,
+    this.toolOutput,
+    this.toolOutputCut = false,
+    this.progress,
   });
 
   factory DeckMessage.fromMap(Map<String, Object?> m) => DeckMessage(
@@ -1011,6 +1120,11 @@ class DeckMessage {
         about: m['about'] is Map ? _map(m['about']) : null,
         attachments: [for (final a in (m['attachments'] as List? ?? const [])) if (a is Map) DeckAttachment.fromMap(_map(a))],
         turn: m['turn'] is Map ? Usage.fromMap(_map(m['turn'])) : null,
+        parentToolUseId: _text(m['parent']),
+        doneAt: DateTime.tryParse((m['doneAt'] ?? '').toString()),
+        toolOutput: m['toolOutput']?.toString(),
+        toolOutputCut: m['toolOutputCut'] == true,
+        progress: m['progress'] is Map ? _map(m['progress']) : null,
       );
 
   final String id;
@@ -1035,6 +1149,38 @@ class DeckMessage {
   /// last call and the turn's output — the tokens the turn cost.
   Usage? turn;
 
+  /// A subagent's row: the `Agent` tool use it ran under. The Deck folds
+  /// these under that row's chip; the main list is the user's own
+  /// conversation.
+  final String? parentToolUseId;
+
+  /// A tool row: when its result landed.
+  DateTime? doneAt;
+
+  /// A tool row whose result was longer than the row's clip: up to
+  /// [toolOutputLimit] of it, for the sheet a tap opens; [toolOutputCut]
+  /// says the Mac has more.
+  String? toolOutput;
+  bool toolOutputCut;
+
+  /// An `Agent` row: what the CLI said of the subagent as it ran —
+  /// `{toolUses, tokens, lastTool, status, summary}`.
+  Map<String, Object?>? progress;
+
+  /// A subagent, whichever name the CLI gives the tool (`Agent` on
+  /// 2.1.261, `Task` in its tools list).
+  bool get isAgent => toolName == 'Agent' || toolName == 'Task';
+
+  /// The chip's word: the `Agent` call's description.
+  String get agentDescription => (toolInput?['description'] ?? toolInput?['prompt'] ?? '').toString();
+
+  /// Whether a tool row is still running.
+  bool get running => role == DeckRole.tool && toolResult == null && doneAt == null;
+
+  /// The whole result the sheet shows: the long copy when there is one,
+  /// else the row's own.
+  String? get fullResult => toolOutput ?? toolResult;
+
   /// The file a tool row names — the tap that opens it.
   String? get path => toolInput == null ? null : editedPath(toolInput!);
 
@@ -1054,6 +1200,7 @@ class DeckMessage {
     if (path != null) return '$name · $path';
     if (name == 'AskUserQuestion') return 'asked you a question';
     if (name == 'ExitPlanMode') return 'proposed a plan';
+    if (isAgent) return '${input['subagent_type'] ?? 'agent'} · $agentDescription';
     if (name == 'git') {
       final op = input['op'] ?? '';
       final message = input['message'];
@@ -1077,6 +1224,11 @@ class DeckMessage {
         if (queued) 'queued': true,
         if (diff != null) 'diff': diff,
         if (turn != null) 'turn': turn!.toMap(),
+        if (parentToolUseId != null) 'parent': parentToolUseId,
+        if (doneAt != null) 'doneAt': doneAt!.toUtc().toIso8601String(),
+        if (toolOutput != null) 'toolOutput': toolOutput,
+        if (toolOutputCut) 'toolOutputCut': true,
+        if (progress != null) 'progress': progress,
         if (about != null) 'about': about,
         if (attachments.isNotEmpty) 'attachments': [for (final a in attachments) a.toMap()],
       };
@@ -1186,9 +1338,25 @@ class Transcript {
         mcpServers = e.mcpServers;
       case TextDeltaEvent():
         deltasSeen++;
+        // A subagent's draft is not streamed; its final blocks become
+        // rows under its chip.
+        if (e.parentToolUseId != null) break;
         final s = _streaming ??= _open();
         s.text += e.text;
       case AssistantEvent():
+        final parent = e.parentToolUseId;
+        if (parent != null) {
+          // The subagent's own rows: its tool uses and what it wrote,
+          // folded under the Agent row. Its usage is its own context.
+          for (final b in e.blocks) {
+            if (b.isToolUse) {
+              messages.add(DeckMessage(id: _nextId(), role: DeckRole.tool, text: '', at: now(), toolName: b.toolName, toolInput: b.toolInput, toolUseId: b.toolUseId, about: _about, parentToolUseId: parent));
+            } else if ((b.text ?? '').isNotEmpty) {
+              messages.add(DeckMessage(id: _nextId(), role: DeckRole.assistant, text: b.text!, at: now(), about: _about, parentToolUseId: parent));
+            }
+          }
+          break;
+        }
         if (e.usage != null) {
           usage = e.usage;
           usageAt = now();
@@ -1214,7 +1382,28 @@ class Transcript {
         for (final m in messages.reversed) {
           if (m.role == DeckRole.tool && m.toolUseId == e.toolUseId) {
             m.toolResult = _clip(e.content, 600);
+            if (e.content.length > 600) {
+              m.toolOutput = _clip(e.content, toolOutputLimit);
+              m.toolOutputCut = e.content.length > toolOutputLimit;
+            }
             m.isError = e.isError;
+            m.doneAt = now();
+            break;
+          }
+        }
+      case TaskEvent():
+        for (final m in messages.reversed) {
+          if (m.role == DeckRole.tool && m.toolUseId == e.toolUseId) {
+            m.progress = {
+              ...?m.progress,
+              if (e.description != null) 'description': e.description,
+              if (e.subagentType != null) 'subagentType': e.subagentType,
+              if (e.toolUses != null) 'toolUses': e.toolUses,
+              if (e.tokens != null) 'tokens': e.tokens,
+              if (e.lastTool != null) 'lastTool': e.lastTool,
+              if (e.status != null) 'status': e.status,
+              if (e.summary != null) 'summary': e.summary,
+            };
             break;
           }
         }

@@ -433,8 +433,9 @@ class BridgeSession extends ChangeNotifier {
         if (!e.ok) _logLine('${e.requestId} refused: ${e.error ?? 'no reason given'}');
       case StatusEvent():
       case CompactEvent():
-        // The transcript took the mode, or the compaction; a fresh init
-        // follows either.
+      case TaskEvent():
+        // The transcript took the mode, the compaction or the subagent's
+        // progress; nothing for the process to do.
         break;
       case AssistantEvent():
         // An edit's row gets its diff now, while the file is still as it
