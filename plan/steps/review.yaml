@@ -1,14 +1,14 @@
 id: review
 number: "14"
 title: Review — the diff before Allow, any file on the Mac from a tap, and Git from the phone
-status: pending
+status: done
 rank: 750
 depends_on: [deck-on-the-phone, blobs]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-06, note: "kit and app: no issues (2026-09-06)", status: passed}
+  tests: { at: 2026-09-06, note: "kit 82, app 109 — pure unified diff, the diff on rows and asks, host read_file inside the project only, git against a bare remote, file view, Git card, host commands by id", status: passed}
+  qa: { at: 2026-09-06, note: "run by Claude on the user's phone over adb, 2026-09-06: Edit ask shows the diff, Deny leaves the file, Allow edits it; the row's diff sheet, the file view with find and Ask about this (path:line into the composer); Git card 13 changed matched git status; Revert file from the sheet restored it and the row shows git; \/etc\/passwd refused with the reason; a 209 KB file went to Storage with the first 200 KB inline. Commit\/Push only against a bare remote in tests.", status: passed}
 sections:
   - title: Description
     body: |
@@ -67,3 +67,17 @@ sections:
       - `app/lib/src/screens/ask_card.dart` (diff), `app/lib/src/screens/deck_tab.dart` (tool rows, file view), `app/lib/src/host/bridge_session.dart` (diff on ask), `app/lib/src/host/host_project.dart` (host commands: read_file, git), `app/lib/src/relay.dart` (files, host commands), `kit/lib/src/diff.dart` (new, pure Dart unified diff)
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — agent parity" }
+  - at: 2026-09-05
+    event: started
+  - at: 2026-09-06
+    event: gate analyze passed
+    note: "kit and app: no issues (2026-09-06)"
+  - at: 2026-09-06
+    event: gate tests passed
+    note: "kit 82, app 109 — pure unified diff, the diff on rows and asks, host read_file inside the project only, git against a bare remote, file view, Git card, host commands by id"
+  - at: 2026-09-06
+    event: gate qa passed
+    note: "run by Claude on the user's phone over adb, 2026-09-06: Edit ask shows the diff, Deny leaves the file, Allow edits it; the row's diff sheet, the file view with find and Ask about this (path:line into the composer); Git card 13 changed matched git status; Revert file from the sheet restored it and the row shows git; \/etc\/passwd refused with the reason; a 209 KB file went to Storage with the first 200 KB inline. Commit\/Push only against a bare remote in tests."
+  - at: 2026-09-06
+    event: done
+    note: "diffs on rows and asks, file view, Git card, host commands read_file\/git; QA run by Claude on the phone"
