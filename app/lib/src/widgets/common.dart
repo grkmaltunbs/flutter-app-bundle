@@ -617,3 +617,76 @@ class DashedBorderPainter extends CustomPainter {
   @override
   bool shouldRepaint(DashedBorderPainter old) => old.color != color || old.radius != radius;
 }
+
+/// An instrument's arc — three quarters of a ring, filled to [fraction],
+/// [inner] in the middle and [label] under it. Amber from [warnAt], red
+/// from [criticalAt]; [color] overrides both. Grows with the text scale,
+/// but only so far: past 1.6× the numbers are in the sheet a tap opens.
+class GaugeArc extends StatelessWidget {
+  const GaugeArc({super.key, required this.fraction, this.label, this.inner, this.size = 30, this.warnAt = 0.7, this.criticalAt = 0.85, this.color});
+  final double fraction;
+  final String? label;
+  final String? inner;
+  final double size;
+  final double warnAt;
+  final double criticalAt;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final f = fraction.isNaN ? 0.0 : fraction.clamp(0.0, 1.0);
+    final c = color ?? (f >= criticalAt ? t.critical : f >= warnAt ? t.warn : t.accent);
+    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6);
+    final s = size * scale;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: s,
+          height: s,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CustomPaint(size: Size.square(s), painter: _ArcPainter(f, c, t.line)),
+              if (inner != null) Text(inner!, textScaler: TextScaler.noScaling, maxLines: 1, style: t.mono(s * 0.3, color: c, weight: FontWeight.w600, height: 1)),
+            ],
+          ),
+        ),
+        // As wide as the arc, never wider: a long countdown shrinks to fit.
+        if (label != null) SizedBox(width: s, child: FittedBox(fit: BoxFit.scaleDown, child: Text(label!.toUpperCase(), textScaler: TextScaler.linear(scale), maxLines: 1, style: t.readout(9)))),
+      ],
+    );
+  }
+}
+
+class _ArcPainter extends CustomPainter {
+  _ArcPainter(this.fraction, this.color, this.track);
+  final double fraction;
+  final Color color;
+  final Color track;
+
+  static const _start = math.pi * 0.75;
+  static const _sweep = math.pi * 1.5;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final stroke = (w * 0.1).clamp(2.0, 4.0);
+    final rect = Rect.fromLTWH(stroke / 2 + 1, stroke / 2 + 1, w - stroke - 2, w - stroke - 2);
+    canvas.drawArc(rect, _start, _sweep, false, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = track);
+    if (fraction <= 0) return;
+    canvas.drawArc(rect, _start, _sweep * fraction, false, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_ArcPainter old) => old.fraction != fraction || old.color != color || old.track != track;
+}

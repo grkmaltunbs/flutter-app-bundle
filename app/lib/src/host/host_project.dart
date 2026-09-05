@@ -303,6 +303,8 @@ class HostProject extends ChangeNotifier {
         return cmd['chrome'] == null && cmd['effort'] == null ? 'switched in place' : 'restarting on the same conversation';
       case 'push-test':
         return testPush();
+      case 'compact':
+        return bridge.compact();
       case 'host':
         return _hostAction(cmd);
       default:

@@ -484,6 +484,18 @@ class RemoteDeck extends ChangeNotifier {
   /// turns into the `interrupt` control request.
   Future<void> interrupt() => CommandSender(db, slug).send({'type': 'interrupt'}, from: from);
 
+  /// The instruments, as the host publishes them: the context in use
+  /// against the model's window, the pool with both windows, and whether
+  /// `/compact` is running.
+  int get contextUsed => (_context['used'] as num?)?.toInt() ?? 0;
+  int get contextWindow => (_context['window'] as num?)?.toInt() ?? 0;
+  Map<String, Object?> get _context => session['context'] is Map ? {for (final e in (session['context'] as Map).entries) e.key.toString(): e.value as Object?} : const {};
+  RateLimitEvent? get pool => session['pool'] is Map ? RateLimitEvent.fromMap({for (final e in (session['pool'] as Map).entries) e.key.toString(): e.value as Object?}) : null;
+  bool get compacting => session['compacting'] == true;
+
+  /// `/compact`, sent by the host as a message on the session.
+  Future<void> compact() => CommandSender(db, slug).send({'type': 'compact'}, from: from);
+
   /// The Git card's numbers, as the host last read them.
   GitStatus? get git => session['git'] is Map ? GitStatus.fromMap({for (final e in (session['git'] as Map).entries) e.key.toString(): e.value as Object?}) : null;
 

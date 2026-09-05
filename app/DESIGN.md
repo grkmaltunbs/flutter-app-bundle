@@ -104,11 +104,12 @@ What the host reads from stdout, one JSON object per line:
 |---|---|
 | `system` / `init` | records `session_id`, model, permission mode → `session` on the project doc |
 | `stream_event` | appends text deltas to the open assistant message in `chat/` (coalesced, ≤ 1 write/s) |
-| `assistant` | final content: text → the message; `tool_use` → a compact tool row |
+| `assistant` | final content: text → the message; `tool_use` → a compact tool row; `usage` → the context arc (the three input fields summed are what the call read) |
 | `user` (tool_result) | closes the tool row with its result summary |
 | `control_request` / `can_use_tool` | writes `asks/{request_id}`; `AskUserQuestion` renders as a question card, anything else as an authorization card; waits for the answer |
 | `result` | closes the turn; `chat` gets the summary; `session.state = idle` |
-| `rate_limit_event` | shows the pool and its reset time on the Session screen |
+| `rate_limit_event` | the pool arc: `unifiedWindows.five_hour` and `seven_day` carry a utilization and a reset each (2.1.261); `status: rejected` is the exhausted line |
+| `system` / `compact_boundary` | the conversation was compacted: `compact_metadata.pre_tokens` → `post_tokens`; the arc drops, a note row says so |
 
 A `control_request` is answered by whichever surface answers first — the
 Mac window, the phone card, or a notification action — and the others
@@ -118,7 +119,7 @@ the user allowed "for this session".
 ## Firestore shape (additions to phase 2)
 
 ```
-projects/{slug}.session               {mode: bridge|remote|idle, sessionId, model, startedAt, pool{resetsAt}, skipPermissions, chrome, chromeStatus?}
+projects/{slug}.session               {mode: bridge|remote|idle, sessionId, model, startedAt, pool{status, resetsAt, fiveHour{utilization, resetsAt}, sevenDay{…}}, context{used, window, at}, compacting, skipPermissions, chrome, chromeStatus?}
 projects/{slug}/chat/{auto}           {role: user|assistant|tool, text, about?, tool?, status?, at}
 projects/{slug}/asks/{requestId}      {kind: permission|question, tool, input, suggestions, description, at, answer?, answeredAt?, by?}
 projects/{slug}/threads/{about}/messages/{auto}   the per-item / per-step conversation
@@ -197,7 +198,7 @@ order. This section records the decisions the steps are built on.
 | Stopping a turn | An **interrupt** control request on stdin — `{"type":"control_request","request_id":…,"request":{"subtype":"interrupt"}}` — ends the turn and keeps the session (proven 2026-09-04, below). INTERRUPT sits on the Deck's title row while a turn runs; Stop waits in the fold. An ask open when the turn is cut is withdrawn with it; the cut turn's row says "Interrupted from the phone"; no Done push for it. Messages sent mid-turn are **queued** by the host — the row says so, WITHDRAW takes it back, and the first in line goes the moment the `result` lands. `set_permission_mode` and `set_model` are both honoured, so the MODE and MODEL dials switch in place; only Chrome and effort still restart on `--resume`. | Stop kills the process; the SDK has a brake that does not. |
 | Reviewing the agent | **Diffs on Edit/Write asks** (host-computed, ≤ 24 KB), any path a tap to a **file view**, a **Git card** (branch, dirty, last commit; Commit / Push / Revert file) the host runs directly. Built 2026-09-06: the diff is `kit/lib/src/diff.dart` (prefix/suffix trim, then an LCS over what is left when it is under 1500×1500 lines, else a whole replacement); the bridge computes it when the tool call streams in — before the tool runs, so the file is still as it was — and the ask for the same `tool_use_id` reuses it. The tool row of an edit that ran shows the same diff on tap. A file read is a `host` command answered in `files/{commandId}` (the first 200 KB inline, the whole file in Storage past that; refused outside the project and its attachments, or for a folder, a binary, or past 8 MB). git runs where the host is, with no model; each command becomes a tool-style row and a line the next prompt opens with ("Since your last turn the user did this from the app…"), so the session never works from a picture that is out of date. | The human half of an agent is reading what it changed. |
 | Actions that need no model | **`host` commands** — `{type: host, action: read_file|git|blocks|step_done|reorder|…}` — the host runs the kit library, git or the toolchain and answers in the relay; no quota. Everything on the Git card, the constellation's controls, the run bay and the mirror are host commands. | Half of what the phone asks Claude today is a shell command. The app must stay useful with the pool empty. |
-| Instruments | Context in use from each assistant message's `usage` (input + cache creation + cache read) against the model's window; the pools from `rate_limit_event`. **Compact** offered past 80 % (a spike: `/compact` as a message in `-p`). Tokens, never dollars. | The JARVIS reading: the state of the machine at a glance. |
+| Instruments | Two arcs on the Deck's facts row, both devices: the **context** each assistant message's `usage` reports (input + cache creation + cache read) against the model's window (the `result`'s `modelUsage[model].contextWindow` — 1,000,000 for `claude-fable-5-1` on 2.1.261 — else 1M for `[1m]` and Fable, 200k otherwise), amber past 70 %, red past 85 %; the **five-hour pool** from `rate_limit_event`'s `unifiedWindows`, the countdown to its reset under it, the weekly window in the sheet a tap opens and on the Session screen. **COMPACT** past 80 %: `/compact` as a message compacts in `-p` (spike answered 2026-09-06, below); the arc drops and a row says "Compacted · 80.6K → 3.6K tokens". A turn's cost rides on its last row (`24.4K CTX · 3.7K OUT`). Tokens, never dollars. Built 2026-09-06. | The JARVIS reading: the state of the machine at a glance. |
 | Keeping the agent going | **Autopilot** in the host: `/step` after each passed step, within a budget; stops on an ask, a second failed gate, the human's move; **night shift** waits out the pool from the event's reset time. Replaces `runner/`, which is deleted in that step. | The runner was parked and unwireable; the bridge makes the loop a hundred lines. |
 | The app under test | The host owns the process: **run bay** — `flutter run -d <device> --machine --print-dtd`, the daemon protocol (`app.restart`, `app.stop`, `app.debugPort`), the log tail in the relay, the VM/DTD URIs in the brief for the Dart MCP server. **Mirror**: frames through Storage, taps back through `adb shell input` / `idb ui`. **Try it**: a debug APK built by the host, installed from a push; share-sheet intake. | "Does it run" becomes something you watch, then something you hold. |
 | Pushes on Android (step 6b, built 2026-09-04) | A **data message**, not a tray notification: the phone draws it with `flutter_local_notifications` on the same four channels (`asks`, `problems`, `done`, `steps`), with **Allow / Deny** — or a short single question's options, or a sign-in's one option — as buttons. A button runs in a background isolate: it reads the ask from the relay, writes the `answer` command the card would, and takes the notification down; a failure replaces the buttons with a line. An ask answered anywhere makes the host send a silent **withdraw** message so the notification comes off every phone. Other platforms still get FCM's tray notification. | Buttons on a notification need the app to draw it; the withdraw keeps a stale Allow off the lock screen. |
@@ -265,6 +266,21 @@ plans again. An `Edit` ask's `permission_suggestions` carry the same
 `setMode acceptEdits` — Always on an edit is a session mode, not a rule
 in a settings file, and the dial follows it.
 
+`/compact` as a user message (proven 2026-09-06, 2.1.261) compacts in
+`-p`. The CLI writes `system/status {status: compacting}` (again every
+30 s), then `status {status: null, compact_result: success}`, a fresh
+`init`, `system/compact_boundary {compact_metadata: {trigger: manual,
+pre_tokens: 80559, post_tokens: 3596, duration_ms: 37920, …}}`, two
+replayed user lines (the summary itself, and
+`<local-command-stdout>Compacted </local-command-stdout>`), and a
+`result` with `num_turns: 0` and zero usage. 38 s for 81K. The next call
+read 22K (the summary under the system prompt and the tools), so the arc
+drops to `post_tokens` at the boundary and corrects itself on the next
+message. Every `assistant` message's `usage` is the call's own —
+`input_tokens + cache_creation_input_tokens + cache_read_input_tokens` is
+what the model read — and the `result`'s `usage` is the turn's total, its
+`modelUsage` naming each model's `contextWindow`.
+
 ### Relay shape (additions to phase 3)
 
 ```
@@ -274,7 +290,7 @@ projects/{slug}                       session.git = {branch, ahead, behind, dirt
 hosts/{hostId}                        {seenAt, name, appVersion, cli, projects: [slug], stopping?}
 projects/{slug}.run                   {device, appId, state, since, vmUri, dtdUri}
 projects/{slug}.mirror                {seq, at, w, h, watching?}
-projects/{slug}.context               {used, window, at}
+projects/{slug}.session.context       {used, window, at}   (built 2026-09-06, with session.pool and session.compacting)
 projects/{slug}.autopilot             {on, budget, done, nightShift, waitingUntil?, stoppedFor?}
 projects/{slug}/sessions/{id}         {startedAt, endedAt, firstMessage, turns, model, mode}
 projects/{slug}/runs/{id}/log/{n}     lines, coalesced ≤ 1 write/s, last 2000 kept
@@ -301,7 +317,7 @@ puts objects in Storage. The host is the only writer of session truth.
 1. `interrupt` on the pinned CLI: **answered** 2026-09-04 (above) — `{still_queued: []}`, an echoed user line, a `result`; the session lives.
 2. `set_model` / `set_permission_mode`: **both honoured** (2026-09-04, above); the dials switch in place.
 3. `ExitPlanMode`'s request: **answered** 2026-09-04 (above) — `input.plan`, and the allow takes `setMode`.
-4. `/compact` as a user message in `-p`: compacts, or not.
+4. `/compact` as a user message in `-p`: **compacts** (2026-09-06, above) — `status compacting`, a `compact_boundary` with the tokens before and after, a fresh `init`, a `result` with no turns.
 5. `xcrun simctl io <udid> screenshot` to a pipe, and the frame rate it sustains.
 6. The CLI's transcript file under `~/.claude/projects/<cwd-key>/` for session history.
 

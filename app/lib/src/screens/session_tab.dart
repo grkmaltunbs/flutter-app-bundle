@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter/services.dart';
-import 'package:flutter_kit/kit.dart' show modeChoices, modeLabel;
+import 'package:flutter_kit/kit.dart' show PoolWindow, modeChoices, modeLabel, thousands, untilLabel;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../host/host_presence.dart';
@@ -163,6 +163,40 @@ class _SessionTabState extends State<SessionTab> {
                 );
               },
             ),
+            const SectionHead('Instruments', sub: 'What the model last read against its window, and the subscription pool. Tokens, never dollars.'),
+            ListenableBuilder(
+              listenable: h.bridge,
+              builder: (context, _) {
+                final b = h.bridge;
+                final tr = b.transcript;
+                final pool = tr.pool;
+                String window(PoolWindow? p) {
+                  if (p == null) return '—';
+                  final u = p.utilization == null ? '' : '${(p.utilization! * 100).round()} % used';
+                  final r = p.resetsAt == null ? '' : 'resets ${_hm(p.resetsAt!)} (in ${untilLabel(p.resetsAt!)})';
+                  final s = [u, r].where((x) => x.isNotEmpty).join(' · ');
+                  return s.isEmpty ? '—' : s;
+                }
+
+                final pct = (tr.contextFraction * 100).round();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _reading(context, 'Context', b.running ? '${thousands(tr.contextUsed)} / ${thousands(tr.contextWindow)} tokens · $pct %${tr.compacting ? ' · compacting' : ''}' : '—', warn: tr.contextFraction >= 0.7),
+                    _reading(context, 'Five-hour pool', pool == null ? '—' : window(pool.fiveHour ?? PoolWindow(resetsAt: pool.resetsAt))),
+                    _reading(context, 'Weekly pool', window(pool?.sevenDay)),
+                    if (pool?.exhausted == true) _reading(context, 'Status', 'Exhausted — nothing runs until a window resets', warn: true),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 8),
+                      child: OutlinedButton(
+                        onPressed: b.running && !tr.turnOpen && !tr.compacting ? b.compact : null,
+                        child: Text(tr.compacting ? 'COMPACTING…' : 'COMPACT'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
             const SectionHead('Git', sub: 'What the host reads after every turn. Commit and Push run here, no model; the session hears about them with the next message.'),
             GitCard(git: h.gitStatus, onOp: h.gitOp),
             const SectionHead('Activity', sub: 'From the hooks, newest first.'),
@@ -191,6 +225,17 @@ class _SessionTabState extends State<SessionTab> {
   static String _hm(DateTime at) {
     final l = at.toLocal();
     return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _reading(BuildContext context, String label, String value, {bool warn = false}) {
+    final t = context.tokens;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(width: 118, child: Text(label.toUpperCase(), style: t.readout(10))),
+        Expanded(child: Text(value, style: t.mono(12, color: warn ? t.warn : t.ink))),
+      ]),
+    );
   }
 
   Widget _check(BuildContext context, {required bool ok, required String text}) {

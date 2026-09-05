@@ -432,7 +432,9 @@ class BridgeSession extends ChangeNotifier {
       case ControlResponseEvent():
         if (!e.ok) _logLine('${e.requestId} refused: ${e.error ?? 'no reason given'}');
       case StatusEvent():
-        // The transcript took the mode; a fresh init follows.
+      case CompactEvent():
+        // The transcript took the mode, or the compaction; a fresh init
+        // follows either.
         break;
       case AssistantEvent():
         // An edit's row gets its diff now, while the file is still as it
@@ -728,8 +730,21 @@ class BridgeSession extends ChangeNotifier {
         if (cliVersion != null) 'cliVersion': cliVersion,
         if (startedAt != null) 'startedAt': startedAt!.toUtc().toIso8601String(),
         if (transcript.pool?.resetsAt != null) 'poolResetsAt': transcript.pool!.resetsAt!.toIso8601String(),
+        if (transcript.pool != null) 'pool': transcript.pool!.toMap(),
+        'context': transcript.contextRelay,
+        'compacting': transcript.compacting,
         if (error != null) 'error': error,
       };
+
+  /// `/compact` as a message — the CLI compacts in `-p` (proven 2026-09-06,
+  /// 2.1.261: `status compacting`, a `compact_boundary` with the tokens
+  /// before and after, a fresh `init`, a `result` with no turns; the next
+  /// call read 22K where the last had read 81K). Queued like any message
+  /// while a turn runs. Returns the one-line outcome.
+  String compact() {
+    if (!running) return 'no session';
+    return send('/compact') ? 'queued' : 'compacting';
+  }
 
   @override
   void dispose() {

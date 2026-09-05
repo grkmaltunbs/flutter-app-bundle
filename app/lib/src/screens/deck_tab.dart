@@ -68,6 +68,11 @@ class DeckView extends StatefulWidget {
     this.loadFile,
     this.git,
     this.onGit,
+    this.contextUsed = 0,
+    this.contextWindow = 0,
+    this.pool,
+    this.compacting = false,
+    this.onCompact,
   });
 
   final BridgeState state;
@@ -120,6 +125,18 @@ class DeckView extends StatefulWidget {
   /// Ends the running turn and keeps the session — INTERRUPT on the title
   /// row while a turn runs. Null: no such brake here.
   final VoidCallback? onInterrupt;
+
+  /// The instruments on the facts row: the context the model last read
+  /// against its window (no arc while the window is 0 — no session yet),
+  /// and the pool with its windows. [onCompact] sends `/compact`; the
+  /// COMPACT pill offers it past 80 %, and reads COMPACTING while
+  /// [compacting].
+  final int contextUsed;
+  final int contextWindow;
+  final RateLimitEvent? pool;
+  final bool compacting;
+  final VoidCallback? onCompact;
+  double get contextFraction => contextWindow == 0 ? 0 : contextUsed / contextWindow;
 
   /// A file on the Mac, for the tap on a path — the Mac's disk, or the
   /// relay. Null: paths are not taps.
@@ -890,7 +907,6 @@ class DeckTab extends StatelessWidget {
             if (b.transcript.model != null) b.transcript.model!,
             if (b.cliVersion != null) 'claude ${b.cliVersion}${b.cliVersion == bridgeProvenOn ? '' : ' (proven on $bridgeProvenOn)'}',
             if (b.running && b.transcript.permissionMode != null) '${modeLabel(b.transcript.permissionMode!)} mode',
-            if (b.transcript.pool?.resetsAt != null) 'pool resets ${hm(b.transcript.pool!.resetsAt!)}',
           ],
           error: b.error,
           messages: b.transcript.messages,
@@ -898,6 +914,11 @@ class DeckTab extends StatelessWidget {
           canResume: resumable != null,
           resumeLabel: resumable == null ? 'RESUME' : 'RESUME ${shortId(resumable).toUpperCase()}',
           turnOpen: b.transcript.turnOpen,
+          contextUsed: b.transcript.contextUsed,
+          contextWindow: b.running ? b.transcript.contextWindow : 0,
+          pool: b.transcript.pool,
+          compacting: b.transcript.compacting,
+          onCompact: b.compact,
           modeChoice: b.modeChoice,
           switchPending: b.modePending || b.modelPending,
           chrome: b.chrome,
@@ -982,6 +1003,11 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         running: d.running,
         canResume: d.canResume,
         turnOpen: d.turnOpen,
+        contextUsed: d.contextUsed,
+        contextWindow: d.running ? d.contextWindow : 0,
+        pool: d.pool,
+        compacting: d.compacting,
+        onCompact: d.compact,
         here: widget.from,
         modeChoice: d.modeChoice,
         switchPending: d.switchPending,
@@ -1080,6 +1106,9 @@ class _Header extends StatelessWidget {
                 child: Text('${w.title == null ? '' : '${w.title!.toUpperCase()} · '}$label', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.display(13, weight: FontWeight.w600, ls: 2.0, color: color)),
               ),
             ),
+            // The instruments stay on the row, small and unlabelled; the
+            // COMPACT offer waits in the sheet a tap opens.
+            if (w.contextWindow > 0) ...[const SizedBox(width: 6), Flexible(child: _Gauges(view: w, size: 22, labels: false, pill: false))],
             if (w.turnOpen && w.onInterrupt != null)
               Flexible(child: _InterruptButton(onTap: w.onInterrupt!))
             else if (w.running)
@@ -1114,17 +1143,9 @@ class _Header extends StatelessWidget {
               Expanded(
                 child: InkWell(
                   onTap: onToggle,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (w.title != null) ...[
-                        Text(w.title!.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.display(22, ls: 3.2)),
-                        const SizedBox(height: 4),
-                      ],
-                      if (w.facts.isNotEmpty)
-                        Text(w.facts.join(' · ').toUpperCase(), maxLines: open ? 2 : 1, overflow: TextOverflow.ellipsis, style: t.readout(11)),
-                    ],
-                  ),
+                  child: w.title == null
+                      ? const SizedBox(height: 36)
+                      : Text(w.title!.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.display(22, ls: 3.2)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1167,12 +1188,38 @@ class _Header extends StatelessWidget {
               ),
             ],
           ),
+          // The facts row: the instruments first — the context arc, the
+          // pool arc, COMPACT when it is offered — then the facts. Its own
+          // row, the full width: beside the pill and INTERRUPT the title's
+          // share is a third of the screen, and arcs need their size.
+          if (w.facts.isNotEmpty || w.contextWindow > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: InkWell(
+                onTap: onToggle,
+                child: Row(
+                  children: [
+                    if (w.contextWindow > 0) ...[
+                      Flexible(child: _Gauges(view: w, size: 30, labels: true, pill: true)),
+                      const SizedBox(width: 10),
+                    ],
+                    Expanded(child: Text(w.facts.join(' · ').toUpperCase(), maxLines: open ? 2 : 1, overflow: TextOverflow.ellipsis, style: t.readout(11))),
+                  ],
+                ),
+              ),
+            ),
           // The Mac's line on its own row: at the folded width beside the
           // pill, "unreachable since" would lose its since.
           if (w.hostLine case final line?)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(line.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(11, color: w.hostWarn ? t.warn : t.muted)),
+            ),
+          // The pool refused: nothing runs until a window resets.
+          if (poolLine(w.pool) case final line?)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(line.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(11, color: t.warn)),
             ),
           if (w.error != null)
             Padding(padding: const EdgeInsets.only(top: 8), child: Text(w.error!, maxLines: 3, overflow: TextOverflow.ellipsis, style: t.mono(12, color: t.critical))),
@@ -1466,7 +1513,8 @@ class _Row extends StatelessWidget {
                 Container(width: 14, height: 2, color: t.accent),
                 const SizedBox(width: 8),
                 // Loose: at the largest text sizes the caption is wider than a phone.
-                Flexible(child: Text('CLAUDE · ${hm(m.at)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(11))),
+                // The turn's cost rides on its last row: the context read, the output written.
+                Flexible(child: Text('CLAUDE · ${hm(m.at)}${m.turn == null ? '' : ' · ${tokensLabel(m.turn!.context)} CTX · ${tokensLabel(m.turn!.output)} OUT'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(11))),
               ]),
               const SizedBox(height: 6),
               if (m.text.isEmpty && m.streaming) Padding(padding: const EdgeInsets.only(top: 4), child: ThinkingDots(color: t.muted)) else Md(m.streaming ? '${m.text} ▍' : m.text, color: t.ink),
@@ -1519,5 +1567,142 @@ class _Row extends StatelessWidget {
           child: Text(m.text, style: TextStyle(fontSize: 12.5, fontStyle: FontStyle.italic, color: t.muted)),
         );
     }
+  }
+}
+
+/// The instruments: the context arc against its window, the five-hour
+/// pool's arc with the countdown to its reset under it, and the COMPACT
+/// pill once the context passes 80 % (COMPACTING while it runs). A tap on
+/// an arc opens the numbers.
+class _Gauges extends StatelessWidget {
+  const _Gauges({required this.view, required this.size, required this.labels, required this.pill});
+  final DeckView view;
+  final double size;
+  final bool labels;
+
+  /// Whether COMPACT rides beside the arcs when it is offered.
+  final bool pill;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final w = view;
+    final ctx = w.contextFraction;
+    final pool = w.pool;
+    final five = pool?.fiveHour;
+    final poolFraction = pool?.exhausted == true ? 1.0 : (five?.utilization ?? 0.0);
+    final resets = five?.resetsAt ?? pool?.resetsAt;
+    final offer = pill && w.onCompact != null && w.running && (ctx >= 0.8 || w.compacting);
+    // Scales down, never up: where the row is short the arcs shrink
+    // together rather than push the row over.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showInstrumentsSheet(context, w),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GaugeArc(fraction: ctx, inner: '${(ctx * 100).round()}', label: labels ? 'ctx' : null, size: size),
+          if (pool != null) ...[
+            const SizedBox(width: 6),
+            GaugeArc(
+              fraction: poolFraction,
+              inner: five?.utilization == null && !pool.exhausted ? null : '${(poolFraction * 100).round()}',
+              label: labels ? (resets == null ? 'pool' : untilLabel(resets)) : null,
+              size: size,
+              color: pool.exhausted ? t.critical : null,
+            ),
+          ],
+          if (offer) ...[
+            const SizedBox(width: 8),
+            _OptionPill(text: w.compacting ? 'COMPACTING…' : 'COMPACT', color: t.warn, on: true, enabled: !w.compacting && !w.turnOpen, onTap: w.onCompact!),
+          ],
+        ],
+      ),
+      ),
+    );
+  }
+}
+
+/// "Pool exhausted · resets in 1 h 12 m" while the pool refuses; null
+/// otherwise.
+String? poolLine(RateLimitEvent? pool) {
+  if (pool == null || !pool.exhausted) return null;
+  final at = pool.fiveHour?.resetsAt ?? pool.resetsAt;
+  return at == null ? 'Pool exhausted' : 'Pool exhausted · resets in ${untilLabel(at)}';
+}
+
+/// The numbers behind the arcs, and COMPACT when the session can take it.
+Future<void> showInstrumentsSheet(BuildContext context, DeckView w) {
+  final t = context.tokens;
+  final pct = (w.contextFraction * 100).round();
+  final pool = w.pool;
+  String window(PoolWindow? p) {
+    if (p == null) return '—';
+    final u = p.utilization == null ? '' : '${(p.utilization! * 100).round()} % used';
+    final r = p.resetsAt == null ? '' : 'resets in ${untilLabel(p.resetsAt!)} (${hm(p.resetsAt!)})';
+    final s = [u, r].where((x) => x.isNotEmpty).join(' · ');
+    return s.isEmpty ? '—' : s;
+  }
+
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('INSTRUMENTS', style: t.readout(11)),
+            const SizedBox(height: 12),
+            _Reading('Context', '${thousands(w.contextUsed)} / ${thousands(w.contextWindow)} tokens · $pct %', warn: w.contextFraction >= 0.7),
+            _Reading('Five-hour pool', pool == null ? '—' : window(pool.fiveHour ?? PoolWindow(resetsAt: pool.resetsAt))),
+            _Reading('Weekly pool', window(pool?.sevenDay)),
+            if (pool?.exhausted == true) const _Reading('Status', 'Exhausted — nothing runs until a window resets', warn: true),
+            const SizedBox(height: 10),
+            Text('The context is what the model read on its last call. COMPACT folds the conversation into a summary and the arc drops. Tokens, never dollars.', style: t.mono(11, color: t.muted)),
+            if (w.onCompact != null && w.running)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: OutlinedButton(
+                  onPressed: w.compacting || w.turnOpen
+                      ? null
+                      : () {
+                          Navigator.of(context).pop();
+                          w.onCompact!();
+                        },
+                  child: Text(w.compacting ? 'COMPACTING…' : 'COMPACT'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _Reading extends StatelessWidget {
+  const _Reading(this.label, this.value, {this.warn = false});
+  final String label;
+  final String value;
+  final bool warn;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 118, child: Text(label.toUpperCase(), style: t.readout(10))),
+          Expanded(child: Text(value, style: t.mono(12, color: warn ? t.warn : t.ink))),
+        ],
+      ),
+    );
   }
 }

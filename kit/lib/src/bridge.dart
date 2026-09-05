@@ -618,8 +618,13 @@ class InitEvent extends BridgeEvent {
 /// `system` / `status` — the CLI's mode changed (a `set_permission_mode`
 /// honoured); a fresh `init` follows it.
 class StatusEvent extends BridgeEvent {
-  const StatusEvent({this.permissionMode});
+  const StatusEvent({this.permissionMode, this.status, this.compactResult});
   final String? permissionMode;
+
+  /// `requesting` while a call is out, `compacting` while `/compact`
+  /// runs, null when that ends — with [compactResult] `success` or not.
+  final String? status;
+  final String? compactResult;
 }
 
 /// `control_response` — the CLI's answer to a control request the host
@@ -653,8 +658,84 @@ class ContentBlock {
 }
 
 class AssistantEvent extends BridgeEvent {
-  const AssistantEvent(this.blocks);
+  const AssistantEvent(this.blocks, {this.usage});
   final List<ContentBlock> blocks;
+
+  /// The call's own `usage` — what the model read to write this message.
+  final Usage? usage;
+}
+
+/// Tokens, as the CLI counts them: on every `assistant` message the call's
+/// own numbers (the context it read is the three input fields summed), on
+/// the `result` the turn's totals.
+class Usage {
+  const Usage({this.input = 0, this.cacheCreation = 0, this.cacheRead = 0, this.output = 0});
+
+  factory Usage.fromMap(Map<String, Object?> m) => Usage(
+        input: (m['input_tokens'] as num?)?.toInt() ?? 0,
+        cacheCreation: (m['cache_creation_input_tokens'] as num?)?.toInt() ?? 0,
+        cacheRead: (m['cache_read_input_tokens'] as num?)?.toInt() ?? 0,
+        output: (m['output_tokens'] as num?)?.toInt() ?? 0,
+      );
+
+  final int input;
+  final int cacheCreation;
+  final int cacheRead;
+  final int output;
+
+  /// The context in use: everything the model read on this call.
+  int get context => input + cacheCreation + cacheRead;
+
+  Map<String, Object?> toMap() => {'input_tokens': input, 'cache_creation_input_tokens': cacheCreation, 'cache_read_input_tokens': cacheRead, 'output_tokens': output};
+}
+
+/// The window a model's context fits in, before a `result` has said
+/// ([ResultEvent.contextWindows]): the `[1m]` variants and Fable have a
+/// million tokens (2.1.261 reports `claude-fable-5-1` at 1,000,000), the
+/// rest 200k. Null model: the default window.
+int contextWindowFor(String? model) {
+  final m = model ?? '';
+  return m.contains('[1m]') || m.contains('fable') ? 1000000 : 200000;
+}
+
+/// `1 h 12 m`, `12 m`, `now` — how long until [at].
+String untilLabel(DateTime at, {DateTime? now}) {
+  final d = at.difference(now ?? DateTime.now());
+  if (d.inMinutes < 1) return 'now';
+  if (d.inHours < 1) return '${d.inMinutes} m';
+  if (d.inHours < 48) return '${d.inHours} h ${d.inMinutes % 60} m';
+  return '${d.inDays} d ${d.inHours % 24} h';
+}
+
+/// `1,000,000` — a count with its thousands marked.
+String thousands(int n) {
+  final s = n.abs().toString();
+  final b = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) b.write(',');
+    b.write(s[i]);
+  }
+  return n < 0 ? '-$b' : b.toString();
+}
+
+/// `24.4K`, `1.2M`, `850` — tokens as a readout.
+String tokensLabel(int n) {
+  if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(n >= 10000000 ? 0 : 1)}M';
+  if (n >= 1000) return '${(n / 1000).toStringAsFixed(n >= 100000 ? 0 : 1)}K';
+  return '$n';
+}
+
+/// `system` / `compact_boundary` — the CLI compacted the conversation;
+/// [preTokens] is what the context held before. The next `assistant`
+/// message's usage says what it holds after.
+class CompactEvent extends BridgeEvent {
+  const CompactEvent({this.trigger, this.preTokens, this.postTokens});
+  final String? trigger;
+  final int? preTokens;
+
+  /// What the summary holds — the next call reads it under the system
+  /// prompt and the tools, so the context after is larger than this.
+  final int? postTokens;
 }
 
 /// The result of a tool call, as the model sees it.
@@ -678,7 +759,7 @@ class AskEvent extends BridgeEvent {
 
 /// The turn ended.
 class ResultEvent extends BridgeEvent {
-  const ResultEvent({required this.subtype, required this.sessionId, this.stopReason, this.numTurns = 0, this.durationMs = 0, this.isError = false, this.text = ''});
+  const ResultEvent({required this.subtype, required this.sessionId, this.stopReason, this.numTurns = 0, this.durationMs = 0, this.isError = false, this.text = '', this.usage, this.contextWindows = const {}});
   final String subtype;
   final String sessionId;
   final String? stopReason;
@@ -686,15 +767,66 @@ class ResultEvent extends BridgeEvent {
   final int durationMs;
   final bool isError;
   final String text;
+
+  /// The turn's totals.
+  final Usage? usage;
+
+  /// From `modelUsage`: model → the window its context fits in. The CLI
+  /// knows (`claude-fable-5-1` → 1,000,000 on 2.1.261); the arc trusts
+  /// this over [contextWindowFor] once a result has said.
+  final Map<String, int> contextWindows;
 }
 
-/// The subscription's pool, as the CLI reports it.
+/// One of the subscription's windows: how much of it is used (0…1) and
+/// when it resets.
+class PoolWindow {
+  const PoolWindow({this.utilization, this.resetsAt});
+
+  factory PoolWindow.fromMap(Map<String, Object?> m) {
+    final r = m['resetsAt'];
+    return PoolWindow(
+      utilization: (m['utilization'] as num?)?.toDouble(),
+      resetsAt: r is num ? DateTime.fromMillisecondsSinceEpoch(r.toInt() * 1000, isUtc: true) : DateTime.tryParse(r?.toString() ?? ''),
+    );
+  }
+
+  final double? utilization;
+  final DateTime? resetsAt;
+
+  Map<String, Object?> toMap() => {
+        if (utilization != null) 'utilization': utilization,
+        if (resetsAt != null) 'resetsAt': resetsAt!.toUtc().toIso8601String(),
+      };
+}
+
+/// The subscription's pool, as the CLI reports it: the window the event is
+/// about ([rateLimitType], [resetsAt]) and, since 2.1.260, both windows
+/// with their utilization under `unifiedWindows`.
 class RateLimitEvent extends BridgeEvent {
-  const RateLimitEvent({required this.status, this.rateLimitType, this.resetsAt, this.overageStatus});
+  const RateLimitEvent({required this.status, this.rateLimitType, this.resetsAt, this.overageStatus, this.fiveHour, this.sevenDay});
   final String status;
   final String? rateLimitType;
   final DateTime? resetsAt;
   final String? overageStatus;
+  final PoolWindow? fiveHour;
+  final PoolWindow? sevenDay;
+
+  /// The pool refused: a turn will not run until a window resets.
+  bool get exhausted => status == 'rejected';
+
+  Map<String, Object?> toMap() => {
+        'status': status,
+        if (resetsAt != null) 'resetsAt': resetsAt!.toUtc().toIso8601String(),
+        if (fiveHour != null) 'fiveHour': fiveHour!.toMap(),
+        if (sevenDay != null) 'sevenDay': sevenDay!.toMap(),
+      };
+
+  factory RateLimitEvent.fromMap(Map<String, Object?> m) => RateLimitEvent(
+        status: (m['status'] ?? '').toString(),
+        resetsAt: DateTime.tryParse(m['resetsAt']?.toString() ?? ''),
+        fiveHour: m['fiveHour'] is Map ? PoolWindow.fromMap(_map(m['fiveHour'])) : null,
+        sevenDay: m['sevenDay'] is Map ? PoolWindow.fromMap(_map(m['sevenDay'])) : null,
+      );
 }
 
 /// Anything else — kept by type so a new shape shows up in the log.
@@ -733,7 +865,11 @@ BridgeEvent? parseBridgeLine(String line) {
           },
         );
       }
-      if (sub == 'status') return StatusEvent(permissionMode: m['permissionMode']?.toString());
+      if (sub == 'status') return StatusEvent(permissionMode: m['permissionMode']?.toString(), status: m['status']?.toString(), compactResult: m['compact_result']?.toString());
+      if (sub == 'compact_boundary') {
+        final meta = _map(m['compact_metadata']);
+        return CompactEvent(trigger: meta['trigger']?.toString(), preTokens: (meta['pre_tokens'] as num?)?.toInt(), postTokens: (meta['post_tokens'] as num?)?.toInt());
+      }
       return OtherEvent(type, sub);
     case 'control_response':
       final r = _map(m['response']);
@@ -757,7 +893,7 @@ BridgeEvent? parseBridgeLine(String line) {
           blocks.add(ContentBlock.toolUse(toolUseId: (cm['id'] ?? '').toString(), toolName: (cm['name'] ?? '').toString(), toolInput: _map(cm['input'])));
         }
       }
-      return AssistantEvent(blocks);
+      return AssistantEvent(blocks, usage: msg['usage'] is Map ? Usage.fromMap(_map(msg['usage'])) : null);
     case 'user':
       final msg = _map(m['message']);
       final content = msg['content'];
@@ -795,15 +931,23 @@ BridgeEvent? parseBridgeLine(String line) {
         durationMs: (m['duration_ms'] as num?)?.toInt() ?? 0,
         isError: m['is_error'] == true,
         text: (m['result'] ?? '').toString(),
+        usage: m['usage'] is Map ? Usage.fromMap(_map(m['usage'])) : null,
+        contextWindows: {
+          for (final e in _map(m['modelUsage']).entries)
+            if (e.value is Map && _map(e.value)['contextWindow'] is num) e.key: (_map(e.value)['contextWindow'] as num).toInt(),
+        },
       );
     case 'rate_limit_event':
       final info = _map(m['rate_limit_info']);
       final resets = (info['resetsAt'] as num?)?.toInt();
+      final windows = _map(info['unifiedWindows']);
       return RateLimitEvent(
         status: (info['status'] ?? '').toString(),
         rateLimitType: info['rateLimitType']?.toString(),
         resetsAt: resets == null ? null : DateTime.fromMillisecondsSinceEpoch(resets * 1000, isUtc: true),
         overageStatus: info['overageStatus']?.toString(),
+        fiveHour: windows['five_hour'] is Map ? PoolWindow.fromMap(_map(windows['five_hour'])) : null,
+        sevenDay: windows['seven_day'] is Map ? PoolWindow.fromMap(_map(windows['seven_day'])) : null,
       );
     default:
       return OtherEvent(type, m['subtype']?.toString());
@@ -848,6 +992,7 @@ class DeckMessage {
     this.diff,
     this.about,
     this.attachments = const [],
+    this.turn,
   });
 
   factory DeckMessage.fromMap(Map<String, Object?> m) => DeckMessage(
@@ -865,6 +1010,7 @@ class DeckMessage {
         diff: m['diff']?.toString(),
         about: m['about'] is Map ? _map(m['about']) : null,
         attachments: [for (final a in (m['attachments'] as List? ?? const [])) if (a is Map) DeckAttachment.fromMap(_map(a))],
+        turn: m['turn'] is Map ? Usage.fromMap(_map(m['turn'])) : null,
       );
 
   final String id;
@@ -884,6 +1030,10 @@ class DeckMessage {
 
   /// An editing tool's row: the diff the host computed before it ran.
   String? diff;
+
+  /// On the turn's last assistant row: the context the model read on its
+  /// last call and the turn's output — the tokens the turn cost.
+  Usage? turn;
 
   /// The file a tool row names — the tap that opens it.
   String? get path => toolInput == null ? null : editedPath(toolInput!);
@@ -926,6 +1076,7 @@ class DeckMessage {
         'streaming': streaming,
         if (queued) 'queued': true,
         if (diff != null) 'diff': diff,
+        if (turn != null) 'turn': turn!.toMap(),
         if (about != null) 'about': about,
         if (attachments.isNotEmpty) 'attachments': [for (final a in attachments) a.toMap()],
       };
@@ -942,6 +1093,23 @@ class Transcript {
   String? permissionMode;
   RateLimitEvent? pool;
   ResultEvent? lastResult;
+
+  /// The last `usage` an assistant message carried: the context the model
+  /// read on its latest call, against [contextWindow]. Null before the
+  /// first call, and again after a compaction until the next one.
+  Usage? usage;
+  DateTime? usageAt;
+  int get contextUsed => usage?.context ?? 0;
+  int get contextWindow => _windows[model] ?? contextWindowFor(model);
+  Map<String, int> _windows = const {};
+  double get contextFraction => contextWindow == 0 ? 0 : contextUsed / contextWindow;
+
+  /// `/compact` is running — the CLI said `compacting` and has not said
+  /// how it ended.
+  bool compacting = false;
+
+  /// The context as the two devices share it: `{used, window, at}`.
+  Map<String, Object?> get contextRelay => {'used': contextUsed, 'window': contextWindow, if (usageAt != null) 'at': usageAt!.toUtc().toIso8601String()};
 
   /// From `init`: MCP server name → status. `claude-in-chrome` says
   /// whether the browser answered.
@@ -1021,6 +1189,10 @@ class Transcript {
         final s = _streaming ??= _open();
         s.text += e.text;
       case AssistantEvent():
+        if (e.usage != null) {
+          usage = e.usage;
+          usageAt = now();
+        }
         for (final b in e.blocks) {
           if (b.isToolUse) {
             _closeStreaming();
@@ -1054,11 +1226,39 @@ class Transcript {
         turnOpen = false;
         _about = null;
         lastResult = e;
+        if (e.contextWindows.isNotEmpty) _windows = {..._windows, ...e.contextWindows};
         if (e.isError && e.text.isNotEmpty) addNote(e.text);
+        // The turn's cost on its last assistant row: the context of the
+        // last call, the output of the whole turn.
+        final u = usage;
+        if (u != null) {
+          for (final m in messages.reversed) {
+            if (m.role == DeckRole.user) break;
+            if (m.role == DeckRole.assistant) {
+              m.turn = Usage(input: u.input, cacheCreation: u.cacheCreation, cacheRead: u.cacheRead, output: e.usage?.output ?? 0);
+              break;
+            }
+          }
+        }
+      case CompactEvent():
+        _closeStreaming();
+        compacting = false;
+        final pre = e.preTokens;
+        final post = e.postTokens;
+        addNote(pre == null || post == null ? 'Compacted.' : 'Compacted · ${tokensLabel(pre)} → ${tokensLabel(post)} tokens.');
+        // The arc drops now, to the summary's size; the next call's usage
+        // says what the context really holds.
+        usage = post == null ? null : Usage(input: post);
+        usageAt = now();
       case RateLimitEvent():
         pool = e;
       case StatusEvent():
         if (e.permissionMode != null) permissionMode = e.permissionMode;
+        if (e.status == 'compacting') compacting = true;
+        if (e.compactResult != null) {
+          compacting = false;
+          if (e.compactResult != 'success') addNote('Compaction failed (${e.compactResult}).');
+        }
       case ControlResponseEvent():
       case UserEchoEvent():
       case OtherEvent():
