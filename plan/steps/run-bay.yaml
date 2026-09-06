@@ -1,14 +1,14 @@
 id: run-bay
 number: "18"
 title: Run bay — the host runs the app under test; reload, restart, the device and the log from the phone
-status: pending
+status: done
 rank: 790
 depends_on: [host-service]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-06, note: "kit and app: no issues", status: passed}
+  tests: { at: 2026-09-06, note: "kit 107, app 158 (1 skip: the live bridge test)", status: passed}
+  qa: { at: 2026-09-06, note: "run by Claude on the user's phone against ~\/kit-scratch (a flutter create app): RUN on the default device (iPhone 17 Pro simulator, from qa.runtime) → Running pill with the launch lines in the log sheet; reload-on-edit reloaded a title edit made on the Mac (simulator showed it, log had the reload line); RESTART from the phone; a timer throw lit the pill amber with the Unhandled Exception line; the session read the error from the bay's app over the VM service without a second flutter run; STOP → stopped, the log still readable", status: passed}
 sections:
   - title: Description
     body: |
@@ -65,3 +65,16 @@ sections:
       - `app/lib/src/host/run_bay.dart` (new, the daemon protocol), `app/lib/src/host/host_project.dart`, `app/lib/src/relay.dart` (run, runs/log), `app/lib/src/screens/deck_tab.dart` (fold), `app/lib/src/screens/session_tab.dart`, `app/lib/src/screens/log_sheet.dart` (new), `kit/lib/src/bridge.dart` (brief lines)
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — the host owns the app process" }
+  - at: 2026-09-06
+    event: started
+  - at: 2026-09-06
+    event: gate analyze passed
+    note: "kit and app: no issues"
+  - at: 2026-09-06
+    event: gate tests passed
+    note: "kit 107, app 158 (1 skip: the live bridge test)"
+  - at: 2026-09-06
+    event: gate qa passed
+    note: "run by Claude on the user's phone against ~\/kit-scratch (a flutter create app): RUN on the default device (iPhone 17 Pro simulator, from qa.runtime) → Running pill with the launch lines in the log sheet; reload-on-edit reloaded a title edit made on the Mac (simulator showed it, log had the reload line); RESTART from the phone; a timer throw lit the pill amber with the Unhandled Exception line; the session read the error from the bay's app over the VM service without a second flutter run; STOP → stopped, the log still readable"
+  - at: 2026-09-06
+    event: done

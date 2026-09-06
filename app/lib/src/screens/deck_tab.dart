@@ -20,9 +20,11 @@ import '../relay.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/git_card.dart';
+import '../widgets/run_card.dart';
 import '../widgets/tool_sheet.dart';
 import 'ask_card.dart';
 import 'file_view.dart';
+import 'log_sheet.dart';
 import 'remote_asks.dart';
 
 /// The conversation with this project's session: what was said, what ran,
@@ -81,6 +83,9 @@ class DeckView extends StatefulWidget {
     this.onSeen,
     this.autopilot,
     this.onAutopilot,
+    this.run,
+    this.onRun,
+    this.runLog,
   });
 
   final BridgeState state;
@@ -163,6 +168,14 @@ class DeckView extends StatefulWidget {
   /// returns the one line to toast; null where the surface has no loop.
   final AutopilotState? autopilot;
   final Future<String?> Function({required bool on, int? budget, bool? nightShift})? onAutopilot;
+
+  /// The run bay — the app under test as the host reports it, the `run`
+  /// command (start · reload · restart · stop · devices · reload_on_edit,
+  /// returning the one line to toast), and the log of a run by its id.
+  /// Null where the surface has no bay.
+  final RunState? run;
+  final Future<String> Function(String action, {String? device, bool? on})? onRun;
+  final Stream<List<String>> Function(String runId)? runLog;
 
   /// A file on the Mac, for the tap on a path — the Mac's disk, or the
   /// relay. Null: paths are not taps.
@@ -1054,12 +1067,17 @@ class _Attachments extends StatelessWidget {
 
 /// The host's Deck: straight off its own bridge.
 class DeckTab extends StatelessWidget {
-  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot});
+  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog});
   final BridgeSession bridge;
 
   /// The host's loop, and its toggle — see [DeckView.autopilot].
   final AutopilotState? autopilot;
   final Future<String?> Function({required bool on, int? budget, bool? nightShift})? onAutopilot;
+
+  /// The host's run bay — see [DeckView.run].
+  final RunState? run;
+  final Future<String> Function(String action, {String? device, bool? on})? onRun;
+  final Stream<List<String>> Function(String runId)? runLog;
 
   /// The host's own hands, for the taps: files inside the project, git.
   final HostFiles? files;
@@ -1133,6 +1151,9 @@ class DeckTab extends StatelessWidget {
           onGit: onGit,
           autopilot: autopilot,
           onAutopilot: onAutopilot,
+          run: run,
+          onRun: onRun,
+          runLog: runLog,
           onSend: (text, files) async => b.send(text, files: files),
           pick: pick,
         );
@@ -1244,6 +1265,9 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         loadFile: d.readFile,
         git: d.git,
         onGit: d.gitOp,
+        run: d.run,
+        onRun: d.runCommand,
+        runLog: d.runLog,
         autopilot: d.autopilot,
         onAutopilot: ({required on, budget, nightShift}) async {
           await d.setAutopilot(on: on, budget: budget, nightShift: nightShift);
@@ -1354,6 +1378,7 @@ class _Header extends StatelessWidget {
             // Folded, the loop's line stays: the wait for the pool is
             // what the person came to look at.
             if (auto != null && auto.on) Padding(padding: const EdgeInsets.only(right: 10, bottom: 2), child: Align(alignment: Alignment.centerLeft, child: _AutopilotLine(state: auto, needsYou: w.state == BridgeState.waiting))),
+            if (w.run case final r? when r.up) Padding(padding: const EdgeInsets.only(right: 10, bottom: 2), child: Align(alignment: Alignment.centerLeft, child: _RunLine(view: w, run: r))),
           ],
         ),
       );
@@ -1449,6 +1474,8 @@ class _Header extends StatelessWidget {
             ),
           // The loop: which step, how far into the budget, or the wait.
           if (w.autopilot case final a? when a.on) Padding(padding: const EdgeInsets.only(top: 4), child: _AutopilotLine(state: a, needsYou: w.state == BridgeState.waiting)),
+          // The app under test: where it runs and for how long; amber once it threw. A tap opens the log.
+          if (w.run case final r? when r.up) Padding(padding: const EdgeInsets.only(top: 4), child: _RunLine(view: w, run: r)),
           if (w.error != null)
             Padding(padding: const EdgeInsets.only(top: 8), child: Text(w.error!, maxLines: 3, overflow: TextOverflow.ellipsis, style: t.mono(12, color: t.critical))),
           if (open) ..._controls(context, w, t),
@@ -1517,6 +1544,11 @@ class _Header extends StatelessWidget {
             _Dial(label: 'EFFORT', choices: effortChoices, value: w.effort, enabled: true, onChanged: (v) => w.onOptions!(effort: v)),
             _Dial(label: 'MODE', choices: modeChoices, value: w.modeChoice, enabled: true, labelOf: modeLabel, warnOn: 'bypassPermissions', onChanged: (v) => w.onOptions!(mode: v)),
             if (w.onGit != null) Padding(padding: const EdgeInsets.only(top: 8), child: GitCard(git: w.git, onOp: w.onGit!)),
+            if (w.onRun != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: RunCard(run: w.run ?? const RunState(), onAction: w.onRun!, onLog: w.runLog == null || w.run?.runId == null ? null : () => openRunLog(context, w)),
+              ),
             if (w.running)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
@@ -1642,6 +1674,56 @@ class _InterruptButton extends StatelessWidget {
 
 /// One session option, as a switch that reads: what it is · what it is set
 /// to. Fixed while a session runs.
+/// The run bay's log for the run on the state.
+Future<void> openRunLog(BuildContext context, DeckView w) {
+  final r = w.run;
+  final id = r?.runId;
+  if (id == null || w.runLog == null) return Future.value();
+  return showLogSheet(context, lines: w.runLog!(id), title: 'Log · ${r!.deviceName ?? r.device ?? id}');
+}
+
+/// The app under test on one line under the facts — `RUNNING · IPHONE 17
+/// PRO · 4 MIN`, amber with the count once it threw; a tap opens the log.
+/// Redrawn once a minute for the age.
+class _RunLine extends StatefulWidget {
+  const _RunLine({required this.view, required this.run});
+  final DeckView view;
+  final RunState run;
+
+  @override
+  State<_RunLine> createState() => _RunLineState();
+}
+
+class _RunLineState extends State<_RunLine> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final r = widget.run;
+    final color = r.exceptions > 0 ? t.warn : r.running ? t.good : t.accent;
+    final line = runLine(r) ?? '';
+    return InkWell(
+      onTap: widget.view.runLog == null || r.runId == null ? null : () => openRunLog(context, widget.view),
+      child: Text(line.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(11, color: color)),
+    );
+  }
+}
+
 /// The loop's line under the facts: the step and the budget, or the
 /// countdown to the pool's reset — ticking once a second while it waits.
 class _AutopilotLine extends StatefulWidget {

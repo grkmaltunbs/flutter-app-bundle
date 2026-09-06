@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../host/host_presence.dart';
 import '../host/host_project.dart';
 import '../widgets/git_card.dart';
+import '../widgets/run_card.dart';
+import 'log_sheet.dart';
 import '../host/login_item.dart';
 import '../host/power.dart';
 import '../host/remote_control.dart';
@@ -197,6 +199,15 @@ class _SessionTabState extends State<SessionTab> {
                   ],
                 );
               },
+            ),
+            const SectionHead('Run bay', sub: 'flutter run from this Mac, no model: the device, reload, restart, the log. A session is told the URIs so the Dart MCP server reaches the same app.'),
+            ListenableBuilder(
+              listenable: h.run,
+              builder: (context, _) => RunCard(
+                run: h.run.state,
+                onAction: h.runAction,
+                onLog: h.run.state.runId == null ? null : () => showLogSheet(context, lines: h.run.logStream, initial: h.run.log.lines, title: 'Log · ${h.run.state.deviceName ?? ''}'),
+              ),
             ),
             const SectionHead('Git', sub: 'What the host reads after every turn. Commit and Push run here, no model; the session hears about them with the next message.'),
             GitCard(git: h.gitStatus, onOp: h.gitOp),

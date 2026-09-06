@@ -18,6 +18,7 @@ import 'host_actions.dart';
 import 'power.dart';
 import 'push_sender.dart';
 import 'remote_control.dart';
+import 'run_bay.dart';
 
 /// Everything the host runs for one open project: the plan on disk, its
 /// mirror, the inbox, the hook spool, and the two ways the folder gets a
@@ -55,6 +56,10 @@ class HostProject extends ChangeNotifier {
 
   /// The loop that keeps the session stepping — see [Autopilot].
   late final Autopilot autopilot = Autopilot(bridge: bridge, loadPlan: _freshPlan, push: (line) => _notify(Notice(kind: NoticeKind.done, title: 'Autopilot · $projectName', body: line)));
+
+  /// The app under test, run by the host — see [RunBay].
+  late final RunBay run = RunBay(dir: dir, runtime: () => source.plan?.manifest.qa['runtime']?.toString());
+  RunPhase _lastRunPhase = RunPhase.idle;
   RelayPublisher? _publisher;
   InboxListener? _inbox;
   CommandListener? _commands;
@@ -73,6 +78,8 @@ class HostProject extends ChangeNotifier {
     session.addListener(_onSession);
     bridge.addListener(_onBridge);
     autopilot.addListener(_onAutopilot);
+    run.addListener(_onRun);
+    bridge.briefExtra = () => runBrief(run.state);
     bridge.diffFor = (tool, input) => diffForAsk(toolName: tool, input: input, read: _readForDiff);
     _refreshGit(soon: true);
     // A scoped message carries what the plan holds on its item or step —
@@ -119,6 +126,30 @@ class HostProject extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The run moved: the session document, the log, and — when the app
+  /// came up or went down — a note for the session's next prompt, so it
+  /// reaches the running app through the Dart MCP server instead of
+  /// starting its own.
+  void _onRun() {
+    final r = run.state;
+    if (r.phase != _lastRunPhase) {
+      if (r.phase == RunPhase.running) {
+        bridge.noteHostAction('The run bay started the app on ${r.deviceName ?? r.device}${r.vmUri != null ? ' — VM service ${r.vmUri}' : ''}${r.dtdUri != null ? ', Dart Tooling Daemon ${r.dtdUri}' : ''}. The host owns that process: do not start a second flutter run; reach the app through the Dart MCP server.');
+      } else if (_lastRunPhase == RunPhase.running && (r.phase == RunPhase.stopped || r.phase == RunPhase.failed)) {
+        bridge.noteHostAction('The run bay stopped the app${r.error != null ? ' (${r.error})' : ''}.');
+      }
+      _lastRunPhase = r.phase;
+    }
+    _publisher?.publishSession(sessionRelay());
+    final id = r.runId;
+    if (id != null) _publisher?.publishRunLog(id, run.log);
+    notifyListeners();
+  }
+
+  /// The run bay from the Mac's own screens: the same command the phone
+  /// sends. Returns the one line to toast.
+  Future<String> runAction(String action, {String? device, bool? on}) => applyCommand({'type': 'run', 'action': action, 'device': ?device, 'on': ?on, 'from': 'Mac'});
+
   /// The autopilot from the Mac's own Deck: the same command the phone
   /// sends. Returns the one line to toast.
   Future<String> setAutopilot({required bool on, int? budget, bool? nightShift}) =>
@@ -126,7 +157,7 @@ class HostProject extends ChangeNotifier {
 
   /// What the phone sees as the session: the bridge while it runs, else
   /// Remote Control, else idle.
-  Map<String, Object?> sessionRelay() => {..._sessionCore(), if (gitStatus != null) 'git': gitStatus!.toMap(), 'autopilot': autopilot.state.toMap()};
+  Map<String, Object?> sessionRelay() => {..._sessionCore(), if (gitStatus != null) 'git': gitStatus!.toMap(), 'autopilot': autopilot.state.toMap(), 'run': run.state.toMap()};
 
   Map<String, Object?> _sessionCore() {
     if (bridge.running) return bridge.toRelay();
@@ -245,6 +276,7 @@ class HostProject extends ChangeNotifier {
   /// a session the Mac can no longer see, and the "now" line says so.
   Future<void> quit() async {
     autopilot.stop(by: 'the Mac quitting');
+    if (run.up) await run.stop();
     if (bridge.running) await bridge.stop();
     if (session.running) await session.stop();
     final pub = _publisher;
@@ -345,6 +377,26 @@ class HostProject extends ChangeNotifier {
         return bridge.compact();
       case 'host':
         return _hostAction(cmd);
+      case 'run':
+        // `{type: run, action: start|reload|restart|stop|devices|reload_on_edit, device?, on?}`.
+        switch (cmd['action']) {
+          case 'start':
+            return run.start(device: cmd['device']?.toString());
+          case 'reload':
+            return run.reload();
+          case 'restart':
+            return run.reload(full: true);
+          case 'stop':
+            return run.stop();
+          case 'devices':
+            final list = await run.devices();
+            return '${list.length} device${list.length == 1 ? '' : 's'}';
+          case 'reload_on_edit':
+            run.setReloadOnEdit(cmd['on'] == true);
+            return 'reload on edit ${cmd['on'] == true ? 'on' : 'off'}';
+          default:
+            return 'unknown run action ${cmd['action']}';
+        }
       default:
         return 'unknown command ${cmd['type']}';
     }
@@ -514,6 +566,8 @@ class HostProject extends ChangeNotifier {
     bridge.removeListener(_onBridge);
     autopilot.removeListener(_onAutopilot);
     autopilot.dispose();
+    run.removeListener(_onRun);
+    run.dispose();
     _inbox?.dispose();
     _commands?.dispose();
     _publisher?.dispose();

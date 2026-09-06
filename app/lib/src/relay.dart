@@ -23,6 +23,7 @@ import 'presence.dart';
 /// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|interrupt|withdraw|options|push-test|compact|autopilot|host, …}; withdraw names a queued messageId; options carry mode, chrome, model, effort; autopilot carries on, budget?, nightShift?; host carries action: read_file (path) | git (op: commit|push|revert, message?, path?); the host stamps doneAt, result
 /// projects/{slug}/files/{commandId} the host's answer to a read_file: FileRead.toMap() — {path, text, lines, bytes, truncated, blob?, refused?}; the phone deletes it once read
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
+/// projects/{slug}/runs/{runId}/log/{chunk} the run bay's log: {from, lines} — 200 lines a document, the last 10 documents kept, one write a second at most; the phone joins them in order
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
 /// hosts/{hostId}                   the Mac's heartbeat: {seenAt, name, appVersion, cli, projects, sessions, stopping}; the phone reads "unreachable" from its age
@@ -163,6 +164,79 @@ class RelayPublisher {
 
   Future<void> publishSession(Map<String, Object?> session) =>
       ref.set({'session': session, 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+
+  /// The run's log, in documents of [logChunk] lines under
+  /// `runs/{runId}/log/{chunk}`, the last [logChunks] kept — coalesced
+  /// to one write a second, and only the documents that grew.
+  static const logChunk = 200;
+  static const logChunks = 10;
+  String? _logRun;
+  int _logSeq = 0;
+  RunLog? _logSource;
+  Timer? _logTimer;
+  bool _logDirty = false;
+  bool _logFlushing = false;
+
+  void publishRunLog(String runId, RunLog log) {
+    if (_logRun != runId) {
+      _logRun = runId;
+      _logSeq = 0;
+    }
+    _logSource = log;
+    if (_logTimer != null) {
+      _logDirty = true;
+      return;
+    }
+    _logTimer = Timer(const Duration(seconds: 1), () {
+      _logTimer = null;
+      if (_logDirty) {
+        _logDirty = false;
+        publishRunLog(_logRun!, _logSource!);
+      }
+    });
+    unawaited(_flushLog());
+  }
+
+  Future<void> _flushLog() async {
+    final log = _logSource;
+    final runId = _logRun;
+    if (log == null || runId == null || _logFlushing) {
+      _logDirty = _logDirty || _logFlushing;
+      return;
+    }
+    _logFlushing = true;
+    try {
+      if (log.seq <= _logSeq) return;
+      final (from, lines) = log.since(_logSeq);
+      final firstChunk = from ~/ logChunk;
+      final lastChunk = (log.seq - 1) ~/ logChunk;
+      final coll = ref.collection('runs').doc(runId).collection('log');
+      final b = db.batch();
+      for (var c = firstChunk; c <= lastChunk; c++) {
+        final start = c * logChunk;
+        final end = (start + logChunk).clamp(0, log.seq);
+        // What the ring still holds of this chunk.
+        final (cf, cl) = log.since(start);
+        final have = cl.take(end - cf).toList();
+        if (have.isEmpty) continue;
+        b.set(coll.doc('c${c.toString().padLeft(6, '0')}'), {'from': cf, 'lines': have, 'at': FieldValue.serverTimestamp()});
+      }
+      for (var c = firstChunk - 1; c >= 0 && c >= lastChunk - logChunks - 2; c--) {
+        if (c <= lastChunk - logChunks) b.delete(coll.doc('c${c.toString().padLeft(6, '0')}'));
+      }
+      _logSeq = log.seq;
+      await b.commit();
+      assert(lines.isNotEmpty || true);
+    } on Object {
+      // The next flush tries again from the same sequence.
+    } finally {
+      _logFlushing = false;
+      if (_logDirty && _logTimer == null) {
+        _logDirty = false;
+        publishRunLog(runId, log);
+      }
+    }
+  }
 
   /// The host's answer to a `read_file`, under the command's id.
   Future<void> publishFile(String commandId, Map<String, Object?> file) =>
@@ -502,6 +576,24 @@ class RemoteDeck extends ChangeNotifier {
   /// The toggle: on with a budget and night shift, or off.
   Future<void> setAutopilot({required bool on, int? budget, bool? nightShift}) =>
       CommandSender(db, slug).send({'type': 'autopilot', 'on': on, 'budget': ?budget, 'nightShift': ?nightShift}, from: from);
+
+  /// The run bay as the host publishes it — `session.run`.
+  RunState get run => session['run'] is Map ? RunState.fromMap({for (final e in (session['run'] as Map).entries) e.key.toString(): e.value as Object?}) : const RunState();
+
+  /// `{type: run, action: start|reload|restart|stop|devices|reload_on_edit}`
+  /// — waited on for the host's one line.
+  Future<String> runCommand(String action, {String? device, bool? on}) async {
+    final ref = await CommandSender(db, slug).send({'type': 'run', 'action': action, 'device': ?device, 'on': ?on}, from: from);
+    final done = await ref.snapshots().firstWhere((d) => d.data()?['doneAt'] != null).timeout(const Duration(seconds: 150), onTimeout: () => throw TimeoutException('The Mac did not answer in 150 s.'));
+    return (done.data()?['result'] ?? '').toString();
+  }
+
+  /// The run's log, whole, as its documents arrive — the last two
+  /// thousand lines at most.
+  Stream<List<String>> runLog(String runId) => db.collection('projects').doc(slug).collection('runs').doc(runId).collection('log').orderBy(FieldPath.documentId).snapshots().map((q) => [
+        for (final d in q.docs)
+          for (final l in (d.data()['lines'] as List? ?? const [])) l.toString(),
+      ]);
 
   /// The Git card's numbers, as the host last read them.
   GitStatus? get git => session['git'] is Map ? GitStatus.fromMap({for (final e in (session['git'] as Map).entries) e.key.toString(): e.value as Object?}) : null;
