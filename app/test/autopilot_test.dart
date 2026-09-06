@@ -566,7 +566,7 @@ void main() {
       await tester.pumpWidget(_app(_deck(auto: on, onAutopilot: ({required on, budget, nightShift}) async => null, messages: rows, foldOnScroll: true), scale: 1.0));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.drag(find.byType(ListView), const Offset(0, -200));
+      await tester.drag(find.byType(ListView), const Offset(0, -600));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('NAHMATIK · WORKING'), findsOneWidget, reason: 'folded');

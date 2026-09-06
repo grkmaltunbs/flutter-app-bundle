@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart' hide Step, StepState;
-import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_kit/kit.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -231,10 +231,23 @@ class DeckView extends StatefulWidget {
   State<DeckView> createState() => _DeckViewState();
 }
 
-class _DeckViewState extends State<DeckView> with WidgetsBindingObserver {
+class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final _input = TextEditingController();
   final _scroll = ScrollController();
   final _focus = FocusNode();
+
+  /// How far the chrome has folded on a phone, 0 open … 1 the one row.
+  /// A finger on the list moves it pixel for pixel; the chevron and the
+  /// tests animate it. The chrome's two heights are measured after each
+  /// frame so the fold knows its range.
+  late final AnimationController _foldCtl;
+  double _chromeMax = 240;
+  double _chromeMin = 52;
+  double get _foldRange => math.max(1, _chromeMax - _chromeMin);
+
+  /// The list is being jumped to its end by the host, not the finger —
+  /// a move that must not fold the chrome.
+  bool _snapping = false;
   final List<PendingAttachment> _files = [];
   int _seen = 0;
   bool _busy = false;
@@ -245,6 +258,10 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver {
 
   /// Rows arrived below while the user was reading above.
   bool _unseen = false;
+
+  /// A finger is on the list (or on the chrome above it). Nothing may
+  /// move the list under it — not a new row, not the chrome folding.
+  bool _dragging = false;
 
   /// A drag from the Finder is over the Deck.
   bool _dragOver = false;
@@ -393,16 +410,48 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver {
   bool? _openChoice;
   bool get _headerOpen => _openChoice ?? !widget.running;
 
-  /// The chrome folded by a drag upward — see [DeckView.foldOnScroll].
+  /// The chrome folded to its one row by a drag upward — see
+  /// [DeckView.foldOnScroll]. On a phone the chrome is a floating,
+  /// pinned sliver: it shrinks with the drag, pixel for pixel, and grows
+  /// back with a drag the other way; this flag flips only at the end.
   bool _chromeHidden = false;
   bool get _folds => widget.foldOnScroll ?? (Platform.isAndroid || Platform.isIOS);
 
+  /// Folds or unfolds the chrome with an animation — the chevron on the
+  /// folded row, or a test. A finger does it by the pixel instead.
   void _setChromeHidden(bool hidden) {
-    if (!_folds || hidden == _chromeHidden) return;
+    if (!_folds) return;
+    _foldCtl.animateTo(hidden ? 1 : 0, curve: Curves.easeOut);
+  }
+
+  /// The fold moved: only its ends change the tree — the one row in
+  /// place of the whole, and the screen told to fold its tab strip.
+  void _onFold() {
+    final hidden = _foldCtl.value >= 0.999;
+    if (hidden == _chromeHidden) return;
     setState(() => _chromeHidden = hidden);
     widget.onChromeHidden?.call(hidden);
-    // The viewport changes height under the list; stay on the newest row.
-    if (_pinned) _snapToEnd(12);
+  }
+
+  /// A finger moved the list by [delta] (up the screen when positive):
+  /// the chrome folds or grows by the same amount, so the rows under the
+  /// finger keep pace with it — the chrome overlays the list, and the
+  /// list keeps a top inset the size of the whole chrome.
+  void _foldBy(double delta) {
+    if (!_folds || delta == 0) return;
+    _foldCtl.value = (_foldCtl.value + delta / _foldRange).clamp(0.0, 1.0);
+  }
+
+  void _measured({required bool full, required double height}) {
+    final cur = full ? _chromeMax : _chromeMin;
+    if ((cur - height).abs() < 0.5 || height <= 0) return;
+    setState(() {
+      if (full) {
+        _chromeMax = height;
+      } else {
+        _chromeMin = height;
+      }
+    });
   }
 
   /// Files can be dropped on a desktop window; a phone has the paperclip.
@@ -413,6 +462,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _foldCtl = AnimationController(vsync: this, duration: const Duration(milliseconds: 200))..addListener(_onFold);
     WidgetsBinding.instance.addObserver(this);
     _takeLastSeen();
     _maybePlaceMarker();
@@ -439,6 +489,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _input.dispose();
     _scroll.dispose();
+    _foldCtl.dispose();
     _focus.dispose();
     super.dispose();
   }
@@ -464,9 +515,13 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver {
   /// end or hanging past it.
   void _snapToEnd([int tries = 3]) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scroll.hasClients || !_pinned) return;
+      if (!mounted || !_scroll.hasClients || !_pinned || _dragging) return;
       final pos = _scroll.position;
-      if (pos.pixels != pos.maxScrollExtent) _scroll.jumpTo(pos.maxScrollExtent);
+      if (pos.pixels != pos.maxScrollExtent) {
+        _snapping = true;
+        _scroll.jumpTo(pos.maxScrollExtent);
+        _snapping = false;
+      }
       if (tries > 1) _snapToEnd(tries - 1);
     });
   }
@@ -474,13 +529,20 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver {
   /// The list moved: pinned when the newest row is (nearly) in view.
   bool _onScroll(ScrollNotification n) {
     if (n.depth != 0) return false;
-    if (n is UserScrollNotification) {
-      // Finger up (reading down): fold the chrome; finger down: unfold.
-      if (n.direction == ScrollDirection.reverse) _setChromeHidden(true);
-      if (n.direction == ScrollDirection.forward) _setChromeHidden(false);
+    if (n is ScrollStartNotification) {
+      if (n.dragDetails != null) _dragging = true;
       return false;
     }
+    if (n is ScrollEndNotification) _dragging = false;
+    if (n is UserScrollNotification) return false;
     if (n is! ScrollUpdateNotification && n is! ScrollEndNotification && n is! OverscrollNotification) return false;
+    // The chrome follows a finger, not a fling and not the host's jump
+    // to the newest row: at the list's end the drag becomes overscroll,
+    // and that folds it too.
+    if (!_snapping) {
+      if (n is ScrollUpdateNotification && n.dragDetails != null) _foldBy(n.scrollDelta ?? 0);
+      if (n is OverscrollNotification && n.dragDetails != null) _foldBy(n.overscroll);
+    }
     final m = n.metrics;
     final pinned = m.pixels >= m.maxScrollExtent - 48;
     if (pinned != _pinned || (pinned && _unseen)) {
@@ -500,10 +562,16 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver {
     if (!_scroll.hasClients) return;
     final bottom = _scroll.position.maxScrollExtent;
     if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      _snapping = true;
       _scroll.jumpTo(bottom);
+      _snapping = false;
       _snapToEnd();
     } else {
-      _scroll.animateTo(bottom, duration: const Duration(milliseconds: 240), curve: Curves.easeOut).then((_) => _snapToEnd());
+      _snapping = true;
+      _scroll.animateTo(bottom, duration: const Duration(milliseconds: 240), curve: Curves.easeOut).then((_) {
+        _snapping = false;
+        _snapToEnd();
+      });
     }
   }
 
@@ -642,81 +710,126 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver {
         // may take more of the screen than folded, at the text sizes where
         // the composer's own share leaves room.
         final roomy = _headerOpen && !_chromeHidden && MediaQuery.textScalerOf(context).scale(1) <= 1.3;
+        final header = _Header(
+          view: w,
+          open: _headerOpen && !_chromeHidden,
+          compact: false,
+          onToggle: () => setState(() => _openChoice = !_headerOpen),
+          onExpand: () => _setChromeHidden(false),
+          onAttach: (f) => _addFiles([f]),
+        );
+        final compactRow = _Header(
+          view: w,
+          open: false,
+          compact: true,
+          onToggle: () => setState(() => _openChoice = !_headerOpen),
+          onExpand: () => _setChromeHidden(false),
+          onAttach: (f) => _addFiles([f]),
+        );
+        final crewStrip = crew.isEmpty
+            ? null
+            : Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                child: CrewStrip(crew: crew, onTap: (c) => showCrewSheet(context, c, rowTap: _rowTap)),
+              );
+        // The chrome whole: the header, the crew of the turn, the now line.
         final chrome = Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ConstrainedBox(
               constraints: BoxConstraints(maxHeight: box.maxHeight * (roomy ? 0.62 : 0.48)),
-              child: SingleChildScrollView(
-                child: _Header(
-                  view: w,
-                  open: _headerOpen && !_chromeHidden,
-                  compact: _chromeHidden,
-                  onToggle: () => setState(() => _openChoice = !_headerOpen),
-                  onExpand: () => _setChromeHidden(false),
-                  onAttach: (f) => _addFiles([f]),
-                ),
-              ),
+              child: SingleChildScrollView(child: header),
             ),
-            // The crew of the turn: on the row even when the chrome is
-            // folded — it is what is running now.
-            if (crew.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                child: CrewStrip(crew: crew, onTap: (c) => showCrewSheet(context, c, rowTap: _rowTap)),
-              ),
-            if (w.nowSlot != null && !_chromeHidden) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 4), child: w.nowSlot!),
+            ?crewStrip,
+            if (w.nowSlot != null) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 4), child: w.nowSlot!),
           ],
         );
+        // The chrome folded: one row — and the crew, which is what is
+        // running now.
+        final folded = Column(mainAxisSize: MainAxisSize.min, children: [compactRow, ?crewStrip]);
+        final empty = Column(
+          children: [
+            Expanded(child: EmptyNote(w.running ? 'Session ready. Ask, or give an order.' : 'Start a session to talk to Claude Code in this folder.')),
+            if (w.askSlot != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: w.askSlot!),
+          ],
+        );
+        Widget rowAt(int i) => i == rows.length
+            // The ask is the last row: the conversation and what it asks
+            // are one scroll. When the card grows in — a phone's panel
+            // fills on its own — a pinned viewport follows it.
+            ? NotificationListener<SizeChangedLayoutNotification>(
+                onNotification: (_) {
+                  if (_pinned) _snapToEnd();
+                  return true;
+                },
+                child: SizeChangedLayoutNotifier(child: w.askSlot!),
+              )
+            : _row(rows, i);
+        final count = rows.length + (w.askSlot == null ? 0 : 1);
+        Widget list(Widget scroll) => Stack(
+              children: [
+                // One selection over the whole conversation — drag on the
+                // Mac, long-press on the phone, copy — across bubbles,
+                // replies and tool rows alike.
+                SelectionArea(child: NotificationListener<ScrollNotification>(onNotification: _onScroll, child: scroll)),
+                if (_unseen)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 10,
+                    child: Center(child: _JumpChip(onTap: _jumpToLatest)),
+                  ),
+              ],
+            );
+        final Widget middle;
+        if (_folds) {
+          // The chrome lies over the list, which keeps a top inset the size
+          // of the whole chrome: as a drag folds it by the pixel the rows
+          // slide up under it in step with the finger, and a drag the other
+          // way grows it back the same way from anywhere in the list — the
+          // list itself never changes height, so nothing jumps.
+          middle = Stack(
+            children: [
+              rows.isEmpty
+                  ? Padding(padding: EdgeInsets.only(top: _chromeMax), child: empty)
+                  : list(ListView.builder(
+                      controller: _scroll,
+                      padding: EdgeInsets.fromLTRB(16, _chromeMax + 12, 16, 12),
+                      itemCount: count,
+                      itemBuilder: (context, i) => rowAt(i),
+                    )),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: AnimatedBuilder(
+                  animation: _foldCtl,
+                  builder: (context, _) => _FoldedChrome(
+                    t: _foldCtl.value,
+                    max: _chromeMax,
+                    min: _chromeMin,
+                    color: t.bg,
+                    full: _MeasureHeight(onHeight: (h) => _measured(full: true, height: h), child: chrome),
+                    compact: _MeasureHeight(onHeight: (h) => _measured(full: false, height: h), child: folded),
+                  ),
+                ),
+              ),
+            ],
+          );
+        } else {
+          middle = rows.isEmpty
+              ? empty
+              : list(ListView.builder(
+                  controller: _scroll,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  itemCount: count,
+                  itemBuilder: (context, i) => rowAt(i),
+                ));
+        }
         return Column(
         children: [
-          _folds ? AnimatedSize(duration: const Duration(milliseconds: 180), curve: Curves.easeOut, alignment: Alignment.topCenter, child: chrome) : chrome,
-          Expanded(
-            child: rows.isEmpty
-                ? Column(
-                    children: [
-                      Expanded(child: EmptyNote(w.running ? 'Session ready. Ask, or give an order.' : 'Start a session to talk to Claude Code in this folder.')),
-                      if (w.askSlot != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: w.askSlot!),
-                    ],
-                  )
-                : Stack(
-                    children: [
-                      // One selection over the whole conversation — drag on
-                      // the Mac, long-press on the phone, copy — across
-                      // bubbles, replies and tool rows alike.
-                      SelectionArea(
-                        child: NotificationListener<ScrollNotification>(
-                          onNotification: _onScroll,
-                          child: ListView.builder(
-                            controller: _scroll,
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                            itemCount: rows.length + (w.askSlot == null ? 0 : 1),
-                            itemBuilder: (context, i) => i == rows.length
-                                // The ask is the last row: the conversation
-                                // and what it asks are one scroll. When the
-                                // card grows in — a phone's panel fills on
-                                // its own — a pinned viewport follows it.
-                                ? NotificationListener<SizeChangedLayoutNotification>(
-                                    onNotification: (_) {
-                                      if (_pinned) _snapToEnd();
-                                      return true;
-                                    },
-                                    child: SizeChangedLayoutNotifier(child: w.askSlot!),
-                                  )
-                                : _row(rows, i),
-                          ),
-                        ),
-                      ),
-                      if (_unseen)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 10,
-                          child: Center(child: _JumpChip(onTap: _jumpToLatest)),
-                        ),
-                    ],
-                  ),
-          ),
+          if (!_folds) chrome,
+          Expanded(child: middle),
           // The composer keeps the bottom; at the largest text sizes it
           // scrolls inside its own share and the transcript keeps the
           // rest, instead of a Column overflowing.
@@ -1898,6 +2011,75 @@ Future<void> showAutopilotSheet(BuildContext context, DeckView w) {
       ),
     ),
   );
+}
+
+/// The chrome folded by [t]: the whole of it while open, clipped from
+/// the bottom as the fold takes it, crossing over to the one row in the
+/// last stretch. Its height is the fold's reading between [max] and
+/// [min]; both are measured off the widgets themselves.
+class _FoldedChrome extends StatelessWidget {
+  const _FoldedChrome({required this.t, required this.max, required this.min, required this.color, required this.full, required this.compact});
+  final double t;
+  final double max;
+  final double min;
+  final Color color;
+  final Widget full;
+  final Widget compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = math.max(max, min);
+    final bottom = math.min(min, top);
+    final height = top - (top - bottom) * t;
+    final fade = ((t - 0.7) / 0.3).clamp(0.0, 1.0);
+    return SizedBox(
+      height: height,
+      child: Container(
+        color: color,
+        child: ClipRect(
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Offstage(offstage: t >= 0.999, child: IgnorePointer(ignoring: fade > 0.5, child: Opacity(opacity: 1 - fade, child: full))),
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Offstage(offstage: fade <= 0, child: IgnorePointer(ignoring: fade <= 0.5, child: Opacity(opacity: fade, child: compact))),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Reports its child's laid-out height after every frame it builds in.
+class _MeasureHeight extends StatefulWidget {
+  const _MeasureHeight({required this.onHeight, required this.child});
+  final void Function(double height) onHeight;
+  final Widget child;
+
+  @override
+  State<_MeasureHeight> createState() => _MeasureHeightState();
+}
+
+class _MeasureHeightState extends State<_MeasureHeight> {
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final h = context.size?.height;
+      if (h != null) widget.onHeight(h);
+    });
+    return widget.child;
+  }
 }
 
 class _OptionPill extends StatelessWidget {

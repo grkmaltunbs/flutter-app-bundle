@@ -369,8 +369,17 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('NOW LINE'), findsOneWidget);
     expect(find.text('NAHMATIK'), findsOneWidget);
-    // Finger up: the chrome folds to one row; the screen is told.
-    await tester.drag(find.byType(ListView), const Offset(0, -120));
+    final list = find.byType(ListView);
+    // A short drag folds it a little — the chrome shrinks with the finger,
+    // it does not snap: the whole header is still there, the row not yet.
+    await tester.drag(list, const Offset(0, -40));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('NAHMATIK'), findsOneWidget);
+    expect(find.text('NAHMATIK · LIVE'), findsNothing);
+    expect(hidden, isEmpty, reason: 'not folded yet');
+    // The rest of the way: one row; the screen is told once.
+    await tester.drag(list, const Offset(0, -600));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('NOW LINE'), findsNothing);
@@ -379,20 +388,20 @@ void main() {
     expect(find.byTooltip('Stop'), findsOneWidget, reason: 'Stop stays one tap away');
     expect(hidden, [true]);
     // Down to the end: the ask is the last row of the same scroll.
-    await tester.drag(find.byType(ListView), const Offset(0, -8000));
+    await tester.drag(list, const Offset(0, -8000));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.descendant(of: find.byType(ListView), matching: find.text('ASK CARD')), findsOneWidget, reason: 'the ask is a row of the transcript');
+    expect(find.descendant(of: list, matching: find.text('ASK CARD')), findsOneWidget, reason: 'the ask is a row of the transcript');
     expect(hidden, [true], reason: 'still folded');
-    // Finger down: it all comes back.
-    await tester.drag(find.byType(ListView), const Offset(0, 120));
+    // Finger down: it grows back with the drag, wherever the list is.
+    await tester.drag(list, const Offset(0, 600));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('NOW LINE'), findsOneWidget);
     expect(find.text('NAHMATIK'), findsOneWidget);
     expect(hidden, [true, false]);
     // The chevron on the row is the other way back.
-    await tester.drag(find.byType(ListView), const Offset(0, -120));
+    await tester.drag(list, const Offset(0, -600));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('NAHMATIK · LIVE'), findsOneWidget);
@@ -401,6 +410,53 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('NOW LINE'), findsOneWidget);
     expect(hidden, [true, false, true, false]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reading up on a phone: the drag grows the chrome and then scrolls the list, and new rows do not pull it back', (tester) async {
+    final messages = [for (var i = 0; i < 40; i++) DeckMessage(id: 'm$i', role: DeckRole.assistant, text: 'Row $i, long enough to wrap onto a second line.', at: DateTime(2026, 9, 4, 10, i))];
+    DeckView deck(List<DeckMessage> rows) => DeckView(
+          state: BridgeState.busy,
+          title: 'Nahmatik',
+          facts: const ['session abc'],
+          messages: rows,
+          running: true,
+          canResume: false,
+          turnOpen: true,
+          onStart: () {},
+          onResume: () {},
+          onStop: () {},
+          onSend: (_, _) async {},
+          foldOnScroll: true,
+        );
+    // The rows arrive after the first build, as they do over the relay:
+    // the list follows them to the end.
+    await tester.pumpWidget(_app(deck(messages.sublist(0, 5)), size: const Size(390, 844), scale: 1.0));
+    await tester.pump();
+    await tester.pumpWidget(_app(deck(messages), size: const Size(390, 844), scale: 1.0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Row 39, long enough to wrap onto a second line.'), findsOneWidget, reason: 'pinned at the end');
+    final list = find.byType(ListView);
+    // Fold it, then read up: one long drag the other way.
+    await tester.drag(list, const Offset(0, -600));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('NAHMATIK · WORKING'), findsOneWidget);
+    await tester.drag(list, const Offset(0, 900));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('NAHMATIK'), findsOneWidget, reason: 'the chrome grew back first');
+    expect(find.text('Row 39, long enough to wrap onto a second line.'), findsNothing, reason: 'then the list scrolled up');
+    // Rows keep coming while the turn runs: the list stays where the
+    // finger left it; the chip offers the way down.
+    await tester.pumpWidget(_app(deck([...messages, DeckMessage(id: 'm40', role: DeckRole.assistant, text: 'Row 40, new.', at: DateTime(2026, 9, 4, 11))]), size: const Size(390, 844), scale: 1.0));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Row 40, new.'), findsNothing, reason: 'not pulled back to the end');
+    expect(find.text('LATEST'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
