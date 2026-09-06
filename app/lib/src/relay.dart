@@ -10,6 +10,7 @@ import 'blobs.dart';
 import 'host/bridge_session.dart' show BridgeState;
 import 'host/host_actions.dart';
 import 'presence.dart';
+import 'screens/mirror_sheet.dart';
 
 /// The relay: Firestore on `flutterappbundle`, one user, owner-only rules.
 ///
@@ -24,6 +25,7 @@ import 'presence.dart';
 /// projects/{slug}/files/{commandId} the host's answer to a read_file: FileRead.toMap() — {path, text, lines, bytes, truncated, blob?, refused?}; the phone deletes it once read
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/runs/{runId}/log/{chunk} the run bay's log: {from, lines} — 200 lines a document, the last 10 documents kept, one write a second at most; the phone joins them in order
+/// projects/{slug}.mirror             the host's frame record {seq, at, w, h, dw, dh, streaming, lastInput, error} merged with the phone's {watching: {at, by}}; the frame itself is Storage projects/{slug}/frames/live.jpg
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
 /// hosts/{hostId}                   the Mac's heartbeat: {seenAt, name, appVersion, cli, projects, sessions, stopping}; the phone reads "unreachable" from its age
@@ -164,6 +166,22 @@ class RelayPublisher {
 
   Future<void> publishSession(Map<String, Object?> session) =>
       ref.set({'session': session, 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+
+  /// The host's half of `mirror` on the project document — merged, so
+  /// the phone's `watching` stays.
+  Future<void> publishMirror(Map<String, Object?> mirror) => ref.set({'mirror': mirror}, SetOptions(merge: true));
+
+  /// The phone's heartbeat under `mirror.watching`, as it changes.
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>> watchMirror(void Function(DateTime? at, String? by) onWatching) => ref.snapshots().listen((d) {
+        final m = d.data()?['mirror'];
+        final w = m is Map ? m['watching'] : null;
+        if (w is! Map) {
+          onWatching(null, null);
+          return;
+        }
+        final at = w['at'];
+        onWatching(at is Timestamp ? at.toDate() : DateTime.tryParse(at?.toString() ?? ''), w['by']?.toString());
+      }, onError: (Object _) {});
 
   /// The run's log, in documents of [logChunk] lines under
   /// `runs/{runId}/log/{chunk}`, the last [logChunks] kept — coalesced
@@ -521,6 +539,9 @@ class RemoteDeck extends ChangeNotifier {
     _subs.add(ref.snapshots().listen((d) {
       final m = d.data()?['session'];
       session = m is Map ? {for (final e in m.entries) e.key.toString(): e.value, 'machine': d.data()?['machine']} : const {};
+      final mm = d.data()?['mirror'];
+      mirror = mm is Map ? MirrorState.fromMap({for (final e in mm.entries) e.key.toString(): e.value as Object?}) : const MirrorState();
+      _mirrorCtrl.add(mirror);
       error = session['error']?.toString();
       _watchHost((d.data()?['machine'] ?? '').toString());
       notifyListeners();
@@ -576,6 +597,40 @@ class RemoteDeck extends ChangeNotifier {
   /// The toggle: on with a budget and night shift, or off.
   Future<void> setAutopilot({required bool on, int? budget, bool? nightShift}) =>
       CommandSender(db, slug).send({'type': 'autopilot', 'on': on, 'budget': ?budget, 'nightShift': ?nightShift}, from: from);
+
+  /// The mirror's record off the project document, and the same as a
+  /// stream for the sheet (the current value first).
+  MirrorState mirror = const MirrorState();
+  final StreamController<MirrorState> _mirrorCtrl = StreamController<MirrorState>.broadcast();
+  Stream<MirrorState> get mirrorStream async* {
+    yield mirror;
+    yield* _mirrorCtrl.stream;
+  }
+
+  /// "A sheet is open here": `mirror.watching` with the server's clock.
+  Future<void> mirrorPing() => ref.set({
+        'mirror': {
+          'watching': {'at': FieldValue.serverTimestamp(), 'by': from}
+        }
+      }, SetOptions(merge: true));
+
+  /// The newest frame's bytes, from the bucket.
+  Future<Uint8List> mirrorFrame() => _store.get(framePath(slug));
+
+  /// One frame now — waited on for the host's line.
+  Future<String> requestFrame() => _waited({'type': 'mirror', 'action': 'frame'});
+
+  /// An input on the device — waited on for the host's line.
+  Future<String> input(Map<String, Object?> command) => _waited(command);
+
+  Future<String> _waited(Map<String, Object?> command, {Duration wait = const Duration(seconds: 30)}) async {
+    final ref = await CommandSender(db, slug).send(command, from: from);
+    final done = await ref.snapshots().firstWhere((d) => d.data()?['doneAt'] != null).timeout(wait, onTimeout: () => throw TimeoutException('The Mac did not answer in ${wait.inSeconds} s.'));
+    return (done.data()?['result'] ?? '').toString();
+  }
+
+  /// Everything the sheet needs, over the relay.
+  MirrorHooks get mirrorHooks => MirrorHooks(state: mirrorStream, frame: mirrorFrame, ping: mirrorPing, requestFrame: requestFrame, input: input);
 
   /// The run bay as the host publishes it — `session.run`.
   RunState get run => session['run'] is Map ? RunState.fromMap({for (final e in (session['run'] as Map).entries) e.key.toString(): e.value as Object?}) : const RunState();
@@ -781,6 +836,7 @@ class RemoteDeck extends ChangeNotifier {
 
   @override
   void dispose() {
+    _mirrorCtrl.close();
     for (final s in _subs) {
       s.cancel();
     }

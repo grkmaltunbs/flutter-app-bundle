@@ -10,11 +10,13 @@ import '../attachments.dart';
 import '../blobs.dart';
 import '../plan_source.dart';
 import '../relay.dart';
+import '../screens/mirror_sheet.dart';
 import 'autopilot.dart';
 import 'bridge_session.dart';
 import 'claude_cli.dart';
 import 'hook_watcher.dart';
 import 'host_actions.dart';
+import 'mirror.dart';
 import 'power.dart';
 import 'push_sender.dart';
 import 'remote_control.dart';
@@ -60,6 +62,10 @@ class HostProject extends ChangeNotifier {
   /// The app under test, run by the host — see [RunBay].
   late final RunBay run = RunBay(dir: dir, runtime: () => source.plan?.manifest.qa['runtime']?.toString());
   RunPhase _lastRunPhase = RunPhase.idle;
+
+  /// The run's device on the phone — see [Mirror].
+  late final Mirror mirror = Mirror(run: run, blobs: blobs, slug: () => slug, dir: dir, publish: (m) async => _publisher?.publishMirror(m));
+  StreamSubscription<Object?>? _mirrorWatch;
   RelayPublisher? _publisher;
   InboxListener? _inbox;
   CommandListener? _commands;
@@ -79,6 +85,7 @@ class HostProject extends ChangeNotifier {
     bridge.addListener(_onBridge);
     autopilot.addListener(_onAutopilot);
     run.addListener(_onRun);
+    mirror.addListener(notifyListeners);
     bridge.briefExtra = () => runBrief(run.state);
     bridge.diffFor = (tool, input) => diffForAsk(toolName: tool, input: input, read: _readForDiff);
     _refreshGit(soon: true);
@@ -138,6 +145,7 @@ class HostProject extends ChangeNotifier {
       } else if (_lastRunPhase == RunPhase.running && (r.phase == RunPhase.stopped || r.phase == RunPhase.failed)) {
         bridge.noteHostAction('The run bay stopped the app${r.error != null ? ' (${r.error})' : ''}.');
       }
+      if (!r.up) mirror.stop();
       _lastRunPhase = r.phase;
     }
     _publisher?.publishSession(sessionRelay());
@@ -149,6 +157,27 @@ class HostProject extends ChangeNotifier {
   /// The run bay from the Mac's own screens: the same command the phone
   /// sends. Returns the one line to toast.
   Future<String> runAction(String action, {String? device, bool? on}) => applyCommand({'type': 'run', 'action': action, 'device': ?device, 'on': ?on, 'from': 'Mac'});
+
+  /// The mirror sheet on the Mac: the host's own frames, no relay.
+  MirrorHooks get mirrorHooks => MirrorHooks(
+        state: () async* {
+          yield mirror.state;
+          await for (final _ in _changes(mirror)) {
+            yield mirror.state;
+          }
+        }(),
+        frame: () async => mirror.lastFrame ?? (throw StateError('no frame yet')),
+        ping: () async => mirror.watching(DateTime.now(), 'Mac'),
+        requestFrame: mirror.frame,
+        input: mirror.input,
+      );
+
+  static Stream<void> _changes(Listenable l) {
+    late StreamController<void> c;
+    void tick() => c.add(null);
+    c = StreamController<void>(onListen: () => l.addListener(tick), onCancel: () => l.removeListener(tick));
+    return c.stream;
+  }
 
   /// The autopilot from the Mac's own Deck: the same command the phone
   /// sends. Returns the one line to toast.
@@ -276,6 +305,7 @@ class HostProject extends ChangeNotifier {
   /// a session the Mac can no longer see, and the "now" line says so.
   Future<void> quit() async {
     autopilot.stop(by: 'the Mac quitting');
+    mirror.stop();
     if (run.up) await run.stop();
     if (bridge.running) await bridge.stop();
     if (session.running) await session.stop();
@@ -377,6 +407,12 @@ class HostProject extends ChangeNotifier {
         return bridge.compact();
       case 'host':
         return _hostAction(cmd);
+      case 'mirror':
+        // `{type: mirror, action: frame}` — one frame now.
+        return cmd['action'] == 'frame' ? mirror.frame() : 'unknown mirror action ${cmd['action']}';
+      case 'input':
+        // `{type: input, action: tap|swipe|text|key, x, y, x2, y2, text}` in device pixels.
+        return mirror.input(cmd);
       case 'run':
         // `{type: run, action: start|reload|restart|stop|devices|reload_on_edit, device?, on?}`.
         switch (cmd['action']) {
@@ -471,6 +507,7 @@ class HostProject extends ChangeNotifier {
     }
     _inbox ??= InboxListener(db, slug!, apply: applyBatch)..start();
     _commands ??= CommandListener(db, slug!, apply: applyCommand)..start();
+    _mirrorWatch ??= _publisher!.watchMirror(mirror.watching);
     if (_publishing) {
       _dirty = true;
       return;
@@ -568,6 +605,9 @@ class HostProject extends ChangeNotifier {
     autopilot.dispose();
     run.removeListener(_onRun);
     run.dispose();
+    mirror.removeListener(notifyListeners);
+    _mirrorWatch?.cancel();
+    mirror.dispose();
     _inbox?.dispose();
     _commands?.dispose();
     _publisher?.dispose();

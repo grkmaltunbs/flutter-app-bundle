@@ -10,10 +10,13 @@ import 'common.dart';
 /// (`start`, `reload`, `restart`, `stop`, `devices`, `reload_on_edit`)
 /// and returns the one line to toast; [onLog] opens the log sheet.
 class RunCard extends StatefulWidget {
-  const RunCard({super.key, required this.run, required this.onAction, this.onLog, this.now});
+  const RunCard({super.key, required this.run, required this.onAction, this.onLog, this.onMirror, this.now});
   final RunState run;
   final Future<String> Function(String action, {String? device, bool? on}) onAction;
   final VoidCallback? onLog;
+
+  /// Opens the mirror sheet — the device's screen on this one.
+  final VoidCallback? onMirror;
 
   /// The clock, for a test.
   final DateTime Function()? now;
@@ -112,6 +115,7 @@ class _RunCardState extends State<RunCard> {
               if (r.running) OutlinedButton(onPressed: busy ? null : () => _run('restart'), child: Text(_busy == 'restart' ? 'RESTARTING…' : 'RESTART')),
               if (r.up) OutlinedButton(onPressed: busy ? null : () => _run('stop'), child: Text(_busy == 'stop' ? 'STOPPING…' : 'STOP')),
               if (widget.onLog != null && r.runId != null) TextButton(onPressed: widget.onLog, child: Text('LOG · ${r.lines}')),
+              if (widget.onMirror != null && r.up) TextButton(onPressed: widget.onMirror, child: const Text('MIRROR')),
             ],
           ),
           Padding(

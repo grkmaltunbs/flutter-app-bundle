@@ -25,6 +25,7 @@ import '../widgets/tool_sheet.dart';
 import 'ask_card.dart';
 import 'file_view.dart';
 import 'log_sheet.dart';
+import 'mirror_sheet.dart';
 import 'remote_asks.dart';
 
 /// The conversation with this project's session: what was said, what ran,
@@ -86,6 +87,7 @@ class DeckView extends StatefulWidget {
     this.run,
     this.onRun,
     this.runLog,
+    this.mirrorHooks,
   });
 
   final BridgeState state;
@@ -176,6 +178,10 @@ class DeckView extends StatefulWidget {
   final RunState? run;
   final Future<String> Function(String action, {String? device, bool? on})? onRun;
   final Stream<List<String>> Function(String runId)? runLog;
+
+  /// The mirror: the run's device on this screen, and taps back. Null:
+  /// no sheet here.
+  final MirrorHooks? mirrorHooks;
 
   /// A file on the Mac, for the tap on a path — the Mac's disk, or the
   /// relay. Null: paths are not taps.
@@ -648,6 +654,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver {
                   compact: _chromeHidden,
                   onToggle: () => setState(() => _openChoice = !_headerOpen),
                   onExpand: () => _setChromeHidden(false),
+                  onAttach: (f) => _addFiles([f]),
                 ),
               ),
             ),
@@ -1067,7 +1074,7 @@ class _Attachments extends StatelessWidget {
 
 /// The host's Deck: straight off its own bridge.
 class DeckTab extends StatelessWidget {
-  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog});
+  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog, this.mirrorHooks});
   final BridgeSession bridge;
 
   /// The host's loop, and its toggle — see [DeckView.autopilot].
@@ -1078,6 +1085,7 @@ class DeckTab extends StatelessWidget {
   final RunState? run;
   final Future<String> Function(String action, {String? device, bool? on})? onRun;
   final Stream<List<String>> Function(String runId)? runLog;
+  final MirrorHooks? mirrorHooks;
 
   /// The host's own hands, for the taps: files inside the project, git.
   final HostFiles? files;
@@ -1154,6 +1162,7 @@ class DeckTab extends StatelessWidget {
           run: run,
           onRun: onRun,
           runLog: runLog,
+          mirrorHooks: mirrorHooks,
           onSend: (text, files) async => b.send(text, files: files),
           pick: pick,
         );
@@ -1268,6 +1277,7 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         run: d.run,
         onRun: d.runCommand,
         runLog: d.runLog,
+        mirrorHooks: d.mirrorHooks,
         autopilot: d.autopilot,
         onAutopilot: ({required on, budget, nightShift}) async {
           await d.setAutopilot(on: on, budget: budget, nightShift: nightShift);
@@ -1289,8 +1299,11 @@ String hm(DateTime at) {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.view, required this.open, required this.onToggle, this.compact = false, this.onExpand});
+  const _Header({required this.view, required this.open, required this.onToggle, this.compact = false, this.onExpand, this.onAttach});
   final DeckView view;
+
+  /// A frame from the mirror, for the composer.
+  final void Function(PendingAttachment f)? onAttach;
 
   /// Whether the controls under the title row show.
   final bool open;
@@ -1547,7 +1560,12 @@ class _Header extends StatelessWidget {
             if (w.onRun != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: RunCard(run: w.run ?? const RunState(), onAction: w.onRun!, onLog: w.runLog == null || w.run?.runId == null ? null : () => openRunLog(context, w)),
+                child: RunCard(
+                  run: w.run ?? const RunState(),
+                  onAction: w.onRun!,
+                  onLog: w.runLog == null || w.run?.runId == null ? null : () => openRunLog(context, w),
+                  onMirror: w.mirrorHooks == null ? null : () => showMirrorSheet(context, w.mirrorHooks!, title: 'Mirror · ${w.run?.deviceName ?? ''}', onAttach: onAttach),
+                ),
               ),
             if (w.running)
               Padding(

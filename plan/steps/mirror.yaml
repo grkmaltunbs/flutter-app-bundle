@@ -1,14 +1,14 @@
 id: mirror
 number: "19"
 title: Mirror — see the app under test on the phone, and drive it with taps
-status: pending
+status: done
 rank: 800
 depends_on: [run-bay, blobs]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-06, note: "kit and app: no issues", status: passed}
+  tests: { at: 2026-09-06, note: "kit 110, app 166 (1 skip: the live bridge test)", status: passed}
+  qa: { at: 2026-09-06, note: "run by Claude over the relay (the phone dropped off USB mid-step; the sheet itself and the frame attach are covered by widget tests, not run live): a frame from the simulator arrived in Storage at 331×720 with the record ticking; a heartbeat streamed one frame a second (49 frames) and stopped when it went stale; a tap on the simulator was refused with the idb line; the run moved to the Android emulator (booted by the bay from its off entry) where a tap through adb hit the counter's button (the next frame showed 1) and a swipe played", status: passed}
 sections:
   - title: Description
     body: |
@@ -58,3 +58,16 @@ sections:
       - `app/lib/src/host/mirror.dart` (new: capture, input), `app/lib/src/host/run_bay.dart`, `app/lib/src/relay.dart` (mirror, input commands), `app/lib/src/screens/mirror_sheet.dart` (new), `app/lib/src/screens/deck_tab.dart`
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — see and drive the app under test" }
+  - at: 2026-09-06
+    event: started
+  - at: 2026-09-06
+    event: gate analyze passed
+    note: "kit and app: no issues"
+  - at: 2026-09-06
+    event: gate tests passed
+    note: "kit 110, app 166 (1 skip: the live bridge test)"
+  - at: 2026-09-06
+    event: gate qa passed
+    note: "run by Claude over the relay (the phone dropped off USB mid-step; the sheet itself and the frame attach are covered by widget tests, not run live): a frame from the simulator arrived in Storage at 331×720 with the record ticking; a heartbeat streamed one frame a second (49 frames) and stopped when it went stale; a tap on the simulator was refused with the idb line; the run moved to the Android emulator (booted by the bay from its off entry) where a tap through adb hit the counter's button (the next frame showed 1) and a swipe played"
+  - at: 2026-09-06
+    event: done

@@ -17,3 +17,4 @@ export 'src/bridge.dart';
 export 'src/diff.dart';
 export 'src/autopilot.dart';
 export 'src/run.dart';
+export 'src/mirror.dart';

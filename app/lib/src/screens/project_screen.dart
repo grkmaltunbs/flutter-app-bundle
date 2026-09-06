@@ -300,7 +300,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                           physics: const NeverScrollableScrollPhysics(),
                           children: [
                             widget.isHost
-                                ? DeckTab(bridge: widget.host!.bridge, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), testPush: widget.host!.testPush, onChromeHidden: _onChromeHidden, files: widget.host!.files, git: widget.host!.gitStatus, onGit: widget.host!.gitOp, autopilot: widget.host!.autopilot.state, onAutopilot: widget.host!.setAutopilot, run: widget.host!.run.state, onRun: widget.host!.runAction, runLog: (_) => widget.host!.run.logStream)
+                                ? DeckTab(bridge: widget.host!.bridge, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), testPush: widget.host!.testPush, onChromeHidden: _onChromeHidden, files: widget.host!.files, git: widget.host!.gitStatus, onGit: widget.host!.gitOp, autopilot: widget.host!.autopilot.state, onAutopilot: widget.host!.setAutopilot, run: widget.host!.run.state, onRun: widget.host!.runAction, runLog: (_) => widget.host!.run.logStream, mirrorHooks: widget.host!.mirrorHooks)
                                 : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), onChromeHidden: _onChromeHidden),
                             wide
                                 ? Row(
