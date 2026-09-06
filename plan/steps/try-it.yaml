@@ -1,14 +1,14 @@
 id: try-it
 number: "20"
 title: Try it — the build installs on the phone in your hand, and a screenshot shares straight back
-status: pending
+status: active
 rank: 810
 depends_on: [blobs, notifications]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-06, note: "kit and app: no issues", status: passed}
+  tests: { at: 2026-09-06, note: "kit 114, app 176 (1 skip: the live bridge test)", status: passed}
+  qa: { at: 2026-09-06, note: "the build half run by Claude over the relay against ~\/kit-scratch: TRY IT built the app (flutter build apk --debug --target-platform android-arm64), the APK landed in Storage at projects\/scratch\/builds\/<id>.apk (146 MB debug), the record went ready with version\/sha\/branch\/size\/path and the session build pill read ready; DELETE by command removed one (buildId, not the command's own id); four builds left three in builds\/ and the bucket, the oldest pruned. NOT run live (blocked): the install on the phone (needs allow-katya-to-install-apps and the phone) and the share-sheet intake — both covered by widget\/unit tests; a failed build and build-on-flip are unit-tested only.", status: passed}
 sections:
   - title: Description
     body: |
@@ -57,3 +57,14 @@ sections:
       - `app/lib/src/host/builds.dart` (new), `app/lib/src/host/hook_watcher.dart` (flip event), `app/lib/src/relay.dart` (builds), `app/lib/src/screens/deck_tab.dart` (fold, build rows), `app/lib/src/share_intake.dart` (new), `app/android/app/src/main/AndroidManifest.xml`, `app/pubspec.yaml`
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — close the loop on the phone" }
+  - at: 2026-09-06
+    event: started
+  - at: 2026-09-06
+    event: gate analyze passed
+    note: "kit and app: no issues"
+  - at: 2026-09-06
+    event: gate tests passed
+    note: "kit 114, app 176 (1 skip: the live bridge test)"
+  - at: 2026-09-06
+    event: gate qa passed
+    note: "the build half run by Claude over the relay against ~\/kit-scratch: TRY IT built the app (flutter build apk --debug --target-platform android-arm64), the APK landed in Storage at projects\/scratch\/builds\/<id>.apk (146 MB debug), the record went ready with version\/sha\/branch\/size\/path and the session build pill read ready; DELETE by command removed one (buildId, not the command's own id); four builds left three in builds\/ and the bucket, the oldest pruned. NOT run live (blocked): the install on the phone (needs allow-katya-to-install-apps and the phone) and the share-sheet intake — both covered by widget\/unit tests; a failed build and build-on-flip are unit-tested only."

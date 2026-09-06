@@ -18,3 +18,4 @@ export 'src/diff.dart';
 export 'src/autopilot.dart';
 export 'src/run.dart';
 export 'src/mirror.dart';
+export 'src/builds.dart';

@@ -51,6 +51,9 @@ dependencies:
   flutter_local_notifications: ^22.3.0
   firebase_storage: ^13.5.0
   package_info_plus: ^10.2.1
+  open_filex: ^4.7.0
+  receive_sharing_intent: ^1.9.0
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:

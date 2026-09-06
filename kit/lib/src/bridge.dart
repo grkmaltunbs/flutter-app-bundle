@@ -405,6 +405,9 @@ enum NoticeKind {
   /// A step of the plan flipped to done — the constellation moved while
   /// the user was away.
   step,
+
+  /// A build of the app under test is ready to install, or failed.
+  build,
 }
 
 /// One button on an ask's notification: [id] comes back as the action the
@@ -459,7 +462,10 @@ AskAnswer? answerForAction(Ask ask, String actionId, {String here = 'notificatio
 /// One notification: what to show, and what it is about, so a tap opens
 /// the right project and a repeat of the same thing replaces the last.
 class Notice {
-  const Notice({required this.kind, required this.title, required this.body, this.requestId, this.actions = const []});
+  const Notice({required this.kind, required this.title, required this.body, this.requestId, this.actions = const [], this.extra = const {}});
+
+  /// More for the tap to carry — a build's id.
+  final Map<String, String> extra;
 
   final NoticeKind kind;
   final String title;
@@ -478,14 +484,14 @@ class Notice {
   /// pending), a repeated problem does not stack.
   String get channel => switch (kind) {
         NoticeKind.problem => 'problems',
-        NoticeKind.done || NoticeKind.note => 'done',
+        NoticeKind.done || NoticeKind.note || NoticeKind.build => 'done',
         NoticeKind.step => 'steps',
         NoticeKind.permission || NoticeKind.question || NoticeKind.signIn || NoticeKind.plan => 'asks',
       };
 
   bool get isAsk => channel == 'asks';
 
-  Map<String, String> data(String slug) => {'slug': slug, 'kind': kind.name, if (requestId != null) 'requestId': requestId!};
+  Map<String, String> data(String slug) => {'slug': slug, 'kind': kind.name, if (requestId != null) 'requestId': requestId!, ...extra};
 }
 
 /// The notification for an ask: the project in the title, the thing to
@@ -520,6 +526,12 @@ Notice noticeForDone(ResultEvent r, {required String project}) {
   final took = secs < 60 ? '' : ' in ${secs ~/ 60}m ${(secs % 60).toString().padLeft(2, '0')}s';
   return Notice(kind: NoticeKind.done, title: 'Done$took · $project', body: _clip(r.text.trim().isEmpty ? 'The turn ended.' : r.text.trim(), 240));
 }
+
+/// The notification for a build: ready with its version, or failed with
+/// the first error line; the tap carries the build's id.
+Notice noticeForBuild({required String project, required String buildId, required bool ready, required String version, String? error, int size = 0}) => ready
+    ? Notice(kind: NoticeKind.build, title: 'Build ready · $project${version.isEmpty ? '' : ' · $version'}', body: 'Tap to install${size > 0 ? ' · ${formatBytes(size)}' : ''}.', extra: {'buildId': buildId})
+    : Notice(kind: NoticeKind.build, title: 'Build failed · $project', body: _clip(error ?? 'see the log', 240), extra: {'buildId': buildId});
 
 /// The notification for a line Claude sent with `kit notify`.
 Notice noticeForNote(String text, {required String project}) => Notice(kind: NoticeKind.note, title: 'Claude · $project', body: _clip(text.trim(), 240));

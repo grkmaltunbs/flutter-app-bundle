@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:firebase_storage/firebase_storage.dart';
@@ -20,6 +21,11 @@ abstract class BlobStore {
 
   /// Throws [StateError] when nothing is at [path].
   Future<Uint8List> get(String path);
+
+  /// Writes the object at [path] to [file] — a build too big to hold —
+  /// with [onProgress] 0…1 as it comes. Throws [StateError] when nothing
+  /// is there.
+  Future<void> download(String path, File file, {void Function(double fraction)? onProgress});
 
   /// Quiet when nothing is there.
   Future<void> delete(String path);
@@ -94,6 +100,22 @@ class FirebaseBlobStore implements BlobStore {
   }
 
   @override
+  Future<void> download(String path, File file, {void Function(double fraction)? onProgress}) async {
+    file.parent.createSync(recursive: true);
+    final task = storage.ref(path).writeToFile(file);
+    if (onProgress != null) {
+      task.snapshotEvents.listen((s) => onProgress(s.totalBytes <= 0 ? 0 : s.bytesTransferred / s.totalBytes), onError: (Object _) {});
+    }
+    try {
+      await task;
+    } on FirebaseException catch (e) {
+      if (e.code == 'object-not-found') throw StateError('nothing at $path');
+      rethrow;
+    }
+    onProgress?.call(1);
+  }
+
+  @override
   Future<void> delete(String path) async {
     try {
       await storage.ref(path).delete();
@@ -158,6 +180,15 @@ class MemoryBlobStore implements BlobStore {
     final o = objects[path];
     if (o == null) throw StateError('nothing at $path');
     return Uint8List.fromList(o.bytes);
+  }
+
+  @override
+  Future<void> download(String path, File file, {void Function(double fraction)? onProgress}) async {
+    final bytes = await get(path);
+    file.parent.createSync(recursive: true);
+    onProgress?.call(0.5);
+    file.writeAsBytesSync(bytes);
+    onProgress?.call(1);
   }
 
   @override

@@ -18,6 +18,7 @@ import '../host/bridge_session.dart';
 import '../host/host_actions.dart';
 import '../relay.dart';
 import '../theme.dart';
+import '../widgets/builds_card.dart';
 import '../widgets/common.dart';
 import '../widgets/git_card.dart';
 import '../widgets/run_card.dart';
@@ -88,6 +89,13 @@ class DeckView extends StatefulWidget {
     this.onRun,
     this.runLog,
     this.mirrorHooks,
+    this.builds = const [],
+    this.buildOnFlip = false,
+    this.onBuild,
+    this.onInstall,
+    this.initialFiles = const [],
+    this.initialText,
+    this.installBuild,
   });
 
   final BridgeState state;
@@ -182,6 +190,21 @@ class DeckView extends StatefulWidget {
   /// The mirror: the run's device on this screen, and taps back. Null:
   /// no sheet here.
   final MirrorHooks? mirrorHooks;
+
+  /// Try it: the last builds, the switch, the `build` command (start ·
+  /// delete · switch, returning the one line to toast), and — on a
+  /// phone — the install of a ready build with the download's progress.
+  final List<BuildRecord> builds;
+  final bool buildOnFlip;
+  final Future<String> Function(String action, {String? id, bool? on})? onBuild;
+  final Future<String> Function(BuildRecord b, void Function(double fraction) onProgress)? onInstall;
+
+  /// What the Deck opens with: files a share brought, a line of text —
+  /// and a build to install the moment its row is there (a tap on the
+  /// "Build ready" push).
+  final List<PendingAttachment> initialFiles;
+  final String? initialText;
+  final String? installBuild;
 
   /// A file on the Mac, for the tap on a path — the Mac's disk, or the
   /// relay. Null: paths are not taps.
@@ -466,6 +489,31 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
     WidgetsBinding.instance.addObserver(this);
     _takeLastSeen();
     _maybePlaceMarker();
+    // A share opened this Deck: the file on the composer, the cursor in it.
+    _files.addAll(widget.initialFiles);
+    if (widget.initialText != null && widget.initialText!.isNotEmpty) _input.text = widget.initialText!;
+    if (_files.isNotEmpty || _input.text.isNotEmpty) WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
+    _maybeInstall();
+  }
+
+  /// The build a push named: installed once its row is there and ready.
+  bool _installStarted = false;
+  void _maybeInstall() {
+    final id = widget.installBuild;
+    final install = widget.onInstall;
+    if (id == null || install == null || _installStarted) return;
+    final b = widget.builds.where((x) => x.id == id && x.ready).firstOrNull;
+    if (b == null) return;
+    _installStarted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      String line;
+      try {
+        line = await install(b, (_) {});
+      } on Object catch (e) {
+        line = 'Could not install: $e';
+      }
+      if (mounted) _toast(line);
+    });
   }
 
   @override
@@ -481,6 +529,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
     if (oldFirst != first || widget.messages.length <= _seenIndex) _seenIndex = -1;
     _maybePlaceMarker();
     _follow();
+    _maybeInstall();
   }
 
   @override
@@ -1187,7 +1236,7 @@ class _Attachments extends StatelessWidget {
 
 /// The host's Deck: straight off its own bridge.
 class DeckTab extends StatelessWidget {
-  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog, this.mirrorHooks});
+  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog, this.mirrorHooks, this.builds = const [], this.buildOnFlip = false, this.onBuild});
   final BridgeSession bridge;
 
   /// The host's loop, and its toggle — see [DeckView.autopilot].
@@ -1199,6 +1248,11 @@ class DeckTab extends StatelessWidget {
   final Future<String> Function(String action, {String? device, bool? on})? onRun;
   final Stream<List<String>> Function(String runId)? runLog;
   final MirrorHooks? mirrorHooks;
+
+  /// Try it — see [DeckView.builds].
+  final List<BuildRecord> builds;
+  final bool buildOnFlip;
+  final Future<String> Function(String action, {String? id, bool? on})? onBuild;
 
   /// The host's own hands, for the taps: files inside the project, git.
   final HostFiles? files;
@@ -1276,6 +1330,9 @@ class DeckTab extends StatelessWidget {
           onRun: onRun,
           runLog: runLog,
           mirrorHooks: mirrorHooks,
+          builds: builds,
+          buildOnFlip: buildOnFlip,
+          onBuild: onBuild,
           onSend: (text, files) async => b.send(text, files: files),
           pick: pick,
         );
@@ -1286,7 +1343,12 @@ class DeckTab extends StatelessWidget {
 
 /// The phone's Deck: the mirror in, commands out.
 class RemoteDeckTab extends StatefulWidget {
-  const RemoteDeckTab({super.key, required this.db, required this.slug, this.from = 'phone', this.title, this.nowSlot, this.pick, this.blobs, this.onChromeHidden});
+  const RemoteDeckTab({super.key, required this.db, required this.slug, this.from = 'phone', this.title, this.nowSlot, this.pick, this.blobs, this.onChromeHidden, this.initialFiles = const [], this.initialText, this.installBuild});
+
+  /// What a share or a push opened this Deck with — see [DeckView.initialFiles].
+  final List<PendingAttachment> initialFiles;
+  final String? initialText;
+  final String? installBuild;
   final FirebaseFirestore db;
 
   /// See [DeckView.onChromeHidden].
@@ -1391,6 +1453,13 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         onRun: d.runCommand,
         runLog: d.runLog,
         mirrorHooks: d.mirrorHooks,
+        builds: d.buildList,
+        buildOnFlip: d.buildOnFlip,
+        onBuild: d.buildCommand,
+        onInstall: d.installBuild,
+        initialFiles: widget.initialFiles,
+        initialText: widget.initialText,
+        installBuild: widget.installBuild,
         autopilot: d.autopilot,
         onAutopilot: ({required on, budget, nightShift}) async {
           await d.setAutopilot(on: on, budget: budget, nightShift: nightShift);
@@ -1670,6 +1739,17 @@ class _Header extends StatelessWidget {
             _Dial(label: 'EFFORT', choices: effortChoices, value: w.effort, enabled: true, onChanged: (v) => w.onOptions!(effort: v)),
             _Dial(label: 'MODE', choices: modeChoices, value: w.modeChoice, enabled: true, labelOf: modeLabel, warnOn: 'bypassPermissions', onChanged: (v) => w.onOptions!(mode: v)),
             if (w.onGit != null) Padding(padding: const EdgeInsets.only(top: 8), child: GitCard(git: w.git, onOp: w.onGit!)),
+            if (w.onBuild != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: BuildsCard(
+                  builds: w.builds,
+                  buildOnFlip: w.buildOnFlip,
+                  onAction: w.onBuild!,
+                  onInstall: w.onInstall,
+                  onLog: (b) => showLogSheet(context, lines: Stream.value(b.log), initial: b.log, title: 'Build · ${b.version.isEmpty ? b.id : b.version}'),
+                ),
+              ),
             if (w.onRun != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),

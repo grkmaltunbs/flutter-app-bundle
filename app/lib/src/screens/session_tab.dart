@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../host/host_presence.dart';
 import '../host/host_project.dart';
+import '../widgets/builds_card.dart';
 import '../widgets/git_card.dart';
 import '../widgets/run_card.dart';
 import 'log_sheet.dart';
@@ -215,6 +216,16 @@ class _SessionTabState extends State<SessionTab> {
                   ),
                   Padding(padding: const EdgeInsets.only(top: 6), child: Text(mirrorLine(h.mirror.state), style: TextStyle(fontSize: 12.5, color: h.mirror.state.error == null ? t.ink2 : t.warn))),
                 ],
+              ),
+            ),
+            const SectionHead('Try it', sub: 'flutter build apk --debug from this Mac; the APK goes to the bucket and the phone gets "Build ready". The last three stay.'),
+            ListenableBuilder(
+              listenable: h.builds,
+              builder: (context, _) => BuildsCard(
+                builds: h.builds.builds,
+                buildOnFlip: h.builds.buildOnFlip,
+                onAction: h.buildAction,
+                onLog: (b) => showLogSheet(context, lines: Stream.value(b.log), initial: b.log, title: 'Build · ${b.version.isEmpty ? b.id : b.version}'),
               ),
             ),
             const SectionHead('Git', sub: 'What the host reads after every turn. Commit and Push run here, no model; the session hears about them with the next message.'),

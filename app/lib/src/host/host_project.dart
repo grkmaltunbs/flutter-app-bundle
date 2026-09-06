@@ -13,6 +13,7 @@ import '../relay.dart';
 import '../screens/mirror_sheet.dart';
 import 'autopilot.dart';
 import 'bridge_session.dart';
+import 'builds.dart';
 import 'claude_cli.dart';
 import 'hook_watcher.dart';
 import 'host_actions.dart';
@@ -63,6 +64,10 @@ class HostProject extends ChangeNotifier {
   late final RunBay run = RunBay(dir: dir, runtime: () => source.plan?.manifest.qa['runtime']?.toString());
   RunPhase _lastRunPhase = RunPhase.idle;
 
+  /// Try it — the debug build for the phone, see [Builds].
+  late final Builds builds = Builds(dir: dir, blobs: blobs, slug: () => slug, publish: (id, doc) async => _publisher?.publishBuild(id, doc), prune: (keep) async => _publisher?.pruneBuilds(keep), remove: (id) async => _publisher?.deleteBuild(id), push: _notify);
+  final Set<String> _builtFor = {};
+
   /// The run's device on the phone — see [Mirror].
   late final Mirror mirror = Mirror(run: run, blobs: blobs, slug: () => slug, dir: dir, publish: (m) async => _publisher?.publishMirror(m));
   StreamSubscription<Object?>? _mirrorWatch;
@@ -86,6 +91,7 @@ class HostProject extends ChangeNotifier {
     autopilot.addListener(_onAutopilot);
     run.addListener(_onRun);
     mirror.addListener(notifyListeners);
+    builds.addListener(_onBuilds);
     bridge.briefExtra = () => runBrief(run.state);
     bridge.diffFor = (tool, input) => diffForAsk(toolName: tool, input: input, read: _readForDiff);
     _refreshGit(soon: true);
@@ -132,6 +138,14 @@ class HostProject extends ChangeNotifier {
     _publisher?.publishSession(sessionRelay());
     notifyListeners();
   }
+
+  void _onBuilds() {
+    _publisher?.publishSession(sessionRelay());
+    notifyListeners();
+  }
+
+  /// Try it from the Mac's own screens: the same command the phone sends.
+  Future<String> buildAction(String action, {String? id, bool? on}) => applyCommand({'type': 'build', 'action': action, 'id': ?id, 'on': ?on, 'from': 'Mac'});
 
   /// The run moved: the session document, the log, and — when the app
   /// came up or went down — a note for the session's next prompt, so it
@@ -186,7 +200,7 @@ class HostProject extends ChangeNotifier {
 
   /// What the phone sees as the session: the bridge while it runs, else
   /// Remote Control, else idle.
-  Map<String, Object?> sessionRelay() => {..._sessionCore(), if (gitStatus != null) 'git': gitStatus!.toMap(), 'autopilot': autopilot.state.toMap(), 'run': run.state.toMap()};
+  Map<String, Object?> sessionRelay() => {..._sessionCore(), if (gitStatus != null) 'git': gitStatus!.toMap(), 'autopilot': autopilot.state.toMap(), 'run': run.state.toMap(), 'build': builds.relay};
 
   Map<String, Object?> _sessionCore() {
     if (bridge.running) return bridge.toRelay();
@@ -322,9 +336,21 @@ class HostProject extends ChangeNotifier {
   void _notifyFlips(Plan plan) {
     final pub = _publisher;
     if (pub == null) return;
-    for (final s in flippedDone(pub.lastChanges, plan)) {
+    final done = flippedDone(pub.lastChanges, plan);
+    for (final s in done) {
       _notify(noticeForStep(number: s.number ?? s.id, title: s.title, project: projectName));
     }
+    // A step done, or built and waiting on a person: a build, when the
+    // switch says so — once per step.
+    final g = Graph(plan);
+    final flipped = <String>{
+      for (final s in done) s.id,
+      for (final k in pub.lastChanges.keys)
+        if (k.startsWith('steps/'))
+          if (plan.step(k.substring(6)) case final s? when g.view(s).state == StepState.codeComplete) s.id,
+    };
+    final fresh = flipped.where(_builtFor.add).toList();
+    if (fresh.isNotEmpty) unawaited(builds.onFlip());
   }
 
   /// A command from the phone. `answer` lands on the pending ask only if it
@@ -407,6 +433,21 @@ class HostProject extends ChangeNotifier {
         return bridge.compact();
       case 'host':
         return _hostAction(cmd);
+      case 'build':
+        // `{type: build, action: start|delete|switch, buildId?, on?}` —
+        // the command's own doc id is injected as `id`, so the build's id
+        // rides as `buildId`.
+        switch (cmd['action']) {
+          case 'start':
+            return builds.start(by: cmd['from'] == 'phone' ? 'phone' : 'Mac');
+          case 'delete':
+            return builds.delete((cmd['buildId'] ?? '').toString());
+          case 'switch':
+            builds.setBuildOnFlip(cmd['on'] == true);
+            return 'build on flip ${cmd['on'] == true ? 'on' : 'off'}';
+          default:
+            return 'unknown build action ${cmd['action']}';
+        }
       case 'mirror':
         // `{type: mirror, action: frame}` — one frame now.
         return cmd['action'] == 'frame' ? mirror.frame() : 'unknown mirror action ${cmd['action']}';
@@ -504,6 +545,13 @@ class HostProject extends ChangeNotifier {
       if (store != null) unawaited(UploadReader(store, slug!).prune().catchError((Object _) => 0));
       // Asks a dead process left open: nothing can answer them now.
       unawaited(_sweepAsks(_publisher!));
+      // The builds a run before this one left, so the rows are there —
+      // before any command can name one.
+      try {
+        builds.seed(await _publisher!.readBuilds().timeout(const Duration(seconds: 10)));
+      } on Object {
+        // The relay was slow or away; the rows fill in as builds happen.
+      }
     }
     _inbox ??= InboxListener(db, slug!, apply: applyBatch)..start();
     _commands ??= CommandListener(db, slug!, apply: applyCommand)..start();
@@ -608,6 +656,8 @@ class HostProject extends ChangeNotifier {
     mirror.removeListener(notifyListeners);
     _mirrorWatch?.cancel();
     mirror.dispose();
+    builds.removeListener(_onBuilds);
+    builds.dispose();
     _inbox?.dispose();
     _commands?.dispose();
     _publisher?.dispose();

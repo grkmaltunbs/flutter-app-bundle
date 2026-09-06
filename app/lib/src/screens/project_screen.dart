@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_kit/kit.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../attachments.dart';
 import '../draft.dart';
 import '../host/host_projects.dart';
 import '../host/bridge_session.dart';
@@ -25,11 +26,14 @@ import 'work_tab.dart';
 /// the "now" strip; the other tabs keep a one-line readout. The send bar
 /// at the bottom is the only way a plan change leaves the device.
 class ProjectScreen extends StatefulWidget {
-  const ProjectScreen._({required this.source, required this.slug, this.host, this.remoteDoc});
+  const ProjectScreen._({required this.source, required this.slug, this.host, this.remoteDoc, this.initialFiles = const [], this.initialText, this.installBuild});
 
   factory ProjectScreen.host(HostProject host) => ProjectScreen._(source: host.source, slug: host.slug ?? host.dir, host: host);
 
-  factory ProjectScreen.remote({required RemotePlanSource source, required String slug}) => ProjectScreen._(
+  factory ProjectScreen.remote({required RemotePlanSource source, required String slug, List<PendingAttachment> initialFiles = const [], String? initialText, String? installBuild}) => ProjectScreen._(
+        initialFiles: initialFiles,
+        initialText: initialText,
+        installBuild: installBuild,
         source: source,
         slug: slug,
         remoteDoc: FirebaseFirestore.instance.collection('projects').doc(slug).snapshots().map(ProjectSummary.fromDoc),
@@ -39,6 +43,11 @@ class ProjectScreen extends StatefulWidget {
   final String slug;
   final HostProject? host;
   final Stream<ProjectSummary>? remoteDoc;
+
+  /// What a share or a push opened this project with — see [DeckView.initialFiles].
+  final List<PendingAttachment> initialFiles;
+  final String? initialText;
+  final String? installBuild;
 
   bool get isHost => host != null;
 
@@ -300,8 +309,8 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                           physics: const NeverScrollableScrollPhysics(),
                           children: [
                             widget.isHost
-                                ? DeckTab(bridge: widget.host!.bridge, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), testPush: widget.host!.testPush, onChromeHidden: _onChromeHidden, files: widget.host!.files, git: widget.host!.gitStatus, onGit: widget.host!.gitOp, autopilot: widget.host!.autopilot.state, onAutopilot: widget.host!.setAutopilot, run: widget.host!.run.state, onRun: widget.host!.runAction, runLog: (_) => widget.host!.run.logStream, mirrorHooks: widget.host!.mirrorHooks)
-                                : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), onChromeHidden: _onChromeHidden),
+                                ? DeckTab(bridge: widget.host!.bridge, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), testPush: widget.host!.testPush, onChromeHidden: _onChromeHidden, files: widget.host!.files, git: widget.host!.gitStatus, onGit: widget.host!.gitOp, autopilot: widget.host!.autopilot.state, onAutopilot: widget.host!.setAutopilot, run: widget.host!.run.state, onRun: widget.host!.runAction, runLog: (_) => widget.host!.run.logStream, mirrorHooks: widget.host!.mirrorHooks, builds: widget.host!.builds.builds, buildOnFlip: widget.host!.builds.buildOnFlip, onBuild: widget.host!.buildAction)
+                                : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), onChromeHidden: _onChromeHidden, initialFiles: widget.initialFiles, initialText: widget.initialText, installBuild: widget.installBuild),
                             wide
                                 ? Row(
                                     children: [

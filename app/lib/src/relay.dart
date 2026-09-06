@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_kit/kit.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import 'attachments.dart';
 import 'blobs.dart';
@@ -25,6 +29,7 @@ import 'screens/mirror_sheet.dart';
 /// projects/{slug}/files/{commandId} the host's answer to a read_file: FileRead.toMap() — {path, text, lines, bytes, truncated, blob?, refused?}; the phone deletes it once read
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/runs/{runId}/log/{chunk} the run bay's log: {from, lines} — 200 lines a document, the last 10 documents kept, one write a second at most; the phone joins them in order
+/// projects/{slug}/builds/{id}       a build of the app under test: BuildRecord.toMap() — {state, sha, branch, version, size, at, path, progress, error, log, by, name}; the last 3 kept; the APK is Storage projects/{slug}/builds/{id}.apk
 /// projects/{slug}.mirror             the host's frame record {seq, at, w, h, dw, dh, streaming, lastInput, error} merged with the phone's {watching: {at, by}}; the frame itself is Storage projects/{slug}/frames/live.jpg
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
@@ -166,6 +171,28 @@ class RelayPublisher {
 
   Future<void> publishSession(Map<String, Object?> session) =>
       ref.set({'session': session, 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+
+  /// A build's record, whole.
+  Future<void> publishBuild(String id, Map<String, Object?> doc) => ref.collection('builds').doc(id).set(doc);
+
+  /// Drops one build's document.
+  Future<void> deleteBuild(String id) => ref.collection('builds').doc(id).delete();
+
+  /// Drops every build document not in [keepIds].
+  Future<void> pruneBuilds(List<String> keepIds) async {
+    final q = await ref.collection('builds').get();
+    for (final d in q.docs) {
+      if (!keepIds.contains(d.id)) await d.reference.delete();
+    }
+  }
+
+  /// The builds already there, newest first — a host restart seeds from them.
+  Future<List<BuildRecord>> readBuilds() async {
+    final q = await ref.collection('builds').get();
+    final out = [for (final d in q.docs) BuildRecord.fromMap({for (final e in d.data().entries) e.key: e.value as Object?})];
+    out.sort((a, b) => (b.at ?? DateTime(0)).compareTo(a.at ?? DateTime(0)));
+    return out;
+  }
 
   /// The host's half of `mirror` on the project document — merged, so
   /// the phone's `watching` stays.
@@ -547,6 +574,12 @@ class RemoteDeck extends ChangeNotifier {
       notifyListeners();
     }, onError: _onError));
     _ticker ??= Timer.periodic(tick, (_) => notifyListeners());
+    _subs.add(ref.collection('builds').snapshots().listen((q) {
+      final all = [for (final d in q.docs) BuildRecord.fromMap({for (final e in d.data().entries) e.key: e.value as Object?})];
+      all.sort((a, b) => (b.at ?? DateTime(0)).compareTo(a.at ?? DateTime(0)));
+      buildList = all.take(buildsKeep).toList();
+      notifyListeners();
+    }, onError: _onError));
     _subs.add(ref.collection('chat').snapshots().listen((q) {
       messages = (q.docs.map((d) => DeckMessage.fromMap({for (final e in d.data().entries) e.key: e.value as Object?})).toList()..sort((a, b) => a.id.compareTo(b.id)));
       // The host's copy of a message we sent replaces the echo.
@@ -597,6 +630,39 @@ class RemoteDeck extends ChangeNotifier {
   /// The toggle: on with a budget and night shift, or off.
   Future<void> setAutopilot({required bool on, int? budget, bool? nightShift}) =>
       CommandSender(db, slug).send({'type': 'autopilot', 'on': on, 'budget': ?budget, 'nightShift': ?nightShift}, from: from);
+
+  /// The builds, newest first, the last three — off `builds/`.
+  List<BuildRecord> buildList = const [];
+
+  /// The newest build's state as the session document carries it.
+  Map<String, Object?> get _build => session['build'] is Map ? {for (final e in (session['build'] as Map).entries) e.key.toString(): e.value as Object?} : const {};
+  bool get buildOnFlip => _build['buildOnFlip'] == true;
+
+  /// `{type: build, action: start|delete|switch, id?, on?}` — waited on.
+  Future<String> buildCommand(String action, {String? id, bool? on}) => _waited({'type': 'build', 'action': action, 'buildId': ?id, 'on': ?on}, wait: const Duration(seconds: 60));
+
+  /// Opens the system installer for a test — the default is open_filex.
+  static Future<String> Function(String path)? opener;
+
+  /// Where a build is put on the phone — the app's cache; a test hands a folder in.
+  static Future<Directory> Function()? cacheDir;
+
+  /// Downloads a ready build to the phone's cache and opens the system
+  /// installer on it. Returns the one line to toast.
+  Future<String> installBuild(BuildRecord b, void Function(double fraction) onProgress) async {
+    final path = b.path;
+    if (!b.ready || path == null) return 'that build is not ready';
+    final dir = await (cacheDir ?? getTemporaryDirectory)();
+    final file = File(p.join(dir.path, 'builds', '${b.id}.apk'));
+    await _store.download(path, file, onProgress: onProgress);
+    final open = opener ?? _openInstaller;
+    return open(file.path);
+  }
+
+  static Future<String> _openInstaller(String path) async {
+    final r = await OpenFilex.open(path, type: 'application/vnd.android.package-archive');
+    return r.type == ResultType.done ? 'the installer opened' : 'could not open the installer: ${r.message}';
+  }
 
   /// The mirror's record off the project document, and the same as a
   /// stream for the sheet (the current value first).

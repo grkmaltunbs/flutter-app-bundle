@@ -4,9 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
+import '../attachments.dart';
+import '../plan_source.dart';
 import '../relay.dart';
 import '../screens/project_screen.dart';
-import '../plan_source.dart';
+import '../share_intake.dart';
 import 'local_notices.dart';
 import 'push_registrar.dart';
 
@@ -52,6 +54,36 @@ class _PushListenerState extends State<PushListener> {
     });
     _subs.add(FirebaseMessaging.onMessageOpenedApp.listen((m) => _open(m.data)));
     _subs.add(FirebaseMessaging.onMessage.listen(_arrived));
+    // A screenshot shared from the phone's share sheet: the Deck, with it attached.
+    ShareIntake(onShared: _shared).start();
+  }
+
+  /// A share arrived: one open project takes it straight; more than one
+  /// asks which.
+  Future<void> _shared(Shared shared) async {
+    final q = await FirebaseFirestore.instance.collection('projects').get();
+    if (!mounted) return;
+    final projects = [for (final d in q.docs) ProjectSummary.fromDoc(d)];
+    if (projects.isEmpty) return;
+    ProjectSummary? pick = projects.length == 1 ? projects.single : null;
+    pick ??= await showDialog<ProjectSummary>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Share to which project?'),
+        children: [for (final s in projects) SimpleDialogOption(onPressed: () => Navigator.of(context).pop(s), child: Text(s.name))],
+      ),
+    );
+    if (pick == null || !mounted) return;
+    _openProject(pick.slug, initialFiles: shared.files, initialText: shared.text);
+  }
+
+  void _openProject(String slug, {List<PendingAttachment> initialFiles = const [], String? initialText, String? installBuild}) {
+    final nav = Navigator.of(context);
+    // Back to the list, then into the project: no second copy of a
+    // project screen that is already open.
+    nav.popUntil((r) => r.isFirst);
+    final source = RemotePlanSource(FirebaseFirestore.instance, slug)..start();
+    nav.push(MaterialPageRoute<void>(builder: (_) => ProjectScreen.remote(source: source, slug: slug, initialFiles: initialFiles, initialText: initialText, installBuild: installBuild)));
   }
 
   void _arrived(RemoteMessage m) {
@@ -100,12 +132,8 @@ class _PushListenerState extends State<PushListener> {
     final d = await FirebaseFirestore.instance.collection('projects').doc(tap.slug).get();
     if (!mounted || !d.exists) return;
     final s = ProjectSummary.fromDoc(d);
-    final nav = Navigator.of(context);
-    // Back to the list, then into the project: no second copy of a
-    // project screen that is already open.
-    nav.popUntil((r) => r.isFirst);
-    final source = RemotePlanSource(FirebaseFirestore.instance, s.slug)..start();
-    nav.push(MaterialPageRoute<void>(builder: (_) => ProjectScreen.remote(source: source, slug: s.slug)));
+    // A "Build ready" push installs the build it names once the Deck is up.
+    _openProject(s.slug, installBuild: data['kind'] == 'build' ? data['buildId']?.toString() : null);
   }
 
   @override
