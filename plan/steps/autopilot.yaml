@@ -59,6 +59,7 @@ sections:
       - `app/lib/src/host/autopilot.dart` (new), `app/lib/src/host/bridge_session.dart`, `app/lib/src/host/push_sender.dart`, `app/lib/src/relay.dart` (session.autopilot), `app/lib/src/screens/deck_tab.dart` (toggle, sheet, waiting line), `runner/` (deleted), `docs/autobuild.md` (deleted), `README.md`
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — replaces the parked runner" }
+  - { at: "2026-09-06", event: note, note: "a clean context per step: /clear before every /step after the first (proven headless), at the user's question" }
   - at: 2026-09-06
     event: started
   - at: 2026-09-06

@@ -10,7 +10,11 @@ typedef TimerFactory = Timer Function(Duration d, void Function() f);
 
 /// Autopilot: `/step` after `/step` within a budget, on the host beside the
 /// bridge. On the `result` of a turn it started, the loop reads the plan
-/// on disk and sends the next `/step`, or stops with the reason. What
+/// on disk and sends the next `/step`, or stops with the reason. Every
+/// step after the first starts on a clean context: `/clear` goes first
+/// (no model call — the CLI answers with `conversation_reset` and a
+/// result of no turns), then the `/step`. The plan on disk is the
+/// memory; a step never needs the last one's conversation. What
 /// stops it is fixed: the budget; a step whose gate fails twice; a plan
 /// where the human moves next; an error; Stop or INTERRUPT; the pool
 /// running dry — unless **night shift** is on, in which case it waits
@@ -21,9 +25,16 @@ typedef TimerFactory = Timer Function(Duration d, void Function() f);
 /// Turn ended channel and one note in the transcript, so the record is
 /// whole.
 class Autopilot extends ChangeNotifier {
-  Autopilot({required this.bridge, required this.loadPlan, this.push, DateTime Function()? now, TimerFactory? timer})
+  Autopilot({required this.bridge, required this.loadPlan, this.push, this.clearBetweenSteps = true, DateTime Function()? now, TimerFactory? timer})
       : _now = now ?? DateTime.now,
         _timer = timer ?? Timer.new;
+
+  /// `/clear` before every `/step` after the first. Off only in a test.
+  final bool clearBetweenSteps;
+
+  /// The message in flight: a `/step`, or the `/clear` that precedes one.
+  _Phase _phase = _Phase.step;
+  bool _cleared = false;
 
   final BridgeSession bridge;
 
@@ -85,6 +96,8 @@ class Autopilot extends ChangeNotifier {
     waitingUntil = null;
     _step = null;
     _row = null;
+    _phase = _Phase.step;
+    _cleared = false;
     _seen = bridge.transcript.lastResult;
     on = true;
     startedAt = _now();
@@ -144,6 +157,15 @@ class Autopilot extends ChangeNotifier {
       case StopMove(:final reason):
         return _stop(reason);
       case StepMove(:final step):
+        if (clearBetweenSteps && sent > 0 && !_cleared) {
+          _phase = _Phase.clear;
+          bridge.send('/clear', by: 'autopilot');
+          _row = bridge.lastSent;
+          notifyListeners();
+          return 'clearing the context before /step ${step.id}';
+        }
+        _cleared = false;
+        _phase = _Phase.step;
         _step = step;
         _failBase = failedGateCount(step);
         final queued = bridge.send('/step ${step.id}', by: 'autopilot');
@@ -212,6 +234,17 @@ class Autopilot extends ChangeNotifier {
       _stop('interrupted');
       return;
     }
+    if (_phase == _Phase.clear) {
+      // The context is empty; now the step.
+      _phase = _Phase.step;
+      if (r.isError) {
+        _stop('/clear failed${r.text.trim().isEmpty ? '' : ' — ${r.text.trim()}'}');
+        return;
+      }
+      _cleared = true;
+      unawaited(_next());
+      return;
+    }
     final pool = bridge.transcript.pool;
     final at = _resetAt(pool);
     if (pool != null && pool.exhausted && at != null && at.isAfter(_now())) {
@@ -266,3 +299,5 @@ class Autopilot extends ChangeNotifier {
     super.dispose();
   }
 }
+
+enum _Phase { step, clear }

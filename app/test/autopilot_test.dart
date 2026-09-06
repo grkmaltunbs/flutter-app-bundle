@@ -87,6 +87,18 @@ class _Rig {
     await pumpEventQueue();
   }
 
+  /// The loop clears the context before the next step: its `/clear` is
+  /// the [n]th line written (1-based); the CLI answers with a reset and
+  /// an empty result.
+  Future<void> clearTurn(int n) async {
+    await fake.writtenLines(n);
+    expect(fake.written[n - 1], contains('"/clear"'), reason: 'a clean context before the next step');
+    expect(autoRows.last, '/clear');
+    fake.emitJson({'type': 'conversation_reset'});
+    fake.emitJson({'type': 'result', 'subtype': 'success', 'is_error': false, 'duration_ms': 3, 'num_turns': 0, 'result': '', 'session_id': bridge.sessionId});
+    await pumpEventQueue();
+  }
+
   Future<void> refuse({required DateTime resetsAt}) async {
     final epoch = resetsAt.millisecondsSinceEpoch ~/ 1000;
     fake.emitJson({'type': 'rate_limit_event', 'rate_limit_info': {'status': 'rejected', 'resetsAt': epoch, 'rateLimitType': 'five_hour', 'unifiedWindows': {'five_hour': {'utilization': 1.0, 'resetsAt': epoch}}}});
@@ -151,11 +163,14 @@ void main() {
       r.flip('a');
       await r.endTurn();
       expect(r.auto.done, 1);
-      expect(r.auto.sent, 2);
-      await r.fake.writtenLines(2);
-      expect(r.fake.written[1], contains('"/step b"'));
-      expect(r.auto.state.step, 'b');
+      expect(r.auto.sent, 1, reason: 'the next /step waits for the clear');
       expect(r.pushes, ['Started · budget 2 · night shift off', 'Step 1 done · 1 of 2']);
+      await r.clearTurn(2);
+      expect(r.notes, contains('Context cleared.'));
+      expect(r.auto.sent, 2);
+      await r.fake.writtenLines(3);
+      expect(r.fake.written[2], contains('"/step b"'));
+      expect(r.auto.state.step, 'b');
 
       r.flip('b');
       await r.endTurn();
@@ -163,7 +178,8 @@ void main() {
       expect(r.auto.stoppedFor, 'budget reached');
       expect(r.pushes, ['Started · budget 2 · night shift off', 'Step 1 done · 1 of 2', 'Stopped · budget reached · Step 2 done · 2 of 2']);
       expect(r.notes.last, 'Autopilot stopped · budget reached · Step 2 done · 2 of 2');
-      expect(r.fake.written.length, 2, reason: 'nothing more was sent');
+      expect(r.fake.written.length, 3, reason: 'nothing more was sent');
+      expect(r.autoRows, ['/step a', '/clear', '/step b']);
       expect(r.auto.state.toMap()['stoppedFor'], 'budget reached');
       await r.close();
     });
@@ -175,8 +191,9 @@ void main() {
       await r.fake.writtenLines(1);
       r.store.patch(r.store.stepPath('a'), ['status'], 'active');
       await r.endTurn();
-      await r.fake.writtenLines(2);
-      expect(r.fake.written[1], contains('"/step a"'), reason: 'the active step is what kit next names');
+      await r.clearTurn(2);
+      await r.fake.writtenLines(3);
+      expect(r.fake.written[2], contains('"/step a"'), reason: 'the active step is what kit next names');
       expect(r.auto.sent, 2);
       expect(r.pushes, ['Started · budget 3 · night shift off'], reason: 'nothing flipped: no push');
       await r.close();
@@ -206,8 +223,9 @@ void main() {
       r.store.patch(r.store.stepPath('a'), ['status'], 'active');
       await r.endTurn();
       expect(r.auto.on, isTrue);
-      await r.fake.writtenLines(2);
-      expect(r.fake.written[1], contains('"/step a"'));
+      await r.clearTurn(2);
+      await r.fake.writtenLines(3);
+      expect(r.fake.written[2], contains('"/step a"'));
       await r.close();
     });
 
@@ -226,8 +244,9 @@ void main() {
       expect(r.bridge.state, BridgeState.busy);
       r.flip('a');
       await r.endTurn();
-      await r.fake.writtenLines(3);
-      expect(r.fake.written[2], contains('"/step b"'));
+      await r.clearTurn(3);
+      await r.fake.writtenLines(4);
+      expect(r.fake.written[3], contains('"/step b"'));
       expect(r.pushes.last, 'Step 1 done · 1 of 3');
       await r.close();
     });
@@ -381,8 +400,9 @@ void main() {
       r.flip('a');
       await r.endTurn();
       expect(r.auto.done, 1);
-      await r.fake.writtenLines(3);
-      expect(r.fake.written[2], contains('"/step b"'));
+      await r.clearTurn(3);
+      await r.fake.writtenLines(4);
+      expect(r.fake.written[3], contains('"/step b"'));
       await r.close();
     });
 
@@ -408,12 +428,42 @@ void main() {
       r.flip('a');
       await r.endTurn();
       await r.fake.writtenLines(3);
-      expect(r.fake.written.length, 3, reason: 'set_permission_mode, then /step b');
+      expect(r.fake.written.length, 3, reason: 'set_permission_mode, then the clear');
       expect(r.fake.written[1], contains('set_permission_mode'));
-      expect(r.fake.written[2], contains('"/step b"'));
+      await r.clearTurn(3);
+      await r.fake.writtenLines(4);
+      expect(r.fake.written[3], contains('"/step b"'));
       expect(r.auto.sent, 2);
       expect(r.bridge.state, BridgeState.busy);
       await r.close();
+    });
+
+    test('a /clear that ends in an error stops the loop; with clearing off the steps follow each other', () async {
+      final r = _Rig();
+      await r.bridge.start();
+      await r.auto.start(budget: 3);
+      await r.fake.writtenLines(1);
+      r.flip('a');
+      await r.endTurn();
+      await r.fake.writtenLines(2);
+      expect(r.fake.written[1], contains('"/clear"'));
+      await r.endTurn(error: true, text: 'no');
+      expect(r.auto.on, isFalse);
+      expect(r.auto.stoppedFor, '/clear failed — no');
+      await r.close();
+
+      final q = _Rig();
+      final plain = Autopilot(bridge: q.bridge, loadPlan: () => q.store.load(), clearBetweenSteps: false);
+      q.bridge.addListener(plain.check);
+      await q.bridge.start();
+      await plain.start(budget: 2);
+      await q.fake.writtenLines(1);
+      q.flip('a');
+      await q.endTurn();
+      await q.fake.writtenLines(2);
+      expect(q.fake.written[1], contains('"/step b"'));
+      plain.dispose();
+      await q.close();
     });
 
     test('a turn that ends in an error stops the loop', () async {

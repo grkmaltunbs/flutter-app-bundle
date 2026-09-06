@@ -121,7 +121,7 @@ List<String> bridgeArgs({required String sessionId, bool resume = false, String?
 /// its own road to the phone (its own notification text).
 const signedInOption = 'Signed in — continue';
 
-String deckBrief({required bool chrome, required String mode}) => [
+String deckBrief({required bool chrome, required String mode, String? run}) => [
       'You are driven from K.A.T.Y.A, a phone app that talks to this Claude Code session on the user\'s Mac. The user reads you on a phone screen: answer short and concrete, and lead with the result.',
       '',
       if (chrome)
@@ -144,6 +144,7 @@ String deckBrief({required bool chrome, required String mode}) => [
       'Notifications: the app tells the user itself when you ask something, when a turn ends, and when something fails. To tell the user something at a point mid-task — a build uploaded, tests green before a long release step — run `kit notify "one line"` in this folder; it reaches the phone as a notification. Use it when the user asked to be told, not for every step. The PushNotification tool has no route from this session — do not use it, and do not offer to.',
       '',
       'If you hand work to a subagent that will use the browser, put these rules in its prompt.',
+      if (run != null) ...['', run],
     ].join('\n');
 
 /// A tool's name as a row shows it: `Bash` stays `Bash`; an MCP tool —
@@ -823,6 +824,13 @@ class CompactEvent extends BridgeEvent {
   final int? postTokens;
 }
 
+/// `conversation_reset` — `/clear` as a message emptied the context
+/// (proven headless 2026-09-06, 2.1.261: this line, the SessionStart
+/// hook again, a fresh `init`, a `result` with no turns; no model call).
+class ResetEvent extends BridgeEvent {
+  const ResetEvent();
+}
+
 /// The result of a tool call, as the model sees it.
 class ToolResultEvent extends BridgeEvent {
   const ToolResultEvent({required this.toolUseId, required this.content, this.isError = false, this.parentToolUseId});
@@ -1041,6 +1049,8 @@ BridgeEvent? parseBridgeLine(String line) {
             if (e.value is Map && _map(e.value)['contextWindow'] is num) e.key: (_map(e.value)['contextWindow'] as num).toInt(),
         },
       );
+    case 'conversation_reset':
+      return const ResetEvent();
     case 'rate_limit_event':
       final info = _map(m['rate_limit_info']);
       final resets = (info['resetsAt'] as num?)?.toInt();
@@ -1455,6 +1465,11 @@ class Transcript {
         // The arc drops now, to the summary's size; the next call's usage
         // says what the context really holds.
         usage = post == null ? null : Usage(input: post);
+        usageAt = now();
+      case ResetEvent():
+        _closeStreaming();
+        addNote('Context cleared.');
+        usage = null;
         usageAt = now();
       case RateLimitEvent():
         pool = e;

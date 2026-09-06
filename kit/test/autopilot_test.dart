@@ -89,6 +89,17 @@ void main() {
     expect(AutopilotState.fromMap(const {}).budget, 3, reason: 'a relay without the field reads as off, three steps');
   });
 
+  test('/clear: the reset line becomes a note and the context reading drops', () {
+    final t = Transcript()..now = () => DateTime.utc(2026, 9, 6);
+    t.apply(parseBridgeLine('{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"ok"}],"usage":{"input_tokens":10,"cache_read_input_tokens":30000}}}')!);
+    expect(t.contextUsed, 30010);
+    final e = parseBridgeLine('{"type":"conversation_reset"}');
+    expect(e, isA<ResetEvent>());
+    t.apply(e!);
+    expect(t.messages.last.text, 'Context cleared.');
+    expect(t.contextUsed, 0);
+  });
+
   test('a row keeps who sent it, and the transcript knows whose turn a result ended', () {
     final t = Transcript()..now = () => DateTime.utc(2026, 9, 6);
     final mine = t.addUser('hello');

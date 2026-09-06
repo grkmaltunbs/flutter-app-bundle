@@ -281,7 +281,12 @@ class BridgeSession extends ChangeNotifier {
 
   /// What the next Start tells the session, on top of its own system
   /// prompt — the phone, the browser, sign-ins as questions.
-  String get brief => deckBrief(chrome: chrome, mode: modeChoice);
+  String get brief => deckBrief(chrome: chrome, mode: modeChoice, run: briefExtra?.call());
+
+  /// What else the next Start tells the session — the run bay's state,
+  /// from the host. Read at Start; a change while a session runs reaches
+  /// it as a host note instead.
+  String? Function()? briefExtra;
 
   /// "This session": the exact requests the user allowed once for the life
   /// of the process. Cleared on stop; never persisted.
@@ -431,6 +436,7 @@ class BridgeSession extends ChangeNotifier {
         if (!e.ok) _logLine('${e.requestId} refused: ${e.error ?? 'no reason given'}');
       case StatusEvent():
       case CompactEvent():
+      case ResetEvent():
       case TaskEvent():
         // The transcript took the mode, the compaction or the subagent's
         // progress; nothing for the process to do.
