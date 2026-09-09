@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 
 import '../app.dart';
 import '../host/claude_cli.dart';
+import '../host/host_project.dart';
 import '../host/host_projects.dart';
 import '../host/project_registry.dart';
 import '../plan_source.dart';
@@ -83,8 +84,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openRemote(ProjectSummary s) {
-    final source = RemotePlanSource(FirebaseFirestore.instance, s.slug)..start();
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ProjectScreen.remote(source: source, slug: s.slug)));
+    // A worktree shows its parent's plan; its Deck and commands are its own.
+    final source = RemotePlanSource(FirebaseFirestore.instance, s.planSlug)..start();
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ProjectScreen.remote(source: source, slug: s.slug, planSlug: s.planSlug, title: s.isWorktree ? s.name : null)));
   }
 
   @override
@@ -118,12 +120,30 @@ class _HomeScreenState extends State<HomeScreen> {
               listenable: _registry,
               builder: (context, _) {
                 if (_registry.dirs.isEmpty) return const EmptyNote('Open a project folder that has a plan/ directory.');
+                // Every registered folder, each followed by its open worktrees.
+                final rows = <({String dir, HostProject? tree})>[
+                  for (final dir in _registry.dirs) ...[
+                    (dir: dir, tree: null),
+                    for (final w in HostProjects.worktreesOf(dir)) (dir: w.dir, tree: w),
+                  ],
+                ];
                 return ListView.separated(
-                  itemCount: _registry.dirs.length,
+                  itemCount: rows.length,
                   separatorBuilder: (_, _) => Divider(height: 1, color: t.line),
                   itemBuilder: (context, i) {
-                    final dir = _registry.dirs[i];
+                    final dir = rows[i].dir;
+                    final tree = rows[i].tree;
                     final open = HostProjects.open[dir];
+                    if (tree != null) {
+                      return ListTile(
+                        contentPadding: const EdgeInsets.only(left: 40, right: 16),
+                        leading: Icon(Icons.fork_right, color: t.accent),
+                        title: Text(tree.worktreeName ?? p.basename(dir), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                        subtitle: Text('worktree · $dir', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.mono(11, color: t.muted)),
+                        trailing: ListenableBuilder(listenable: tree.bridge, builder: (_, _) => Pill(tree.bridge.running ? 'live' : 'idle', color: tree.bridge.running ? t.good : t.muted)),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ProjectScreen.host(tree))),
+                      );
+                    }
                     return ListTile(
                       leading: Icon(Icons.folder, color: open != null ? t.accent : t.muted),
                       title: Text(p.basename(dir), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
@@ -142,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (context, snap) {
                 if (snap.hasError) return EmptyNote('Could not read the relay: ${snap.error}');
                 if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-                final projects = snap.data!.docs.map(ProjectSummary.fromDoc).toList()..sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
+                final projects = groupProjects(snap.data!.docs.map(ProjectSummary.fromDoc).toList());
                 if (projects.isEmpty) return const EmptyNote('Nothing published yet. Open a project in the Mac app first.');
                 return ListView.separated(
                   itemCount: projects.length,
@@ -152,9 +172,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     final open = (s.counts['open'] as num?)?.toInt();
                     final asking = s.pendingAsks > 0;
                     return ListTile(
-                      leading: Icon(asking ? Icons.notifications_active : Icons.auto_awesome_motion, color: asking ? t.warn : (s.live ? t.good : t.muted)),
-                      title: Text(s.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                      subtitle: Text([s.machine, if (open != null) '$open waiting on you', if (asking) 'Claude is asking' else if (s.live) 'session live'].join(' · ').toUpperCase(), maxLines: 2, overflow: TextOverflow.ellipsis, style: t.readout(10)),
+                      contentPadding: s.isWorktree ? const EdgeInsets.only(left: 40, right: 16) : null,
+                      leading: Icon(asking ? Icons.notifications_active : (s.isWorktree ? Icons.fork_right : Icons.auto_awesome_motion), color: asking ? t.warn : (s.live ? t.good : t.muted)),
+                      title: Text(s.isWorktree ? (s.worktreeName ?? s.name) : s.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      subtitle: Text([if (s.isWorktree) 'worktree', s.machine, if (open != null) '$open waiting on you', if (asking) 'Claude is asking' else if (s.live) 'session live'].join(' · ').toUpperCase(), maxLines: 2, overflow: TextOverflow.ellipsis, style: t.readout(10)),
                       trailing: asking ? Pill('needs you', color: t.warn, filled: true) : const Icon(Icons.chevron_right),
                       onTap: () => _openRemote(s),
                     );

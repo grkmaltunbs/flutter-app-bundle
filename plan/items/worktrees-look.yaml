@@ -1,0 +1,18 @@
+id: worktrees-look
+title: "On the phone once: NEW TREE on a project's Git card, the tree under it in the list, its Deck, MERGE INTO MAIN and REMOVE"
+status: open
+needs: [look]
+blocks: []
+step: worktrees
+added: "2026-09-09"
+body: |
+  The worktree flow is proven over the relay against ~/kit-scratch and
+  the Git card at phone width in widget tests; the phone in your hand is
+  the one thing a test cannot hold. A look, once — nothing gates on it.
+runbook:
+  - do: Phone → a project → Deck → unfold → Git card → NEW TREE → a name → CREATE.
+    expect: The toast says the tree is listed; Back to the list shows it under the project with a branch glyph.
+  - do: Open the tree → Start → ask for a small change → Stop → Git card → MERGE INTO MAIN.
+    expect: The toast says merged with the hash; the project's Git card on the Mac shows the merge commit.
+  - do: Git card → REMOVE.
+    expect: A clean tree goes at once; a dirty one asks, FORCE removes it; the row leaves the list.

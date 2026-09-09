@@ -1,14 +1,14 @@
 id: worktrees
 number: "22"
 title: Worktree sessions — a second session on the same project in its own tree, merged from the Git card
-status: pending
+status: done
 rank: 830
 depends_on: [review, session-history]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-09, note: "kit and app: no issues", status: passed}
+  tests: { at: 2026-09-09, note: "kit 118, app 189 (2 skips: the live bridge tests)", status: passed}
+  qa: { at: 2026-09-09, note: "live over the relay on the relaunched host against ~\/kit-scratch: NEW TREE settings made the tree at ~\/.flutter_kit\/worktrees\/scratch\/settings on branch settings (git worktree list), trust and .claude followed, the entry scratch~settings appeared under scratch with no steps; a session in the tree (bypass) committed settings.txt on the branch (00d56af) with its rows under the tree's own chat while main stayed at d2586d5; MERGE INTO MAIN with the tree stopped gave 'merged: 31451c5 Merge branch settings' and main's log shows it; a hand-made conflict came back 'conflict: 1 file — settings.txt' with main left with markers; SEND reached the main session, which resolved and committed e3c4f7a in ~21 s; REMOVE on a dirty tree answered 'dirty: 1 changed file in the tree', FORCE removed it from disk and git, the branch stayed, the entry and its rows left the relay. The phone's Git card at 1.0\/2.0\/3.12 in widget tests; not looked at on the phone in hand (worktrees-look, provenance only). Found and fixed: the entry's rows were deleted in the same breath as the command's stamp, which the phone waits on — now two seconds after.", status: passed}
 sections:
   - title: Description
     body: |
@@ -50,3 +50,16 @@ sections:
       - `app/lib/src/host/host_projects.dart` (worktree entries), `app/lib/src/host/project_registry.dart`, `app/lib/src/host/host_project.dart` (git merge/remove), `app/lib/src/relay.dart`, `app/lib/src/screens/project_screen.dart`, `kit/lib/src/bridge.dart` (brief line)
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — parallel work" }
+  - at: 2026-09-09
+    event: started
+  - at: 2026-09-09
+    event: gate analyze passed
+    note: "kit and app: no issues"
+  - at: 2026-09-09
+    event: gate tests passed
+    note: "kit 118, app 189 (2 skips: the live bridge tests)"
+  - at: 2026-09-09
+    event: gate qa passed
+    note: "live over the relay on the relaunched host against ~\/kit-scratch: NEW TREE settings made the tree at ~\/.flutter_kit\/worktrees\/scratch\/settings on branch settings (git worktree list), trust and .claude followed, the entry scratch~settings appeared under scratch with no steps; a session in the tree (bypass) committed settings.txt on the branch (00d56af) with its rows under the tree's own chat while main stayed at d2586d5; MERGE INTO MAIN with the tree stopped gave 'merged: 31451c5 Merge branch settings' and main's log shows it; a hand-made conflict came back 'conflict: 1 file — settings.txt' with main left with markers; SEND reached the main session, which resolved and committed e3c4f7a in ~21 s; REMOVE on a dirty tree answered 'dirty: 1 changed file in the tree', FORCE removed it from disk and git, the branch stayed, the entry and its rows left the relay. The phone's Git card at 1.0\/2.0\/3.12 in widget tests; not looked at on the phone in hand (worktrees-look, provenance only). Found and fixed: the entry's rows were deleted in the same breath as the command's stamp, which the phone waits on — now two seconds after."
+  - at: 2026-09-09
+    event: done

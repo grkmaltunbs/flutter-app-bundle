@@ -28,10 +28,23 @@ import 'run_bay.dart';
 /// Claude session — the bridge (this app talks to it) and Remote Control
 /// (the Claude app does).
 class HostProject extends ChangeNotifier {
-  HostProject({required this.dir, required this.db, this.push, this.blobs, this.power});
+  HostProject({required this.dir, required this.db, this.push, this.blobs, this.power, this.parent, this.worktreeName});
 
   final String dir;
   final FirebaseFirestore db;
+
+  /// A worktree entry: the project it was cut from, and its name — the
+  /// branch and the folder under `~/.flutter_kit/worktrees/<slug>/`. Its
+  /// relay slug is `<parent>~<name>`; its plan is the parent's.
+  final HostProject? parent;
+  final String? worktreeName;
+  bool get isWorktree => parent != null;
+
+  /// The registry's hands: a tree opened as a project of its own under
+  /// this one, and one closed once removed. Set by whoever keeps the
+  /// open projects; null in a test.
+  HostProject Function(HostProject parent, String name)? worktreeOpener;
+  Future<void> Function(HostProject child)? worktreeCloser;
 
   /// The bucket the phone's files come from; null in a test without one.
   final BlobStore? blobs;
@@ -93,6 +106,8 @@ class HostProject extends ChangeNotifier {
     mirror.addListener(notifyListeners);
     builds.addListener(_onBuilds);
     bridge.briefExtra = () => runBrief(run.state);
+    bridge.worktree = worktreeName;
+    bridge.worktreePath = isWorktree ? dir : null;
     bridge.diffFor = (tool, input) => diffForAsk(toolName: tool, input: input, read: _readForDiff);
     _refreshGit(soon: true);
     // A scoped message carries what the plan holds on its item or step —
@@ -121,7 +136,7 @@ class HostProject extends ChangeNotifier {
   }
 
   /// The project as a notification names it.
-  String get projectName => source.plan?.manifest.projectName ?? p.basename(dir);
+  String get projectName => parent != null ? '${parent!.projectName} · $worktreeName' : (source.plan?.manifest.projectName ?? p.basename(dir));
 
   /// The plan as the files hold it this instant — the autopilot reads it
   /// the moment a turn ends, before the watcher's debounce. The last
@@ -341,6 +356,119 @@ class HostProject extends ChangeNotifier {
     _publisher?.publishSession(sessionRelay());
   }
 
+  /// NEW TREE: a second checkout on a new branch under
+  /// `~/.flutter_kit/worktrees/<slug>/<name>`, opened as a project of its
+  /// own and listed under this one. The tree has what git tracks; the
+  /// parent's `.claude/` settings and command shims are copied where they
+  /// are missing so the plugin counts there, and the CLI's trust follows
+  /// the parent's.
+  Future<String> _worktreeAdd(String name) async {
+    if (isWorktree) return 'a worktree cannot grow worktrees — do this from the project';
+    if (!validWorktreeName(name)) return 'a name is letters, digits, dots, dashes or underscores — "$name" is not one';
+    final s = slug;
+    if (s == null) return 'the project has not loaded yet';
+    final path = worktreePath(s, name);
+    if (Directory(path).existsSync()) return 'a worktree "$name" is already there';
+    final r = await git.worktreeAdd(path, name);
+    if (!r.ok) return 'git: ${r.output}';
+    _seedWorktree(path);
+    ClaudeCli.trustLike(path, from: dir);
+    worktreeOpener?.call(this, name);
+    bridge.noteHostAction('A worktree "$name" was created at $path on branch $name, with a session of its own; leave that branch to it.');
+    bridge.addHostRow(toolName: 'git', input: {'op': 'worktree add', 'name': name, 'path': path}, result: r.output);
+    _refreshGit(soon: true);
+    return 'worktree $name is listed under the project';
+  }
+
+  void _seedWorktree(String path) {
+    for (final rel in const ['.claude/settings.json', '.claude/settings.local.json']) {
+      final src = File(p.join(dir, rel));
+      final dst = File(p.join(path, rel));
+      if (!src.existsSync() || dst.existsSync()) continue;
+      try {
+        dst.parent.createSync(recursive: true);
+        src.copySync(dst.path);
+      } on Object {
+        // The tree works without it; the plugin may just not count there.
+      }
+    }
+    final cmds = Directory(p.join(dir, '.claude', 'commands'));
+    final dstCmds = Directory(p.join(path, '.claude', 'commands'));
+    if (!cmds.existsSync() || dstCmds.existsSync()) return;
+    try {
+      dstCmds.createSync(recursive: true);
+      for (final f in cmds.listSync()) {
+        if (f is File) f.copySync(p.join(dstCmds.path, p.basename(f.path)));
+      }
+    } on Object {
+      // Same: a convenience.
+    }
+  }
+
+  /// MERGE INTO MAIN on a worktree: `git merge --no-ff <branch>` in the
+  /// main folder, with this tree's session stopped. A clean merge names
+  /// its commit and the main session hears of it with its next prompt; a
+  /// conflict leaves main as git left it and comes back as `conflict: …`,
+  /// which the card turns into the offer to send the resolution.
+  Future<String> _mergeIntoMain() async {
+    final main = parent;
+    final name = worktreeName;
+    if (main == null || name == null) return 'not a worktree — merge from a worktree\'s card';
+    if (bridge.running) return 'stop this worktree\'s session first';
+    if (main.bridge.transcript.turnOpen) return 'the main session is mid-turn — wait for it to end';
+    final r = await main.git.merge(name);
+    main._refreshGit(soon: true);
+    if (r.ok) {
+      main.bridge.noteHostAction('Branch $name (the worktree "$name") was merged into ${main.gitStatus?.branch ?? 'main'}: ${r.commit}.');
+      main.bridge.addHostRow(toolName: 'git', input: {'op': 'merge --no-ff', 'branch': name}, result: r.commit);
+      return 'merged: ${r.commit}';
+    }
+    if (r.conflict) {
+      main.bridge.addHostRow(toolName: 'git', input: {'op': 'merge --no-ff', 'branch': name}, result: 'conflict: ${r.conflicts.join(', ')}', isError: true);
+      return 'conflict: ${r.conflicts.length} file${r.conflicts.length == 1 ? '' : 's'} — ${r.conflicts.join(', ')}';
+    }
+    return 'git: ${r.output}';
+  }
+
+  /// The offer after a conflict: the main session resolves what git left.
+  Future<String> _resolveMerge() async {
+    final main = parent;
+    final name = worktreeName;
+    if (main == null || name == null) return 'not a worktree';
+    final files = await main.git.conflicts();
+    final text = 'Resolve the merge of branch $name into ${main.gitStatus?.branch ?? 'main'}: git left conflict markers in ${files.isEmpty ? 'the tree' : files.join(', ')}. Resolve each conflicted file keeping both intents, run the tests, then commit the merge.';
+    return main.applyCommand({'type': 'send', 'text': text, 'from': 'host'});
+  }
+
+  /// REMOVE on a worktree: `git worktree remove`, refused while its
+  /// session runs, and while dirty unless [force] (`dirty: …` — the card
+  /// offers force); then the relay entry and this project go. The branch
+  /// stays.
+  Future<String> _worktreeRemove({bool force = false}) async {
+    final main = parent;
+    final name = worktreeName;
+    if (main == null || name == null) return 'not a worktree';
+    if (bridge.running) return 'stop this worktree\'s session first';
+    if (!force) {
+      final s = await git.status();
+      if (s.ok && s.dirty > 0) return 'dirty: ${s.dirty} changed file${s.dirty == 1 ? '' : 's'} in the tree';
+    }
+    if (run.up) await run.stop();
+    final r = await main.git.worktreeRemove(dir, force: force);
+    if (!r.ok) return 'git: ${r.output}';
+    main.bridge.noteHostAction('The worktree "$name" was removed; its branch $name remains.');
+    main._refreshGit(soon: true);
+    // The command's stamp goes out first — the phone waits on that very
+    // document for its line — then the entry and its rows go and this
+    // project closes.
+    final pub = _publisher;
+    unawaited(Future<void>.delayed(const Duration(seconds: 2), () async {
+      if (pub != null) await pub.deleteProject().catchError((Object _) {});
+      await worktreeCloser?.call(this);
+    }));
+    return 'worktree $name removed — its branch stays';
+  }
+
   /// A step that flipped to done on disk — `kit step done` from the
   /// session, or the phone — reaches the phone once, on its own channel.
   void _notifyFlips(Plan plan) {
@@ -533,6 +661,16 @@ class HostProject extends ChangeNotifier {
         final op = (cmd['op'] ?? '').toString();
         final message = cmd['message']?.toString();
         final path = cmd['path']?.toString();
+        switch (op) {
+          case 'worktree_add':
+            return _worktreeAdd((message ?? '').trim());
+          case 'merge':
+            return _mergeIntoMain();
+          case 'resolve_merge':
+            return _resolveMerge();
+          case 'worktree_remove':
+            return _worktreeRemove(force: message == 'force');
+        }
         final GitResult r;
         switch (op) {
           case 'commit':
@@ -557,9 +695,24 @@ class HostProject extends ChangeNotifier {
   Future<void> _onPlan() async {
     final plan = source.plan;
     if (plan == null) return;
-    slug ??= slugFor(plan.manifest);
+    slug ??= parent != null ? worktreeSlug(parent!.slug ?? slugFor(plan.manifest), worktreeName!) : slugFor(plan.manifest);
     if (_publisher == null) {
-      _publisher = RelayPublisher(db, slug!, dir: dir, machine: machine);
+      _publisher = RelayPublisher(
+        db,
+        slug!,
+        dir: dir,
+        machine: machine,
+        parent: parent?.slug,
+        worktree: isWorktree ? {'name': worktreeName, 'branch': worktreeName, 'path': dir} : null,
+        name: isWorktree ? projectName : null,
+      );
+      // The trees this project has on disk come up with it, each as a
+      // project of its own under this one.
+      if (!isWorktree) {
+        for (final name in worktreeNamesOf(slug!)) {
+          worktreeOpener?.call(this, name);
+        }
+      }
       // The truth about the session, first thing: a relaunched host must
       // overwrite the LIVE a dead process left on the mirror.
       unawaited(_publisher!.publishSession(sessionRelay()));

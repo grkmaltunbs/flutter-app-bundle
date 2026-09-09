@@ -19,7 +19,7 @@ import 'screens/mirror_sheet.dart';
 /// The relay: Firestore on `flutterappbundle`, one user, owner-only rules.
 ///
 /// ```
-/// projects/{slug}                 manifest, dir, machine, session, now, counts
+/// projects/{slug}                 manifest, dir, machine, session, now, counts — a worktree's entry is `<slug>~<name>` with parent: <slug> and worktree: {name, branch, path}, no steps or items of its own
 /// projects/{slug}/steps/{id}      Step.toMap()
 /// projects/{slug}/items/{id}      Item.toMap()
 /// projects/{slug}/inbox/{auto}    a batch from the phone; the host stamps appliedAt
@@ -46,7 +46,7 @@ import 'screens/mirror_sheet.dart';
 /// only ever writes `inbox`, `commands` and its own `devices` row, and puts
 /// objects in the bucket.
 class ProjectSummary {
-  ProjectSummary({required this.slug, required this.name, required this.dir, required this.machine, required this.session, required this.now, required this.counts, this.updatedAt});
+  ProjectSummary({required this.slug, required this.name, required this.dir, required this.machine, required this.session, required this.now, required this.counts, this.updatedAt, this.parent, this.worktree = const {}});
 
   factory ProjectSummary.fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data() ?? const {};
@@ -60,6 +60,8 @@ class ProjectSummary {
       now: map(m['now']),
       counts: map(m['counts']),
       updatedAt: (m['updatedAt'] as Timestamp?)?.toDate(),
+      parent: m['parent']?.toString(),
+      worktree: map(m['worktree']),
     );
   }
 
@@ -72,6 +74,15 @@ class ProjectSummary {
   final Map<String, Object?> counts;
   final DateTime? updatedAt;
 
+  /// A worktree entry: the project it belongs to, and `{name, branch, path}`.
+  final String? parent;
+  final Map<String, Object?> worktree;
+  bool get isWorktree => parent != null;
+  String? get worktreeName => worktree['name']?.toString();
+
+  /// The slug whose plan this entry shows — a worktree shows its parent's.
+  String get planSlug => parent ?? slug;
+
   String? get sessionUrl => session['sessionUrl']?.toString();
   String? get environmentUrl => session['environmentUrl']?.toString();
   String get sessionState => (session['state'] ?? 'idle').toString();
@@ -82,15 +93,44 @@ class ProjectSummary {
   int get pendingAsks => (session['pendingAsks'] as num?)?.toInt() ?? 0;
 }
 
+/// The switcher's order: every project newest first, each followed by its
+/// worktrees by name; a worktree whose parent is not listed stands alone
+/// at the end.
+List<ProjectSummary> groupProjects(List<ProjectSummary> all) {
+  final parents = [for (final s in all) if (!s.isWorktree) s]..sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
+  final trees = [for (final s in all) if (s.isWorktree) s]..sort((a, b) => a.slug.compareTo(b.slug));
+  final out = <ProjectSummary>[];
+  final placed = <String>{};
+  for (final p in parents) {
+    out.add(p);
+    for (final t in trees) {
+      if (t.parent == p.slug) {
+        out.add(t);
+        placed.add(t.slug);
+      }
+    }
+  }
+  out.addAll([for (final t in trees) if (!placed.contains(t.slug)) t]);
+  return out;
+}
+
 /// Writes the plan mirror. Keeps the stable JSON of every document it has
 /// published, so a reload that changed two files writes two documents.
+/// A worktree's publisher ([worktree] set) writes the project document
+/// only — the constellation is the main tree's.
 class RelayPublisher {
-  RelayPublisher(this.db, this.slug, {required this.dir, required this.machine});
+  RelayPublisher(this.db, this.slug, {required this.dir, required this.machine, this.parent, this.worktree, this.name});
 
   final FirebaseFirestore db;
   final String slug;
   final String dir;
   final String machine;
+
+  /// A worktree entry: the parent's slug, `{name, branch, path}`, and the
+  /// name the switcher shows (`<Parent> · <name>`).
+  final String? parent;
+  final Map<String, Object?>? worktree;
+  final String? name;
   final Map<String, String> _published = {};
   bool _seeded = false;
   Timer? _nowTimer;
@@ -121,8 +161,10 @@ class RelayPublisher {
     await seed();
     lastChanges.clear();
     final wanted = <String, Map<String, Object?>>{
-      for (final s in plan.steps) 'steps/${s.id}': stepDoc(s),
-      for (final i in plan.items) 'items/${i.id}': itemDoc(i),
+      if (worktree == null) ...{
+        for (final s in plan.steps) 'steps/${s.id}': stepDoc(s),
+        for (final i in plan.items) 'items/${i.id}': itemDoc(i),
+      },
     };
     final ops = <void Function(WriteBatch)>[];
     for (final e in wanted.entries) {
@@ -150,12 +192,14 @@ class RelayPublisher {
     final open = plan.items.where((i) => i.isOpen).length;
     final manifest = manifestDoc(plan.manifest);
     ops.add((b) => b.set(ref, {
-          'name': plan.manifest.projectName,
+          'name': name ?? plan.manifest.projectName,
           'slug': slug,
           'dir': dir,
           'machine': machine,
           'manifest': manifest,
-          'counts': {'steps': plan.steps.length, 'done': plan.steps.where((s) => s.status == StepStatus.done).length, 'items': plan.items.length, 'open': open},
+          if (worktree == null) 'counts': {'steps': plan.steps.length, 'done': plan.steps.where((s) => s.status == StepStatus.done).length, 'items': plan.items.length, 'open': open},
+          if (parent != null) 'parent': parent,
+          if (worktree != null) 'worktree': worktree,
           'revision': FieldValue.increment(1),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true)));
@@ -172,6 +216,23 @@ class RelayPublisher {
 
   Future<void> publishSession(Map<String, Object?> session) =>
       ref.set({'session': session, 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+
+  /// The entry and what hangs under it, gone — a removed worktree. Best
+  /// effort on the subcollections; the document last, so the switcher
+  /// loses the row only once its rows are gone.
+  Future<void> deleteProject() async {
+    for (final coll in const ['chat', 'sessions', 'asks', 'commands', 'inbox', 'events', 'builds', 'files', 'threads']) {
+      final q = await ref.collection(coll).get();
+      for (var i = 0; i < q.docs.length; i += 400) {
+        final b = db.batch();
+        for (final d in q.docs.sublist(i, (i + 400).clamp(0, q.docs.length))) {
+          b.delete(d.reference);
+        }
+        await b.commit();
+      }
+    }
+    await ref.delete();
+  }
 
   /// A build's record, whole.
   Future<void> publishBuild(String id, Map<String, Object?> doc) => ref.collection('builds').doc(id).set(doc);
@@ -620,12 +681,21 @@ class RemoteDeck extends ChangeNotifier {
   /// The host's conversations for this project, newest first.
   List<SessionEntry> sessions = const [];
 
+  /// A worktree entry: its parent's slug and its name; null and null for
+  /// a project of its own, which may grow trees.
+  String? parentSlug;
+  String? worktreeName;
+  bool get canAddWorktree => parentSlug == null;
+
   void start() {
     _subs.add(ref.snapshots().listen((d) {
       final m = d.data()?['session'];
       session = m is Map ? {for (final e in m.entries) e.key.toString(): e.value, 'machine': d.data()?['machine']} : const {};
       final mm = d.data()?['mirror'];
       mirror = mm is Map ? MirrorState.fromMap({for (final e in mm.entries) e.key.toString(): e.value as Object?}) : const MirrorState();
+      parentSlug = d.data()?['parent']?.toString();
+      final wt = d.data()?['worktree'];
+      worktreeName = wt is Map ? wt['name']?.toString() : null;
       _mirrorCtrl.add(mirror);
       error = session['error']?.toString();
       _watchHost((d.data()?['machine'] ?? '').toString());

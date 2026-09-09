@@ -347,6 +347,12 @@ void main() {
     expect(note.body, 'Build uploaded to TestFlight.');
     expect(note.channel, 'done');
     expect(deckBrief(chrome: false, mode: 'default'), contains('kit notify'), reason: 'a session is told how to say something mid-task');
+    expect(deckBrief(chrome: false, mode: 'default'), isNot(contains('Worktree:')));
+    final tree = deckBrief(chrome: false, mode: 'default', worktree: 'settings', worktreePath: '/tmp/wt/settings');
+    expect(tree, contains('branch `settings` at /tmp/wt/settings'));
+    expect(tree, contains('do not edit anything under plan/'), reason: 'the main tree owns the plan');
+    expect(tree, contains('merges this branch into main from the app'));
+    expect(worktreeBrief('x'), isNot(contains(' at ')));
   });
 
   test('a notification offers one-tap answers: Allow / Deny, a short single question, a sign-in — and no button for the rest', () {

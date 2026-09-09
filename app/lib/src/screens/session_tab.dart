@@ -240,7 +240,7 @@ class _SessionTabState extends State<SessionTab> {
               ),
             ),
             const SectionHead('Git', sub: 'What the host reads after every turn. Commit and Push run here, no model; the session hears about them with the next message.'),
-            GitCard(git: h.gitStatus, onOp: h.gitOp),
+            GitCard(git: h.gitStatus, onOp: h.gitOp, worktree: h.worktreeName, canAddWorktree: !h.isWorktree),
             const SectionHead('Activity', sub: 'From the hooks, newest first.'),
             if (h.hooks.events.isEmpty) Text('Nothing yet.', style: TextStyle(color: t.muted))
             else

@@ -26,21 +26,30 @@ import 'work_tab.dart';
 /// the "now" strip; the other tabs keep a one-line readout. The send bar
 /// at the bottom is the only way a plan change leaves the device.
 class ProjectScreen extends StatefulWidget {
-  const ProjectScreen._({required this.source, required this.slug, this.host, this.remoteDoc, this.initialFiles = const [], this.initialText, this.installBuild});
+  const ProjectScreen._({required this.source, required this.slug, this.host, this.remoteDoc, this.initialFiles = const [], this.initialText, this.installBuild, this.title, String? planSlug}) : planSlug = planSlug ?? slug;
 
-  factory ProjectScreen.host(HostProject host) => ProjectScreen._(source: host.source, slug: host.slug ?? host.dir, host: host);
+  factory ProjectScreen.host(HostProject host) => ProjectScreen._(source: host.source, slug: host.slug ?? host.dir, host: host, title: host.isWorktree ? host.projectName : null);
 
-  factory ProjectScreen.remote({required RemotePlanSource source, required String slug, List<PendingAttachment> initialFiles = const [], String? initialText, String? installBuild}) => ProjectScreen._(
+  factory ProjectScreen.remote({required RemotePlanSource source, required String slug, String? planSlug, String? title, List<PendingAttachment> initialFiles = const [], String? initialText, String? installBuild}) => ProjectScreen._(
         initialFiles: initialFiles,
         initialText: initialText,
         installBuild: installBuild,
         source: source,
         slug: slug,
+        planSlug: planSlug,
+        title: title,
         remoteDoc: FirebaseFirestore.instance.collection('projects').doc(slug).snapshots().map(ProjectSummary.fromDoc),
       );
 
   final PlanSource source;
   final String slug;
+
+  /// Whose plan the batches go to — a worktree sends them to its parent,
+  /// which owns `plan/`.
+  final String planSlug;
+
+  /// The masthead when it is not the plan's name — `<Parent> · <tree>`.
+  final String? title;
   final HostProject? host;
   final Stream<ProjectSummary>? remoteDoc;
 
@@ -98,7 +107,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
         final r = await widget.host!.applyBatch(batch);
         _toast(r.summary);
       } else {
-        await InboxSender(FirebaseFirestore.instance, widget.slug).send(batch, from: 'phone');
+        await InboxSender(FirebaseFirestore.instance, widget.planSlug).send(batch, from: 'phone');
         _toast('Sent. The Mac applies it and Claude sees it on its next step.');
       }
       await _draft.clear();
@@ -309,8 +318,8 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                           physics: const NeverScrollableScrollPhysics(),
                           children: [
                             widget.isHost
-                                ? DeckTab(bridge: widget.host!.bridge, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), testPush: widget.host!.testPush, onChromeHidden: _onChromeHidden, files: widget.host!.files, git: widget.host!.gitStatus, onGit: widget.host!.gitOp, autopilot: widget.host!.autopilot.state, onAutopilot: widget.host!.setAutopilot, run: widget.host!.run.state, onRun: widget.host!.runAction, runLog: (_) => widget.host!.run.logStream, mirrorHooks: widget.host!.mirrorHooks, builds: widget.host!.builds.builds, buildOnFlip: widget.host!.builds.buildOnFlip, onBuild: widget.host!.buildAction, onSwitchSession: widget.host!.switchSession, onDeleteSession: widget.host!.deleteSession)
-                                : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug, title: plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), onChromeHidden: _onChromeHidden, initialFiles: widget.initialFiles, initialText: widget.initialText, installBuild: widget.installBuild),
+                                ? DeckTab(bridge: widget.host!.bridge, title: widget.title ?? plan.manifest.projectName, worktree: widget.host!.worktreeName, canAddWorktree: !widget.host!.isWorktree, nowSlot: _nowStrip(plan, graph), testPush: widget.host!.testPush, onChromeHidden: _onChromeHidden, files: widget.host!.files, git: widget.host!.gitStatus, onGit: widget.host!.gitOp, autopilot: widget.host!.autopilot.state, onAutopilot: widget.host!.setAutopilot, run: widget.host!.run.state, onRun: widget.host!.runAction, runLog: (_) => widget.host!.run.logStream, mirrorHooks: widget.host!.mirrorHooks, builds: widget.host!.builds.builds, buildOnFlip: widget.host!.builds.buildOnFlip, onBuild: widget.host!.buildAction, onSwitchSession: widget.host!.switchSession, onDeleteSession: widget.host!.deleteSession)
+                                : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug, title: widget.title ?? plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), onChromeHidden: _onChromeHidden, initialFiles: widget.initialFiles, initialText: widget.initialText, installBuild: widget.installBuild),
                             wide
                                 ? Row(
                                     children: [

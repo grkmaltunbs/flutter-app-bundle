@@ -121,7 +121,7 @@ List<String> bridgeArgs({required String sessionId, bool resume = false, String?
 /// its own road to the phone (its own notification text).
 const signedInOption = 'Signed in — continue';
 
-String deckBrief({required bool chrome, required String mode, String? run}) => [
+String deckBrief({required bool chrome, required String mode, String? run, String? worktree, String? worktreePath}) => [
       'You are driven from K.A.T.Y.A, a phone app that talks to this Claude Code session on the user\'s Mac. The user reads you on a phone screen: answer short and concrete, and lead with the result.',
       '',
       if (chrome)
@@ -144,8 +144,14 @@ String deckBrief({required bool chrome, required String mode, String? run}) => [
       'Notifications: the app tells the user itself when you ask something, when a turn ends, and when something fails. To tell the user something at a point mid-task — a build uploaded, tests green before a long release step — run `kit notify "one line"` in this folder; it reaches the phone as a notification. Use it when the user asked to be told, not for every step. The PushNotification tool has no route from this session — do not use it, and do not offer to.',
       '',
       'If you hand work to a subagent that will use the browser, put these rules in its prompt.',
+      if (worktree != null) ...['', worktreeBrief(worktree, path: worktreePath)],
       if (run != null) ...['', run],
     ].join('\n');
+
+/// What a session in a git worktree is told: its branch, and that the plan
+/// belongs to the main tree.
+String worktreeBrief(String branch, {String? path}) =>
+    'Worktree: this session runs in a git worktree of the project — branch `$branch`${path == null ? '' : ' at $path'}. Work and commit on this branch only. plan/ here is this branch\'s copy and the main tree owns the plan: do not edit anything under plan/ and do not run `kit step`, `kit gate`, `kit done` or `kit item` here — say in one line what should change in the plan instead. The user merges this branch into main from the app.';
 
 /// A tool's name as a row shows it: `Bash` stays `Bash`; an MCP tool —
 /// `mcp__claude-in-chrome__find` — becomes `chrome · find`.

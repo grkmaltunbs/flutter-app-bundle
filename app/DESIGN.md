@@ -348,6 +348,8 @@ projects/{slug}.session.autopilot     {on, budget, sent, done, nightShift, step?
 projects/{slug}/commands/{auto}       + {type: autopilot, on, budget?, nightShift?}
 projects/{slug}/sessions/{id}         {id, startedAt, endedAt?, firstMessage?, turns, model?, mode?} — the host's list, whole   (built 2026-09-09)
 projects/{slug}/commands/{auto}       + {type: start, sessionId?, new?} (a resume from the list, or a new conversation — a running session stops first) | {type: session, action: delete, sessionId}
+projects/{slug}~{name}                a worktree's entry: {name: "<Parent> · <name>", parent: <slug>, worktree: {name, branch, path}, dir, machine, manifest, session, …} — no steps, items or counts; its chat, asks, sessions, commands, builds are its own   (built 2026-09-09)
+projects/{slug}/commands/{auto}       + {type: host, action: git, op: worktree_add, message: <name>} on a project; op: merge | resolve_merge | worktree_remove (message: force) on a tree
 projects/{slug}/runs/{id}/log/{chunk} {from, lines[≤200], at} — the last 10 documents kept (2000 lines), ≤ 1 write/s   (built 2026-09-06)
 projects/{slug}/files/{id}            {path, text, lines, truncated}  (text in Storage past 900 KB)
 projects/{slug}/builds/{id}           {state, sha, branch, version, size, at, path, progress, error, log, by, name} — the last 3 kept   (built 2026-09-06)
@@ -425,6 +427,47 @@ its file once at construction (first prompt, turns, model, the last line
 as its end) and writes the record; and `ship.sh` opened the new app while
 the old one was still saying goodbye to the relay, so nothing relaunched
 — it now waits for the old process to be gone.
+
+### Worktree sessions (built 2026-09-09)
+
+One driver per folder; a worktree is another folder. **NEW TREE** on the
+Git card of a project (both devices) takes a name — letters, digits,
+dots, dashes, underscores; it is the branch and the folder — and the
+host runs `git worktree add ~/.flutter_kit/worktrees/<slug>/<name> -b
+<name>` from the project, copies the parent's `.claude/settings.json`,
+`settings.local.json` and `commands/` where git did not bring them (the
+tree has what git tracks), marks the tree trusted in `~/.claude.json`
+when the parent is (`ClaudeCli.trustLike`, a read-modify-write written
+as the CLI writes it), and opens the tree as a project of its own:
+`HostProject(parent:, worktreeName:)`, slug `<slug>~<name>`, name
+`<Parent> · <name>`, its own bridge, chat, asks, sessions, run bay and
+commands — listed under its parent with a branch glyph on both devices
+(`HostProjects.getWorktree` / `worktreesOf`; the phone groups by
+`parent`, `groupProjects`). Trees on disk come up with the parent at
+launch (`worktreeNamesOf`). The plan is the main tree's: a worktree's
+publisher writes its project document only — no steps, items or counts
+— the phone shows the parent's plan for a worktree and sends batches to
+the parent's inbox, and the brief (`worktreeBrief`) tells the session
+it is on branch `<name>`, to commit there only, and to leave `plan/`
+and `kit step/gate/done/item` to the main tree. Both trees run at
+once; pushes carry `<Parent> · <name>`.
+
+**MERGE INTO MAIN** on a worktree's card, with its session stopped
+(refused otherwise, and while the main session is mid-turn): `git merge
+--no-ff --no-edit <name>` in the main folder. A clean merge names its
+commit — a git row on the main Deck and a host note for the main
+session's next prompt. A conflict leaves main as git left it, lists the
+files (`git diff --name-only --diff-filter=U`) and the card offers
+SEND — "resolve the merge of `<name>` …" to the main session, resumed
+if idle. **REMOVE**: refused while the tree's session runs; `dirty: n
+changed` until FORCE; `git worktree remove [--force]`, then the relay
+entry and its rows go (`deleteProject`) and the project closes two
+seconds after the command's stamp — the phone waits on that very
+document for its line, so the entry's rows must not go with it (found
+on the live run). The branch stays. Proven 2026-09-09 over the relay on
+~/kit-scratch: tree, session on the branch, clean merge, a conflict
+sent to the main session and resolved by it in 21 s, a dirty remove
+refused then forced.
 
 ### Risks, and what holds them
 

@@ -6,9 +6,42 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_kit/kit.dart' show kitHome;
 import 'package:path/path.dart' as p;
 
 import 'claude_cli.dart';
+
+// ---------------------------------------------------------------- worktrees
+
+/// A worktree's relay slug: the parent's with the tree's name after `~`.
+String worktreeSlug(String parentSlug, String name) => '$parentSlug~$name';
+
+/// A tree's name is its branch: letters, digits, `.`, `_`, `-`; no `..`.
+bool validWorktreeName(String name) => RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$').hasMatch(name) && !name.contains('..') && !name.endsWith('.lock');
+
+/// Where a project's worktrees live: `~/.flutter_kit/worktrees/<slug>/<name>`.
+String worktreePath(String parentSlug, String name, {String? home}) => p.join(kitHome(home: home), 'worktrees', parentSlug, name);
+
+/// The names of the trees a project has on disk, from that folder.
+List<String> worktreeNamesOf(String parentSlug, {String? home}) {
+  final root = Directory(p.join(kitHome(home: home), 'worktrees', parentSlug));
+  if (!root.existsSync()) return const [];
+  return [for (final e in root.listSync()) if (e is Directory && validWorktreeName(p.basename(e.path))) p.basename(e.path)]..sort();
+}
+
+/// What a merge came to: the commit, or the files git left in conflict.
+class MergeResult {
+  const MergeResult({required this.ok, this.commit = '', this.conflicts = const [], this.output = ''});
+  final bool ok;
+
+  /// `1a2b3c4 Merge branch 'settings'` when [ok].
+  final String commit;
+
+  /// Paths git left with markers — the tree stays as git left it.
+  final List<String> conflicts;
+  final String output;
+  bool get conflict => conflicts.isNotEmpty;
+}
 
 /// How much of a file rides in the Firestore document; past it the whole
 /// file goes to Storage and the document carries the first part.
@@ -221,6 +254,39 @@ class GitOps {
   Future<GitResult> push() async {
     final r = await _git(['push']);
     return GitResult(ok: r.exitCode == 0, output: _out(r));
+  }
+
+  /// `git worktree add <path> -b <branch>` — a second checkout of this
+  /// repository on a new branch, in its own folder.
+  Future<GitResult> worktreeAdd(String path, String branch) async {
+    final r = await _git(['worktree', 'add', path, '-b', branch]);
+    return GitResult(ok: r.exitCode == 0, output: r.exitCode == 0 ? 'worktree $branch at $path' : _out(r));
+  }
+
+  /// `git worktree remove [--force] <path>`. Git refuses a dirty tree
+  /// without [force]; its line comes back verbatim.
+  Future<GitResult> worktreeRemove(String path, {bool force = false}) async {
+    final r = await _git(['worktree', 'remove', if (force) '--force', path]);
+    return GitResult(ok: r.exitCode == 0, output: r.exitCode == 0 ? 'removed $path' : _out(r));
+  }
+
+  /// `git merge --no-ff <branch>` in this folder. A clean merge names its
+  /// commit; a conflict lists the files and leaves the tree as git left
+  /// it; anything else (a dirty tree, an unknown branch) is git's own line.
+  Future<MergeResult> merge(String branch) async {
+    final r = await _git(['merge', '--no-ff', '--no-edit', branch]);
+    if (r.exitCode == 0) {
+      final last = await _git(['log', '-1', '--pretty=%h %s']);
+      return MergeResult(ok: true, commit: last.exitCode == 0 ? last.stdout.toString().trim() : '', output: _out(r));
+    }
+    return MergeResult(ok: false, conflicts: await conflicts(), output: _out(r));
+  }
+
+  /// The paths a merge left with markers — empty when no merge is open.
+  Future<List<String>> conflicts() async {
+    final files = await _git(['diff', '--name-only', '--diff-filter=U']);
+    if (files.exitCode != 0) return const [];
+    return [for (final l in files.stdout.toString().split('\n')) if (l.trim().isNotEmpty) l.trim()];
   }
 
   /// `git checkout -- <path>`: the file as the last commit has it. The

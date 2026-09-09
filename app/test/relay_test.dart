@@ -251,6 +251,37 @@ void main() {
     deck.dispose();
   });
 
+  test('a worktree publishes its entry only — under its parent, no steps — the switcher lists it under the project, and remove takes the entry and its rows', () async {
+    await RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test').publish(store.load());
+    final tree = RelayPublisher(db, 'demo~settings', dir: p.join(tmp.path, 'wt'), machine: 'test', parent: 'demo', worktree: {'name': 'settings', 'branch': 'settings', 'path': p.join(tmp.path, 'wt')}, name: 'Demo · settings');
+    expect(await tree.publish(store.load()), 0, reason: 'the project document only, no constellation');
+    final doc = await db.collection('projects').doc('demo~settings').get();
+    expect(doc.data()!['parent'], 'demo');
+    expect(doc.data()!['name'], 'Demo · settings');
+    expect((doc.data()!['worktree'] as Map)['branch'], 'settings');
+    expect(doc.data()!['counts'], isNull);
+    expect((await db.collection('projects').doc('demo~settings').collection('steps').get()).docs, isEmpty);
+    expect((await db.collection('projects').doc('demo').collection('steps').get()).docs, isNotEmpty);
+
+    final all = [for (final d in (await db.collection('projects').get()).docs) ProjectSummary.fromDoc(d)];
+    final s = all.firstWhere((x) => x.slug == 'demo~settings');
+    expect(s.isWorktree, isTrue);
+    expect(s.worktreeName, 'settings');
+    expect(s.planSlug, 'demo', reason: 'a worktree shows its parent\'s plan');
+    final other = ProjectSummary(slug: 'zed', name: 'Zed', dir: '', machine: '', session: const {}, now: const {}, counts: const {}, updatedAt: DateTime(2030));
+    final orphan = ProjectSummary(slug: 'gone~x', name: 'Gone · x', dir: '', machine: '', session: const {}, now: const {}, counts: const {}, parent: 'gone');
+    final demoTree2 = ProjectSummary(slug: 'demo~a', name: 'Demo · a', dir: '', machine: '', session: const {}, now: const {}, counts: const {}, parent: 'demo');
+    expect(groupProjects([orphan, s, demoTree2, ...all.where((x) => !x.isWorktree), other]).map((x) => x.slug), ['zed', 'demo', 'demo~a', 'demo~settings', 'gone~x'], reason: 'newest project first, its trees by name under it, an orphan last');
+
+    await tree.publishSessions([SessionEntry(id: 's1', startedAt: DateTime.utc(2026)).toMap()]);
+    await db.collection('projects').doc('demo~settings').collection('chat').doc('m1').set({'id': 'm1'});
+    await tree.deleteProject();
+    expect((await db.collection('projects').doc('demo~settings').get()).exists, isFalse);
+    expect((await db.collection('projects').doc('demo~settings').collection('sessions').get()).docs, isEmpty);
+    expect((await db.collection('projects').doc('demo~settings').collection('chat').get()).docs, isEmpty);
+    expect((await db.collection('projects').doc('demo').get()).exists, isTrue);
+  });
+
   test('asks left open by a dead process are withdrawn in one sweep; answered ones are left alone', () async {
     final pub = RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test');
     Ask ask(String id) => Ask(requestId: id, toolName: 'Bash', toolUseId: 't$id', input: {'command': 'echo $id'}, at: DateTime.utc(2026, 9, 3, 20));

@@ -311,7 +311,12 @@ class BridgeSession extends ChangeNotifier {
 
   /// What the next Start tells the session, on top of its own system
   /// prompt — the phone, the browser, sign-ins as questions.
-  String get brief => deckBrief(chrome: chrome, mode: modeChoice, run: briefExtra?.call());
+  String get brief => deckBrief(chrome: chrome, mode: modeChoice, run: briefExtra?.call(), worktree: worktree, worktreePath: worktreePath);
+
+  /// This folder is a git worktree on this branch: the brief says so, and
+  /// that the plan belongs to the main tree.
+  String? worktree;
+  String? worktreePath;
 
   /// What else the next Start tells the session — the run bay's state,
   /// from the host. Read at Start; a change while a session runs reaches

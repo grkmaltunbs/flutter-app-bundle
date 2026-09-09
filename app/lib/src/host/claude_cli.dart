@@ -76,6 +76,30 @@ class ClaudeCli {
   /// by the path it ran in, resolved — `/var/…` is `/private/var/…` to it
   /// — so the resolved path's folder is taken when it exists, the given
   /// path's otherwise.
+  /// Marks [dir] trusted in the CLI's own state when [from] is — a
+  /// worktree inherits the trust of the folder it was cut from, so the
+  /// plugin and the settings count there too. A read-modify-write of
+  /// `~/.claude.json`, written the way the CLI writes it; nothing is
+  /// written when [from] is not trusted, [dir] already is, or the file
+  /// cannot be read.
+  static bool trustLike(String dir, {required String from}) {
+    try {
+      final f = File(p.join(home, '.claude.json'));
+      final m = jsonDecode(f.readAsStringSync()) as Map;
+      final projects = m['projects'] as Map? ?? {};
+      final src = projects[from] as Map? ?? projects[p.normalize(from)] as Map?;
+      if (src?['hasTrustDialogAccepted'] != true) return false;
+      final entry = projects[dir] as Map? ?? {};
+      if (entry['hasTrustDialogAccepted'] == true) return true;
+      projects[dir] = {...entry, 'hasTrustDialogAccepted': true};
+      m['projects'] = projects;
+      f.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(m));
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
   static String projectStateDir(String dir) {
     final given = p.join(home, '.claude', 'projects', claudeProjectSlug(dir));
     try {

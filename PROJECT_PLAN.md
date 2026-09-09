@@ -1196,7 +1196,7 @@ CLI's file.
 ---
 
 ## Step 22 — Worktree sessions — a second session on the same project in its own tree, merged from the Git card
-- [ ]
+- [x]
 - id: worktrees
 - depends_on: review, session-history
 - qa_required: true

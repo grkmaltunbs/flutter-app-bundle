@@ -102,6 +102,8 @@ class DeckView extends StatefulWidget {
     this.onResumeSession,
     this.onNewSession,
     this.onDeleteSession,
+    this.worktree,
+    this.canAddWorktree = false,
   });
 
   final BridgeState state;
@@ -214,6 +216,12 @@ class DeckView extends StatefulWidget {
   final Future<String?> Function(String id)? onResumeSession;
   final Future<String?> Function()? onNewSession;
   final Future<String?> Function(String id)? onDeleteSession;
+
+  /// This project is a worktree of this name ([worktree]) — the Git card
+  /// offers MERGE INTO MAIN and REMOVE; a project of its own
+  /// ([canAddWorktree]) offers NEW TREE.
+  final String? worktree;
+  final bool canAddWorktree;
 
   /// What the Deck opens with: files a share brought, a line of text —
   /// and a build to install the moment its row is there (a tap on the
@@ -1252,8 +1260,12 @@ class _Attachments extends StatelessWidget {
 
 /// The host's Deck: straight off its own bridge.
 class DeckTab extends StatelessWidget {
-  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog, this.mirrorHooks, this.builds = const [], this.buildOnFlip = false, this.onBuild, this.onSwitchSession, this.onDeleteSession});
+  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog, this.mirrorHooks, this.builds = const [], this.buildOnFlip = false, this.onBuild, this.onSwitchSession, this.onDeleteSession, this.worktree, this.canAddWorktree = false});
   final BridgeSession bridge;
+
+  /// See [DeckView.worktree].
+  final String? worktree;
+  final bool canAddWorktree;
 
   /// The sessions list's commands through the host (which stops the loop
   /// with the session); the bridge's own when nobody wires them.
@@ -1359,6 +1371,8 @@ class DeckTab extends StatelessWidget {
           onResumeSession: (id) => onSwitchSession?.call(id: id) ?? b.switchTo(id: id),
           onNewSession: () => onSwitchSession?.call() ?? b.switchTo(),
           onDeleteSession: (id) async => onDeleteSession?.call(id) ?? (b.deleteSession(id) ? 'removed from the list' : 'not removed — it is running, or not in the list'),
+          worktree: worktree,
+          canAddWorktree: canAddWorktree,
           onSend: (text, files) async => b.send(text, files: files),
           pick: pick,
         );
@@ -1497,6 +1511,8 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
           await d.deleteSession(id);
           return 'removed on the Mac';
         },
+        worktree: d.worktreeName,
+        canAddWorktree: d.canAddWorktree,
         initialFiles: widget.initialFiles,
         initialText: widget.initialText,
         installBuild: widget.installBuild,
@@ -1791,7 +1807,7 @@ class _Header extends StatelessWidget {
                   onDelete: w.onDeleteSession ?? (_) async => null,
                 ),
               ),
-            if (w.onGit != null) Padding(padding: const EdgeInsets.only(top: 8), child: GitCard(git: w.git, onOp: w.onGit!)),
+            if (w.onGit != null) Padding(padding: const EdgeInsets.only(top: 8), child: GitCard(git: w.git, onOp: w.onGit!, worktree: w.worktree, canAddWorktree: w.canAddWorktree)),
             if (w.onBuild != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
