@@ -34,7 +34,7 @@ void main() {
     expect(versionOf(pubspec), '1.2.3+45');
     expect(nameOf(pubspec), 'kit_scratch');
     expect(versionOf('name: x'), '');
-    expect(firstErrorLine(const ['Running Gradle task...', "warning: unused", 'FAILURE: Build failed with an exception.', '* What went wrong:']), 'FAILURE: Build failed with an exception.');
+    expect(firstErrorLine(const ['Running Gradle task...', 'warning: unused', 'FAILURE: Build failed with an exception.', '* What went wrong:']), 'FAILURE: Build failed with an exception.');
     expect(firstErrorLine(const ['lib/main.dart:3:1: Error: Expected a declaration.']), 'lib/main.dart:3:1: Error: Expected a declaration.');
     expect(firstErrorLine(const ['just output']), 'just output');
     expect(firstErrorLine(const []), 'the build produced no output');

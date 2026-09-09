@@ -212,6 +212,45 @@ void main() {
     listener.dispose();
   });
 
+  test('sessions are mirrored one document each and deleted when gone; the phone lists them newest first, hides another session\'s rows, and resume, new and delete are commands', () async {
+    final pub = RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test');
+    final a = SessionEntry(id: 'aaaa-1', startedAt: DateTime.utc(2026, 9, 8, 10), firstMessage: 'remember falcon', turns: 1);
+    final b = SessionEntry(id: 'bbbb-2', startedAt: DateTime.utc(2026, 9, 9, 10), firstMessage: 'remember heron', turns: 2);
+    final coll = db.collection('projects').doc('demo').collection('sessions');
+    await pub.publishSessions([a.toMap(), b.toMap()]);
+    expect((await coll.get()).docs.map((d) => d.id).toSet(), {'aaaa-1', 'bbbb-2'});
+    b.turns = 3;
+    await pub.publishSessions([a.toMap(), b.toMap()]);
+    expect((await coll.doc('bbbb-2').get()).data()!['turns'], 3);
+    await pub.publishSessions([b.toMap()]);
+    expect((await coll.get()).docs.map((d) => d.id), ['bbbb-2'], reason: 'gone from the list, gone from the relay');
+    final pub2 = RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test');
+    await pub2.publishSessions([b.toMap(), a.toMap()]);
+    expect((await coll.get()).docs.length, 2, reason: 'a second host seeds from what is there');
+
+    final ran = <Map<String, Object?>>[];
+    final listener = CommandListener(db, 'demo', apply: (cmd) async {
+      ran.add(cmd);
+      return 'ok';
+    })..start();
+    final project = db.collection('projects').doc('demo');
+    await project.set({'name': 'Demo', 'session': {'mode': 'idle', 'state': 'idle', 'sessionId': 'bbbb-2', 'canResume': true}});
+    await project.collection('chat').doc('h00000').set({'id': 'h00000', 'role': 'user', 'text': 'remember falcon', 'at': '2026-09-08T10:00:00Z', 'sessionId': 'aaaa-1'});
+    await project.collection('chat').doc('m00000').set({'id': 'm00000', 'role': 'user', 'text': 'remember heron', 'at': '2026-09-09T10:00:00Z', 'sessionId': 'bbbb-2'});
+    final deck = RemoteDeck(db, 'demo')..start();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(deck.sessions.map((s) => s.id), ['bbbb-2', 'aaaa-1'], reason: 'newest first');
+    expect(deck.sessions.first.firstMessage, 'remember heron');
+    expect(deck.view.map((m) => m.text), ['remember heron'], reason: 'another session\'s rows stay off the Deck');
+    await deck.startSession(id: 'aaaa-1');
+    await deck.startSession(fresh: true);
+    await deck.deleteSession('aaaa-1');
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(ran.map((c) => '${c['type']}:${c['sessionId'] ?? ''}:${c['resume']}:${c['new']}:${c['action'] ?? ''}'), ['start:aaaa-1:true:null:', 'start::false:true:', 'session:aaaa-1:null:null:delete']);
+    listener.dispose();
+    deck.dispose();
+  });
+
   test('asks left open by a dead process are withdrawn in one sweep; answered ones are left alone', () async {
     final pub = RelayPublisher(db, 'demo', dir: tmp.path, machine: 'test');
     Ask ask(String id) => Ask(requestId: id, toolName: 'Bash', toolUseId: 't$id', input: {'command': 'echo $id'}, at: DateTime.utc(2026, 9, 3, 20));

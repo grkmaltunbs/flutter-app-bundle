@@ -1358,6 +1358,10 @@ class Transcript {
     return m;
   }
 
+  /// Rows read back from a session's file, ahead of everything live —
+  /// the resumed conversation's tail (`restoreRows`).
+  void restore(List<DeckMessage> rows) => messages.insertAll(0, rows);
+
   /// A tool-style row for something the host ran itself — git from the
   /// phone — so the transcript shows it where it happened.
   DeckMessage addHostRow({required String toolName, required Map<String, Object?> input, required String result, bool isError = false}) {

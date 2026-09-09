@@ -9,6 +9,7 @@ import 'package:flutter_kit/kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kit_app/src/attachments.dart';
 import 'package:kit_app/src/host/bridge_session.dart';
+import 'package:kit_app/src/host/claude_cli.dart';
 import 'package:kit_app/src/host/permission_rules.dart';
 import 'package:kit_app/src/host/push_sender.dart';
 import 'package:path/path.dart' as p;
@@ -506,6 +507,141 @@ void main() {
     expect(s.error, contains('Not logged in'));
   });
 
+  test('sessions: New keeps the old in the list; Resume by id switches the Deck and brings the tail back from the file; Delete drops the entry, never the file', () async {
+    final spawned = <FakeClaude>[];
+    final files = <String, List<String>>{};
+    final read = <String>[];
+    final s1 = fakeSessionEach(spawned, dir: project.path, home: home.path, readTranscript: (id) {
+      read.add(id);
+      return files[id];
+    });
+    expect(s1.sessions, isEmpty);
+    await s1.start();
+    final a = s1.sessionId!;
+    expect(s1.sessions.map((s) => s.id), [a]);
+    expect(s1.current!.firstMessage, isNull);
+    expect(s1.transcript.sessionId, a, reason: 'the rows carry the session before init');
+    s1.send('remember falcon');
+    await spawned.last.writtenLines(1);
+    expect(s1.current!.firstMessage, 'remember falcon');
+    scriptTurn(spawned.last, sessionId: a);
+    await pumpEventQueue();
+    expect(s1.current!.turns, 1);
+    expect(s1.current!.model, 'claude-fable-5', reason: 'what init said');
+    expect(s1.current!.endedAt, isNull);
+    await s1.stop();
+    expect(s1.current!.endedAt, isNotNull);
+
+    // New: a fresh id, the old one stays.
+    expect(await s1.switchTo(), 'a new session');
+    final b = s1.sessionId!;
+    expect(b, isNot(a));
+    expect(s1.sessions.map((s) => s.id), [a, b]);
+    expect(s1.transcript.messages, isEmpty);
+    s1.send('remember heron');
+    await spawned.last.writtenLines(1);
+    scriptTurn(spawned.last, sessionId: b, text: 'Heron, kept.');
+    await pumpEventQueue();
+
+    // The list outlives the process and the host: a second runner reads it.
+    final again = fakeSession(FakeClaude(), dir: project.path, home: home.path);
+    expect(again.sessions.map((s) => s.id), [a, b]);
+    expect(again.sessionId, b, reason: 'the current one');
+    expect(again.sessions.first.firstMessage, 'remember falcon');
+    expect(again.sessions.last.turns, 1);
+
+    // A switch mid-turn is refused; between turns the running one stops first.
+    s1.send('one more');
+    await spawned.last.writtenLines(2);
+    expect(await s1.switchTo(id: a), contains('A turn is running'));
+    scriptTurn(spawned.last, sessionId: b, text: 'Done.');
+    await pumpEventQueue();
+    files[a] = [
+      '{"type":"user","message":{"role":"user","content":"remember falcon"},"timestamp":"2026-09-08T10:00:01.000Z","sessionId":"$a"}',
+      '{"type":"assistant","message":{"model":"claude-fable-5","role":"assistant","content":[{"type":"text","text":"Falcon, kept."}]},"timestamp":"2026-09-08T10:00:03.000Z","sessionId":"$a"}',
+    ];
+    expect(await s1.switchTo(id: a), 'resumed ${a.substring(0, 8)}');
+    expect(spawned.last.startedWith, containsAllInOrder(['--resume', a]));
+    expect(s1.sessionId, a);
+    expect(s1.transcript.sessionId, a);
+    expect(read, [a], reason: 'the file is read once, when the Deck switches conversation');
+    final texts = s1.transcript.messages.map((m) => m.text).toList();
+    expect(texts, ['remember falcon', 'Falcon, kept.', "Resumed — the last 2 rows, from the session's file."]);
+    expect(s1.transcript.messages.first.id, startsWith('h'), reason: 'restored rows sort before live ones');
+    expect(s1.sessions.map((s) => s.id), [a, b], reason: 'nothing added: a was in the list');
+    expect(s1.current!.endedAt, isNull, reason: 'open again');
+    scriptTurn(spawned.last, sessionId: a, text: 'Falcon.');
+    await pumpEventQueue();
+    expect(s1.current!.turns, 2);
+
+    // Resume of the conversation already on the Deck keeps its rows, no read.
+    await s1.stop();
+    await s1.start(resume: true);
+    expect(read.length, 1);
+    expect(s1.transcript.messages.first.text, 'remember falcon');
+
+    // Delete: never the running one; the current, stopped, empties the Deck.
+    expect(s1.deleteSession(a), isFalse, reason: 'running');
+    expect(s1.deleteSession(b), isTrue);
+    expect(s1.sessions.map((s) => s.id), [a]);
+    await s1.stop();
+    expect(s1.toRelay()['canResume'], isTrue);
+    expect(s1.deleteSession(a), isTrue);
+    expect(s1.sessions, isEmpty);
+    expect(s1.sessionId, isNull);
+    expect(s1.transcript.messages, isEmpty);
+    expect(s1.toRelay()['canResume'], isFalse);
+    expect(s1.deleteSession('nope'), isFalse);
+    expect(fakeSession(FakeClaude(), dir: project.path, home: home.path).sessions, isEmpty, reason: 'the record followed');
+    expect(files.containsKey(a), isTrue, reason: 'the CLI\'s file is not the host\'s to delete');
+  });
+
+  test('a session from before the list reads as one entry filled from its file once, and a resume the file cannot back is dropped from it', () async {
+    final rec = File(p.join(home.path, 'bridge', '${claudeProjectSlug(project.path)}.json'))..createSync(recursive: true);
+    rec.writeAsStringSync(jsonEncode({'sessionId': 'old-1', 'startedAt': '2026-09-01T10:00:00Z', 'mode': 'plan'}));
+    final spawned = <FakeClaude>[];
+    var reads = 0;
+    BridgeSession make() => BridgeSession(
+          dir: project.path,
+          starter: (bin, args, {workingDirectory, environment}) async {
+            final f = FakeClaude()..startedWith = args;
+            spawned.add(f);
+            return f;
+          },
+          findBinary: () async => '/fake/claude',
+          versionOf: (_) async => '2.1.251',
+          shellPath: () async => '/fake/bin',
+          home: home.path,
+          transcriptExists: (_) => false,
+          readTranscript: (id) {
+            reads++;
+            return id == 'old-1'
+                ? [
+                    '{"type":"user","message":{"role":"user","content":"remember falcon"},"timestamp":"2026-09-01T10:00:01.000Z"}',
+                    '{"type":"assistant","message":{"model":"claude-fable-5","role":"assistant","content":[{"type":"text","text":"Falcon, kept."}]},"timestamp":"2026-09-01T10:00:03.000Z"}',
+                  ]
+                : null;
+          },
+          readyGrace: Duration.zero,
+        );
+    final s = make();
+    expect(s.sessions.map((e) => e.id), ['old-1']);
+    expect(s.sessions.single.startedAt, DateTime.parse('2026-09-01T10:00:00Z'));
+    expect(s.sessions.single.firstMessage, 'remember falcon', reason: 'filled from the file');
+    expect(s.sessions.single.turns, 1);
+    expect(s.sessions.single.model, 'claude-fable-5');
+    expect(s.sessions.single.endedAt, DateTime.parse('2026-09-01T10:00:03.000Z'), reason: 'over: the file\'s last line');
+    expect(reads, 1);
+    expect(make().sessions.single.firstMessage, 'remember falcon');
+    expect(reads, 1, reason: 'written to the record: not read again');
+    expect(s.sessionId, 'old-1');
+    expect(s.modeChoice, 'plan');
+    await s.start(resume: true);
+    expect(spawned.single.startedWith, contains('--session-id'), reason: 'never spoke: fresh');
+    expect(s.sessions.map((e) => e.id), [s.sessionId], reason: 'the one that never spoke is gone from the list');
+    expect(s.log.single, contains('never spoke'));
+  });
+
   group('live', () {
     final live = Platform.environment['KIT_LIVE'] == '1';
 
@@ -588,6 +724,64 @@ void main() {
       await until(() => r.state == BridgeState.ready && r.transcript.lastResult != null);
       expect(r.transcript.messages.where((m) => m.role == DeckRole.assistant).last.text.toLowerCase(), contains('coffee'));
       await r.stop();
+    }, skip: live ? false : 'set KIT_LIVE=1 to run against the real claude (spends subscription quota)', timeout: const Timeout(Duration(minutes: 8)));
+
+    test('the real claude keeps two conversations: New, Resume from the list with the rows read back from its file, Delete', () async {
+      final dir = Directory.systemTemp.createTempSync('kit_live_sessions_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      Future<void> until(BridgeSession s, bool Function() done, {Duration timeout = const Duration(seconds: 120)}) async {
+        final end = DateTime.now().add(timeout);
+        while (!done()) {
+          if (DateTime.now().isAfter(end)) fail('timed out; state ${s.state}, error ${s.error}, log ${s.log.join(' | ')}');
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+      }
+
+      final s = BridgeSession(dir: dir.path, home: home.path);
+      await s.start();
+      expect(s.state, isNot(BridgeState.failed), reason: s.error);
+      s.send('Remember the word falcon. Reply with exactly: kept. Nothing else.');
+      await until(s, () => s.state == BridgeState.ready && s.transcript.lastResult != null);
+      final a = s.sessionId!;
+      expect(s.current!.firstMessage, startsWith('Remember the word falcon'));
+      expect(s.current!.turns, 1);
+      expect(s.current!.model, isNotNull, reason: 'what init said');
+      await s.stop();
+      expect(s.current!.endedAt, isNotNull);
+
+      // New: the old one stays in the list.
+      expect(await s.switchTo(), 'a new session');
+      final b = s.sessionId!;
+      expect(b, isNot(a));
+      expect(s.transcript.messages, isEmpty);
+      s.send('Remember the word heron. Reply with exactly: kept. Nothing else.');
+      await until(s, () => s.state == BridgeState.ready && s.transcript.lastResult != null);
+      await s.stop();
+      expect(s.sessions.map((e) => e.id), [a, b]);
+
+      // A host that forgot everything: the record lists both, and Resume
+      // of the first brings its rows back from the CLI's own file.
+      final r = BridgeSession(dir: dir.path, home: home.path);
+      expect(r.sessions.map((e) => e.id), [a, b]);
+      expect(r.sessions.first.firstMessage, startsWith('Remember the word falcon'));
+      expect(r.sessions.last.firstMessage, startsWith('Remember the word heron'));
+      expect(r.transcript.messages, isEmpty);
+      expect(await r.switchTo(id: a), 'resumed ${a.substring(0, 8)}');
+      final texts = r.transcript.messages.map((m) => m.text).toList();
+      expect(texts.first, startsWith('Remember the word falcon'), reason: 'the tail of the file, oldest first: ${texts.join(' | ')}');
+      expect(texts.any((t) => t.startsWith('Resumed — the last')), isTrue, reason: texts.join(' | '));
+      expect(texts.any((t) => t.contains('heron')), isFalse, reason: 'only this conversation');
+      r.send('In one word: which word did I ask you to remember in this conversation?');
+      await until(r, () => r.state == BridgeState.ready && r.transcript.lastResult != null);
+      expect(r.transcript.messages.where((m) => m.role == DeckRole.assistant).last.text.toLowerCase(), contains('falcon'));
+      expect(r.current!.turns, 2);
+      await r.stop();
+
+      // Delete takes the second off the list; the CLI's file stays.
+      expect(r.deleteSession(b), isTrue);
+      expect(r.sessions.map((e) => e.id), [a]);
+      expect(File(p.join(ClaudeCli.projectStateDir(dir.path), '$b.jsonl')).existsSync(), isTrue, reason: 'never the CLI\'s file');
+      expect(BridgeSession(dir: dir.path, home: home.path).sessions.map((e) => e.id), [a]);
     }, skip: live ? false : 'set KIT_LIVE=1 to run against the real claude (spends subscription quota)', timeout: const Timeout(Duration(minutes: 8)));
   });
 

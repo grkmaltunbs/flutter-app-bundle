@@ -80,13 +80,14 @@ BridgeSession fakeSession(FakeClaude fake, {required String dir, required String
       shellPath: () async => '/fake/bin',
       home: home,
       transcriptExists: (_) => true,
+      readTranscript: (_) => null,
       readyGrace: readyGrace,
     );
 
 /// A session that gets a fresh [FakeClaude] on every start — a single fake's
 /// streams can be listened to once, so Stop → Start needs a new one. Each
 /// spawned fake is appended to [spawned].
-BridgeSession fakeSessionEach(List<FakeClaude> spawned, {required String dir, required String home}) => BridgeSession(
+BridgeSession fakeSessionEach(List<FakeClaude> spawned, {required String dir, required String home, List<String>? Function(String sessionId)? readTranscript}) => BridgeSession(
       dir: dir,
       starter: (bin, args, {workingDirectory, environment}) async {
         final f = FakeClaude()..startedWith = args;
@@ -99,6 +100,7 @@ BridgeSession fakeSessionEach(List<FakeClaude> spawned, {required String dir, re
       shellPath: () async => '/fake/bin',
       home: home,
       transcriptExists: (_) => true,
+      readTranscript: readTranscript ?? (_) => null,
       readyGrace: Duration.zero,
     );
 

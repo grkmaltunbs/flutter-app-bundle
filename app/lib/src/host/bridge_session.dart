@@ -42,10 +42,15 @@ enum BridgeState {
 /// conversation; the rules the user answered Always to, so the Session
 /// tab can list them; and the options the next Start runs with.
 class BridgeRecord {
-  const BridgeRecord({this.sessionId, required this.startedAt, this.pid, this.always = const [], this.mode = 'default', this.chrome = false, this.model, this.effort});
+  const BridgeRecord({this.sessionId, required this.startedAt, this.pid, this.always = const [], this.mode = 'default', this.chrome = false, this.model, this.effort, this.sessions = const []});
 
   /// Null when no session has run here yet — only options are recorded.
+  /// Otherwise the current one — what Resume resumes — of [sessions].
   final String? sessionId;
+
+  /// Every conversation this folder had, oldest first: the list the
+  /// phone shows. A record from before the list reads as one entry.
+  final List<SessionEntry> sessions;
   final DateTime startedAt;
   final int? pid;
   final List<AppliedRule> always;
@@ -71,13 +76,18 @@ class BridgeRecord {
         'chrome': chrome,
         if (model != null) 'model': model,
         if (effort != null) 'effort': effort,
+        'sessions': [for (final s in sessions) s.toMap()],
       };
   static BridgeRecord? fromJson(Object? v) {
     if (v is! Map) return null;
     final id = v['sessionId']?.toString();
+    final current = id == null || id.isEmpty ? null : id;
+    final startedAt = DateTime.tryParse(v['startedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final sessions = [for (final s in (v['sessions'] as List? ?? const [])) if (s is Map) SessionEntry.fromMap({for (final e in s.entries) e.key.toString(): e.value})];
     return BridgeRecord(
-      sessionId: id == null || id.isEmpty ? null : id,
-      startedAt: DateTime.tryParse(v['startedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      sessionId: current,
+      startedAt: startedAt,
+      sessions: sessions.isEmpty && current != null ? [SessionEntry(id: current, startedAt: startedAt)] : sessions,
       pid: (v['pid'] as num?)?.toInt(),
       always: [for (final r in (v['always'] as List? ?? const [])) if (r is Map) AppliedRule.fromJson({for (final e in r.entries) e.key.toString(): e.value})],
       mode: v['mode'] != null ? knownMode(v['mode']) : (v['skipPermissions'] == true ? 'bypassPermissions' : 'default'),
@@ -110,18 +120,38 @@ class BridgeSession extends ChangeNotifier {
     Future<String> Function()? shellPath,
     this.home,
     bool Function(String sessionId)? transcriptExists,
+    List<String>? Function(String sessionId)? readTranscript,
     this.readyGrace = const Duration(milliseconds: 1500),
   })  : _starter = starter ?? _startProcess,
         _transcriptExists = transcriptExists ?? ((id) => File(p.join(ClaudeCli.projectStateDir(dir), '$id.jsonl')).existsSync()),
+        _readTranscript = readTranscript ?? ((id) => _readLines(File(p.join(ClaudeCli.projectStateDir(dir), '$id.jsonl')))),
         _findBinary = findBinary ?? ClaudeCli.findBinary,
         _versionOf = versionOf ?? _claudeVersion,
         _shellPath = shellPath ?? ClaudeCli.shellPath {
     final prev = previous();
     alwaysApplied.addAll(prev?.always ?? const []);
+    sessions.addAll(prev?.sessions ?? const []);
+    sessionId = prev?.sessionId;
     modeChoice = prev?.mode ?? 'default';
     chrome = prev?.chrome ?? false;
     modelChoice = prev?.model;
     effort = prev?.effort;
+    // An entry from before the list knows nothing but its id: the file
+    // says what was said, once. Nothing runs at construction, so every
+    // entry is over — its end is the file's last line.
+    var filled = false;
+    for (final s in sessions) {
+      if (s.firstMessage != null || s.turns > 0) continue;
+      final lines = _readTranscript(s.id);
+      if (lines == null) continue;
+      final sum = summarizeTranscript(lines);
+      s.firstMessage = sum.firstMessage;
+      s.turns = sum.turns;
+      s.model ??= sum.model;
+      s.endedAt ??= sum.lastAt;
+      filled = true;
+    }
+    if (filled) _writeRecord();
   }
 
   final String dir;
@@ -327,30 +357,58 @@ class BridgeSession extends ChangeNotifier {
   /// so a session that never spoke has nothing to resume.
   final bool Function(String sessionId) _transcriptExists;
 
+  /// The session's file, line by line — the rows a resume brings back.
+  /// Null when there is none.
+  final List<String>? Function(String sessionId) _readTranscript;
+
+  /// Every conversation this folder had, oldest first. Persisted with the
+  /// record; mirrored to the phone as `sessions/{id}`.
+  final List<SessionEntry> sessions = [];
+
+  /// The entry of the session on the Deck — running, or last run.
+  SessionEntry? get current {
+    for (final s in sessions) {
+      if (s.id == sessionId) return s;
+    }
+    return null;
+  }
+
+  List<Map<String, Object?>> get sessionsRelay => [for (final s in sessions) s.toMap()];
+
   /// With stream-json input the CLI says nothing until the first message —
   /// its init comes with the first turn. A process still alive this long
   /// after Start is waiting for input: ready, not starting.
   final Duration readyGrace;
 
-  Future<void> start({bool resume = false}) async {
+  /// Starts a session: a fresh conversation, or — [resume] — the one the
+  /// record names, or [id] from the list. The rows on the Deck belong to
+  /// one conversation: a fresh start, or a resume of a different one than
+  /// shown, begins from nothing, and a resume the host has no rows for
+  /// brings the tail back from the session's file.
+  Future<void> start({bool resume = false, String? id}) async {
     if (running) return;
-    final prev = resume ? previous() : null;
-    if (resume && prev?.sessionId == null) return _fail('Nothing to resume for this folder.');
+    final want = id ?? (resume ? (sessionId ?? previous()?.sessionId) : null);
+    if (resume && want == null) return _fail('Nothing to resume for this folder.');
     String? fresh;
-    if (resume && !_transcriptExists(prev!.sessionId!)) {
+    if (resume && !_transcriptExists(want!)) {
       // `--resume` of it would report its init and then fail on the first
-      // message with "No conversation found". A fresh one loses nothing.
-      fresh = 'Nothing to resume: session ${prev.sessionId} never spoke — starting fresh.';
+      // message with "No conversation found". A fresh one loses nothing —
+      // and a session that never spoke is nothing to list.
+      fresh = 'Nothing to resume: session $want never spoke — starting fresh.';
+      sessions.removeWhere((s) => s.id == want);
       resume = false;
     }
+    lastStartNote = fresh;
     error = null;
     log.clear();
     if (fresh != null) _logLine(fresh);
     _sessionAllows.clear();
     _modeWanted = null; // the flags carry the dials
     _modelWanted = null;
-    if (!resume) {
-      // A fresh session is a fresh conversation; Resume keeps the old one.
+    final switching = resume && want != transcript.sessionId;
+    if (!resume || switching) {
+      // A fresh session is a fresh conversation; Resume keeps the old one
+      // when it is the one on the Deck.
       transcript.messages.clear();
       _queue.clear();
       _hostNotes.clear();
@@ -362,7 +420,20 @@ class BridgeSession extends ChangeNotifier {
     notifyListeners();
     final bin = await _findBinary();
     if (bin == null) return _fail('claude is not installed (looked on your shell PATH, ~/.local/bin, /opt/homebrew/bin).');
-    sessionId = resume ? prev!.sessionId : _uuid4();
+    sessionId = resume ? want : _uuid4();
+    transcript.sessionId = sessionId;
+    if (resume) {
+      var cur = current;
+      if (cur == null) {
+        cur = SessionEntry(id: want!, startedAt: DateTime.now());
+        sessions.add(cur);
+      }
+      cur.endedAt = null;
+      cur.mode = modeChoice;
+      if (switching) _restoreRows(want!, cur);
+    } else {
+      sessions.add(SessionEntry(id: sessionId!, startedAt: DateTime.now(), mode: modeChoice, model: modelChoice));
+    }
     final args = bridgeArgs(sessionId: sessionId!, resume: resume, model: modelChoice, effort: effort, permissionMode: modeChoice, chrome: chrome, appendSystemPrompt: brief);
     try {
       _proc = await _starter(bin, args, workingDirectory: dir, environment: {...Platform.environment, 'PATH': await _shellPath()});
@@ -393,6 +464,22 @@ class BridgeSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The tail of a session's file onto the Deck, and what the file says
+  /// about the session into an entry the record had nothing on.
+  void _restoreRows(String id, SessionEntry entry) {
+    final lines = _readTranscript(id);
+    if (lines == null) return;
+    final rows = restoreRows(lines);
+    if (rows.isNotEmpty) {
+      transcript.restore(rows);
+      transcript.addNote('Resumed — the last ${rows.length} rows, from the session\'s file.');
+    }
+    final s = summarizeTranscript(lines);
+    entry.firstMessage ??= s.firstMessage;
+    if (entry.turns == 0) entry.turns = s.turns;
+    entry.model ??= s.model;
+  }
+
   void _line(String raw) {
     final e = parseBridgeLine(raw);
     if (e == null) {
@@ -406,6 +493,10 @@ class BridgeSession extends ChangeNotifier {
         if (e.sessionId.isNotEmpty && e.sessionId != sessionId) {
           // A resumed session keeps its id; a fresh one is what we asked for.
           sessionId = e.sessionId;
+          _writeRecord();
+        }
+        if (e.model != null && current?.model != e.model) {
+          current?.model = e.model;
           _writeRecord();
         }
         _applyPendingRestart();
@@ -422,6 +513,10 @@ class BridgeSession extends ChangeNotifier {
         }
       case ResultEvent():
         state = BridgeState.ready;
+        if (e.numTurns > 0 && current != null) {
+          current!.turns++;
+          _writeRecord();
+        }
         final by = _interruptedBy;
         lastTurnInterrupted = by != null;
         if (by != null) {
@@ -506,6 +601,11 @@ class BridgeSession extends ChangeNotifier {
     final queued = transcript.turnOpen || _queue.isNotEmpty;
     final row = transcript.addUser(t, about: about, attachments: saved, queued: queued, by: by);
     lastSent = row;
+    final cur = current;
+    if (cur != null && cur.firstMessage == null) {
+      cur.firstMessage = clipLine(t.isEmpty ? '(a file)' : t, 120);
+      _writeRecord();
+    }
     var prompt = about == null ? t : scopedPrompt(t, about, describeAbout?.call(about));
     final images = <InlineImage>[];
     final inline = <int>{};
@@ -669,6 +769,45 @@ class BridgeSession extends ChangeNotifier {
     return removed;
   }
 
+  /// Takes a session off the list — the CLI's file stays. Refused for the
+  /// one running. The current one, stopped, leaves the Deck empty with it.
+  bool deleteSession(String id) {
+    if (running && id == sessionId) return false;
+    final n = sessions.length;
+    sessions.removeWhere((s) => s.id == id);
+    if (sessions.length == n) return false;
+    if (id == sessionId) {
+      sessionId = null;
+      transcript.sessionId = null;
+      transcript.messages.clear();
+      transcript.pending = null;
+      transcript.lastResult = null;
+      transcript.turnOpen = false;
+    }
+    _writeRecord();
+    notifyListeners();
+    return true;
+  }
+
+  /// A resume the last Start could not honour — the session never spoke,
+  /// so it started fresh and says so. Null when it did what was asked.
+  String? lastStartNote;
+
+  /// Resumes [id] from the list — or, with none, starts a new conversation
+  /// — stopping the running one first, between turns. Returns the one
+  /// line to toast.
+  Future<String> switchTo({String? id}) async {
+    if (running) {
+      if (transcript.turnOpen) return 'A turn is running — interrupt it, or wait for it to end.';
+      await stop();
+    }
+    await start(resume: id != null, id: id);
+    if (error != null) return error!;
+    if (!running) return 'did not start';
+    if (lastStartNote != null) return lastStartNote!;
+    return id == null ? 'a new session' : 'resumed ${id.length > 8 ? id.substring(0, 8) : id}';
+  }
+
   Future<void> stop() async {
     final proc = _proc;
     if (proc == null) return;
@@ -706,6 +845,7 @@ class BridgeSession extends ChangeNotifier {
     _modeWanted = null;
     _modelWanted = null;
     _interruptedBy = null;
+    current?.endedAt = DateTime.now();
     _writeRecord();
     notifyListeners();
   }
@@ -722,7 +862,7 @@ class BridgeSession extends ChangeNotifier {
       _recordFile
         ..createSync(recursive: true)
         ..writeAsStringSync(jsonEncode(BridgeRecord(
-          sessionId: sessionId ?? prev?.sessionId,
+          sessionId: sessionId,
           startedAt: startedAt ?? prev?.startedAt ?? DateTime.now(),
           pid: pid,
           always: alwaysApplied,
@@ -730,6 +870,7 @@ class BridgeSession extends ChangeNotifier {
           chrome: chrome,
           model: modelChoice,
           effort: effort,
+          sessions: sessions,
         ).toJson()));
     } on Object {
       // The record is a convenience for Resume; the session runs without it.
@@ -740,7 +881,7 @@ class BridgeSession extends ChangeNotifier {
         'mode': running ? 'bridge' : 'idle',
         'state': state.name,
         'pendingAsks': transcript.pending == null ? 0 : 1,
-        'canResume': !running && previous()?.sessionId != null,
+        'canResume': !running && sessionId != null,
         'modeChoice': modeChoice,
         'modePending': modePending,
         'modelPending': modelPending,
@@ -800,6 +941,14 @@ String scopedPrompt(String text, Map<String, Object?> about, String? shown) {
     'Answer for a phone screen: short and concrete, from this $kind\'s own facts.',
     'If the $kind itself should change — needs, blocks, body, runbook, deadline, or the recommended option — make the change with the `kit` CLI or by editing its YAML under plan/, and say in one line what you changed.',
   ].join('\n');
+}
+
+List<String>? _readLines(File f) {
+  try {
+    return f.existsSync() ? f.readAsLinesSync() : null;
+  } on Object {
+    return null;
+  }
 }
 
 Future<String?> _claudeVersion(String bin) async {

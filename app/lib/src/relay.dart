@@ -29,6 +29,7 @@ import 'screens/mirror_sheet.dart';
 /// projects/{slug}/files/{commandId} the host's answer to a read_file: FileRead.toMap() — {path, text, lines, bytes, truncated, blob?, refused?}; the phone deletes it once read
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/runs/{runId}/log/{chunk} the run bay's log: {from, lines} — 200 lines a document, the last 10 documents kept, one write a second at most; the phone joins them in order
+/// projects/{slug}/sessions/{id}     one conversation of the project: SessionEntry.toMap() — {id, startedAt, endedAt, firstMessage, turns, model, mode}; the host's list, whole
 /// projects/{slug}/builds/{id}       a build of the app under test: BuildRecord.toMap() — {state, sha, branch, version, size, at, path, progress, error, log, by, name}; the last 3 kept; the APK is Storage projects/{slug}/builds/{id}.apk
 /// projects/{slug}.mirror             the host's frame record {seq, at, w, h, dw, dh, streaming, lastInput, error} merged with the phone's {watching: {at, by}}; the frame itself is Storage projects/{slug}/frames/live.jpg
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
@@ -177,6 +178,48 @@ class RelayPublisher {
 
   /// Drops one build's document.
   Future<void> deleteBuild(String id) => ref.collection('builds').doc(id).delete();
+
+  final Map<String, String> _sessions = {};
+  bool _sessionsSeeded = false;
+  Future<void> _sessionsChain = Future.value();
+
+  /// Mirrors the host's session list, one document each; a session gone
+  /// from the list is deleted. Writes take their turn, so two changes in
+  /// a row cannot cross.
+  Future<void> publishSessions(List<Map<String, Object?>> sessions) {
+    final copy = [for (final s in sessions) {...s}];
+    return _sessionsChain = _sessionsChain.catchError((Object _) {}).then((_) => _flushSessions(copy));
+  }
+
+  Future<void> _flushSessions(List<Map<String, Object?>> sessions) async {
+    if (!_sessionsSeeded) {
+      _sessionsSeeded = true;
+      final q = await ref.collection('sessions').get();
+      for (final d in q.docs) {
+        _sessions[d.id] = stableJson(d.data());
+      }
+    }
+    final wanted = <String, Map<String, Object?>>{for (final s in sessions) (s['id'] ?? '').toString(): s};
+    final ops = <void Function(WriteBatch)>[];
+    for (final e in wanted.entries) {
+      final json = stableJson(e.value);
+      if (_sessions[e.key] == json) continue;
+      ops.add((b) => b.set(ref.collection('sessions').doc(e.key), e.value));
+      _sessions[e.key] = json;
+    }
+    for (final id in _sessions.keys.toList()) {
+      if (wanted.containsKey(id)) continue;
+      ops.add((b) => b.delete(ref.collection('sessions').doc(id)));
+      _sessions.remove(id);
+    }
+    for (var i = 0; i < ops.length; i += 400) {
+      final b = db.batch();
+      for (final op in ops.sublist(i, (i + 400).clamp(0, ops.length))) {
+        op(b);
+      }
+      await b.commit();
+    }
+  }
 
   /// Drops every build document not in [keepIds].
   Future<void> pruneBuilds(List<String> keepIds) async {
@@ -559,8 +602,23 @@ class RemoteDeck extends ChangeNotifier {
   bool get restartPending => session['restartPending'] == true;
   String? get chromeStatus => session['chromeStatus']?.toString();
 
-  /// The transcript with this device's unconfirmed sends at the end.
-  List<DeckMessage> get view => [...messages, ...echoes];
+  /// The transcript with this device's unconfirmed sends at the end —
+  /// only the current session's rows, so a switch on the Mac never shows
+  /// two conversations at once while the mirror catches up.
+  List<DeckMessage> get view {
+    final sid = sessionId;
+    return [
+      for (final m in messages)
+        if (sid == null || _rowSession[m.id] == null || _rowSession[m.id] == sid) m,
+      ...echoes,
+    ];
+  }
+
+  /// Which session each mirrored row belongs to, by row id.
+  final Map<String, String> _rowSession = {};
+
+  /// The host's conversations for this project, newest first.
+  List<SessionEntry> sessions = const [];
 
   void start() {
     _subs.add(ref.snapshots().listen((d) {
@@ -580,7 +638,18 @@ class RemoteDeck extends ChangeNotifier {
       buildList = all.take(buildsKeep).toList();
       notifyListeners();
     }, onError: _onError));
+    _subs.add(ref.collection('sessions').snapshots().listen((q) {
+      final all = [for (final d in q.docs) SessionEntry.fromMap({for (final e in d.data().entries) e.key: e.value as Object?})];
+      all.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+      sessions = all;
+      notifyListeners();
+    }, onError: _onError));
     _subs.add(ref.collection('chat').snapshots().listen((q) {
+      _rowSession.clear();
+      for (final d in q.docs) {
+        final s = d.data()['sessionId'];
+        if (s != null) _rowSession[d.id] = s.toString();
+      }
       messages = (q.docs.map((d) => DeckMessage.fromMap({for (final e in d.data().entries) e.key: e.value as Object?})).toList()..sort((a, b) => a.id.compareTo(b.id)));
       // The host's copy of a message we sent replaces the echo.
       final sent = messages.where((m) => m.role == DeckRole.user).map((m) => m.text).toSet();
@@ -842,14 +911,16 @@ class RemoteDeck extends ChangeNotifier {
 
   /// Start is a command like any other — except that a Mac that said it
   /// stopped cannot run it, and the phone says so instead of queueing.
-  Future<void> startSession({bool resume = false}) async {
+  /// [id] resumes one session from the list and [fresh] starts a new
+  /// conversation — either stops a running session first, between turns.
+  Future<void> startSession({bool resume = false, String? id, bool fresh = false}) async {
     final p = presence;
     if (p.state == HostState.stopped) {
       error = 'The Mac app is stopped — open K.A.T.Y.A on the Mac first.';
       notifyListeners();
       return;
     }
-    await CommandSender(db, slug).send({'type': 'start', 'resume': resume}, from: from);
+    await CommandSender(db, slug).send({'type': 'start', 'resume': resume || id != null, 'sessionId': ?id, if (fresh) 'new': true}, from: from);
     if (p.state == HostState.unreachable) {
       error = 'Start is queued — the Mac is unreachable; it starts when the Mac is back.';
       notifyListeners();
@@ -871,6 +942,9 @@ class RemoteDeck extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// Takes a session off the Mac's list — the CLI keeps its file.
+  Future<void> deleteSession(String id) => CommandSender(db, slug).send({'type': 'session', 'action': 'delete', 'sessionId': id}, from: from);
 
   /// The options the host's next Start runs with; `default` for a dial
   /// hands the choice back to the CLI.

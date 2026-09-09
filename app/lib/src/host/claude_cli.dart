@@ -72,7 +72,23 @@ class ClaudeCli {
     }
   }
 
-  static String projectStateDir(String dir) => p.join(home, '.claude', 'projects', claudeProjectSlug(dir));
+  /// Where the CLI keeps this folder's sessions. The CLI keys the folder
+  /// by the path it ran in, resolved — `/var/…` is `/private/var/…` to it
+  /// — so the resolved path's folder is taken when it exists, the given
+  /// path's otherwise.
+  static String projectStateDir(String dir) {
+    final given = p.join(home, '.claude', 'projects', claudeProjectSlug(dir));
+    try {
+      final real = Directory(dir).resolveSymbolicLinksSync();
+      if (real != dir) {
+        final resolved = p.join(home, '.claude', 'projects', claudeProjectSlug(real));
+        if (Directory(resolved).existsSync() && !Directory(given).existsSync()) return resolved;
+      }
+    } on Object {
+      // A folder that is gone resolves nothing; the given path stands.
+    }
+    return given;
+  }
 
   static BridgePointer? readPointer(String dir) {
     try {

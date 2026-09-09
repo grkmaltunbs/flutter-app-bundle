@@ -20,7 +20,14 @@ if [ "$WHAT" = mac ] || [ "$WHAT" = all ]; then
   DST="$HOME/Applications/kit_app.app"
   mkdir -p "$HOME/Applications"
   WAS_RUNNING=0
-  if pgrep -x kit_app >/dev/null; then WAS_RUNNING=1; osascript -e 'tell application "kit_app" to quit' >/dev/null 2>&1 || true; sleep 2; fi
+  if pgrep -x kit_app >/dev/null; then
+    WAS_RUNNING=1
+    osascript -e 'tell application "kit_app" to quit' >/dev/null 2>&1 || true
+    # The app says goodbye to the relay before it goes; an `open` while it
+    # is still quitting lands on the dying instance and nothing relaunches.
+    for _ in $(seq 1 40); do pgrep -x kit_app >/dev/null || break; sleep 0.5; done
+    pgrep -x kit_app >/dev/null && { echo "▸ Mac: the running app would not quit — closing it"; pkill -x kit_app || true; sleep 1; }
+  fi
   rm -rf "$DST" && cp -R "$SRC" "$DST"
   echo "▸ Mac: installed $DST"
   if [ "$WAS_RUNNING" = 1 ]; then (open "$DST" || { sleep 2; open "$DST"; } || echo "▸ Mac: could not relaunch — open \"$DST\" yourself"); echo "▸ Mac: relaunched — use Reattach on the Session tab if a session was running"; else echo "▸ Mac: open it from ~/Applications (or: open \"$DST\")"; fi

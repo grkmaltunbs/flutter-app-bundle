@@ -198,6 +198,13 @@ class HostProject extends ChangeNotifier {
   Future<String> setAutopilot({required bool on, int? budget, bool? nightShift}) =>
       applyCommand({'type': 'autopilot', 'on': on, 'budget': ?budget, 'nightShift': ?nightShift, 'from': 'Mac'});
 
+  /// A session from the list on the Mac's own screens — resume [id], or
+  /// with none a new conversation: the same command the phone sends.
+  Future<String> switchSession({String? id}) => applyCommand({'type': 'start', 'sessionId': ?id, if (id == null) 'new': true, 'from': 'Mac'});
+
+  /// One off the list, from the Mac's own screens.
+  Future<String> deleteSession(String id) => applyCommand({'type': 'session', 'action': 'delete', 'sessionId': id, 'from': 'Mac'});
+
   /// What the phone sees as the session: the bridge while it runs, else
   /// Remote Control, else idle.
   Map<String, Object?> sessionRelay() => {..._sessionCore(), if (gitStatus != null) 'git': gitStatus!.toMap(), 'autopilot': autopilot.state.toMap(), 'run': run.state.toMap(), 'build': builds.relay};
@@ -251,7 +258,10 @@ class HostProject extends ChangeNotifier {
     _publisher?.publishSession(sessionRelay());
     _publisher?.publishTranscript(bridge.transcript);
     final pub = _publisher;
-    if (pub != null) unawaited(pub.publishThreads(bridge.transcript));
+    if (pub != null) {
+      unawaited(pub.publishThreads(bridge.transcript));
+      unawaited(pub.publishSessions(bridge.sessionsRelay));
+    }
     final turn = _turns.check(state: bridge.state, error: bridge.error, lastResult: bridge.transcript.lastResult, interrupted: bridge.lastTurnInterrupted, project: projectName);
     // The loop's own line replaces the plain Done for a turn it drove.
     if (turn != null && !(loopTurn && turn.kind == NoticeKind.done)) _notify(turn);
@@ -409,8 +419,21 @@ class HostProject extends ChangeNotifier {
         // A fresh conversation has nothing pending; a resumed one neither.
         final sweep = _publisher;
         if (sweep != null) unawaited(_sweepAsks(sweep));
+        final id = cmd['sessionId']?.toString();
+        if (id != null || cmd['new'] == true) {
+          // From the sessions list: another conversation, or a new one —
+          // the running session stops first, between turns, and the loop
+          // it was driving with it.
+          if (bridge.running) autopilot.stop(by: 'a session switch');
+          return bridge.switchTo(id: id);
+        }
         await bridge.start(resume: cmd['resume'] == true);
         return bridge.error ?? (bridge.running ? 'started' : 'did not start');
+      case 'session':
+        // `{type: session, action: delete, sessionId}` — off the list; the
+        // CLI keeps its file.
+        if (cmd['action'] != 'delete') return 'unknown session action ${cmd['action']}';
+        return bridge.deleteSession((cmd['sessionId'] ?? '').toString()) ? 'removed from the list' : 'not removed — it is running, or not in the list';
       case 'stop':
         autopilot.stop(by: 'Stop');
         await bridge.stop();
@@ -540,6 +563,7 @@ class HostProject extends ChangeNotifier {
       // The truth about the session, first thing: a relaunched host must
       // overwrite the LIVE a dead process left on the mirror.
       unawaited(_publisher!.publishSession(sessionRelay()));
+      unawaited(_publisher!.publishSessions(bridge.sessionsRelay));
       // Files a phone put up and nobody collected.
       final store = blobs;
       if (store != null) unawaited(UploadReader(store, slug!).prune().catchError((Object _) => 0));

@@ -346,7 +346,8 @@ projects/{slug}/commands/{auto}       + {type: mirror, action: frame} | {type: i
 projects/{slug}.session.context       {used, window, at}   (built 2026-09-06, with session.pool and session.compacting)
 projects/{slug}.session.autopilot     {on, budget, sent, done, nightShift, step?, stepNumber?, waitingUntil?, stoppedFor?, startedAt?}   (built 2026-09-06)
 projects/{slug}/commands/{auto}       + {type: autopilot, on, budget?, nightShift?}
-projects/{slug}/sessions/{id}         {startedAt, endedAt, firstMessage, turns, model, mode}
+projects/{slug}/sessions/{id}         {id, startedAt, endedAt?, firstMessage?, turns, model?, mode?} — the host's list, whole   (built 2026-09-09)
+projects/{slug}/commands/{auto}       + {type: start, sessionId?, new?} (a resume from the list, or a new conversation — a running session stops first) | {type: session, action: delete, sessionId}
 projects/{slug}/runs/{id}/log/{chunk} {from, lines[≤200], at} — the last 10 documents kept (2000 lines), ≤ 1 write/s   (built 2026-09-06)
 projects/{slug}/files/{id}            {path, text, lines, truncated}  (text in Storage past 900 KB)
 projects/{slug}/builds/{id}           {state, sha, branch, version, size, at, path, progress, error, log, by, name} — the last 3 kept   (built 2026-09-06)
@@ -375,7 +376,55 @@ puts objects in Storage. The host is the only writer of session truth.
 3. `ExitPlanMode`'s request: **answered** 2026-09-04 (above) — `input.plan`, and the allow takes `setMode`.
 4. `/compact` as a user message in `-p`: **compacts** (2026-09-06, above) — `status compacting`, a `compact_boundary` with the tokens before and after, a fresh `init`, a `result` with no turns.
 5. `xcrun simctl io <udid> screenshot` to a pipe, and the frame rate it sustains.
-6. The CLI's transcript file under `~/.claude/projects/<cwd-key>/` for session history.
+6. The CLI's transcript file under `~/.claude/projects/<cwd-key>/` for session history: **read** 2026-09-09 on 2.1.261 (below).
+
+### Session history (built 2026-09-09)
+
+The bridge record is a list: `~/.flutter_kit/bridge/<slug>.json` →
+`{sessionId, sessions: [{id, startedAt, endedAt?, firstMessage?, turns,
+model?, mode?}], …options}` — `sessionId` is the current one, what Resume
+resumes; a record from before the list reads as one entry. The host fills
+an entry in as the session goes (the first message on the first send, a
+turn per `result` with turns, the model from `init`, the end on exit) and
+mirrors the list to `projects/{slug}/sessions/{id}`, one document each,
+deleted when gone. Both Decks and the Session tab show a **Sessions**
+card — the conversation on the Deck, NEW, ALL — and a sheet with every
+session newest first, RESUME and a bin on each. Resume from the list and
+New stop a running session first, between turns (mid-turn the command is
+refused with a line), and stop the autopilot with it. Delete takes a
+session off the list only; the current one, stopped, empties the Deck
+with it. The rows on the Deck belong to one conversation: a switch to
+another session clears them and reads the tail back from the CLI's
+file; a resume of the conversation already shown keeps its rows and reads
+nothing. The phone hides any mirrored row whose `sessionId` is not the
+current session's, so a switch never shows two conversations while the
+mirror catches up.
+
+**The file's shape** (`<id>.jsonl`, 2.1.261): one JSON object per line.
+`user` lines carry the person's prompt — `message.content` a string, or
+`text` blocks; a slash command is kept as
+`<command-name>/step</command-name>\n<command-args>…</command-args>` — or
+a tool's result (`tool_result` blocks with `tool_use_id`, the content a
+string or `text` blocks); `isMeta: true` marks text the CLI injected,
+`isSidechain: true` a subagent's thread. `assistant` lines carry one
+content block each (`text`, `tool_use`, `thinking`) with `message.model`
+and `timestamp`. The rest — `ai-title`, `mode`, `permission-mode`,
+`queue-operation`, `last-prompt`, `atis-latch`, `attachment`,
+`system/local_command`, `bridge-session`, `file-history-snapshot` — is
+bookkeeping. `kit/lib/src/history.dart` reads the last 80 rows back
+(`restoreRows`, ids `h…` so they sort before the live `m…` rows) and a
+summary (`summarizeTranscript`: first prompt, turns, model, span) for an
+entry the record had nothing on. One thing learned on the live run: the
+CLI keys its folder by the path it ran in, *resolved* — a project under
+`/var/…` is `/private/var/…` to it — so `ClaudeCli.projectStateDir`
+takes the resolved path's folder when it exists; before this, a resume
+of such a folder found no file, started fresh, and said so only in the
+log (`switchTo` now returns that line). Two more from the relaunch: an
+entry from before the list knew nothing but its id, so the host now reads
+its file once at construction (first prompt, turns, model, the last line
+as its end) and writes the record; and `ship.sh` opened the new app while
+the old one was still saying goodbye to the relay, so nothing relaunched
+— it now waits for the old process to be gone.
 
 ### Risks, and what holds them
 

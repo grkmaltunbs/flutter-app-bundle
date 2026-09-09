@@ -8,6 +8,7 @@ import '../host/host_project.dart';
 import '../widgets/builds_card.dart';
 import '../widgets/git_card.dart';
 import '../widgets/run_card.dart';
+import '../widgets/sessions_card.dart';
 import 'log_sheet.dart';
 import 'mirror_sheet.dart';
 import '../host/login_item.dart';
@@ -113,6 +114,16 @@ class _SessionTabState extends State<SessionTab> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const SectionHead('Sessions', sub: 'Every conversation this folder had. Resume one, start new, or take one off the list — the CLI keeps its file under ~/.claude/projects.'),
+                    SessionsCard(
+                      sessions: b.sessions,
+                      currentId: b.sessionId,
+                      running: b.running,
+                      turnOpen: b.transcript.turnOpen,
+                      onResume: (id) => h.switchSession(id: id),
+                      onNew: () => h.switchSession(),
+                      onDelete: h.deleteSession,
+                    ),
                     SectionHead('Session options', sub: b.running ? 'How claude -p runs in this folder. The mode switches in place; Chrome waits for a stop. The phone can flip these too.' : 'How Start runs claude -p in this folder. The phone can flip these too.'),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),

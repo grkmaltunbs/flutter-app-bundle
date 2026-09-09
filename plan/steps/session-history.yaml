@@ -1,14 +1,14 @@
 id: session-history
 number: "21"
 title: Session history — every conversation kept, any one resumed from the phone
-status: pending
+status: done
 rank: 820
 depends_on: [session-dials]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-09, note: "kit and app: no issues", status: passed}
+  tests: { at: 2026-09-09, note: "kit 118, app 184 (1 skip: the live bridge test)", status: passed}
+  qa: { at: 2026-09-09, note: "the host half against the real claude (KIT_LIVE=1, 2.1.265): two conversations, New, Resume from the list with the tail read back from the session's file, 'which word?' answered falcon, Delete kept the CLI's file; the relay half on the relaunched host: sessions\/{id} published for the three open projects from records made before the list, each filled from its file (first prompt, turns, model, end), a session command stamped by the new dispatcher; the phone's card and sheet at 1.0\/2.0\/3.12 in widget tests. NOT run live: a Resume from the phone in hand (the session-history-look item, provenance only). Found and fixed: the CLI keys its folder by the resolved path (\/var → \/private\/var), and ship.sh's relaunch raced its own quit.", status: passed}
 sections:
   - title: Description
     body: |
@@ -47,3 +47,16 @@ sections:
       - `app/lib/src/host/bridge_session.dart` (record shape, resume by id), `app/lib/src/host/claude_cli.dart` (transcript file), `app/lib/src/relay.dart` (sessions, chat.sessionId), `app/lib/src/screens/session_tab.dart`, `app/lib/src/screens/deck_tab.dart` (fold), `app/DESIGN.md`
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b" }
+  - at: 2026-09-09
+    event: started
+  - at: 2026-09-09
+    event: gate tests passed
+    note: "kit 118, app 184 (1 skip: the live bridge test)"
+  - at: 2026-09-09
+    event: gate analyze passed
+    note: "kit and app: no issues"
+  - at: 2026-09-09
+    event: gate qa passed
+    note: "the host half against the real claude (KIT_LIVE=1, 2.1.265): two conversations, New, Resume from the list with the tail read back from the session's file, 'which word?' answered falcon, Delete kept the CLI's file; the relay half on the relaunched host: sessions\/{id} published for the three open projects from records made before the list, each filled from its file (first prompt, turns, model, end), a session command stamped by the new dispatcher; the phone's card and sheet at 1.0\/2.0\/3.12 in widget tests. NOT run live: a Resume from the phone in hand (the session-history-look item, provenance only). Found and fixed: the CLI keys its folder by the resolved path (\/var → \/private\/var), and ship.sh's relaunch raced its own quit."
+  - at: 2026-09-09
+    event: done

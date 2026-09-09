@@ -22,6 +22,7 @@ import '../widgets/builds_card.dart';
 import '../widgets/common.dart';
 import '../widgets/git_card.dart';
 import '../widgets/run_card.dart';
+import '../widgets/sessions_card.dart';
 import '../widgets/tool_sheet.dart';
 import 'ask_card.dart';
 import 'file_view.dart';
@@ -96,6 +97,11 @@ class DeckView extends StatefulWidget {
     this.initialFiles = const [],
     this.initialText,
     this.installBuild,
+    this.sessions = const [],
+    this.sessionId,
+    this.onResumeSession,
+    this.onNewSession,
+    this.onDeleteSession,
   });
 
   final BridgeState state;
@@ -198,6 +204,16 @@ class DeckView extends StatefulWidget {
   final bool buildOnFlip;
   final Future<String> Function(String action, {String? id, bool? on})? onBuild;
   final Future<String> Function(BuildRecord b, void Function(double fraction) onProgress)? onInstall;
+
+  /// Sessions: every conversation this folder had, the one on the Deck by
+  /// [sessionId], and the three commands the card runs — resume one,
+  /// start new, take one off the list — each returning the line to
+  /// toast. [onResumeSession] null: no card here.
+  final List<SessionEntry> sessions;
+  final String? sessionId;
+  final Future<String?> Function(String id)? onResumeSession;
+  final Future<String?> Function()? onNewSession;
+  final Future<String?> Function(String id)? onDeleteSession;
 
   /// What the Deck opens with: files a share brought, a line of text —
   /// and a build to install the moment its row is there (a tap on the
@@ -1236,8 +1252,13 @@ class _Attachments extends StatelessWidget {
 
 /// The host's Deck: straight off its own bridge.
 class DeckTab extends StatelessWidget {
-  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog, this.mirrorHooks, this.builds = const [], this.buildOnFlip = false, this.onBuild});
+  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog, this.mirrorHooks, this.builds = const [], this.buildOnFlip = false, this.onBuild, this.onSwitchSession, this.onDeleteSession});
   final BridgeSession bridge;
+
+  /// The sessions list's commands through the host (which stops the loop
+  /// with the session); the bridge's own when nobody wires them.
+  final Future<String> Function({String? id})? onSwitchSession;
+  final Future<String> Function(String id)? onDeleteSession;
 
   /// The host's loop, and its toggle — see [DeckView.autopilot].
   final AutopilotState? autopilot;
@@ -1333,6 +1354,11 @@ class DeckTab extends StatelessWidget {
           builds: builds,
           buildOnFlip: buildOnFlip,
           onBuild: onBuild,
+          sessions: b.sessions,
+          sessionId: b.sessionId,
+          onResumeSession: (id) => onSwitchSession?.call(id: id) ?? b.switchTo(id: id),
+          onNewSession: () => onSwitchSession?.call() ?? b.switchTo(),
+          onDeleteSession: (id) async => onDeleteSession?.call(id) ?? (b.deleteSession(id) ? 'removed from the list' : 'not removed — it is running, or not in the list'),
           onSend: (text, files) async => b.send(text, files: files),
           pick: pick,
         );
@@ -1457,6 +1483,20 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         buildOnFlip: d.buildOnFlip,
         onBuild: d.buildCommand,
         onInstall: d.installBuild,
+        sessions: d.sessions,
+        sessionId: d.sessionId,
+        onResumeSession: (id) async {
+          await d.startSession(id: id);
+          return 'the Mac resumes ${shortId(id)}';
+        },
+        onNewSession: () async {
+          await d.startSession(fresh: true);
+          return 'the Mac starts a new session';
+        },
+        onDeleteSession: (id) async {
+          await d.deleteSession(id);
+          return 'removed on the Mac';
+        },
         initialFiles: widget.initialFiles,
         initialText: widget.initialText,
         installBuild: widget.installBuild,
@@ -1738,6 +1778,19 @@ class _Header extends StatelessWidget {
             _Dial(label: 'MODEL', choices: modelChoices, value: w.modelChoice, enabled: true, onChanged: (v) => w.onOptions!(model: v)),
             _Dial(label: 'EFFORT', choices: effortChoices, value: w.effort, enabled: true, onChanged: (v) => w.onOptions!(effort: v)),
             _Dial(label: 'MODE', choices: modeChoices, value: w.modeChoice, enabled: true, labelOf: modeLabel, warnOn: 'bypassPermissions', onChanged: (v) => w.onOptions!(mode: v)),
+            if (w.onResumeSession != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SessionsCard(
+                  sessions: w.sessions,
+                  currentId: w.sessionId,
+                  running: w.running,
+                  turnOpen: w.turnOpen,
+                  onResume: w.onResumeSession!,
+                  onNew: w.onNewSession ?? () async => null,
+                  onDelete: w.onDeleteSession ?? (_) async => null,
+                ),
+              ),
             if (w.onGit != null) Padding(padding: const EdgeInsets.only(top: 8), child: GitCard(git: w.git, onOp: w.onGit!)),
             if (w.onBuild != null)
               Padding(

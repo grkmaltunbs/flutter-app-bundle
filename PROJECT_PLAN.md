@@ -612,7 +612,7 @@ A stopped host (clean quit) reads as "Mac stopped", not
 ---
 
 ## Step 12 — Plan mode — the mode dial, and the plan as a card you approve from the phone
-- [ ]
+- [x]
 - id: plan-mode
 - depends_on: session-dials
 - qa_required: true
@@ -668,8 +668,41 @@ whether the allow response takes a mode), and record it in
 
 ---
 
+## Step 12b — Focus — the phone's Deck as one scroll; the header, the now line and the tabs fold away as you read
+- [x]
+- id: deck-focus
+- depends_on: plan-mode
+- qa_required: true
+
+### Description
+From the user's QA of plan-mode (2026-09-04): the Deck stacked three
+scrollables — the header, the transcript, the ask with the composer
+— and the last rows hid behind a tall plan card. Now the ask card is
+the last row of the transcript, so the conversation and what it
+asks are one scroll, and the plan card no longer scrolls inside
+itself. On a phone, a drag upward (reading down) folds the chrome
+away: the tab strip, the NOW strip, and the header — which shrinks
+to one row, the status and the title with Stop, so nothing is lost.
+A drag downward brings everything back; so does the chevron on the
+row. The Mac keeps its layout.
+
+### Acceptance
+- Phone: a long transcript with an open ask — scroll to the end and the card is there, under the last row; nothing hides behind it.
+- Phone: drag up — the tabs, the NOW strip and the header fold to one row with the status, the title and Stop; drag down — they return; so does the chevron.
+- Phone: a plan card renders whole in the scroll; APPROVE is reached by scrolling, not inside a box.
+- Mac: nothing folds; the window reads as before.
+
+### QA walkthrough
+1. Phone: open Nahmatik on a session with a long transcript; drag up — the tabs and the NOW strip go, one status row stays; drag down — they return.
+2. Phone: MODE → PLAN, ask for a plan; the card sits under the last row and scrolls with it.
+
+### Touchpoints
+- `app/lib/src/screens/deck_tab.dart` (`DeckView`, `_Header`), `app/lib/src/screens/project_screen.dart` (tab strip), `app/lib/src/screens/ask_card.dart`
+
+---
+
 ## Step 13 — Interrupt — end the turn and keep the session; a message sent while it works waits its turn
-- [ ]
+- [x]
 - id: interrupt
 - depends_on: session-dials
 - qa_required: true
@@ -721,7 +754,7 @@ the note says so. The protocol is undocumented; the fallback stays.
 ---
 
 ## Step 14 — Review — the diff before Allow, any file on the Mac from a tap, and Git from the phone
-- [ ]
+- [x]
 - id: review
 - depends_on: deck-on-the-phone, blobs
 - qa_required: true
@@ -784,7 +817,7 @@ not have reports the error line verbatim.
 ---
 
 ## Step 15 — Instruments — the context gauge and the pool gauges on the Deck, and compaction offered before the wall
-- [ ]
+- [x]
 - id: instruments
 - depends_on: session-dials
 - qa_required: true
@@ -838,7 +871,7 @@ is at n %" and Start with a new id is one tap. Record the answer in
 ---
 
 ## Step 16 — Deck crew — subagents as a strip, tool rows that open, and the line since you last looked
-- [ ]
+- [x]
 - id: deck-crew
 - depends_on: deck-on-the-phone
 - qa_required: true
@@ -884,7 +917,7 @@ when the user scrolls past it, and there is one, not one per turn.
 
 ## Step 17 — Autopilot — the host keeps stepping within a budget, waits for the pool, and stops for you
 - [ ]
-- state: blocked — waiting on instruments, interrupt
+- state: code complete — waiting on 1 human item(s)
 - id: autopilot
 - depends_on: notification-actions, host-service, instruments, interrupt
 - qa_required: true
@@ -945,7 +978,7 @@ The step's checkbox stays `[ ]` until these are checked:
 ---
 
 ## Step 18 — Run bay — the host runs the app under test; reload, restart, the device and the log from the phone
-- [ ]
+- [x]
 - id: run-bay
 - depends_on: host-service
 - qa_required: true
@@ -1006,8 +1039,7 @@ without a turn.
 ---
 
 ## Step 19 — Mirror — see the app under test on the phone, and drive it with taps
-- [ ]
-- state: blocked — waiting on run-bay
+- [x]
 - id: mirror
 - depends_on: run-bay, blobs
 - qa_required: true
@@ -1062,6 +1094,7 @@ paperclip does, one tap on the sheet.
 
 ## Step 20 — Try it — the build installs on the phone in your hand, and a screenshot shares straight back
 - [ ]
+- state: code complete — waiting on 1 human item(s)
 - id: try-it
 - depends_on: blobs, notifications
 - qa_required: true
@@ -1120,7 +1153,7 @@ The step's checkbox stays `[ ]` until these are checked:
 ---
 
 ## Step 21 — Session history — every conversation kept, any one resumed from the phone
-- [ ]
+- [x]
 - id: session-history
 - depends_on: session-dials
 - qa_required: true
@@ -1164,7 +1197,6 @@ CLI's file.
 
 ## Step 22 — Worktree sessions — a second session on the same project in its own tree, merged from the Git card
 - [ ]
-- state: blocked — waiting on review, session-history
 - id: worktrees
 - depends_on: review, session-history
 - qa_required: true
@@ -1211,7 +1243,6 @@ dirty, `--force` behind a confirm) and drops the relay entry.
 
 ## Step 23 — Rich pushes — a finished turn with its summary and a frame, a plan and a diff in the push, quiet hours
 - [ ]
-- state: blocked — waiting on mirror
 - id: rich-pushes
 - depends_on: notifications, mirror
 - qa_required: true
@@ -1304,7 +1335,6 @@ ticks — except that these ops need no Claude; the button reads
 
 ## Step 25 — Brief and rules — the standing brief and CLAUDE.md edited on the phone, committed on save
 - [ ]
-- state: blocked — waiting on review
 - id: brief-and-rules
 - depends_on: session-options, review
 - qa_required: true
@@ -1347,7 +1377,7 @@ file that changed on disk since it was opened and offers to reload.
 
 ## Step 26 — Voice and biometrics — hear the ask and the summary, answer by voice, and prove it is you before the dangerous taps
 - [ ]
-- state: blocked — waiting on plan-mode, review, autopilot
+- state: blocked — waiting on autopilot
 - id: voice-and-biometrics
 - depends_on: instrument-skin, plan-mode, review, autopilot
 - qa_required: true
@@ -1437,7 +1467,195 @@ The step's checkbox stays `[ ]` until these are checked:
 
 ---
 
-## Step 28 — Parked — Hand over to the Claude app on the same conversation, and take it back
+## Step 28 — Codex engine — the same Deck drives ChatGPT Codex, and the plugin runs there too
+- [ ]
+- state: blocked — waiting on brief-and-rules
+- id: codex-engine
+- depends_on: session-history, brief-and-rules
+- qa_required: true
+
+### Description
+Nothing on the phone or in the relay knows which engine runs; the
+host does. This step gives the host a second engine and the plugin
+a second home, so a project runs on Claude Code or on Codex from an
+**ENGINE** notch, on whichever subscription has room.
+
+**What was found (2026-09-06).** Codex CLI 0.153.4 is on the Mac
+inside the ChatGPT app (`/Applications/ChatGPT.app/Contents/Resources/codex`,
+not on PATH), signed in with ChatGPT Plus. `codex app-server --stdio`
+— JSON-RPC 2.0, one object per line, the protocol the Codex desktop
+app and the VS Code extension speak, with a schema the binary prints
+itself (`codex app-server generate-json-schema --out <dir>`) —
+answered `initialize`, `account/read` (plan: plus), `model/list`,
+`account/rateLimits/read`, `hooks/list` and `skills/list` on the
+subscription, no API key. `~/.codex/config.toml` already carries
+Claude marketplaces and installed `firebase@claude-plugins-official`
+from a `.claude-plugin/plugin.json`; Codex reads this repo's
+`.claude-plugin/marketplace.json` as a legacy-compatible marketplace.
+The app-server is marked experimental in the CLI's help, as the
+stdio control protocol was undocumented: pin the version, keep the
+spike table.
+
+**The map.**
+- The bridge's stream-json → `thread/start` / `thread/resume` /
+  `turn/start`; text streams as `item/agentMessage/delta`; tool rows
+  come from `item/started` / `item/completed` (commandExecution,
+  fileChange, mcpToolCall, webSearch, reasoning, collabAgentToolCall,
+  subAgentActivity, contextCompaction) — the crew strip reads the
+  last two.
+- A permission `control_request` → `item/commandExecution/requestApproval`
+  and `item/fileChange/requestApproval`: accept, decline, cancel, or
+  accept with an execpolicy amendment — Codex's **Always**; the
+  Session tab lists and removes those rules instead of
+  `.claude/settings.json` entries. **This session** stays host-side
+  memory, as today.
+- `AskUserQuestion` → `tool/requestUserInput`: questions with a
+  header, options, an Other flag, a secret flag (a sign-in question
+  can hide what is typed) and a blocking flag.
+- `interrupt` → `turn/interrupt`; a message sent mid-turn → the
+  host's queue as today (`turn/steer` exists for later).
+- `set_model` and the effort restart → `model` and `effort` on
+  `turn/start`, in place. The MODEL dial lists what `model/list`
+  returns (gpt-6-astra, gpt-5.6-sol / terra / luna, gpt-5.5,
+  gpt-5.4-mini); EFFORT gains xhigh and ultra; nothing restarts.
+- MODE: default → `approvalPolicy: on-request` + `sandbox:
+  workspace-write`; bypass → `never` + `danger-full-access`; plan →
+  Codex's plan collaboration mode — the plan streams as a `plan`
+  item (`item/plan/delta`) and the plan card's IMPLEMENT starts the
+  next turn in default mode. A read-only notch is possible; not
+  asked for.
+- `/compact` → `thread/compact/start`; `/clear` → a fresh thread
+  (autopilot's clean context per step, by construction); `--resume`
+  → `thread/resume`; `--append-system-prompt` → `developerInstructions`.
+- `rate_limit_event` → `account/rateLimits/updated` with
+  `usedPercent` and `resetsAt` for the 5-hour and the weekly
+  window: the pool arcs read both; night shift waits on `resetsAt`.
+- Images → `localImage` input items, files by path; `/step` → the
+  step skill as a `skill` input item.
+- The hook spool: Codex hooks are stable, take the same stdin
+  fields (`session_id`, `hook_event_name`, `cwd`, `tool_name`,
+  `tool_input`), honour a plugin's `hooks/hooks.json`, match
+  `Write|Edit` against `apply_patch`, and set `CLAUDE_PLUGIN_ROOT`
+  for hooks; there is no `Notification` event, and a hook runs only
+  after the user has trusted it once (an item).
+- `claude remote-control` has an experimental `codex remote-control`;
+  both stay parked.
+
+**Spike first** — three, each a row in `DESIGN.md` like the
+2026-08-30 table, with the date and the version:
+
+1. *Questions.* On 0.153.4 the question tool sits behind the
+   feature flag `default_mode_request_user_input` (under
+   development, off); the host passes `--enable
+   default_mode_request_user_input`. Prove: "ask me tea or coffee
+   before you answer" arrives as `tool/requestUserInput` and the
+   answer continues the turn; a login page raises the brief's
+   one-option question rather than ending the turn with text; plan
+   mode has the tool without the flag; what a non-blocking question
+   does when nobody answers. If the model asks in text instead, the
+   card is lost and autopilot sees a finished turn — the fallback is
+   the composer, and the brief gets a firmer line.
+2. *Plan mode.* The docs put `collaborationMode` on `turn/start`;
+   the schema from the installed binary puts it on thread settings.
+   Prove which the server takes, that no file changes in plan mode,
+   that the plan arrives as `plan` deltas, and that the next
+   default-mode turn implements it. Fallback: a read-only sandbox
+   plus a "plan only" line in the brief.
+3. *The browser.* The ChatGPT app's `chrome` and `browser` plugins
+   and their MCP servers are in the config, pointing into the app
+   bundle. Prove they come up under a host-spawned app-server
+   (`mcpServerStatus/list`), that "open example.com and read the
+   title" produces a browser item whose approval reaches the phone,
+   and that it used the signed-in profile. If not, the Drive Chrome
+   pill says the browser is not available on Codex; nothing else
+   depends on it.
+
+**The host.** The pure transcript model (`Transcript`, `Ask`, the
+events) stays; the Claude parser in `bridge.dart` and a new
+`codex.dart` both produce it. `bridge_session.dart` becomes one
+runner behind an `EngineSession` interface — `ClaudeSession`,
+`CodexSession`; `claude_cli.dart` gains a sibling that finds
+`codex` (PATH, then the ChatGPT app bundle) and reports its version;
+`permission_rules.dart` gains the execpolicy writer. The bridge
+record gains `engine: claude | codex` — per project, switched while
+no session runs, an ENGINE notch beside MODE in the fold on both
+devices; the facts line and the Session tab say which engine and
+version started; pushes read "Codex needs you" for a Codex session.
+Autopilot, night shift, instruments, crew chips, review, run bay,
+mirror, builds, attachments, interrupt, the queue: unchanged above
+the interface. Two engines are two pools: the arcs show the running
+engine's own; failing night shift over to the other engine is a
+later step.
+
+**The plugin.** `.codex-plugin/plugin.json` beside
+`.claude-plugin/plugin.json`. The 19 commands become skills
+(`skills/<name>/SKILL.md`, invoked as `$step`, `$next`, …, the same
+`$ARGUMENTS`; paths relative to the skill, since Codex sets
+`CLAUDE_PLUGIN_ROOT` for hooks only). The 9 agents become Codex
+agent profiles (`.codex/agents/<name>.toml`, shipped under the
+plugin's `assets/` and put in place by a skill until Codex plugins
+carry agents). `CLAUDE.md` is read by Codex through
+`project_doc_fallback_filenames`, which the init skill sets. The
+Dart MCP server is `codex mcp add dart -- dart mcp-server`.
+`hooks/hooks.json` as is; the `Notification` entry is ignored.
+`kit` is pure Dart and needs nothing.
+
+Live tests spawn the real `codex` only under `KIT_LIVE=1`, as the
+bridge's do — they spend the ChatGPT pool.
+
+### Acceptance
+- The three spikes have a row each in `DESIGN.md` with the date,
+  the Codex version and the answer.
+- Phone: ENGINE → Codex → Start → "what model are you?" streams a
+  GPT answer; the facts line names the engine and its version.
+- `touch /tmp/kit-codex-1` raises an amber card; Deny holds and the
+  file does not exist; Always adds an execpolicy rule the Session
+  tab lists and removes.
+- With the flag on, a question reaches the phone as a card and the
+  answer continues the turn.
+- MODE → plan → "plan a one-line change to README.md" → the plan
+  card; IMPLEMENT → the file changes in the next turn.
+- MODEL and EFFORT switch mid-conversation without a restart; the
+  pool arcs show the 5-hour and the weekly window; night shift's
+  countdown reads `resetsAt`.
+- Autopilot runs two `/step`s on ~/kit-scratch under Codex, each in
+  a fresh thread, and stops on its budget.
+- ENGINE → Claude → Start → the Claude live tests (`KIT_LIVE=1`)
+  still pass; nothing above the interface changed.
+- In a project with the plugin installed into Codex, `$step` in the
+  Codex TUI reads `plan/` through `kit`, and the hook spool shows
+  the session on the phone.
+- Zero overflow at 1.0 / 2.0 / 3.12 with the ENGINE notch in the fold.
+
+### QA walkthrough
+1. Mac: Session tab → ENGINE → Codex. Phone: Start → "what model are
+   you?" → a GPT model answers; the facts line says Codex 0.153.x.
+2. Phone: send `touch /tmp/kit-codex-1` → Deny → the transcript says
+   so. Send it again → Always → Session tab lists the rule → Remove.
+3. Phone: "ask me tea or coffee before you answer" → the question
+   card → answer → the reply names it.
+4. Phone: MODE → plan → "plan a one-line change to README.md" → the
+   plan card → IMPLEMENT → the diff card shows the line.
+5. Phone: AUTOPILOT, 2 steps, on ~/kit-scratch → two fresh threads,
+   "Stopped · budget".
+6. Mac: ENGINE → Claude → Start → step 1 again, on Claude.
+
+### Touchpoints
+- `kit/lib/src/codex.dart` (new), `kit/lib/src/bridge.dart` (the shared transcript model split out), `kit/test/codex_test.dart` (captured lines)
+- `app/lib/src/host/engine_session.dart` (new), `app/lib/src/host/codex_session.dart` (new), `app/lib/src/host/codex_cli.dart` (new), `app/lib/src/host/bridge_session.dart`, `app/lib/src/host/permission_rules.dart`, `app/lib/src/host/host_project.dart`, `app/lib/src/host/autopilot.dart`, `app/lib/src/host/push_sender.dart`
+- `app/lib/src/screens/deck_tab.dart` (ENGINE notch), `app/lib/src/screens/session_tab.dart`, `app/lib/src/relay.dart`
+- `.codex-plugin/plugin.json` (new), `skills/` (the commands as skills), `assets/agents/*.toml` (new), `hooks/hooks.json`, `README.md`, `app/DESIGN.md`
+
+### Your part (human)
+
+The step's checkbox stays `[ ]` until these are checked:
+
+  - [ ] A Codex session from the phone spends the ChatGPT plan signed into the Mac *(item `know-codex-spends-the-chatgpt-pool`)*
+  - [ ] Review and trust the kit's hooks in Codex, once *(item `trust-the-kit-hooks-in-codex`)*
+
+---
+
+## Step 29 — Parked — Hand over to the Claude app on the same conversation, and take it back
 - [ ]
 - state: blocked — waiting on iphone
 - id: handover

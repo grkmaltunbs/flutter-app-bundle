@@ -1,0 +1,18 @@
+id: session-history-look
+title: "Open the Deck's fold on the phone once: SESSIONS, ALL, RESUME one, and see the Deck switch"
+status: open
+needs: [look]
+blocks: []
+step: session-history
+added: "2026-09-09"
+body: |
+  The Sessions card and its sheet are proven at phone width in widget tests
+  at 1.0, 2.0 and 3.12×, and the host's half against the real claude; the
+  phone in your hand is the one thing a test cannot hold. A look, once —
+  nothing gates on it.
+runbook:
+  - do: Phone → the project → Deck → unfold the header → SESSIONS · n → ALL.
+    expect: Every conversation, newest first, the one on the Deck marked; the live one has no RESUME.
+  - do: Tap RESUME on an older one.
+    expect: The Mac stops the running session between turns and resumes that one; the Deck's rows change to that conversation, the older tail restored from its file; ask "what word?" and it remembers.
+    if_fails: A turn was running — the toast says so; wait for it or INTERRUPT, then RESUME again.
