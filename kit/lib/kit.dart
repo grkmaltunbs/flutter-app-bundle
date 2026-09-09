@@ -20,3 +20,4 @@ export 'src/run.dart';
 export 'src/mirror.dart';
 export 'src/builds.dart';
 export 'src/history.dart';
+export 'src/pushes.dart';

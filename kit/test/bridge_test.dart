@@ -325,7 +325,9 @@ void main() {
     expect(p.requestId, isNull);
     expect(p.isAsk, isFalse);
     expect(p.data('kit'), {'slug': 'kit', 'kind': 'problem'});
-    expect(noticeForProblem('x' * 500, project: 'kit').body.length, 240, reason: 'clipped for a lock screen');
+    expect(noticeForProblem('x' * 500, project: 'kit').body.length, 480, reason: 'the error line as it was, within what a data message carries');
+    expect(noticeForProblem('first line\n  second line', project: 'kit').body, 'first line', reason: 'the first line verbatim');
+    expect(noticeForProblem('dead', project: 'kit', urgent: true).data('kit'), {'slug': 'kit', 'kind': 'problem', 'urgent': '1'});
 
     expect(deckBrief(chrome: true, mode: 'default'), contains('"$signedInOption"'), reason: 'the brief and the detector agree on the label');
     expect(deckBrief(chrome: false, mode: 'default'), contains('PushNotification tool has no route'), reason: 'a session is told the app notifies, so it stops trying the built-in tool');
@@ -449,7 +451,7 @@ void main() {
     final n = noticeForAsk(ask, project: 'Nahmatik');
     expect(n.kind, NoticeKind.plan);
     expect(n.title, 'Plan ready · Nahmatik');
-    expect(n.body, 'Plan: a settings screen');
+    expect(n.body, 'Plan: a settings screen · 2 steps', reason: 'the heading and the count, enough to approve from the lock screen');
     expect(n.channel, 'asks');
     expect(n.isAsk, isTrue);
     expect(n.actions.map((a) => '${a.id}=${a.label}'), ['allow=Approve']);

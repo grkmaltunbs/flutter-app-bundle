@@ -35,7 +35,8 @@ import 'screens/mirror_sheet.dart';
 /// projects/{slug}/threads/{about}   `item:<id>` or `step:<id>`: {about, count, last, updated}
 /// projects/{slug}/threads/{about}/messages/{sessionId-messageId}  the scoped rows, kept forever
 /// hosts/{hostId}                   the Mac's heartbeat: {seenAt, name, appVersion, cli, projects, sessions, stopping}; the phone reads "unreachable" from its age
-/// devices/{fcmToken}                a phone that takes pushes: {platform, name, uid, registeredAt, seenAt}; the host drops one FCM no longer knows
+/// devices/{fcmToken}                a phone that takes pushes: {platform, name, uid, registeredAt, seenAt, quiet: {on, start, end, offset}}; the host drops one FCM no longer knows; `quiet` is the phone's window ("HH:MM" in its clock, offset in minutes east of UTC) in which Turn ended and problems wait on the Mac for one digest
+/// projects/{slug}/shots/{id}.jpg    (Storage) the frame a Done push carries when the run bay had the app up; the last 5 kept
 /// ```
 ///
 /// Bytes are not rows: a file from the phone goes into Firebase Storage

@@ -290,4 +290,20 @@ void main() {
       });
     }
   });
+
+  test('a shot for a push: the frame\'s bytes, nothing published, the live frame untouched; none when nothing runs or the capture fails', () async {
+    final rig = _Rig();
+    final jpg = await rig.mirror.shot();
+    expect(jpg, isNotNull);
+    expect(jpg!.isNotEmpty, isTrue);
+    expect(rig.published, isEmpty, reason: 'a shot is not a frame');
+    expect(rig.mirror.state.seq, 0);
+    expect(rig.mirror.lastFrame, isNull);
+    rig.failCapture = true;
+    expect(await rig.mirror.shot(), isNull);
+    rig.failCapture = false;
+    rig.bay.state = const RunState(phase: RunPhase.idle);
+    expect(await rig.mirror.shot(), isNull, reason: 'no run, no picture');
+    rig.close();
+  });
 }

@@ -115,6 +115,12 @@ const frameLongEdge = 720;
 /// Where the newest frame lives in the bucket.
 String framePath(String slug) => 'projects/$slug/frames/live.jpg';
 
+/// Where a Done push's frame goes — one object a turn, the id its time,
+/// so the newest sorts last; [shotsKept] of them stay.
+String shotsPrefix(String slug) => 'projects/$slug/shots/';
+String shotPath(String slug, DateTime at) => '${shotsPrefix(slug)}${at.toUtc().millisecondsSinceEpoch}.jpg';
+const shotsKept = 5;
+
 /// `{type: input, action: tap|swipe|text|key, x, y, x2, y2, text}` in
 /// device pixels.
 Map<String, Object?> inputCommand(String action, {int? x, int? y, int? x2, int? y2, String? text}) => {

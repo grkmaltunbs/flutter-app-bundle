@@ -97,6 +97,7 @@ class DeckView extends StatefulWidget {
     this.initialFiles = const [],
     this.initialText,
     this.installBuild,
+    this.focusRowId,
     this.sessions = const [],
     this.sessionId,
     this.onResumeSession,
@@ -229,6 +230,10 @@ class DeckView extends StatefulWidget {
   final List<PendingAttachment> initialFiles;
   final String? initialText;
   final String? installBuild;
+
+  /// The row a push was about — a Done push's turn: the list lands on it
+  /// once, when it is there.
+  final String? focusRowId;
 
   /// A file on the Mac, for the tap on a path — the Mac's disk, or the
   /// relay. Null: paths are not taps.
@@ -377,14 +382,28 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
     _landOn(first, rows.length);
   }
 
-  /// Lands the viewport on the marker: a jump to where the row should be
-  /// by count, then the row itself once it is built.
-  void _landOn(int index, int count) {
+  /// The push's row, landed on once.
+  final _focusKey = GlobalKey();
+  bool _focusDone = false;
+
+  void _maybeFocus() {
+    final id = widget.focusRowId;
+    if (id == null || _focusDone) return;
+    final rows = _rows;
+    final idx = rows.indexWhere((m) => m.id == id);
+    if (idx < 0) return;
+    _focusDone = true;
+    _landOn(idx, rows.length, key: _focusKey);
+  }
+
+  /// Lands the viewport on the marker (or [key]'s row): a jump to where
+  /// the row should be by count, then the row itself once it is built.
+  void _landOn(int index, int count, {GlobalKey? key}) {
     _pinned = false;
     void settle(int tries) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_scroll.hasClients) return;
-        final ctx = _markerKey.currentContext;
+        final ctx = (key ?? _markerKey).currentContext;
         if (ctx != null) {
           Scrollable.ensureVisible(ctx, alignment: 0);
           return;
@@ -446,8 +465,8 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
       onWithdraw: widget.onWithdraw == null ? null : () => widget.onWithdraw!(m.id),
       onTap: _rowTap(m),
     );
-    if (_markerId != m.id) return row;
-    return Column(key: _markerKey, crossAxisAlignment: CrossAxisAlignment.stretch, children: [const _SinceLine(), row]);
+    final Widget built = _markerId != m.id ? row : Column(key: _markerKey, crossAxisAlignment: CrossAxisAlignment.stretch, children: [const _SinceLine(), row]);
+    return widget.focusRowId == m.id ? KeyedSubtree(key: _focusKey, child: built) : built;
   }
 
   /// The session controls under the title — Start/Stop, the pills, the
@@ -513,6 +532,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
     WidgetsBinding.instance.addObserver(this);
     _takeLastSeen();
     _maybePlaceMarker();
+    _maybeFocus();
     // A share opened this Deck: the file on the composer, the cursor in it.
     _files.addAll(widget.initialFiles);
     if (widget.initialText != null && widget.initialText!.isNotEmpty) _input.text = widget.initialText!;
@@ -552,6 +572,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
     final first = widget.messages.isEmpty ? null : widget.messages.first.id;
     if (oldFirst != first || widget.messages.length <= _seenIndex) _seenIndex = -1;
     _maybePlaceMarker();
+    _maybeFocus();
     _follow();
     _maybeInstall();
   }
@@ -1383,12 +1404,13 @@ class DeckTab extends StatelessWidget {
 
 /// The phone's Deck: the mirror in, commands out.
 class RemoteDeckTab extends StatefulWidget {
-  const RemoteDeckTab({super.key, required this.db, required this.slug, this.from = 'phone', this.title, this.nowSlot, this.pick, this.blobs, this.onChromeHidden, this.initialFiles = const [], this.initialText, this.installBuild});
+  const RemoteDeckTab({super.key, required this.db, required this.slug, this.from = 'phone', this.title, this.nowSlot, this.pick, this.blobs, this.onChromeHidden, this.initialFiles = const [], this.initialText, this.installBuild, this.focusRowId});
 
   /// What a share or a push opened this Deck with — see [DeckView.initialFiles].
   final List<PendingAttachment> initialFiles;
   final String? initialText;
   final String? installBuild;
+  final String? focusRowId;
   final FirebaseFirestore db;
 
   /// See [DeckView.onChromeHidden].
@@ -1516,6 +1538,7 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         initialFiles: widget.initialFiles,
         initialText: widget.initialText,
         installBuild: widget.installBuild,
+        focusRowId: widget.focusRowId,
         autopilot: d.autopilot,
         onAutopilot: ({required on, budget, nightShift}) async {
           await d.setAutopilot(on: on, budget: budget, nightShift: nightShift);

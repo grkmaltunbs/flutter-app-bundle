@@ -1,11 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_kit/kit.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:path/path.dart' as p;
 
 import '../../firebase_options.dart';
 import '../relay.dart';
@@ -51,6 +54,9 @@ class LocalNotice {
   String get kind => data['kind'] ?? '';
   String? get requestId => data['requestId'];
   bool get isAsk => channel.id == NoticeChannel.asks.id;
+
+  /// The Storage path of a frame to show under the words, or null.
+  String? get image => (data['image'] ?? '').isEmpty ? null : data['image'];
 
   /// What a tap or a button hands back: the data, as JSON.
   String get payload => jsonEncode(data);
@@ -160,15 +166,45 @@ class LocalNotices {
     return show(n);
   }
 
-  static Future<void> show(LocalNotice n) => plugin.show(id: n.id, title: n.title, body: n.body, notificationDetails: NotificationDetails(android: androidDetails(n)), payload: n.payload);
+  /// Fetches a push's frame to a file the notification can show; a test
+  /// hands in its own. Null: the words alone.
+  static Future<String?> Function(String path) fetchImage = fetchShot;
 
-  static AndroidNotificationDetails androidDetails(LocalNotice n) => AndroidNotificationDetails(
+  static Future<void> show(LocalNotice n) async {
+    String? picture;
+    final img = n.image;
+    if (img != null) {
+      try {
+        picture = await fetchImage(img);
+      } on Object {
+        picture = null; // the words still go up
+      }
+    }
+    return plugin.show(id: n.id, title: n.title, body: n.body, notificationDetails: NotificationDetails(android: androidDetails(n, picture: picture)), payload: n.payload);
+  }
+
+  /// A frame from the bucket, through the SDK as the signed-in user —
+  /// no download URL to expire — to a file under the temp folder.
+  static Future<String?> fetchShot(String path) async {
+    if (!await _signedIn()) return null;
+    final bytes = await FirebaseStorage.instance.ref(path).getData(4 * 1024 * 1024).timeout(const Duration(seconds: 20));
+    if (bytes == null || bytes.isEmpty) return null;
+    final f = File(p.join(Directory.systemTemp.path, 'kit-shot-${LocalNotice.idFor(path)}.jpg'));
+    await f.writeAsBytes(bytes, flush: true);
+    return f.path;
+  }
+
+  /// [picture] is a file on the phone: the notification expands to it,
+  /// the words under it.
+  static AndroidNotificationDetails androidDetails(LocalNotice n, {String? picture}) => AndroidNotificationDetails(
         n.channel.id,
         n.channel.name,
         channelDescription: n.channel.description,
         importance: n.channel.high ? Importance.high : Importance.defaultImportance,
         priority: n.channel.high ? Priority.high : Priority.defaultPriority,
-        styleInformation: BigTextStyleInformation(n.body),
+        styleInformation: picture == null
+            ? BigTextStyleInformation(n.body)
+            : BigPictureStyleInformation(FilePathAndroidBitmap(picture), contentTitle: n.title, summaryText: n.body, hideExpandedLargeIcon: true),
         category: n.isAsk ? AndroidNotificationCategory.message : null,
         // A button answers in the background and the notification stays
         // until the answer went through — then [kitNotificationAction]

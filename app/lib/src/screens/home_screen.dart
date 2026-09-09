@@ -18,6 +18,7 @@ import '../push/push_listener.dart';
 import '../relay.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/quiet_hours_sheet.dart';
 import 'project_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -101,13 +102,24 @@ class _HomeScreenState extends State<HomeScreen> {
               listenable: Pushes.registrar,
               builder: (context, _) {
                 final r = Pushes.registrar;
-                return IconButton(
-                  tooltip: r.status,
-                  icon: Icon(r.registered ? Icons.notifications_active : Icons.notifications_off_outlined, color: r.registered ? t.good : t.warn),
-                  onPressed: () async {
-                    await r.register();
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.status)));
-                  },
+                final quiet = r.quiet?.on == true;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: quiet ? 'Quiet hours ${r.quiet!.label}' : 'Quiet hours',
+                      icon: Icon(quiet ? Icons.bedtime : Icons.bedtime_outlined, color: quiet ? t.accent : null),
+                      onPressed: () => showQuietHoursSheet(context, current: r.quiet, registered: r.registered, onSet: r.setQuiet),
+                    ),
+                    IconButton(
+                      tooltip: r.status,
+                      icon: Icon(r.registered ? Icons.notifications_active : Icons.notifications_off_outlined, color: r.registered ? t.good : t.warn),
+                      onPressed: () async {
+                        await r.register();
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.status)));
+                      },
+                    ),
+                  ],
                 );
               },
             ),

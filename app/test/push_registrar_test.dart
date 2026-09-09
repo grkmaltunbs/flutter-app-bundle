@@ -2,6 +2,7 @@
 import 'dart:async';
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter_kit/kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kit_app/src/push/push_registrar.dart';
 
@@ -71,5 +72,28 @@ void main() {
     expect(PushTap.from({'slug': 'kit', 'kind': 'problem'})?.kind, 'problem');
     expect(PushTap.from({'kind': 'problem'}), isNull, reason: 'no project, nothing to open');
     expect(PushTap.from({'slug': 'kit', 'requestId': ''})?.requestId, isNull);
+  });
+
+  test('quiet hours go onto the row and come back with the next registration; a tap carries the turn', () async {
+    final r = make();
+    await r.register();
+    expect(r.quiet, isNull);
+    await r.setQuiet(const QuietWindow(on: true, start: 23 * 60, end: 8 * 60, offset: 180));
+    final row = (await db.collection('devices').doc('T1').get()).data()!;
+    expect(row['quiet'], {'on': true, 'start': '23:00', 'end': '08:00', 'offset': 180});
+    expect(row['platform'], 'android', reason: 'the rest of the row stays');
+    final again = make();
+    await again.register();
+    expect(again.quiet!.on, isTrue);
+    expect(again.quiet!.label, '23:00–08:00');
+    await again.setQuiet(null);
+    expect((await db.collection('devices').doc('T1').get()).data()!.containsKey('quiet'), isFalse);
+    expect(again.quiet, isNull);
+    expect(() => PushRegistrar(db, requestPermission: () async => true, getToken: () async => 'T9', tokenRefresh: refresh.stream, uid: () => 'u', platform: 'android', deviceName: 'x').setQuiet(null), throwsStateError, reason: 'no token yet');
+
+    final tap = PushTap.from({'slug': 'kit', 'kind': 'done', 'rowId': 'm7', 'sessionId': 's1'})!;
+    expect(tap.rowId, 'm7');
+    expect(tap.sessionId, 's1');
+    expect(PushTap.from({'slug': 'kit', 'kind': 'done', 'rowId': ''})!.rowId, isNull);
   });
 }

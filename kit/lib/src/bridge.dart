@@ -17,6 +17,7 @@ library;
 import 'dart:convert';
 
 import 'diff.dart' show editedPath;
+import 'pushes.dart';
 import 'snapshot.dart' show stableJson;
 
 /// The Claude Code version the shapes below were captured on. The host
@@ -468,14 +469,24 @@ AskAnswer? answerForAction(Ask ask, String actionId, {String here = 'notificatio
 /// One notification: what to show, and what it is about, so a tap opens
 /// the right project and a repeat of the same thing replaces the last.
 class Notice {
-  const Notice({required this.kind, required this.title, required this.body, this.requestId, this.actions = const [], this.extra = const {}});
+  const Notice({required this.kind, required this.title, required this.body, this.requestId, this.actions = const [], this.extra = const {}, this.image, this.urgent = false});
 
-  /// More for the tap to carry — a build's id.
+  /// More for the tap to carry — a build's id, the turn's session and row.
   final Map<String, String> extra;
 
   final NoticeKind kind;
   final String title;
   final String body;
+
+  /// A picture under the words: the Storage path of a frame the host
+  /// captured when the turn ended (`projects/{slug}/shots/{id}.jpg`).
+  final String? image;
+
+  /// Goes out through quiet hours — a session that died.
+  final bool urgent;
+
+  Notice copyWith({String? image, Map<String, String>? extra, bool? urgent, String? body}) =>
+      Notice(kind: kind, title: title, body: body ?? this.body, requestId: requestId, actions: actions, extra: extra ?? this.extra, image: image ?? this.image, urgent: urgent ?? this.urgent);
 
   /// The ask this is about — null for a problem.
   final String? requestId;
@@ -497,14 +508,17 @@ class Notice {
 
   bool get isAsk => channel == 'asks';
 
-  Map<String, String> data(String slug) => {'slug': slug, 'kind': kind.name, if (requestId != null) 'requestId': requestId!, ...extra};
+  Map<String, String> data(String slug) => {'slug': slug, 'kind': kind.name, if (requestId != null) 'requestId': requestId!, if (image != null) 'image': image!, if (urgent) 'urgent': '1', ...extra};
 }
 
 /// The notification for an ask: the project in the title, the thing to
 /// decide in the body, clipped for a lock screen.
 Notice noticeForAsk(Ask ask, {required String project}) {
   if (ask.isPlan) {
-    return Notice(kind: NoticeKind.plan, title: 'Plan ready · $project', body: _clip(ask.summary, 240), requestId: ask.requestId, actions: noticeActions(ask));
+    // The plan's heading and its step count — enough to approve from the
+    // lock screen, or to know it is worth opening.
+    final outline = planPreview(ask.plan);
+    return Notice(kind: NoticeKind.plan, title: 'Plan ready · $project', body: _clip(outline.isEmpty ? ask.summary : outline, 240), requestId: ask.requestId, actions: noticeActions(ask));
   }
   if (ask.isSignIn) {
     return Notice(kind: NoticeKind.signIn, title: 'Sign in needed · $project', body: _clip(ask.questions.map((q) => q.question).join(' · '), 240), requestId: ask.requestId, actions: noticeActions(ask));
@@ -513,7 +527,11 @@ Notice noticeForAsk(Ask ask, {required String project}) {
     return Notice(kind: NoticeKind.question, title: 'Claude asks · $project', body: _clip(ask.summary, 240), requestId: ask.requestId, actions: noticeActions(ask));
   }
   final what = ask.toolName == 'Bash' ? 'Run' : toolLabel(ask.toolName);
-  return Notice(kind: NoticeKind.permission, title: 'Allow $what? · $project', body: _clip(ask.summary, 240), requestId: ask.requestId, actions: noticeActions(ask));
+  // An edit shows its first changed lines under the file: what changes,
+  // not only where.
+  final changes = ask.diff == null ? const <String>[] : diffPreview(ask.diff!);
+  final body = changes.isEmpty ? ask.summary : '${ask.summary}\n${changes.join('\n')}';
+  return Notice(kind: NoticeKind.permission, title: 'Allow $what? · $project', body: _clip(body, 240), requestId: ask.requestId, actions: noticeActions(ask));
 }
 
 /// The notification for a step that flipped to done on disk — once, when
@@ -523,14 +541,24 @@ Notice noticeForStep({required String number, required String title, required St
 
 /// The notification for a problem: the session died, or a turn ended in
 /// an error the user would otherwise find hours later.
-Notice noticeForProblem(String error, {required String project}) => Notice(kind: NoticeKind.problem, title: 'Problem · $project', body: _clip(error.trim(), 240));
+/// The error's first line goes as it was; [urgent] — the session died —
+/// goes out through quiet hours.
+Notice noticeForProblem(String error, {required String project, bool urgent = false}) => Notice(kind: NoticeKind.problem, title: 'Problem · $project', body: errorLine(error), urgent: urgent);
 
 /// The notification for a turn that ended well: how long it took when
 /// that is worth saying, and the start of the reply.
-Notice noticeForDone(ResultEvent r, {required String project}) {
+/// [image] is a frame of the app under test when the run bay had it up;
+/// [sessionId] and [rowId] name the turn a tap opens the Deck on.
+Notice noticeForDone(ResultEvent r, {required String project, String? image, String? sessionId, String? rowId}) {
   final secs = r.durationMs ~/ 1000;
   final took = secs < 60 ? '' : ' in ${secs ~/ 60}m ${(secs % 60).toString().padLeft(2, '0')}s';
-  return Notice(kind: NoticeKind.done, title: 'Done$took · $project', body: _clip(r.text.trim().isEmpty ? 'The turn ended.' : r.text.trim(), 240));
+  return Notice(
+    kind: NoticeKind.done,
+    title: 'Done$took · $project',
+    body: _clip(r.text.trim().isEmpty ? 'The turn ended.' : r.text.trim(), 240),
+    image: image,
+    extra: {if (sessionId != null && sessionId.isNotEmpty) 'sessionId': sessionId, if (rowId != null && rowId.isNotEmpty) 'rowId': rowId},
+  );
 }
 
 /// The notification for a build: ready with its version, or failed with

@@ -1243,6 +1243,7 @@ dirty, `--force` behind a confirm) and drops the relay entry.
 
 ## Step 23 — Rich pushes — a finished turn with its summary and a frame, a plan and a diff in the push, quiet hours
 - [ ]
+- state: code complete — waiting on 1 human item(s)
 - id: rich-pushes
 - depends_on: notifications, mirror
 - qa_required: true
@@ -1281,6 +1282,12 @@ a Problem that is a dead session pushes at once regardless.
 
 ### Touchpoints
 - `app/lib/src/host/push_sender.dart` (image, digest, hold), `app/lib/src/host/mirror.dart` (one frame), `app/lib/src/relay.dart` (devices.quiet), `app/lib/src/screens/session_tab.dart`, `app/lib/src/push/push_listener.dart`
+
+### Your part (human)
+
+The step's checkbox stays `[ ]` until these are checked:
+
+  - [ ] Firebase Storage refuses writes on flutterappbundle — "quota exceeded" on a near-empty bucket: check the plan and the bucket's quota in the console *(item `rich-pushes-storage-quota`)*
 
 ---
 

@@ -1,14 +1,14 @@
 id: rich-pushes
 number: "23"
 title: Rich pushes — a finished turn with its summary and a frame, a plan and a diff in the push, quiet hours
-status: pending
+status: active
 rank: 840
 depends_on: [notifications, mirror]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-10, note: "kit and app: no issues", status: passed}
+  tests: { at: 2026-09-10, note: "kit 122, app 199 (2 skips: the live bridge tests)", status: passed}
+  qa: { at: 2026-09-10, note: "Live on the phone (adb-driven) against ~\/kit-scratch with RUN up on the iPhone simulator: an Edit ask's push carried the two changed lines under the file; the Done push arrived with the reply and its tap (the notification's own intent) opened the Deck landed on the turn's row; quiet hours set from the moon on the list, 23:00–08:00 → a turn's Done was held (no push in 100 s) → the window's end moved to two minutes ahead → 'While you slept · Scratch — 1 turn ended \/ owl' arrived at 01:10:04; window on again → an ask pushed through in 8 s; the session killed → 'Problem · Scratch' with the exit line verbatim in 3 s. NOT proven live: the frame in the Done push — every Storage write fails with quota-exceeded on a near-empty bucket (item rich-pushes-storage-quota, blocks); the plan push's heading is unit-tested only. Found and fixed: the shot failure was logged into the bridge and read back as the dead session's reason.", status: passed}
 sections:
   - title: Description
     body: |
@@ -47,3 +47,14 @@ sections:
       - `app/lib/src/host/push_sender.dart` (image, digest, hold), `app/lib/src/host/mirror.dart` (one frame), `app/lib/src/relay.dart` (devices.quiet), `app/lib/src/screens/session_tab.dart`, `app/lib/src/push/push_listener.dart`
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b" }
+  - at: 2026-09-10
+    event: started
+  - at: 2026-09-10
+    event: gate analyze passed
+    note: "kit and app: no issues"
+  - at: 2026-09-10
+    event: gate tests passed
+    note: "kit 122, app 199 (2 skips: the live bridge tests)"
+  - at: 2026-09-10
+    event: gate qa passed
+    note: "Live on the phone (adb-driven) against ~\/kit-scratch with RUN up on the iPhone simulator: an Edit ask's push carried the two changed lines under the file; the Done push arrived with the reply and its tap (the notification's own intent) opened the Deck landed on the turn's row; quiet hours set from the moon on the list, 23:00–08:00 → a turn's Done was held (no push in 100 s) → the window's end moved to two minutes ahead → 'While you slept · Scratch — 1 turn ended \/ owl' arrived at 01:10:04; window on again → an ask pushed through in 8 s; the session killed → 'Problem · Scratch' with the exit line verbatim in 3 s. NOT proven live: the frame in the Done push — every Storage write fails with quota-exceeded on a near-empty bucket (item rich-pushes-storage-quota, blocks); the plan push's heading is unit-tested only. Found and fixed: the shot failure was logged into the bridge and read back as the dead session's reason."

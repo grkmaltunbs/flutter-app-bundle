@@ -180,6 +180,21 @@ class Mirror extends ChangeNotifier {
     return why;
   }
 
+  /// One frame for a push: captured and shrunk like a mirror frame, but
+  /// nothing published and the live frame untouched. Null when nothing
+  /// runs or the capture fails — the push then goes without a picture.
+  Future<Uint8List?> shot() async {
+    final r = run.state;
+    if (!r.up || r.device == null) return null;
+    try {
+      final png = await _capture(r);
+      if (pngSize(png) == null) return null;
+      return await (shrink ?? _sips)(png);
+    } on Object {
+      return null;
+    }
+  }
+
   Future<Uint8List> _capture(RunState r) async {
     final env = await _env();
     final file = File(p.join(_tmp.path, 'kit-mirror-${DateTime.now().microsecondsSinceEpoch}.png'));

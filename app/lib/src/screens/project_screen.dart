@@ -26,14 +26,15 @@ import 'work_tab.dart';
 /// the "now" strip; the other tabs keep a one-line readout. The send bar
 /// at the bottom is the only way a plan change leaves the device.
 class ProjectScreen extends StatefulWidget {
-  const ProjectScreen._({required this.source, required this.slug, this.host, this.remoteDoc, this.initialFiles = const [], this.initialText, this.installBuild, this.title, String? planSlug}) : planSlug = planSlug ?? slug;
+  const ProjectScreen._({required this.source, required this.slug, this.host, this.remoteDoc, this.initialFiles = const [], this.initialText, this.installBuild, this.focusRowId, this.title, String? planSlug}) : planSlug = planSlug ?? slug;
 
   factory ProjectScreen.host(HostProject host) => ProjectScreen._(source: host.source, slug: host.slug ?? host.dir, host: host, title: host.isWorktree ? host.projectName : null);
 
-  factory ProjectScreen.remote({required RemotePlanSource source, required String slug, String? planSlug, String? title, List<PendingAttachment> initialFiles = const [], String? initialText, String? installBuild}) => ProjectScreen._(
+  factory ProjectScreen.remote({required RemotePlanSource source, required String slug, String? planSlug, String? title, List<PendingAttachment> initialFiles = const [], String? initialText, String? installBuild, String? focusRowId}) => ProjectScreen._(
         initialFiles: initialFiles,
         initialText: initialText,
         installBuild: installBuild,
+        focusRowId: focusRowId,
         source: source,
         slug: slug,
         planSlug: planSlug,
@@ -57,6 +58,9 @@ class ProjectScreen extends StatefulWidget {
   final List<PendingAttachment> initialFiles;
   final String? initialText;
   final String? installBuild;
+
+  /// The row a Done push was about: the Deck lands on it.
+  final String? focusRowId;
 
   bool get isHost => host != null;
 
@@ -319,7 +323,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                           children: [
                             widget.isHost
                                 ? DeckTab(bridge: widget.host!.bridge, title: widget.title ?? plan.manifest.projectName, worktree: widget.host!.worktreeName, canAddWorktree: !widget.host!.isWorktree, nowSlot: _nowStrip(plan, graph), testPush: widget.host!.testPush, onChromeHidden: _onChromeHidden, files: widget.host!.files, git: widget.host!.gitStatus, onGit: widget.host!.gitOp, autopilot: widget.host!.autopilot.state, onAutopilot: widget.host!.setAutopilot, run: widget.host!.run.state, onRun: widget.host!.runAction, runLog: (_) => widget.host!.run.logStream, mirrorHooks: widget.host!.mirrorHooks, builds: widget.host!.builds.builds, buildOnFlip: widget.host!.builds.buildOnFlip, onBuild: widget.host!.buildAction, onSwitchSession: widget.host!.switchSession, onDeleteSession: widget.host!.deleteSession)
-                                : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug, title: widget.title ?? plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), onChromeHidden: _onChromeHidden, initialFiles: widget.initialFiles, initialText: widget.initialText, installBuild: widget.installBuild),
+                                : RemoteDeckTab(db: FirebaseFirestore.instance, slug: widget.slug, title: widget.title ?? plan.manifest.projectName, nowSlot: _nowStrip(plan, graph), onChromeHidden: _onChromeHidden, initialFiles: widget.initialFiles, initialText: widget.initialText, installBuild: widget.installBuild, focusRowId: widget.focusRowId),
                             wide
                                 ? Row(
                                     children: [

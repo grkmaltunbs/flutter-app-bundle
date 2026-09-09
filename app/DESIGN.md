@@ -493,6 +493,69 @@ second line. And the context arc carried the last session's reading
 onto a NEW one until its first call — a fresh or switched conversation
 starts the arc at nothing.
 
+### Rich pushes (built 2026-09-10)
+
+A push should be enough to decide on from the lock screen. Three
+things it lacked: a picture of what the turn did, the lines an ask is
+about, and a night's sleep.
+
+**A frame in the Done push.** When a turn ends while the run bay has
+the app up, the host takes one shot the mirror's way (`Mirror.shot`:
+captured and shrunk, nothing published, the live frame untouched),
+puts it at Storage `projects/{slug}/shots/{ms}.jpg` (the last five
+kept) and the Done notice carries the path as `image` — with the
+turn's `sessionId` and `rowId` (the user row whose turn ended). The
+phone fetches the frame through the Storage SDK as the signed-in user
+(`LocalNotices.fetchShot`; a download URL would have been one more
+token to expire) into a temp file and draws a big-picture notification,
+the words as its summary; a fetch that fails is the words alone. The
+tap opens the Deck on that row (`focusRowId` from the push through
+`ProjectScreen.remote` to `DeckView`, landed on once with the same
+settle the since-line uses). No run, no picture.
+
+**Words to decide on.** An Edit or Write ask's push carries the diff's
+first three changed lines under the summary (`diffPreview`); a plan
+push carries the plan's first heading and its step count
+(`planOutline`: numbered items, else bullets, else the headings under
+the first); a problem push carries the error's first line as it was
+(`errorLine`, 480 chars). All in `kit/lib/src/pushes.dart`, pure.
+
+**Quiet hours.** A window per phone, on its `devices/{token}` row —
+`quiet: {on, start: "HH:MM", end: "HH:MM", offset}` in the phone's own
+clock with its UTC offset in minutes (`QuietWindow`; a window may cross
+midnight) — set from the moon on the phone's project list
+(`QuietHoursSheet`: a switch, two time pickers, every change written at
+once; 23:00–08:00 to begin with). The host's `PushSender` reads the
+windows off the rows it already watches: a notice that waits
+(`heldInQuiet` — Turn ended, Claude's own line, a problem that is not a
+dead session) for a phone inside its window is held under that token
+instead of sent; a timer for the earliest window's end sends one
+digest per project (`digestNotice` — "While you slept · 3 turns ended
+· 1 problem", the last turn's first line under it, on the problems
+channel when a problem is among them) and re-arms. The rows changing —
+the window moved, switched off, the phone gone — re-arms too, so a
+window turned off flushes at once. Asks, steps, builds and a dead
+session (`Notice.urgent`, set by `TurnWatch` for a failed session) go
+through. The Session tab says which phones keep a window and how many
+notices wait for this project.
+
+Proven 2026-09-10 on the phone in hand, driven over adb, against
+~/kit-scratch with RUN up on the simulator: the Edit ask's push showed
+the two changed lines; the Done push's tap (the notification's own
+`SELECT_NOTIFICATION` intent) opened the Deck on the turn's row; a
+turn during quiet hours pushed nothing, the window's end moved two
+minutes ahead brought "While you slept · Scratch — 1 turn ended" on
+the minute; an ask went through the window in 8 s and a killed session
+brought "Problem · Scratch" with the exit line in 3 s. Not proven: the
+frame — every Storage write on `flutterappbundle` fails with
+`quota-exceeded` on a bucket holding two objects (the mirror's frame
+command says the same), which is a plan or billing state, not space;
+the item `rich-pushes-storage-quota` holds the step until the console
+says why. Found on the run: the shot's failure, logged into the bridge,
+came back as the dead session's reason ("claude exited with code -9 —
+shot: …") — the bridge's last log line is its exit reason, so the shot
+keeps its own (`HostProject.shotError`, on the Session tab).
+
 ### Risks, and what holds them
 
 - *More undocumented protocol.* Every new request is behind a spike and a

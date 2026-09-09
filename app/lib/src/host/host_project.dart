@@ -279,7 +279,15 @@ class HostProject extends ChangeNotifier {
     }
     final turn = _turns.check(state: bridge.state, error: bridge.error, lastResult: bridge.transcript.lastResult, interrupted: bridge.lastTurnInterrupted, project: projectName);
     // The loop's own line replaces the plain Done for a turn it drove.
-    if (turn != null && !(loopTurn && turn.kind == NoticeKind.done)) _notify(turn);
+    if (turn != null && !(loopTurn && turn.kind == NoticeKind.done)) {
+      if (turn.kind == NoticeKind.done) {
+        // The tap opens the Deck on this turn.
+        final sid = bridge.sessionId, row = bridge.transcript.lastTurnRowId;
+        unawaited(_notifyDone(turn.copyWith(extra: {...turn.extra, 'sessionId': ?sid, 'rowId': ?row})));
+      } else {
+        _notify(turn);
+      }
+    }
     notifyListeners();
   }
 
@@ -308,7 +316,53 @@ class HostProject extends ChangeNotifier {
     final s = slug;
     final ps = push;
     if (s == null || ps == null) return;
-    unawaited(ps.send(n, slug: s));
+    unawaited(ps.send(n, slug: s, project: projectName));
+  }
+
+  /// Why the last Done push went without its frame, for the Session
+  /// tab; null when it carried one, or when nothing ran.
+  String? shotError;
+
+  /// A turn that ended while the run bay has the app up goes with a
+  /// frame: one shot, put under the project, the push carrying its path.
+  /// No run, no picture — and a capture or an upload that fails is just
+  /// the words, with the reason kept for the Session tab (not the
+  /// bridge's log: its last line is read as a dead session's reason).
+  Future<void> _notifyDone(Notice n) async {
+    final s = slug;
+    final store = blobs;
+    var notice = n;
+    if (s != null && store != null && run.up) {
+      final jpg = await mirror.shot();
+      if (jpg == null) {
+        shotError = 'the capture failed';
+      } else {
+        final path = shotPath(s, DateTime.now());
+        try {
+          await store.put(path, jpg, contentType: 'image/jpeg');
+          notice = n.copyWith(image: path);
+          shotError = null;
+          unawaited(_pruneShots(store, s));
+        } on Object catch (e) {
+          shotError = e.toString();
+        }
+      }
+      notifyListeners();
+    }
+    _notify(notice);
+  }
+
+  /// The last [shotsKept] frames stay; older ones go.
+  Future<void> _pruneShots(BlobStore store, String s) async {
+    try {
+      final all = await store.list(shotsPrefix(s));
+      final names = [for (final e in all) e.path]..sort();
+      for (final path in names.take(names.length > shotsKept ? names.length - shotsKept : 0)) {
+        await store.delete(path);
+      }
+    } on Object {
+      // Old frames in the bucket cost nothing that matters.
+    }
   }
 
   void _onAnswered(Ask ask, AskAnswer a, String by) {

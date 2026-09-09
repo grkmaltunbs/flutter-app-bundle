@@ -77,13 +77,13 @@ class _PushListenerState extends State<PushListener> {
     _openProject(pick.slug, initialFiles: shared.files, initialText: shared.text);
   }
 
-  void _openProject(String slug, {List<PendingAttachment> initialFiles = const [], String? initialText, String? installBuild}) {
+  void _openProject(String slug, {List<PendingAttachment> initialFiles = const [], String? initialText, String? installBuild, String? focusRowId}) {
     final nav = Navigator.of(context);
     // Back to the list, then into the project: no second copy of a
     // project screen that is already open.
     nav.popUntil((r) => r.isFirst);
     final source = RemotePlanSource(FirebaseFirestore.instance, slug)..start();
-    nav.push(MaterialPageRoute<void>(builder: (_) => ProjectScreen.remote(source: source, slug: slug, initialFiles: initialFiles, initialText: initialText, installBuild: installBuild)));
+    nav.push(MaterialPageRoute<void>(builder: (_) => ProjectScreen.remote(source: source, slug: slug, initialFiles: initialFiles, initialText: initialText, installBuild: installBuild, focusRowId: focusRowId)));
   }
 
   void _arrived(RemoteMessage m) {
@@ -132,8 +132,9 @@ class _PushListenerState extends State<PushListener> {
     final d = await FirebaseFirestore.instance.collection('projects').doc(tap.slug).get();
     if (!mounted || !d.exists) return;
     final s = ProjectSummary.fromDoc(d);
-    // A "Build ready" push installs the build it names once the Deck is up.
-    _openProject(s.slug, installBuild: data['kind'] == 'build' ? data['buildId']?.toString() : null);
+    // A "Build ready" push installs the build it names once the Deck is
+    // up; a Done push lands on the turn it is about.
+    _openProject(s.slug, installBuild: data['kind'] == 'build' ? data['buildId']?.toString() : null, focusRowId: tap.rowId);
   }
 
   @override

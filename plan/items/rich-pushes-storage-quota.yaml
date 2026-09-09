@@ -1,0 +1,27 @@
+id: rich-pushes-storage-quota
+title: "Firebase Storage refuses writes on flutterappbundle — \"quota exceeded\" on a near-empty bucket: check the plan and the bucket's quota in the console"
+status: open
+needs: [console]
+blocks: [rich-pushes]
+step: rich-pushes
+added: "2026-09-10"
+body: |
+  Every put to the bucket `flutterappbundle.firebasestorage.app` fails
+  with `[firebase_storage/quota-exceeded] Quota for bucket … exceeded`
+  (seen 2026-09-10 00:02Z on the mirror's frame command and on the
+  Done push's shot). The bucket holds two objects, 0.2 MB — this is a
+  daily-operations or plan quota, not space. The project was on Blaze
+  on 2026-09-04; a billing problem drops it to the no-cost limits, and
+  a `firebasestorage.app` bucket stops taking writes there.
+
+  Until it takes writes again, the Done push goes without its frame
+  (the words still arrive — proven), the mirror shows no new frame,
+  and try-it builds cannot be put up. Nothing else in the app is
+  affected; Firestore is fine.
+runbook:
+  - do: Firebase console → flutterappbundle → Storage → Usage; and Project settings → Usage and billing.
+    expect: The plan reads Blaze with a live billing account. If it reads Spark, or the billing account is disabled or its card declined, that is the cause — fix the billing and the bucket takes writes within minutes.
+    if_fails: If the plan is Blaze and the usage graph shows a spike of uploads or downloads, the mirror's one-frame-a-second stream is the likely eater; tell Claude and the stream gets a lower rate or a daily cap.
+  - do: On the phone, with RUN up on Scratch, send any turn while the app is in the background.
+    expect: The Done push expands to a picture of the app under test. Then close this item.
+verify: "The MIRROR button on Scratch's RUN card shows a fresh frame (the command's line says frame N), not 'capture failed: … quota-exceeded'."

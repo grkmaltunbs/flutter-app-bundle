@@ -156,6 +156,11 @@ class PushSender extends ChangeNotifier {
   /// The registered phones: token → the fields the phone wrote.
   Map<String, Map<String, Object?>> devices = const {};
 
+  /// What waits through a phone's quiet hours: token → the notices, in
+  /// order, with the project each is about.
+  final Map<String, List<HeldNotice>> _held = {};
+  Timer? _digestTimer;
+
   int sent = 0;
   DateTime? lastSentAt;
   String? lastError;
@@ -172,6 +177,10 @@ class PushSender extends ChangeNotifier {
   void start() {
     _devices ??= db.collection('devices').snapshots().listen((q) {
       devices = {for (final d in q.docs) d.id: {for (final e in d.data().entries) e.key: e.value as Object?}};
+      // A window moved, or went off, or a phone left: what waits for it
+      // may be due now.
+      _held.removeWhere((token, _) => !devices.containsKey(token));
+      _armDigest();
       notifyListeners();
     }, onError: (Object e) {
       lastError = 'could not read devices: $e';
@@ -223,9 +232,116 @@ class PushSender extends ChangeNotifier {
     }
   }
 
-  /// Sends [n] to every registered phone. Returns how many took it; a
+  /// Sends [n] to every registered phone — except a phone in its quiet
+  /// hours, for a notice that waits ([heldInQuiet]): that one hears it in
+  /// the digest at the window's end. Returns how many took it now; a
   /// phone whose token FCM no longer knows is forgotten on the spot.
-  Future<int> send(Notice n, {required String slug}) => _broadcast((token) => fcmMessage(n, slug: slug, token: token, android: isAndroid(token)));
+  Future<int> send(Notice n, {required String slug, String? project}) =>
+      _broadcast((token) => fcmMessage(n, slug: slug, token: token, android: isAndroid(token)), hold: (token) => _hold(token, slug: slug, project: project ?? projectOf(n), n: n));
+
+  /// The quiet window a phone keeps on its row, or null.
+  QuietWindow? quietOf(String token) => QuietWindow.fromMap(devices[token]?['quiet']);
+
+  /// The phone under [token] is in its quiet hours now.
+  bool quietNow(String token) => quietOf(token)?.contains(_now()) ?? false;
+
+  /// How many notices wait for [slug] across the phones.
+  int heldFor(String slug) => [for (final l in _held.values) ...l.where((h) => h.slug == slug)].length;
+
+  /// One line for the Session tab: the windows the phones keep, and what
+  /// waits for this project.
+  String quietLine(String slug) {
+    final windows = <String>[];
+    for (final e in devices.entries) {
+      final q = quietOf(e.key);
+      if (q == null || !q.on) continue;
+      final name = (e.value['name'] ?? 'a phone').toString();
+      windows.add('${q.label} on $name');
+    }
+    if (windows.isEmpty) return 'Quiet hours: none set — the moon on the phone\'s project list sets a window; Turn ended and problems then wait for the morning.';
+    final held = heldFor(slug);
+    final until = [
+      for (final e in devices.entries)
+        if (quietNow(e.key) && (_held[e.key] ?? const []).any((h) => h.slug == slug)) QuietWindow.hm(quietOf(e.key)!.end),
+    ];
+    final tail = held == 0 ? '' : ' · $held held for this project${until.isEmpty ? '' : ' until ${until.first}'}';
+    return 'Quiet hours ${windows.join(', ')}$tail';
+  }
+
+  bool _hold(String token, {required String slug, required String project, required Notice n}) {
+    if (!heldInQuiet(n) || !quietNow(token)) return false;
+    (_held[token] ??= []).add(HeldNotice(slug: slug, project: project, notice: n, at: _now()));
+    _armDigest();
+    notifyListeners();
+    return true;
+  }
+
+  /// A timer for the earliest window's end among the phones with something
+  /// waiting — or nothing, when nothing waits.
+  void _armDigest() {
+    _digestTimer?.cancel();
+    _digestTimer = null;
+    DateTime? due;
+    final now = _now();
+    for (final token in _held.keys) {
+      if ((_held[token] ?? const []).isEmpty) continue;
+      final at = quietOf(token)?.endAfter(now) ?? now;
+      if (due == null || at.isBefore(due)) due = at;
+    }
+    if (due == null) return;
+    var wait = due.difference(now);
+    if (wait.isNegative) wait = Duration.zero;
+    _digestTimer = Timer(wait + const Duration(seconds: 1), () => unawaited(flushDue()));
+  }
+
+  /// Sends the digest to every phone whose window has ended (or was
+  /// turned off) — one per project it waited for — and arms the next.
+  /// Returns how many digests went.
+  Future<int> flushDue() async {
+    _loadKey();
+    final m = _minter;
+    var sent = 0;
+    String? failure;
+    for (final token in _held.keys.toList()) {
+      if (quietNow(token)) continue;
+      final list = _held.remove(token) ?? const [];
+      if (list.isEmpty || m == null) continue;
+      final bySlug = <String, List<HeldNotice>>{};
+      for (final h in list) {
+        (bySlug[h.slug] ??= []).add(h);
+      }
+      for (final e in bySlug.entries) {
+        final d = digestNotice(project: e.value.last.project, held: [for (final h in e.value) h.notice]);
+        try {
+          final r = await _post(m, fcmMessage(d, slug: e.key, token: token, android: isAndroid(token)));
+          if (r == null) {
+            sent++;
+          } else if (r.stale) {
+            unawaited(db.collection('devices').doc(token).delete().catchError((Object _) {}));
+            devices = {...devices}..remove(token);
+          } else {
+            failure = r.message;
+          }
+        } on Object catch (err) {
+          failure = err.toString();
+        }
+      }
+    }
+    if (sent > 0) {
+      this.sent += sent;
+      lastSentAt = _now();
+    }
+    if (failure != null) lastError = failure;
+    _armDigest();
+    notifyListeners();
+    return sent;
+  }
+
+  /// The project a notice names — its title's tail after " · ".
+  static String projectOf(Notice n) {
+    final i = n.title.lastIndexOf(' · ');
+    return i < 0 ? n.title : n.title.substring(i + 3);
+  }
 
   /// Takes an ask's notification down on every phone — it was answered, or
   /// withdrawn. Not counted as a push sent.
@@ -235,7 +351,7 @@ class PushSender extends ChangeNotifier {
   /// The phone registered under [token] draws its own notifications.
   bool isAndroid(String token) => devices[token]?['platform'] == 'android';
 
-  Future<int> _broadcast(Map<String, Object?> Function(String token) build, {bool count = true}) async {
+  Future<int> _broadcast(Map<String, Object?> Function(String token) build, {bool count = true, bool Function(String token)? hold}) async {
     _loadKey();
     final m = _minter;
     if (m == null) return 0;
@@ -243,6 +359,7 @@ class PushSender extends ChangeNotifier {
     var ok = 0;
     String? failure;
     for (final token in devices.keys.toList()) {
+      if (hold != null && hold(token)) continue;
       try {
         final r = await _post(m, build(token));
         if (r == null) {
@@ -304,8 +421,18 @@ class PushSender extends ChangeNotifier {
   void dispose() {
     _devices?.cancel();
     _keyTimer?.cancel();
+    _digestTimer?.cancel();
     super.dispose();
   }
+}
+
+/// A notice that waits through a phone's quiet hours.
+class HeldNotice {
+  const HeldNotice({required this.slug, required this.project, required this.notice, required this.at});
+  final String slug;
+  final String project;
+  final Notice notice;
+  final DateTime at;
 }
 
 class _Failure {
@@ -326,7 +453,8 @@ class TurnWatch {
     if (state == BridgeState.failed && error != null && error.isNotEmpty) {
       if (_failure == error) return null;
       _failure = error;
-      return noticeForProblem(error, project: project);
+      // A dead session goes out through quiet hours.
+      return noticeForProblem(error, project: project, urgent: true);
     }
     if (state != BridgeState.failed) _failure = null;
     if (lastResult != null && !identical(lastResult, _result)) {

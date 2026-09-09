@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_kit/kit.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kit_app/src/host/push_sender.dart';
 import 'package:kit_app/src/push/local_notices.dart';
@@ -85,5 +86,20 @@ void main() {
     for (final o in AnswerOutcome.values) {
       expect(outcomeLine(o), isNotEmpty);
     }
+  });
+
+  test('a Done push with a frame: the path rides the data, the notification expands to the picture when the file is there', () {
+    final data = androidData(noticeForDone(const ResultEvent(subtype: 'success', sessionId: 's', text: 'Changed the title.'), project: 'Kit', image: 'projects/kit/shots/1.jpg', sessionId: 's', rowId: 'm7'), slug: 'kit');
+    final n = LocalNotice.from(data)!;
+    expect(n.image, 'projects/kit/shots/1.jpg');
+    expect(n.data['rowId'], 'm7');
+    expect(LocalNotices.androidDetails(n).styleInformation, isA<BigTextStyleInformation>(), reason: 'no file: the words');
+    final d = LocalNotices.androidDetails(n, picture: '/tmp/kit-shot-1.jpg');
+    expect(d.styleInformation, isA<BigPictureStyleInformation>());
+    final pic = d.styleInformation as BigPictureStyleInformation;
+    expect(pic.summaryText, 'Changed the title.');
+    expect(pic.contentTitle, n.title);
+    expect(LocalNotice.from(androidData(noticeForDone(const ResultEvent(subtype: 'success', sessionId: 's'), project: 'Kit'), slug: 'kit'))!.image, isNull);
+    expect(LocalNotice.from({'slug': 'kit', 'kind': 'done', 'title': 't', 'image': ''})!.image, isNull, reason: 'an empty path is no picture');
   });
 }

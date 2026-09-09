@@ -102,6 +102,8 @@ class _SessionTabState extends State<SessionTab> {
             _check(context, ok: h.hooksInstalled, text: h.hooksInstalled ? 'Hooks are installed — the phone sees what Claude is doing.' : 'No kit hook in .claude/settings.json — the session works, but the "now" line stays empty. Add `kit hook` to PostToolUse, Stop, UserPromptSubmit and Notification.'),
             _check(context, ok: h.relayError == null, text: h.relayError ?? 'Mirror: ${h.relayStatus}'),
             if (h.push != null) _check(context, ok: h.push!.ready && h.push!.lastError == null, text: h.push!.status),
+            if (h.push != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(h.push!.quietLine(h.slug ?? ''), style: TextStyle(fontSize: 12.5, color: t.ink2))),
+            if (h.shotError != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text('The last Done push went without its frame: ${h.shotError}', style: TextStyle(fontSize: 12.5, color: t.warn))),
             if (h.applied.isNotEmpty) ...[
               const SectionHead('From the phone', sub: 'Batches applied to plan/.'),
               for (final a in h.applied) Text(a, style: TextStyle(fontSize: 12.5, color: t.ink2)),

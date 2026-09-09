@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_kit/kit.dart';
 
 /// Phone only. Puts this phone on the list the Mac pushes to: asks the
 /// system for permission (Android 13 and up prompt), takes the FCM token,
@@ -39,6 +40,9 @@ class PushRegistrar extends ChangeNotifier {
 
   String? token;
   bool allowed = false;
+
+  /// This phone's quiet hours, as its row keeps them; null until set.
+  QuietWindow? quiet;
   String status = 'Notifications: not set up yet';
   String? error;
 
@@ -69,15 +73,26 @@ class PushRegistrar extends ChangeNotifier {
 
   Future<void> _write(String t) async {
     final ref = db.collection('devices').doc(t);
-    final exists = (await ref.get()).exists;
+    final was = await ref.get();
     await ref.set({
       'platform': platform,
       'name': deviceName,
       if (_uid() != null) 'uid': _uid(),
       'seenAt': FieldValue.serverTimestamp(),
-      if (!exists) 'registeredAt': FieldValue.serverTimestamp(),
+      if (!was.exists) 'registeredAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     token = t;
+    quiet = QuietWindow.fromMap(was.data()?['quiet']);
+    notifyListeners();
+  }
+
+  /// The phone's quiet hours onto its row — the Mac reads them from
+  /// there. Null clears them.
+  Future<void> setQuiet(QuietWindow? w) async {
+    final t = token;
+    if (t == null) throw StateError('notifications are not set up on this phone yet');
+    await db.collection('devices').doc(t).set({'quiet': w == null ? FieldValue.delete() : w.toMap()}, SetOptions(merge: true));
+    quiet = w;
     notifyListeners();
   }
 
@@ -101,16 +116,24 @@ class PushRegistrar extends ChangeNotifier {
 
 /// What a tapped notification opens: the project, and which ask if any.
 class PushTap {
-  const PushTap({required this.slug, required this.kind, this.requestId});
+  const PushTap({required this.slug, required this.kind, this.requestId, this.rowId, this.sessionId});
   final String slug;
   final String kind;
   final String? requestId;
+
+  /// The turn a Done push is about: the Deck lands on its row.
+  final String? rowId;
+  final String? sessionId;
 
   /// Null when the message carries no project — nothing to open.
   static PushTap? from(Map<String, Object?> data) {
     final slug = (data['slug'] ?? '').toString();
     if (slug.isEmpty) return null;
-    final rid = data['requestId']?.toString();
-    return PushTap(slug: slug, kind: (data['kind'] ?? '').toString(), requestId: rid == null || rid.isEmpty ? null : rid);
+    String? some(String key) {
+      final v = data[key]?.toString();
+      return v == null || v.isEmpty ? null : v;
+    }
+
+    return PushTap(slug: slug, kind: (data['kind'] ?? '').toString(), requestId: some('requestId'), rowId: some('rowId'), sessionId: some('sessionId'));
   }
 }
