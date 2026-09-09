@@ -1,0 +1,16 @@
+id: know-codex-spends-the-chatgpt-pool
+title: A Codex session from the phone spends the ChatGPT plan signed into the Mac
+status: open
+needs: [know]
+blocks: [codex-engine]
+step: codex-engine
+added: "2026-09-09"
+body: |
+  A Codex session started from the phone runs on the ChatGPT account
+  signed into the Mac's Codex — on 2026-09-06 a Plus plan with a 5-hour
+  window and a weekly window, both reported by the app-server with
+  `usedPercent` and `resetsAt`. Autopilot under Codex spends that pool the
+  way the Claude loop spends the Claude pool, and night shift waits on
+  the reset the account reports. Two engines are two pools: a refused one
+  is a reason to switch the ENGINE notch, not to wait. Nothing to do,
+  unless it changes which engine you leave a project on.

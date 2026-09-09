@@ -1,0 +1,18 @@
+id: trust-the-kit-hooks-in-codex
+title: Review and trust the kit's hooks in Codex, once
+status: open
+needs: [decision]
+blocks: [codex-engine]
+step: codex-engine
+added: "2026-09-09"
+body: |
+  Codex runs a plugin's hooks only after you have reviewed and trusted
+  them, and it records that trust against the hook's hash — an edit to
+  `hooks/hooks.json` or to a script asks again. The host could pass
+  `--dangerously-bypass-hook-trust`; it will not: the trust is yours to
+  give. Until it is given, the hook spool is silent under Codex and the
+  phone does not see what a Codex session is doing.
+runbook:
+  - do: In a project with flutter-kit installed into Codex, open the Codex TUI and start a session; when it lists the plugin's hooks for review, read them (hooks/analyze-queue.sh, hooks/analyze-check.sh, kit/kit.sh hook) and trust them.
+    expect: The next tool call writes an event to the hook spool and the phone's now-line moves.
+    if_fails: If nothing is asked, the plugin is not installed into that Codex — `codex plugin list` says. After any edit to the hooks Codex asks again; that is by design.

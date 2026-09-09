@@ -1,5 +1,5 @@
 id: handover
-number: "28"
+number: "29"
 title: Parked — Hand over to the Claude app on the same conversation, and take it back
 status: pending
 rank: 2000
@@ -43,3 +43,4 @@ sections:
 history:
   - { at: "2026-08-30", event: added }
   - { at: "2026-09-04", event: parked, note: "7 → 28, rank 2000; the bridge covers what hand-over was for" }
+  - { at: "2026-09-09", event: renumbered, note: "28 → 29; codex-engine inserted before it at rank 1500" }
