@@ -9,12 +9,19 @@
 /// {"sentAt": "2026-08-28T09:00:00Z",
 ///  "entries": [
 ///    {"kind": "item", "id": "…", "action": "done|drop|reopen|null", "answer": "…|null", "note": "…|null"},
-///    {"kind": "step", "id": "…", "note": "…"}
+///    {"kind": "step", "id": "…", "note": "…"},
+///    {"kind": "reorder", "id": "…", "before": "…|null"},
+///    {"kind": "step_done", "id": "…"}
 ///  ]}
 /// ```
+///
+/// `reorder` and `step_done` are the constellation's own moves — the host
+/// applies them with no model; a `step_done` the plan refuses is a skipped
+/// line carrying the refusal.
 library;
 
 import 'graph.dart';
+import 'steps.dart';
 import 'store.dart';
 
 class InboxLine {
@@ -118,6 +125,30 @@ InboxResult applyInbox(PlanStore store, Map<String, Object?> batch, {required St
         lines.add(InboxLine('step', id, 'note recorded'));
         applied++;
       }
+    } else if (kind == 'reorder') {
+      final before = e['before']?.toString();
+      final move = StepPlace(id, before == null || before.isEmpty ? null : before);
+      try {
+        final text = dryRun ? reorderPreview(plan, move) : reorderStep(store, move, today: today).message.replaceFirst('$id: ', '');
+        lines.add(InboxLine('reorder', id, text));
+        applied++;
+      } on ArgumentError catch (err) {
+        lines.add(InboxLine('reorder', id, err.message.toString(), skipped: true));
+        skipped++;
+      } on StepRefused catch (err) {
+        lines.add(InboxLine('reorder', id, err.message, skipped: true));
+        skipped++;
+      }
+    } else if (kind == 'step_done') {
+      final why = stepDoneRefusal(dryRun ? plan : store.load(), id);
+      if (why != null) {
+        lines.add(InboxLine('step_done', id, why, skipped: true));
+        skipped++;
+        continue;
+      }
+      if (!dryRun) stepDone(store, id, today: today);
+      lines.add(InboxLine('step_done', id, 'done'));
+      applied++;
     } else {
       lines.add(InboxLine(kind ?? '?', id, 'entry of unknown kind', skipped: true));
       skipped++;

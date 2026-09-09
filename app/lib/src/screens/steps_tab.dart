@@ -1,17 +1,19 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart' hide Step, StepState;
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_kit/kit.dart';
 
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'step_detail.dart' show StepActions, StepControls;
 
 /// The constellation. Same layout as the board (`layoutDag`), drawn as the
 /// canvas draws it: rings by state over a faint grid, the ready step
 /// pulsing, the selected one haloed. Portrait turns the graph on its side
 /// so the story reads top to bottom on a phone.
 class StepsTab extends StatefulWidget {
-  const StepsTab({super.key, required this.plan, required this.graph, required this.selected, required this.onSelect, this.onOpenDetail, this.onAskStep, this.showPanel = true, this.session = GlyphMode.idle});
+  const StepsTab({super.key, required this.plan, required this.graph, required this.selected, required this.onSelect, this.onOpenDetail, this.onAskStep, this.showPanel = true, this.session = GlyphMode.idle, this.actions, this.onReorder, this.draftMoved = const {}});
   final Plan plan;
   final Graph graph;
   final String? selected;
@@ -28,9 +30,26 @@ class StepsTab extends StatefulWidget {
   final void Function(String id)? onAskStep;
   final bool showPanel;
 
+  /// Start · Blocks · Mark done on the panel, when the surface can drive
+  /// the plan.
+  final StepActions? actions;
+
+  /// A bubble long-pressed and dragged past another: [id] goes just before
+  /// [before] (to the end when null). The drag stays on the device until
+  /// Apply; nothing here writes.
+  final void Function(String id, String? before)? onReorder;
+
+  /// Steps a draft has moved and not yet applied — drawn with a dashed
+  /// outer ring.
+  final Set<String> draftMoved;
+
   @override
   State<StepsTab> createState() => _StepsTabState();
 }
+
+/// How far (in canvas px) a drop may land from a bubble's centre and still
+/// count as "past it".
+const _dropReach = 70.0;
 
 double _radiusFor(StepState s, {bool selected = false}) {
   final r = switch (s) {
@@ -53,6 +72,14 @@ class _StepsTabState extends State<StepsTab> with TickerProviderStateMixin {
   GlyphMode _orbitMode = GlyphMode.idle;
   bool _centred = false;
 
+  // A long-press drag in flight: the bubble, where the finger is (canvas
+  // px), and the bubble it would land past.
+  String? _dragId;
+  Offset? _dragAt;
+  String? _dropTarget;
+  DagLayout? _lay;
+  bool _portrait = true;
+
   static Duration _orbitDuration(GlyphMode m) => switch (m) {
         GlyphMode.idle => const Duration(milliseconds: 7000),
         GlyphMode.live => const Duration(milliseconds: 4500),
@@ -69,6 +96,63 @@ class _StepsTabState extends State<StepsTab> with TickerProviderStateMixin {
   }
 
   Offset _pt(NodePos p, bool portrait) => portrait ? Offset(p.y + 60, p.x * 0.9 + 40) : Offset(p.x * 1.15 + 60, p.y * 1.35 + 30);
+
+  /// The bubble nearest [at] within reach, other than the dragged one.
+  String? _nearest(Offset at) {
+    final lay = _lay;
+    if (lay == null) return null;
+    String? best;
+    var bestD = _dropReach;
+    for (final e in lay.nodes.entries) {
+      if (e.key == _dragId) continue;
+      final d = (_pt(e.value, _portrait) - at).distance;
+      if (d < bestD) {
+        bestD = d;
+        best = e.key;
+      }
+    }
+    return best;
+  }
+
+  /// Dragging forward past a bubble lands after it; dragging back past one
+  /// lands before it — "before" in the plan's terms either way.
+  String? _beforeFor(String dragged, String target) {
+    final order = widget.plan.steps;
+    final di = order.indexWhere((s) => s.id == dragged);
+    final ti = order.indexWhere((s) => s.id == target);
+    if (di < 0 || ti < 0) return target;
+    if (ti < di) return target;
+    return ti + 1 < order.length ? order[ti + 1].id : null;
+  }
+
+  void _dragStart(String id, Offset at) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _dragId = id;
+      _dragAt = at;
+      _dropTarget = null;
+    });
+  }
+
+  void _dragMove(Offset at) {
+    final target = _nearest(at);
+    if (target != _dropTarget && target != null) HapticFeedback.selectionClick();
+    setState(() {
+      _dragAt = at;
+      _dropTarget = target;
+    });
+  }
+
+  void _dragEnd() {
+    final id = _dragId;
+    final target = _dropTarget;
+    setState(() {
+      _dragId = null;
+      _dragAt = null;
+      _dropTarget = null;
+    });
+    if (id != null && target != null) widget.onReorder?.call(id, _beforeFor(id, target));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +191,8 @@ class _StepsTabState extends State<StepsTab> with TickerProviderStateMixin {
     return LayoutBuilder(
       builder: (context, box) {
         final portrait = box.maxHeight >= box.maxWidth;
+        _lay = lay;
+        _portrait = portrait;
         final width = (portrait ? lay.height : lay.width * 1.15) + 120;
         final height = (portrait ? lay.width * 0.9 : lay.height * 1.35) + 110;
 
@@ -168,6 +254,10 @@ class _StepsTabState extends State<StepsTab> with TickerProviderStateMixin {
                                         portrait: portrait,
                                         t: t,
                                         pt: (p) => _pt(p, portrait),
+                                        dragId: _dragId,
+                                        dragAt: _dragAt,
+                                        dropTarget: _dropTarget,
+                                        draftMoved: widget.draftMoved,
                                         ),
                                       ),
                                     ),
@@ -191,6 +281,8 @@ class _StepsTabState extends State<StepsTab> with TickerProviderStateMixin {
                 maxHeight: box.maxHeight * 0.45,
                 onOpen: widget.onOpenDetail == null ? null : () => widget.onOpenDetail!(widget.selected!),
                 onAsk: widget.onAskStep == null ? null : () => widget.onAskStep!(widget.selected!),
+                actions: widget.actions,
+                moved: widget.draftMoved.contains(widget.selected),
               ),
           ],
         );
@@ -203,12 +295,19 @@ class _StepsTabState extends State<StepsTab> with TickerProviderStateMixin {
     final r = _radiusFor(v.state, selected: selected);
     final color = t.forState(v.state);
     final label = s.number ?? s.id;
+    final origin = Offset(o.dx - 52, o.dy - r);
+    final canDrag = widget.onReorder != null;
     return Positioned(
-      left: o.dx - 52,
-      top: o.dy - r,
+      left: origin.dx,
+      top: origin.dy,
       width: 104,
       child: GestureDetector(
         onTap: () => widget.onSelect(selected ? null : s.id),
+        // A hold lifts the bubble; the finger carries it past another.
+        onLongPressStart: canDrag ? (d) => _dragStart(s.id, origin + d.localPosition) : null,
+        onLongPressMoveUpdate: canDrag ? (d) => _dragMove(origin + d.localPosition) : null,
+        onLongPressEnd: canDrag ? (_) => _dragEnd() : null,
+        onLongPressCancel: canDrag ? _dragEnd : null,
         behavior: HitTestBehavior.opaque,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -291,11 +390,13 @@ class _Head extends StatelessWidget {
 /// What a tap shows without leaving the constellation: the step's state,
 /// its gate rings, and the boxes of yours that hold it.
 class _StepPanel extends StatelessWidget {
-  const _StepPanel({required this.view, required this.maxHeight, this.onOpen, this.onAsk});
+  const _StepPanel({required this.view, required this.maxHeight, this.onOpen, this.onAsk, this.actions, this.moved = false});
   final StepView view;
   final double maxHeight;
   final VoidCallback? onOpen;
   final VoidCallback? onAsk;
+  final StepActions? actions;
+  final bool moved;
 
   @override
   Widget build(BuildContext context) {
@@ -314,10 +415,14 @@ class _StepPanel extends StatelessWidget {
           children: [
             Row(children: [
               Expanded(child: Text('STEP ${s.number ?? s.id} · ${stateLabel(v.state)}'.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.display(13, ls: 2.2, color: color))),
-              Text('RANK ${s.rank}', style: t.readout(11)),
+              Text(moved ? 'RANK ${s.rank} · MOVED' : 'RANK ${s.rank}', style: t.readout(11, color: moved ? t.warn : null)),
             ]),
             const SizedBox(height: 6),
             Text(s.title, style: t.display(19, weight: FontWeight.w600, ls: 0.3, height: 1.2)),
+            if (actions != null) ...[
+              const SizedBox(height: 10),
+              StepControls(view: v, actions: actions!),
+            ],
             if (s.gates.isNotEmpty) ...[
               const SizedBox(height: 10),
               Wrap(spacing: 8, runSpacing: 8, children: [for (final g in s.gates.values) GateCard(g)]),
@@ -397,7 +502,11 @@ class _ConstellationPainter extends CustomPainter {
       required this.wavePhase,
       required this.portrait,
       required this.t,
-      required this.pt});
+      required this.pt,
+      this.dragId,
+      this.dragAt,
+      this.dropTarget,
+      this.draftMoved = const {}});
   final DagLayout lay;
   final Map<String, StepView> views;
   final String? selected;
@@ -411,6 +520,13 @@ class _ConstellationPainter extends CustomPainter {
   final bool portrait;
   final KitTokens t;
   final Offset Function(NodePos) pt;
+
+  /// A drag in flight: the lifted bubble, the finger, the bubble it would
+  /// land past.
+  final String? dragId;
+  final Offset? dragAt;
+  final String? dropTarget;
+  final Set<String> draftMoved;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -476,6 +592,27 @@ class _ConstellationPainter extends CustomPainter {
               ..strokeWidth = 1
               ..color = color.withValues(alpha: 0.55));
       }
+      // Moved by a drag that waits for Apply: a dashed amber ring.
+      if (draftMoved.contains(e.key)) {
+        _dashedCircle(
+            canvas,
+            o,
+            r + 6,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.5
+              ..color = t.warn.withValues(alpha: 0.9));
+      }
+      // The bubble a drag would land past: a wide accent ring.
+      if (e.key == dropTarget) {
+        canvas.drawCircle(
+            o,
+            r + 14,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 3
+              ..color = t.accent.withValues(alpha: 0.8));
+      }
 
       switch (v.state) {
         case StepState.done:
@@ -510,6 +647,18 @@ class _ConstellationPainter extends CustomPainter {
                 ..strokeWidth = isSelected ? 2.5 : 2
                 ..color = color);
       }
+    }
+
+    // The lifted bubble rides under the finger.
+    if (dragAt case final at? when dragId != null) {
+      canvas.drawCircle(at, 22, Paint()..color = t.accent.withValues(alpha: 0.18));
+      canvas.drawCircle(
+          at,
+          13,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.5
+            ..color = t.accent);
     }
   }
 
@@ -589,5 +738,9 @@ class _ConstellationPainter extends CustomPainter {
       old.waveTarget != waveTarget ||
       old.lay != lay ||
       old.t != t ||
-      old.portrait != portrait;
+      old.portrait != portrait ||
+      old.dragId != dragId ||
+      old.dragAt != dragAt ||
+      old.dropTarget != dropTarget ||
+      old.draftMoved != draftMoved;
 }

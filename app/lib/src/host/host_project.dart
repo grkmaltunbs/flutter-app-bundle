@@ -742,6 +742,27 @@ class HostProject extends ChangeNotifier {
         bridge.noteHostAction('git $op${message != null ? ' "$message"' : ''}${path != null ? ' $path' : ''} — ${r.ok ? 'ok' : 'failed'}: $first');
         _refreshGit(soon: true);
         return r.ok ? 'ok: $first' : 'failed: $first';
+      case 'blocks':
+        // `{type: host, action: blocks, step}` — what stands between the
+        // step and done, as `kit blocks` prints it. No model.
+        final stepId = (cmd['step'] ?? '').toString();
+        final plan = source.store.load();
+        if (plan.step(stepId) == null) return 'No step "$stepId"';
+        return renderBlocks(plan, stepId).trimRight();
+      case 'step_done':
+        // `{type: host, action: step_done, step}` — `kit step done`; the
+        // refusal comes back word for word when the plan says no.
+        final stepId = (cmd['step'] ?? '').toString();
+        try {
+          final r = stepDone(source.store, stepId, today: _today());
+          _renderViews();
+          source.reload();
+          bridge.noteHostAction('Step $stepId was marked done from the app (`kit step done`).');
+          notifyListeners();
+          return r.lines;
+        } on StepRefused catch (e) {
+          return e.message;
+        }
       default:
         return 'unknown host action ${cmd['action']}';
     }
@@ -831,6 +852,25 @@ class HostProject extends ChangeNotifier {
   /// `/board` publishes what the phone did.
   Future<InboxResult> applyBatch(Map<String, Object?> batch) async {
     final r = applyInbox(source.store, batch, today: _today());
+    _renderViews();
+    // The constellation's own moves change the plan the session works
+    // from; it hears on its next prompt.
+    for (final l in r.lines) {
+      if (l.skipped) continue;
+      if (l.kind == 'reorder') bridge.noteHostAction('From the app: step ${l.id} ${l.text}.');
+      if (l.kind == 'step_done') bridge.noteHostAction('From the app: step ${l.id} was marked done (`kit step done`).');
+    }
+    applied.insert(0, '${DateTime.now().toIso8601String().substring(11, 16)} — ${r.summary}');
+    if (applied.length > 20) applied.removeLast();
+    source.reload();
+    notifyListeners();
+    return r;
+  }
+
+  /// The plan markdown and the board HTML, regenerated after a change the
+  /// host made to `plan/` — a convenience for the next `/board`; a failure
+  /// changes nothing about the change itself.
+  void _renderViews() {
     try {
       final plan = source.store.load();
       File(p.join(dir, plan.manifest.planMarkdown)).writeAsStringSync(renderPlanMarkdown(plan));
@@ -838,13 +878,8 @@ class HostProject extends ChangeNotifier {
         ..createSync(recursive: true)
         ..writeAsStringSync(renderBoardHtml(plan, today: _today()));
     } on Object {
-      // The batch is applied; the rendered views are a convenience.
+      // The change is on disk; the rendered views are a convenience.
     }
-    applied.insert(0, '${DateTime.now().toIso8601String().substring(11, 16)} — ${r.summary}');
-    if (applied.length > 20) applied.removeLast();
-    source.reload();
-    notifyListeners();
-    return r;
   }
 
   String _today() => DateTime.now().toIso8601String().substring(0, 10);

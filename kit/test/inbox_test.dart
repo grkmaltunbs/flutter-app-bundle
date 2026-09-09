@@ -85,4 +85,38 @@ void main() {
   test('a malformed batch is a FormatException, not a crash', () {
     expect(() => applyInbox(store, {'entries': 'x'}, today: '2026-08-28'), throwsFormatException);
   });
+
+  test('reorder and step_done ride the batch: the host moves ranks and flips, a refused flip is a skipped line with the reason', () {
+    store.writeStep(Step(id: 'b', title: 'B', rank: 2));
+    store.writeStep(Step(id: 'c', title: 'C', rank: 3, status: StepStatus.active, gates: {'tests': Gate('tests', status: GateStatus.passed)}));
+    final dry = applyInbox(store, {
+      'entries': [
+        {'kind': 'reorder', 'id': 'c', 'before': 'a'},
+        {'kind': 'step_done', 'id': 'a'},
+      ],
+    }, today: '2026-09-10', dryRun: true);
+    expect(dry.lines.map((l) => l.toString()), ['reorder c: moved before a (rank 3 → 0)', 'skip step_done a: a: 1 human item(s) still open: i1. A step is not done while its boxes are open. Close them with `kit done`, or --force.']);
+    expect(store.load().steps.map((s) => s.id), ['a', 'b', 'c'], reason: 'a dry run writes nothing');
+    final r = applyInbox(store, {
+      'entries': [
+        {'kind': 'reorder', 'id': 'c', 'before': 'a'},
+        {'kind': 'reorder', 'id': 'zz', 'before': 'a'},
+        {'kind': 'step_done', 'id': 'c'},
+        {'kind': 'step_done', 'id': 'a'},
+      ],
+    }, today: '2026-09-10');
+    expect(r.applied, 2);
+    expect(r.skipped, 2);
+    expect(r.lines.map((l) => l.toString()), [
+      'reorder c: moved before a (rank 3 → 0)',
+      'skip reorder zz: Unknown step "zz"',
+      'step_done c: done',
+      'skip step_done a: a: 1 human item(s) still open: i1. A step is not done while its boxes are open. Close them with `kit done`, or --force.',
+    ]);
+    final plan = store.load();
+    expect(plan.steps.map((s) => s.id), ['c', 'a', 'b']);
+    expect(plan.step('c')!.status, StepStatus.done);
+    expect(plan.step('a')!.status, StepStatus.active);
+    expect(hostOnlyBatch({'entries': [{'kind': 'reorder', 'id': 'c', 'before': 'a'}]}), isTrue);
+  });
 }

@@ -1,14 +1,14 @@
 id: constellation-controls
 number: "24"
 title: Constellation controls — start, blocks and done from a step's bubble; reorder by drag, no model needed
-status: pending
+status: done
 rank: 850
 depends_on: [item-threads]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-10, note: kit and app analyze clean, status: passed}
+  tests: { at: 2026-09-10, note: "kit 130, app 208 (2 live skips): step moves and refusals, reorder ranks, inbox reorder\/step_done ops, draft moves, controls at 1.0\/2.0\/3.12, long-press drag, the phone's round trip through a fake Mac", status: passed}
+  qa: { at: 2026-09-10, note: "On the user's Android phone, driven over adb, against ~\/kit-scratch (four steps added for it: sing ready, dance active with a pending gate, spin blocked behind an item and dance, rest flippable): a tap on spin's bubble opened the panel with START THE SESSION · BLOCKS · MARK DONE; BLOCKS showed the host's rendering (dependencies not done: dance [active]; human items open: spin-shoes) with nothing sent to the session; MARK DONE on dance came back 'dance: gates not passed: check. Record them with `kit gate`, or --force.' in red; MARK DONE on rest answered 'rest: done.', the bubble turned done and the panel lost its two buttons, rest.yaml read done on the Mac with PROJECT_PLAN.md and the board regenerated; a long press lifted spin (the ring under the finger, sing wearing the target ring), the drop marked it with the dashed amber ring and the bar read '1 move · APPLY'; APPLY toasted 'reorder spin: moved before sing (rank 90 → 65)' and kit status on the Mac listed spin before sing with the move in its history; with no session, sing's panel read START THE SESSION, the session came up ('started — START THIS STEP once the Deck shows the session live'), START THIS STEP answered 'sent' and the Deck showed \/step sing running (the skill launched and asked for its first Bash). The Mac window's own copy of the controls goes through the same host code and was not clicked by hand.", status: passed}
 sections:
   - title: Description
     body: |
@@ -53,3 +53,16 @@ sections:
       - `app/lib/src/screens/steps_tab.dart`, `app/lib/src/screens/step_detail.dart`, `app/lib/src/draft.dart` (batch ops), `app/lib/src/host/host_project.dart` (applyInbox, blocks, step done), `kit/lib/src/inbox.dart`, `kit/lib/src/store.dart` (rank moves)
 history:
   - { at: "2026-09-04", event: added, note: "phase 3b — the constellation as a control surface" }
+  - at: 2026-09-10
+    event: started
+  - at: 2026-09-10
+    event: gate analyze passed
+    note: kit and app analyze clean
+  - at: 2026-09-10
+    event: gate tests passed
+    note: "kit 130, app 208 (2 live skips): step moves and refusals, reorder ranks, inbox reorder\/step_done ops, draft moves, controls at 1.0\/2.0\/3.12, long-press drag, the phone's round trip through a fake Mac"
+  - at: 2026-09-10
+    event: gate qa passed
+    note: "On the user's Android phone, driven over adb, against ~\/kit-scratch (four steps added for it: sing ready, dance active with a pending gate, spin blocked behind an item and dance, rest flippable): a tap on spin's bubble opened the panel with START THE SESSION · BLOCKS · MARK DONE; BLOCKS showed the host's rendering (dependencies not done: dance [active]; human items open: spin-shoes) with nothing sent to the session; MARK DONE on dance came back 'dance: gates not passed: check. Record them with `kit gate`, or --force.' in red; MARK DONE on rest answered 'rest: done.', the bubble turned done and the panel lost its two buttons, rest.yaml read done on the Mac with PROJECT_PLAN.md and the board regenerated; a long press lifted spin (the ring under the finger, sing wearing the target ring), the drop marked it with the dashed amber ring and the bar read '1 move · APPLY'; APPLY toasted 'reorder spin: moved before sing (rank 90 → 65)' and kit status on the Mac listed spin before sing with the move in its history; with no session, sing's panel read START THE SESSION, the session came up ('started — START THIS STEP once the Deck shows the session live'), START THIS STEP answered 'sent' and the Deck showed \/step sing running (the skill launched and asked for its first Bash). The Mac window's own copy of the controls goes through the same host code and was not clicked by hand."
+  - at: 2026-09-10
+    event: done

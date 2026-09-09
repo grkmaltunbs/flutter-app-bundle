@@ -21,6 +21,7 @@ kit — the plan engine behind flutter-kit
   kit gate <step-id> <gate> <passed|failed|pending> [--note ...]
   kit step start <step-id>
   kit step done <step-id> [--force] [--note ...]
+  kit step move <step-id> [--before <step-id>]   a new place in the order; no --before means the end
   kit done <item-id> [--note ...]      close a human item; prints what it unblocked
   kit drop <item-id> [--note ...]      close an item as "not doing"
   kit notify <text>                    one line to the user's phone, through the K.A.T.Y.A host
@@ -50,6 +51,7 @@ void main(List<String> argv) {
     ..addOption('title')
     ..addOption('needs')
     ..addOption('blocks')
+    ..addOption('before')
     ..addOption('from')
     ..addOption('deadline')
     ..addOption('body')
@@ -216,43 +218,25 @@ void _gate(PlanStore store, String stepId, String gate, String status, String? n
 }
 
 void _stepCmd(PlanStore store, List<String> rest, ArgResults args) {
-  final sub = _arg(rest, 1, 'step needs start|done');
+  final sub = _arg(rest, 1, 'step needs start|done|move');
   final id = _arg(rest, 2, 'step $sub needs a step id');
-  final plan = store.load();
-  final s = plan.step(id);
-  if (s == null) throw _Refused('No step "$id"');
-  final file = store.stepPath(id);
   final note = args['note'] as String?;
-  switch (sub) {
-    case 'start':
-      final v = Graph(plan).view(s);
-      if (v.state == StepState.blocked && !(args['force'] as bool)) {
-        throw _Refused('$id is blocked by ${v.missingDeps.map((d) => d.id).join(', ')}. Finish those first, or --force.');
-      }
-      if (s.status == StepStatus.done) throw _Refused('$id is already done.');
-      store.patch(file, ['status'], 'active');
-      store.appendTo(file, ['history'], {'at': _today, 'event': 'started', if (note != null) 'note': note});
-      stdout.writeln('$id: active.');
-    case 'done':
-      final v = Graph(plan).view(s);
-      final force = args['force'] as bool;
-      if (!force) {
-        if (v.pendingGates.isNotEmpty) {
-          throw _Refused('$id: gates not passed: ${v.pendingGates.map((g) => g.name).join(', ')}. Record them with `kit gate`, or --force.');
-        }
-        if (v.openBlockers.isNotEmpty) {
-          throw _Refused('$id: ${v.openBlockers.length} human item(s) still open: ${v.openBlockers.map((i) => i.id).join(', ')}. A step is not done while its boxes are open. Close them with `kit done`, or --force.');
-        }
-        if (v.missingDeps.isNotEmpty) {
-          throw _Refused('$id: dependencies not done: ${v.missingDeps.map((d) => d.id).join(', ')}.');
-        }
-      }
-      store.patch(file, ['status'], 'done');
-      store.appendTo(file, ['history'], {'at': _today, 'event': force ? 'done (forced)' : 'done', if (note != null) 'note': note});
-      stdout.writeln('$id: done.');
-      _reportUnblocked(store.load(), before: plan);
-    default:
-      throw _Usage('step needs start|done');
+  final force = args['force'] as bool;
+  try {
+    switch (sub) {
+      case 'start':
+        stdout.writeln(stepStart(store, id, force: force, note: note, today: _today).lines);
+      case 'done':
+        stdout.writeln(stepDone(store, id, force: force, note: note, today: _today).lines);
+      case 'move':
+        // `kit step move <id> --before <id>`; without --before, to the end.
+        final before = args['before'] as String?;
+        stdout.writeln(reorderStep(store, StepPlace(id, before == null || before.isEmpty ? null : before), today: _today).lines);
+      default:
+        throw _Usage('step needs start|done|move');
+    }
+  } on StepRefused catch (e) {
+    throw _Refused(e.message);
   }
 }
 
@@ -289,18 +273,6 @@ void _reopen(PlanStore store, String id) {
   store.patch(file, ['status'], 'open');
   store.patch(file, ['done_at'], null);
   stdout.writeln('$id: open.');
-}
-
-void _reportUnblocked(Plan after, {required Plan before}) {
-  final gb = Graph(before);
-  final ga = Graph(after);
-  for (final s in after.steps) {
-    final was = gb.view(before.step(s.id)!).state;
-    final now = ga.view(s).state;
-    if (was == StepState.blocked && now == StepState.ready) {
-      stdout.writeln('  ${s.id} is now ready to start.');
-    }
-  }
 }
 
 void _itemCmd(PlanStore store, List<String> rest, ArgResults args) {

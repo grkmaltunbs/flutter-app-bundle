@@ -105,14 +105,26 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
 
   Future<void> _send() async {
     final batch = _draft.toBatch();
+    final hostOnly = hostOnlyBatch(batch);
     setState(() => _sending = true);
     try {
       if (widget.isHost) {
         final r = await widget.host!.applyBatch(batch);
-        _toast(r.summary);
+        _toast(hostOnly ? r.lines.map((l) => l.toString()).join('\n') : r.summary);
       } else {
-        await InboxSender(FirebaseFirestore.instance, widget.planSlug).send(batch, from: 'phone');
-        _toast('Sent. The Mac applies it and Claude sees it on its next step.');
+        final ref = await InboxSender(FirebaseFirestore.instance, widget.planSlug).send(batch, from: 'phone');
+        if (hostOnly) {
+          // Nothing for Claude in it: wait for the Mac's lines and show them.
+          try {
+            final done = await ref.snapshots().firstWhere((d) => d.data()?['appliedAt'] != null).timeout(const Duration(seconds: 30));
+            final lines = [for (final l in (done.data()?['lines'] as List? ?? const [])) l.toString()];
+            _toast(lines.isEmpty ? (done.data()?['applied'] ?? 'Applied.').toString() : lines.join('\n'));
+          } on TimeoutException {
+            _toast('Sent. The Mac applies it when it is back.');
+          }
+        } else {
+          _toast('Sent. The Mac applies it and Claude sees it on its next step.');
+        }
       }
       await _draft.clear();
     } on Object catch (e) {
@@ -125,7 +137,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
   void _toast(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   void _openDetail(String id) {
-    final plan = widget.source.plan!;
+    final plan = _shown(widget.source.plan!);
     final step = plan.step(id);
     if (step == null) return;
     showModalBottomSheet<void>(
@@ -140,7 +152,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
         builder: (context, ctrl) => ListenableBuilder(
           listenable: Listenable.merge([widget.source, _draft]),
           builder: (_, _) {
-            final p = widget.source.plan;
+            final p = widget.source.plan == null ? null : _shown(widget.source.plan!);
             final s = p?.step(id);
             if (p == null || s == null) return const SizedBox.shrink();
             return StepDetail(
@@ -150,6 +162,8 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                 draft: _draft,
                 controller: ctrl,
                 threads: _threads,
+                actions: _stepActions,
+                moved: _draft.moves.any((m) => m.id == s.id),
                 onAskItem: (i) => _askAbout({'item': i.id}, i.title),
                 onAskStep: () => _askAbout({'step': s.id}, s.title),
                 onSelectStep: (other) {
@@ -164,6 +178,35 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
   }
 
   bool get _bridgeRunning => widget.isHost ? widget.host!.bridge.running : _summary?.mode == 'bridge';
+
+  /// Start · Blocks · Mark done for a step's sheet: the host runs its own
+  /// hands; the phone sends host commands and waits for the line. Blocks
+  /// and a flip go where `plan/` lives — a worktree's parent.
+  StepActions get _stepActions {
+    final db = FirebaseFirestore.instance;
+    Future<String> hostCmd(String action, String id) {
+      if (widget.isHost) {
+        final owner = widget.host!.parent ?? widget.host!;
+        return owner.applyCommand({'type': 'host', 'action': action, 'step': id, 'from': 'Mac'});
+      }
+      return waitedCommand(db, widget.planSlug, {'type': 'host', 'action': action, 'step': id}, from: 'phone', wait: const Duration(seconds: 60));
+    }
+
+    return StepActions(
+      sessionRunning: _bridgeRunning,
+      startSession: () async {
+        if (widget.isHost) return widget.host!.applyCommand({'type': 'start', 'from': 'Mac'});
+        await CommandSender(db, widget.slug).send({'type': 'start'}, from: 'phone');
+        return 'started — START THIS STEP once the Deck shows the session live';
+      },
+      startStep: (id) {
+        if (widget.isHost) return widget.host!.applyCommand({'type': 'send', 'text': '/step $id', 'from': 'Mac'});
+        return waitedCommand(db, widget.slug, {'type': 'send', 'text': '/step $id'}, from: 'phone');
+      },
+      blocks: (id) => hostCmd('blocks', id),
+      markDone: (id) => hostCmd('step_done', id),
+    );
+  }
 
   /// Sends one scoped message to whichever session this surface drives.
   Future<String?> _sendScoped(String text, Map<String, Object?> about) async {
@@ -193,6 +236,10 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
       onSend: (t) => _sendScoped(t, about),
     );
   }
+
+  /// The plan as the draft's drags have it — what the constellation and the
+  /// sheets draw until Apply. Nothing is written.
+  Plan _shown(Plan plan) => _draft.moves.isEmpty ? plan : planWithMoves(plan, _draft.moves);
 
   /// The session's mood, for the constellation's energy waves: idle breath,
   /// cyan while a task runs, green when the turn is done, amber on an ask.
@@ -265,6 +312,10 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
       builder: (context, _) {
         final plan = widget.source.plan;
         final graph = widget.source.graph;
+        // The constellation shows the order the draft's drags make.
+        final shown = plan == null ? null : _shown(plan);
+        final shownGraph = shown == null ? null : (_draft.moves.isEmpty ? graph : Graph(shown));
+        final moved = {for (final m in _draft.moves) m.id};
         final sessionUrl = widget.isHost ? widget.host!.session.sessionUrl : _summary?.sessionUrl;
         final openCount = plan?.items.where((i) => i.isOpen).length ?? 0;
         return Scaffold(
@@ -327,26 +378,28 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
                             wide
                                 ? Row(
                                     children: [
-                                      Expanded(child: StepsTab(plan: plan, graph: graph!, selected: _selected, showPanel: false, session: _sessionGlyph(), onSelect: (id) => setState(() => _selected = id))),
+                                      Expanded(child: StepsTab(plan: shown!, graph: shownGraph!, selected: _selected, showPanel: false, session: _sessionGlyph(), onSelect: (id) => setState(() => _selected = id), onReorder: _draft.move, draftMoved: moved)),
                                       Container(
                                         width: 440,
                                         decoration: BoxDecoration(color: t.surface, border: Border(left: BorderSide(color: t.line))),
-                                        child: _selected == null || plan.step(_selected!) == null
+                                        child: _selected == null || shown.step(_selected!) == null
                                             ? const EmptyNote('Tap a step.')
                                             : StepDetail(
-                                                plan: plan,
-                                                graph: graph,
-                                                step: plan.step(_selected!)!,
+                                                plan: shown,
+                                                graph: shownGraph,
+                                                step: shown.step(_selected!)!,
                                                 draft: _draft,
                                                 threads: _threads,
+                                                actions: _stepActions,
+                                                moved: moved.contains(_selected),
                                                 onAskItem: (i) => _askAbout({'item': i.id}, i.title),
-                                                onAskStep: () => _askAbout({'step': _selected!}, plan.step(_selected!)!.title),
+                                                onAskStep: () => _askAbout({'step': _selected!}, shown.step(_selected!)!.title),
                                                 onSelectStep: (id) => setState(() => _selected = id)),
                                       ),
                                     ],
                                   )
-                                : StepsTab(plan: plan, graph: graph!, selected: _selected, session: _sessionGlyph(), onSelect: (id) => setState(() => _selected = id), onOpenDetail: _openDetail, onAskStep: (id) => _askAbout({'step': id}, plan.step(id)?.title ?? id)),
-                            WorkTab(plan: plan, graph: graph, draft: _draft, threads: _threads, onAskItem: (i) => _askAbout({'item': i.id}, i.title)),
+                                : StepsTab(plan: shown!, graph: shownGraph!, selected: _selected, session: _sessionGlyph(), onSelect: (id) => setState(() => _selected = id), onOpenDetail: _openDetail, onAskStep: (id) => _askAbout({'step': id}, plan.step(id)?.title ?? id), actions: _stepActions, onReorder: _draft.move, draftMoved: moved),
+                            WorkTab(plan: plan, graph: graph!, draft: _draft, threads: _threads, onAskItem: (i) => _askAbout({'item': i.id}, i.title)),
                             if (widget.isHost) SessionTab(host: widget.host!, presence: HostProjects.presence, power: HostProjects.power, loginItem: HostProjects.loginItem),
                           ],
                         ),
@@ -374,6 +427,8 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
     final ticks = _draft.items.values.where((d) => d.action != null).length;
     final answers = _draft.items.values.where((d) => d.answer != null).length;
     final notes = _draft.items.values.where((d) => d.note.trim().isNotEmpty).length + _draft.steps.length;
+    final moves = _draft.moves.length;
+    final apply = _draft.hostOnly;
     String n(int c, String what) => '$c $what${c == 1 ? '' : 's'}';
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
@@ -392,7 +447,7 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
             children: [
               Text('DRAFT ON THIS DEVICE', style: t.readout(10.5)),
               const SizedBox(height: 2),
-              Text('${n(ticks, 'tick')} · ${n(answers, 'answer')} · ${n(notes, 'note')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: t.ink2)),
+              Text([if (!apply) '${n(ticks, 'tick')} · ${n(answers, 'answer')} · ${n(notes, 'note')}', if (moves > 0) n(moves, 'move')].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: t.ink2)),
             ],
           ),
           Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
@@ -401,7 +456,8 @@ class _ProjectScreenState extends State<ProjectScreen> with SingleTickerProvider
               onPressed: _sending ? null : _send,
               icon: const Icon(Icons.arrow_forward, size: 16),
               iconAlignment: IconAlignment.end,
-              label: Text(_sending ? 'SENDING…' : 'SEND TO CLAUDE'),
+              // Moves alone need no Claude: the Mac applies them.
+              label: Text(_sending ? (apply ? 'APPLYING…' : 'SENDING…') : (apply ? 'APPLY' : 'SEND TO CLAUDE')),
             ),
           ]),
         ],

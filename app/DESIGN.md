@@ -356,6 +356,8 @@ projects/{slug}/builds/{id}           {state, sha, branch, version, size, at, pa
 projects/{slug}.session.build         {state, id, progress, version, error, buildOnFlip}
 projects/{slug}/commands/{auto}       + {type: build, action: start|delete|switch, buildId?, on?}
 projects/{slug}/commands/{auto}       + {type: host|input, action, …}
+projects/{slug}/commands/{auto}       + {type: host, action: blocks | step_done, step}   (built 2026-09-10; the result is the CLI's text)
+projects/{slug}/inbox/{auto}          + entries {kind: reorder, id, before} | {kind: step_done, id}; the host stamps appliedAt, applied, lines   (built 2026-09-10)
 projects/{slug}/chat/{auto}           + sessionId, parent? (the Agent tool_use_id a subagent's row hangs under), doneAt?, toolOutput? (≤ 24 KB), toolOutputCut?, progress? (an Agent row), diff?, turn?, by? (`autopilot` on the loop's /step rows)
 projects/{slug}/asks/{id}             + diff?, plan?
 devices/{token}                       + quiet: {from, to, zone}
@@ -562,6 +564,47 @@ bridge's last log line is its exit reason, so the shot keeps its own
 the dead one's error line on the relay, because the host omitted the
 `error` key when there was none and the merged write kept the old
 value — the key is always written now, null when clear.
+
+### Constellation controls (built 2026-09-10)
+
+The constellation shows the plan; now it drives it, with no model in
+the loop. A bubble's panel and its sheet carry three controls under the
+title. **Start this step** sends `/step <id>` to the session — while none
+runs the button reads START THE SESSION and starts one first, and reads
+START THIS STEP once the Deck shows it live. **Blocks** is `kit blocks
+<id>` run by the host (`{type: host, action: blocks, step}`): the
+rendering the CLI prints — dependencies, gates, the human items and whose
+move it is — lands under the buttons in mono. **Mark done** is `kit step
+done <id>` run by the host (`{type: host, action: step_done, step}`): a
+refusal comes back word for word ("b: gates not passed: tests. Record
+them with `kit gate`, or --force.") in red; a flip returns "b: done." and
+the steps it made ready, the host re-renders the plan markdown and the
+board, and the bubble turns done on both devices as the mirror catches
+up. The step moves themselves live in `kit/lib/src/steps.dart`
+(`stepStart`, `stepDone`, `stepDoneRefusal`, `reorderedSteps`,
+`reorderStep`, `planWithMoves`, `hostOnlyBatch`); the CLI's `kit step`
+calls the same functions, so a refusal reads the same whichever door it
+came through, and `kit step move <id> [--before <id>]` is new.
+
+**Reorder by drag.** A long press lifts a bubble (a haptic tick, an
+accent ring under the finger); carried past another bubble — the nearest
+within 70 canvas px wears a wide ring — and released, the step goes
+*past* it: before it when dragging back, after it when dragging forward.
+The drag stays on the device: the draft gains `moves` (`StepPlace(id,
+before)`, the last drag of a bubble wins), the constellation and the
+sheets draw the plan as the moves would make it (`planWithMoves`, nothing
+written; a moved bubble wears a dashed amber ring and RANK n · MOVED),
+and the draft bar reads **APPLY** when the draft holds only moves — the
+Mac applies those by itself, so nothing goes to Claude. The batch's
+entries are `{kind: reorder, id, before}`; `applyInbox` gained that op
+and `{kind: step_done, id}` (a refusal is a skipped line carrying the
+reason). Ranks move as little as the order allows: the moved step takes
+the middle of the gap it lands in, and only when there is no gap do the
+steps after it shift up by one until the order is strict again; numbers
+never change (`kit status` shows the order, the numbers ride along). The
+host notes the moved ranks in the step's history and tells the session
+on its next prompt ("From the app: step c moved before b …"). The phone
+waits for the batch's `appliedAt` and shows the Mac's lines.
 
 ### Risks, and what holds them
 

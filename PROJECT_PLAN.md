@@ -1290,7 +1290,7 @@ The step's checkbox stays `[ ]` until these are checked:
 ---
 
 ## Step 24 — Constellation controls — start, blocks and done from a step's bubble; reorder by drag, no model needed
-- [ ]
+- [x]
 - id: constellation-controls
 - depends_on: item-threads
 - qa_required: true

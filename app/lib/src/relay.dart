@@ -22,10 +22,10 @@ import 'screens/mirror_sheet.dart';
 /// projects/{slug}                 manifest, dir, machine, session, now, counts — a worktree's entry is `<slug>~<name>` with parent: <slug> and worktree: {name, branch, path}, no steps or items of its own
 /// projects/{slug}/steps/{id}      Step.toMap()
 /// projects/{slug}/items/{id}      Item.toMap()
-/// projects/{slug}/inbox/{auto}    a batch from the phone; the host stamps appliedAt
+/// projects/{slug}/inbox/{auto}    a batch from the phone (ticks, answers, notes, reorder {id, before}, step_done {id}); the host stamps appliedAt, applied, lines
 /// projects/{slug}/events/{auto}   milestones from hooks (prompt, stop, notification)
 /// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
-/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|interrupt|withdraw|options|push-test|compact|autopilot|host, …}; withdraw names a queued messageId; options carry mode, chrome, model, effort; autopilot carries on, budget?, nightShift?; host carries action: read_file (path) | git (op: commit|push|revert, message?, path?); the host stamps doneAt, result
+/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|interrupt|withdraw|options|push-test|compact|autopilot|host, …}; withdraw names a queued messageId; options carry mode, chrome, model, effort; autopilot carries on, budget?, nightShift?; host carries action: read_file (path) | git (op: commit|push|revert, message?, path?) | blocks (step) | step_done (step); the host stamps doneAt, result
 /// projects/{slug}/files/{commandId} the host's answer to a read_file: FileRead.toMap() — {path, text, lines, bytes, truncated, blob?, refused?}; the phone deletes it once read
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/runs/{runId}/log/{chunk} the run bay's log: {from, lines} — 200 lines a document, the last 10 documents kept, one write a second at most; the phone joins them in order
@@ -829,11 +829,7 @@ class RemoteDeck extends ChangeNotifier {
   /// An input on the device — waited on for the host's line.
   Future<String> input(Map<String, Object?> command) => _waited(command);
 
-  Future<String> _waited(Map<String, Object?> command, {Duration wait = const Duration(seconds: 30)}) async {
-    final ref = await CommandSender(db, slug).send(command, from: from);
-    final done = await ref.snapshots().firstWhere((d) => d.data()?['doneAt'] != null).timeout(wait, onTimeout: () => throw TimeoutException('The Mac did not answer in ${wait.inSeconds} s.'));
-    return (done.data()?['result'] ?? '').toString();
-  }
+  Future<String> _waited(Map<String, Object?> command, {Duration wait = const Duration(seconds: 30)}) => waitedCommand(db, slug, command, from: from, wait: wait);
 
   /// Everything the sheet needs, over the relay.
   MirrorHooks get mirrorHooks => MirrorHooks(state: mirrorStream, frame: mirrorFrame, ping: mirrorPing, requestFrame: requestFrame, input: input);
@@ -862,11 +858,7 @@ class RemoteDeck extends ChangeNotifier {
   /// A `host` command, waited on: the one line the host stamped as its
   /// result. "queued" while the Mac is unreachable — it runs when the Mac
   /// is back, and this waits up to [wait] for that.
-  Future<String> hostCommand(Map<String, Object?> command, {Duration wait = const Duration(seconds: 60)}) async {
-    final ref = await CommandSender(db, slug).send({'type': 'host', ...command}, from: from);
-    final done = await ref.snapshots().firstWhere((d) => d.data()?['doneAt'] != null).timeout(wait, onTimeout: () => throw TimeoutException('The Mac did not answer in ${wait.inSeconds} s.'));
-    return (done.data()?['result'] ?? '').toString();
-  }
+  Future<String> hostCommand(Map<String, Object?> command, {Duration wait = const Duration(seconds: 60)}) => waitedCommand(db, slug, {'type': 'host', ...command}, from: from, wait: wait);
 
   /// git from the phone: commit, push, revert — the host runs it.
   Future<String> gitOp(String op, {String? message, String? path}) => hostCommand({'action': 'git', 'op': op, 'message': ?message, 'path': ?path});
@@ -1296,14 +1288,24 @@ class UploadReader {
   }
 }
 
-/// The phone's side.
+/// The phone's side. The batch's document comes back: the host stamps
+/// `appliedAt`, `applied` and `lines` on it, so a sender that wants the
+/// outcome can wait for them.
 class InboxSender {
   InboxSender(this.db, this.slug);
   final FirebaseFirestore db;
   final String slug;
 
-  Future<void> send(Map<String, Object?> batch, {required String from}) =>
+  Future<DocumentReference<Map<String, dynamic>>> send(Map<String, Object?> batch, {required String from}) =>
       db.collection('projects').doc(slug).collection('inbox').add({...batch, 'from': from, 'appliedAt': null, 'createdAt': FieldValue.serverTimestamp()});
+}
+
+/// A command the host answers with one line, waited on: the `result` it
+/// stamps, or a timeout after [wait].
+Future<String> waitedCommand(FirebaseFirestore db, String slug, Map<String, Object?> command, {required String from, Duration wait = const Duration(seconds: 30)}) async {
+  final ref = await CommandSender(db, slug).send(command, from: from);
+  final done = await ref.snapshots().firstWhere((d) => d.data()?['doneAt'] != null).timeout(wait, onTimeout: () => throw TimeoutException('The Mac did not answer in ${wait.inSeconds} s.'));
+  return (done.data()?['result'] ?? '').toString();
 }
 
 String slugFor(Manifest m) {

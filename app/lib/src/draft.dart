@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_kit/kit.dart' show StepPlace;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Ticks, answers and notes that have not been sent yet. Lives on the
@@ -31,6 +32,10 @@ class Draft extends ChangeNotifier {
   final Map<String, ItemDraft> items = {};
   final Map<String, String> steps = {};
 
+  /// Bubbles dragged past others, in the order they were dragged; the
+  /// constellation draws the order they make until Apply.
+  final List<StepPlace> moves = [];
+
   String get _key => 'draft:$slug';
 
   Future<void> load() async {
@@ -41,6 +46,10 @@ class Draft extends ChangeNotifier {
       final m = jsonDecode(raw) as Map;
       items.clear();
       steps.clear();
+      moves.clear();
+      for (final mv in (m['moves'] as List? ?? const [])) {
+        if (mv is Map && mv['id'] != null) moves.add(StepPlace(mv['id'].toString(), mv['before']?.toString()));
+      }
       for (final e in (m['items'] as Map? ?? const {}).entries) {
         items[e.key.toString()] = ItemDraft.fromJson({for (final x in (e.value as Map).entries) x.key.toString(): x.value});
       }
@@ -56,7 +65,7 @@ class Draft extends ChangeNotifier {
   Future<void> save() async {
     _prune();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode({'items': {for (final e in items.entries) e.key: e.value.toJson()}, 'steps': steps}));
+    await prefs.setString(_key, jsonEncode({'items': {for (final e in items.entries) e.key: e.value.toJson()}, 'steps': steps, 'moves': [for (final m in moves) m.toMap()]}));
     notifyListeners();
   }
 
@@ -69,7 +78,21 @@ class Draft extends ChangeNotifier {
 
   int get count {
     _prune();
-    return items.length + steps.length;
+    return items.length + steps.length + moves.length;
+  }
+
+  /// A bubble dropped past another: its last drag wins.
+  Future<void> move(String id, String? before) {
+    moves.removeWhere((m) => m.id == id);
+    if (before != id) moves.add(StepPlace(id, before));
+    return save();
+  }
+
+  /// Only moves — the host applies those by itself, so the bar reads Apply
+  /// rather than Send to Claude.
+  bool get hostOnly {
+    _prune();
+    return items.isEmpty && steps.isEmpty && moves.isNotEmpty;
   }
 
   Map<String, Object?> toBatch() {
@@ -80,6 +103,7 @@ class Draft extends ChangeNotifier {
         for (final e in items.entries)
           {'kind': 'item', 'id': e.key, 'action': e.value.action, 'answer': e.value.answer, 'note': e.value.note.trim().isEmpty ? null : e.value.note.trim()},
         for (final e in steps.entries) {'kind': 'step', 'id': e.key, 'note': e.value.trim()},
+        for (final m in moves) {'kind': 'reorder', 'id': m.id, 'before': m.before},
       ],
     };
   }
@@ -87,6 +111,7 @@ class Draft extends ChangeNotifier {
   Future<void> clear() async {
     items.clear();
     steps.clear();
+    moves.clear();
     await save();
   }
 }
