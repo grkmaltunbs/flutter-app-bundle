@@ -1,7 +1,7 @@
 id: autopilot
 number: "17"
 title: Autopilot — the host keeps stepping within a budget, waits for the pool, and stops for you
-status: active
+status: done
 rank: 780
 depends_on: [notification-actions, host-service, instruments, interrupt]
 meta: { qa_required: true }
@@ -71,3 +71,5 @@ history:
   - at: 2026-09-06
     event: gate qa passed
     note: "run by Claude on the user's phone against a scratch project (~\/kit-scratch): budget 2 → two \/steps, Step 2 done · 1 of 2, Stopped · budget reached · Step 3 done · 2 of 2; an ask allowed from the lock screen mid-loop; the pill, the sheet, the header line and the labelled rows seen live"
+  - at: 2026-09-10
+    event: done

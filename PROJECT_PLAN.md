@@ -916,8 +916,7 @@ when the user scrolls past it, and there is one, not one per turn.
 ---
 
 ## Step 17 — Autopilot — the host keeps stepping within a budget, waits for the pool, and stops for you
-- [ ]
-- state: code complete — waiting on 1 human item(s)
+- [x]
 - id: autopilot
 - depends_on: notification-actions, host-service, instruments, interrupt
 - qa_required: true
@@ -973,7 +972,7 @@ mention goes with them. A biometric gate on the toggle comes with
 
 The step's checkbox stays `[ ]` until these are checked:
 
-  - [ ] Confirm how headless Claude use is counted on your plan before the first unattended run *(item `confirm-headless-accounting`)*
+  - [x] Confirm how headless Claude use is counted on your plan before the first unattended run *(item `confirm-headless-accounting`)*
 
 ---
 
@@ -1242,8 +1241,7 @@ dirty, `--force` behind a confirm) and drops the relay entry.
 ---
 
 ## Step 23 — Rich pushes — a finished turn with its summary and a frame, a plan and a diff in the push, quiet hours
-- [ ]
-- state: code complete — waiting on 1 human item(s)
+- [x]
 - id: rich-pushes
 - depends_on: notifications, mirror
 - qa_required: true
@@ -1287,7 +1285,7 @@ a Problem that is a dead session pushes at once regardless.
 
 The step's checkbox stays `[ ]` until these are checked:
 
-  - [ ] Firebase Storage refuses writes on flutterappbundle — "quota exceeded" on a near-empty bucket: check the plan and the bucket's quota in the console *(item `rich-pushes-storage-quota`)*
+  - [x] Firebase Storage refuses writes on flutterappbundle — "quota exceeded" on a near-empty bucket: check the plan and the bucket's quota in the console *(item `rich-pushes-storage-quota`)*
 
 ---
 
@@ -1384,7 +1382,6 @@ file that changed on disk since it was opened and offers to reload.
 
 ## Step 26 — Voice and biometrics — hear the ask and the summary, answer by voice, and prove it is you before the dangerous taps
 - [ ]
-- state: blocked — waiting on autopilot
 - id: voice-and-biometrics
 - depends_on: instrument-skin, plan-mode, review, autopilot
 - qa_required: true

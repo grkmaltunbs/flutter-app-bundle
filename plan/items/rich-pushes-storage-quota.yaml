@@ -1,6 +1,6 @@
 id: rich-pushes-storage-quota
 title: "Firebase Storage refuses writes on flutterappbundle — \"quota exceeded\" on a near-empty bucket: check the plan and the bucket's quota in the console"
-status: open
+status: done
 needs: [console]
 blocks: [rich-pushes]
 step: rich-pushes
@@ -25,3 +25,5 @@ runbook:
   - do: On the phone, with RUN up on Scratch, send any turn while the app is in the background.
     expect: The Done push expands to a picture of the app under test. Then close this item.
 verify: "The MIRROR button on Scratch's RUN card shows a fresh frame (the command's line says frame N), not 'capture failed: … quota-exceeded'."
+done_at: 2026-09-10
+note: "Cause: the card on the Blaze billing account had been closed; the user replaced it 2026-09-10. Then: a probe write to the bucket 200, MIRROR on Scratch answered 'frame 1 · 331×720' with no error, and a turn with RUN up on the iPhone simulator pushed 'Done · Scratch' as a big-picture notification (331×720) with the shot at projects\/scratch\/shots\/<ms>.jpg."

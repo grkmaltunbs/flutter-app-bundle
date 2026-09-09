@@ -1,6 +1,6 @@
 id: confirm-headless-accounting
 title: Confirm how headless Claude use is counted on your plan before the first unattended run
-status: open
+status: done
 needs: [know, console]
 blocks: [autopilot]
 step: bridge-core
@@ -17,3 +17,5 @@ runbook:
     expect: Either the session's tokens against the five-hour / weekly limits, or a separate "Agent SDK" line.
   - do: Note which, here.
     expect: The answer written into this item's note.
+done_at: 2026-09-10
+note: "Confirmed by the user 2026-09-10 after checking claude.ai Usage: fine to run autopilot unattended on the plan."

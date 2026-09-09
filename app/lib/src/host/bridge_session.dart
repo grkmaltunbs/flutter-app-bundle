@@ -919,7 +919,8 @@ class BridgeSession extends ChangeNotifier {
         if (transcript.pool != null) 'pool': transcript.pool!.toMap(),
         'context': transcript.contextRelay,
         'compacting': transcript.compacting,
-        if (error != null) 'error': error,
+        // Always written: the merge would keep a dead session's error under a fresh one.
+        'error': error,
       };
 
   /// `/compact` as a message — the CLI compacts in `-p` (proven 2026-09-06,

@@ -546,15 +546,22 @@ the two changed lines; the Done push's tap (the notification's own
 turn during quiet hours pushed nothing, the window's end moved two
 minutes ahead brought "While you slept · Scratch — 1 turn ended" on
 the minute; an ask went through the window in 8 s and a killed session
-brought "Problem · Scratch" with the exit line in 3 s. Not proven: the
-frame — every Storage write on `flutterappbundle` fails with
-`quota-exceeded` on a bucket holding two objects (the mirror's frame
-command says the same), which is a plan or billing state, not space;
-the item `rich-pushes-storage-quota` holds the step until the console
-says why. Found on the run: the shot's failure, logged into the bridge,
-came back as the dead session's reason ("claude exited with code -9 —
-shot: …") — the bridge's last log line is its exit reason, so the shot
-keeps its own (`HostProject.shotError`, on the Session tab).
+brought "Problem · Scratch" with the exit line in 3 s. The frame came
+last: on the first run every Storage write on `flutterappbundle` failed
+with `quota-exceeded` on a bucket holding two objects — the card on the
+Blaze billing account had been closed, and a suspended account drops the
+project to the no-cost limits, where a `firebasestorage.app` bucket
+takes no writes at all. With the card replaced the same night, the
+mirror's frame command answered "frame 1 · 331×720" and a turn with RUN
+up pushed "Done · Scratch" as a big-picture notification carrying the
+331×720 shot from `projects/scratch/shots/`. Two things found on the
+run: the shot's failure, logged into the bridge, came back as the dead
+session's reason ("claude exited with code -9 — shot: …") — the
+bridge's last log line is its exit reason, so the shot keeps its own
+(`HostProject.shotError`, on the Session tab); and a fresh session kept
+the dead one's error line on the relay, because the host omitted the
+`error` key when there was none and the merged write kept the old
+value — the key is always written now, null when clear.
 
 ### Risks, and what holds them
 
