@@ -1,6 +1,6 @@
 id: worktrees-look
 title: "On the phone once: NEW TREE on a project's Git card, the tree under it in the list, its Deck, MERGE INTO MAIN and REMOVE"
-status: open
+status: done
 needs: [look]
 blocks: []
 step: worktrees
@@ -16,3 +16,5 @@ runbook:
     expect: The toast says merged with the hash; the project's Git card on the Mac shows the merge commit.
   - do: Git card → REMOVE.
     expect: A clean tree goes at once; a dirty one asks, FORCE removes it; the row leaves the list.
+done_at: 2026-09-10
+note: "Looked at on the phone 2026-09-10 (adb-driven): NEW TREE settings, the tree under Scratch with the branch glyph, its Deck, a session committing on the branch, MERGE INTO MAIN clean (merge commit in main's log), a hand-made conflict named in the dialog, SEND resolved by the main session in ~40 s, a dirty REMOVE refused then forced. Found and fixed: the phone stayed on the removed tree's empty screen (now pops to the list); the tree's record survived and handed its sessions to the next tree of that name (now forgotten); a new tree under a surviving branch name failed on 'already exists' (now checks the branch out again); the tree's title was cut to 'SCRATCH · S…' (now wraps). And the phone had been on the Sep 6 APK all along: the Android build had failed since try-it (compileSdk 36 vs the sharing plugin's 37) and ship.sh copied the stale APK."

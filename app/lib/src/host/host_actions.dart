@@ -259,8 +259,12 @@ class GitOps {
   /// `git worktree add <path> -b <branch>` — a second checkout of this
   /// repository on a new branch, in its own folder.
   Future<GitResult> worktreeAdd(String path, String branch) async {
-    final r = await _git(['worktree', 'add', path, '-b', branch]);
-    return GitResult(ok: r.exitCode == 0, output: r.exitCode == 0 ? 'worktree $branch at $path' : _out(r));
+    // Remove keeps the branch; a new tree under the same name picks that
+    // branch up again rather than failing on "already exists".
+    final have = await _git(['rev-parse', '--verify', '--quiet', 'refs/heads/$branch']);
+    final existing = have.exitCode == 0;
+    final r = await _git(['worktree', 'add', path, if (!existing) '-b', branch]);
+    return GitResult(ok: r.exitCode == 0, output: r.exitCode == 0 ? 'worktree $branch at $path${existing ? ' (the branch existed; it is checked out again)' : ''}' : _out(r));
   }
 
   /// `git worktree remove [--force] <path>`. Git refuses a dirty tree

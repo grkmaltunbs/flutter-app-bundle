@@ -337,6 +337,17 @@ class BridgeSession extends ChangeNotifier {
   /// Where the record for this folder lives: `~/.flutter_kit/bridge/<slug>.json`.
   File get _recordFile => File(p.join(kitHome(home: home), 'bridge', '${claudeProjectSlug(dir)}.json'));
 
+  /// The record goes with the folder: a removed worktree must not hand
+  /// its sessions to the next tree made under the same name.
+  void forgetRecord() {
+    try {
+      final f = _recordFile;
+      if (f.existsSync()) f.deleteSync();
+    } on Object {
+      // Nothing to forget, or nothing we can do about it.
+    }
+  }
+
   BridgeRecord? previous() {
     try {
       final f = _recordFile;
@@ -420,6 +431,10 @@ class BridgeSession extends ChangeNotifier {
       transcript.pending = null;
       transcript.lastResult = null;
       transcript.turnOpen = false;
+      // The context arc reads the conversation on the Deck, not the last
+      // one: nothing until this session's first call.
+      transcript.usage = null;
+      transcript.usageAt = null;
     }
     state = BridgeState.starting;
     notifyListeners();

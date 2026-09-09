@@ -469,6 +469,30 @@ on the live run). The branch stays. Proven 2026-09-09 over the relay on
 sent to the main session and resolved by it in 21 s, a dirty remove
 refused then forced.
 
+Looked at on the phone in hand 2026-09-10 (adb-driven from the
+session, screenshots read back), the whole walkthrough for this step
+and for session history. First finding was the phone itself: it had
+been on the 6 September APK since try-it — that step's sharing plugin
+(`receive_sharing_intent` 1.9) compiles against API 37 while the app
+compiled against Flutter's default 36, the Android build had failed on
+every ship since, and `ship.sh` copied the last good APK over without
+a word. The app now compiles against 37
+(`android.suppressUnsupportedCompileSdk=37` for AGP 9.0's note) and the
+script deletes the old outputs before it builds, so a failed build
+ships nothing. Then, on the real screens: REMOVE left the phone on the
+removed tree's screen, an empty Deck with a NEW TREE button on it —
+the Git card now pops its screen once the line says removed, and the
+entry leaves the list two seconds later; the tree's bridge record
+(`~/.flutter_kit/bridge/<tree-path>.json`) survived the removal and
+handed its sessions to the next tree made under the same name — it is
+forgotten with the tree (`BridgeSession.forgetRecord`); NEW TREE under
+a name whose branch survived a removal failed on git's "already
+exists" — the host now checks the existing branch out again and says
+so; the tree's title read "SCRATCH · S…" — the fold's title wraps to a
+second line. And the context arc carried the last session's reading
+onto a NEW one until its first call — a fresh or switched conversation
+starts the arc at nothing.
+
 ### Risks, and what holds them
 
 - *More undocumented protocol.* Every new request is behind a spike and a

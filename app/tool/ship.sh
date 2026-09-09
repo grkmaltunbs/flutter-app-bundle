@@ -10,6 +10,8 @@ cd "$HERE"
 
 if [ "$WHAT" = mac ] || [ "$WHAT" = all ]; then
   echo "▸ Mac: building release…"
+  # A failed build must not ship the last good one.
+  rm -rf "$HERE/build/macos/Build/Products/Release/kit_app.app"
   LOG="$(mktemp)"
   flutter build macos --release >"$LOG" 2>&1 || true
   grep -E "✓|error|Error" "$LOG" || true
@@ -35,6 +37,7 @@ fi
 
 if [ "$WHAT" = android ] || [ "$WHAT" = all ]; then
   echo "▸ Android: building arm64 release…"
+  rm -f "$HERE/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
   LOG="$(mktemp)"
   flutter build apk --release --split-per-abi --target-platform android-arm64 >"$LOG" 2>&1 || true
   grep -E "✓|error|Error" "$LOG" || true

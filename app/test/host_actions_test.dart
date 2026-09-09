@@ -183,5 +183,12 @@ void main() {
     expect(worktreeNamesOf('demo', home: tmp.path), isEmpty);
     final branches = await git(['branch', '--list', 'settings']);
     expect(branches.stdout.toString(), contains('settings'));
+
+    // A new tree under the same name picks the surviving branch up again.
+    final again = await ops.worktreeAdd(wt, 'settings');
+    expect(again.ok, isTrue, reason: again.output);
+    expect(again.output, contains('existed'));
+    expect((await GitOps(wt, run: (args) => Process.run('git', args, workingDirectory: wt)).status()).branch, 'settings');
+    expect(File(p.join(wt, 'settings.txt')).readAsStringSync(), 'tree\n', reason: 'the branch\'s last commit, not a fresh branch off main');
   });
 }

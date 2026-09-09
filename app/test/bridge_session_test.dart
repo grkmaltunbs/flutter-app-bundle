@@ -114,6 +114,20 @@ void main() {
     expect(fake.written.length, 2);
   });
 
+  test('a removed worktree forgets its record: the next tree under that name starts with no sessions', () async {
+    final s = fakeSession(FakeClaude(), dir: project.path, home: home.path);
+    expect(s.setOptions(mode: 'bypassPermissions'), isTrue);
+    final file = File(p.join(home.path, 'bridge', '${claudeProjectSlug(project.path)}.json'));
+    expect(file.existsSync(), isTrue);
+    s.forgetRecord();
+    expect(file.existsSync(), isFalse);
+    expect(s.previous(), isNull);
+    s.forgetRecord(); // nothing to forget is not an error
+    final next = fakeSession(FakeClaude(), dir: project.path, home: home.path);
+    expect(next.sessions, isEmpty);
+    expect(next.modeChoice, 'default', reason: 'the options went with the record');
+  });
+
   test('session options live in the record and shape the command line; fixed while running', () async {
     final fake = FakeClaude();
     final s = fakeSession(fake, dir: project.path, home: home.path);

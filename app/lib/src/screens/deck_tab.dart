@@ -1647,7 +1647,10 @@ class _Header extends StatelessWidget {
                   onTap: onToggle,
                   child: w.title == null
                       ? const SizedBox(height: 36)
-                      : Text(w.title!.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.display(22, ls: 3.2)),
+                      // A worktree's title carries its parent's name too
+                      // ("SCRATCH · SETTINGS"): a second line beats an
+                      // ellipsis that eats the tree's own name.
+                      : Text(w.title!.toUpperCase(), maxLines: 2, overflow: TextOverflow.ellipsis, style: t.display(22, ls: 3.2)),
                 ),
               ),
               const SizedBox(width: 10),

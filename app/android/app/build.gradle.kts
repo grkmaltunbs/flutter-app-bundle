@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "dev.flutterkit.kit_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37 // receive_sharing_intent 1.9 compiles against 37; Flutter's default is 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

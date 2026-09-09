@@ -1,6 +1,6 @@
 id: session-history-look
 title: "Open the Deck's fold on the phone once: SESSIONS, ALL, RESUME one, and see the Deck switch"
-status: open
+status: done
 needs: [look]
 blocks: []
 step: session-history
@@ -16,3 +16,5 @@ runbook:
   - do: Tap RESUME on an older one.
     expect: The Mac stops the running session between turns and resumes that one; the Deck's rows change to that conversation, the older tail restored from its file; ask "what word?" and it remembers.
     if_fails: A turn was running — the toast says so; wait for it or INTERRUPT, then RESUME again.
+done_at: 2026-09-10
+note: "Looked at on the phone 2026-09-10 (adb-driven, screenshots read): Start, 'remember falcon', Stop, NEW, 'remember heron', the sheet listed both with first lines, Resume on the first brought its two rows back from the file and 'what word?' answered falcon with no heron in sight, the bin removed heron from the list and its CLI file stayed."

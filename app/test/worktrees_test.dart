@@ -28,6 +28,36 @@ Future<void> _toastGone(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('REMOVE on a worktree leaves the tree\'s screen: its entry is gone, the list is behind it', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    Future<String> op(String o, {String? message, String? path}) async => o == 'worktree_remove' ? 'worktree settings removed — its branch stays' : 'ok';
+    await tester.pumpWidget(MaterialApp(
+      theme: kitTheme(KitTokens.light),
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => Scaffold(body: SingleChildScrollView(child: GitCard(git: const GitStatus(branch: 'settings', lastCommit: 'phone: a line'), onOp: op, worktree: 'settings'))),
+            )),
+            child: const Text('OPEN'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('OPEN'));
+    await tester.pumpAndSettle();
+    expect(find.text('REMOVE'), findsOneWidget);
+    await tester.tap(find.text('REMOVE'));
+    await tester.pumpAndSettle();
+    expect(find.text('REMOVE'), findsNothing, reason: 'the screen popped');
+    expect(find.text('OPEN'), findsOneWidget);
+    expect(find.textContaining('its branch stays'), findsOneWidget, reason: 'the line still shows, on the list');
+    await _toastGone(tester);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final scale in [1.0, 2.0, 3.12]) {
     testWidgets('at ${scale}x: NEW TREE on a project takes a name; MERGE and REMOVE on a worktree, with the conflict offer and the forced removal — no overflow', (tester) async {
       tester.view.physicalSize = const Size(360, 780);

@@ -456,6 +456,7 @@ class HostProject extends ChangeNotifier {
     if (run.up) await run.stop();
     final r = await main.git.worktreeRemove(dir, force: force);
     if (!r.ok) return 'git: ${r.output}';
+    bridge.forgetRecord();
     main.bridge.noteHostAction('The worktree "$name" was removed; its branch $name remains.');
     main._refreshGit(soon: true);
     // The command's stamp goes out first — the phone waits on that very

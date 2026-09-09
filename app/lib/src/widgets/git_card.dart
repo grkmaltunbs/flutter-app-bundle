@@ -75,21 +75,28 @@ class _GitCardState extends State<GitCard> {
   }
 
   Future<void> _remove() async {
-    final line = await _op('worktree_remove');
+    var line = await _op('worktree_remove');
     if (!mounted) return;
-    if (!line.startsWith('dirty:')) return _toast(line);
-    final force = await showDialog<bool>(
-      context: context,
-      builder: (d) => AlertDialog(
-        title: const Text('Remove the worktree?'),
-        content: Text('${line.substring('dirty:'.length).trim()}. Removing anyway loses those changes; the branch stays.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(d).pop(false), child: const Text('CANCEL')),
-          FilledButton(onPressed: () => Navigator.of(d).pop(true), child: const Text('FORCE')),
-        ],
-      ),
-    );
-    if (force == true && mounted) await _run('worktree_remove', message: 'force');
+    if (line.startsWith('dirty:')) {
+      final force = await showDialog<bool>(
+        context: context,
+        builder: (d) => AlertDialog(
+          title: const Text('Remove the worktree?'),
+          content: Text('${line.substring('dirty:'.length).trim()}. Removing anyway loses those changes; the branch stays.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(d).pop(false), child: const Text('CANCEL')),
+            FilledButton(onPressed: () => Navigator.of(d).pop(true), child: const Text('FORCE')),
+          ],
+        ),
+      );
+      if (force != true || !mounted) return;
+      line = await _op('worktree_remove', message: 'force');
+      if (!mounted) return;
+    }
+    _toast(line);
+    // The tree is gone and this screen was its own: back to the list
+    // rather than an empty Deck for an entry that no longer exists.
+    if (line.startsWith('worktree ') && line.contains(' removed')) Navigator.of(context).maybePop();
   }
 
   @override
