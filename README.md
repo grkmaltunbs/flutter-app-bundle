@@ -72,9 +72,12 @@ so the plugin carries its second shape beside the first:
   again). It has no `Notification` event and ignores that entry.
 
 Codex copies an installed plugin to `~/.codex/plugins/cache/<marketplace>/flutter-kit/<version>`
-and refreshes it on a version bump — the same symlink trick as above applies
-while this branch changes daily. (Codex refuses a writable root with a symlink
-in it, so the host hands its sandbox the plugin's real path — `CodexEngine.realPath`.)
+and refreshes it on a version bump. The symlink trick does **not** apply here:
+a symlinked cache folder reads as *not installed* (`codex plugin list`) and the
+plugin's skills and hooks are gone with it (found 2026-09-10). While this branch
+changes daily, refresh the copy by adding the plugin again —
+`codex plugin add flutter-kit@flutter-app-bundle` re-copies the checkout and
+keeps the hooks' trust (it is kept by hook hash, not by path).
 
 The K.A.T.Y.A host runs a project on either engine from its **ENGINE**
 notch (`app/DESIGN.md`, *Codex engine*): the Deck, the asks, the plan card,

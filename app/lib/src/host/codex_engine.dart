@@ -35,14 +35,20 @@ class CodexEngine extends Engine {
   List<String> _roots = const [];
   List<String> get writableRoots {
     final roots = [..._roots];
-    for (final path in translator.skills.values) {
+    // The kit skill's path, not the first skill listed: another installed
+    // plugin's skill came first on 2026-09-10 and its folder went to the
+    // sandbox as the root — the kit's compile was refused and every
+    // command ran on the slow `dart run` fallback.
+    final step = _skillFor('step');
+    final path = step == null ? null : translator.skills[step];
+    if (path != null) {
       // …/<plugin root>/skills/<name>/SKILL.md → <plugin root>/kit
       final parts = path.split('/');
       final i = parts.lastIndexOf('skills');
-      if (i <= 0) continue;
-      final kit = realPath('${parts.sublist(0, i).join('/')}/kit');
-      if (!roots.contains(kit)) roots.add(kit);
-      break;
+      if (i > 0) {
+        final kit = realPath('${parts.sublist(0, i).join('/')}/kit');
+        if (!roots.contains(kit)) roots.add(kit);
+      }
     }
     return roots;
   }

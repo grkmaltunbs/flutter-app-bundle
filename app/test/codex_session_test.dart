@@ -103,6 +103,8 @@ void main() {
     final roots = ((fake.lastParams('turn/start')['sandboxPolicy'] as Map)['writableRoots'] as List).cast<String>();
     expect(roots.last, Directory(p.join(checkout.path, 'kit')).resolveSymbolicLinksSync(), reason: 'the real path, not the cache symlink');
     expect(roots.last, isNot(contains('/cache/')));
+    expect(roots, isNot(contains(contains('anthropic-skills'))), reason: 'the other plugin is not the kit');
+    expect(roots.where((r) => r.endsWith('/kit')).length, 1);
     expect(roots.first, '/fake/flutter/bin/cache', reason: 'a root that does not exist goes as it is');
     await s.stop();
   });
