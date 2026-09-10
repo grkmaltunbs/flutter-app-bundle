@@ -139,6 +139,7 @@ class FakeCodex implements Process {
           'model': 'gpt-6-astra',
           'modelProvider': 'openai',
           'cwd': params['cwd'],
+          'instructionSources': ['${params['cwd']}/CLAUDE.md'],
           'approvalPolicy': params['approvalPolicy'],
           'sandbox': {'type': 'workspaceWrite', 'writableRoots': [], 'networkAccess': false},
         },

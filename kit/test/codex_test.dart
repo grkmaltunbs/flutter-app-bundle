@@ -14,6 +14,7 @@ String _threadStartResponse(int id, {String threadId = _thread, List<Object?> tu
       'result': {
         'thread': {'id': threadId, 'sessionId': threadId, 'model': 'gpt-6-astra', 'reasoningEffort': 'medium', 'cwd': '/Users/ren/kit-scratch', 'cliVersion': '0.153.4', 'status': {'type': 'idle'}, 'turns': turns},
         'model': 'gpt-6-astra',
+        'instructionSources': ['/Users/ren/kit-scratch/CLAUDE.md'],
         'modelProvider': 'openai',
         'cwd': '/Users/ren/kit-scratch',
         'approvalPolicy': approval,
@@ -118,6 +119,7 @@ void main() {
     expect(init.model, 'gpt-6-astra');
     expect(init.permissionMode, 'acceptEdits');
     expect(init.cwd, '/Users/ren/kit-scratch');
+    expect(init.rules, ['CLAUDE.md'], reason: 'the rules file Codex loaded — instructionSources, by name');
     expect(t.threadId, _thread);
     expect(t.cliVersion, '0.153.4');
 

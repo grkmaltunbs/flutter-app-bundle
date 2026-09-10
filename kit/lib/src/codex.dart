@@ -190,6 +190,9 @@ class CodexTranslator {
   /// `/step` can go as the skill it names.
   Map<String, String> skills = {};
 
+  /// The rules files the last `thread/start` said it loaded, by name.
+  List<String> rules = const [];
+
   /// Requests the server made that the host has not answered.
   final Map<String, CodexAsk> asks = {};
 
@@ -388,7 +391,8 @@ class CodexTranslator {
         turnId = null;
         _turnsInThread = (thread['turns'] as List? ?? const []).length;
         if (method == 'thread/resume') _restored = rowsFromTurns(thread['turns'] as List? ?? const []);
-        final init = InitEvent(sessionId: threadId!, model: model, permissionMode: mode, cwd: _text(thread['cwd']) ?? cwd, mcpServers: Map.of(mcp));
+        rules = [for (final s in (r['instructionSources'] as List? ?? const [])) s.toString().split('/').last];
+        final init = InitEvent(sessionId: threadId!, model: model, permissionMode: mode, cwd: _text(thread['cwd']) ?? cwd, mcpServers: Map.of(mcp), rules: rules);
         if (_clearing) {
           _clearing = false;
           return [const ResetEvent(), init, ResultEvent(subtype: 'success', sessionId: threadId!, numTurns: 0)];
@@ -599,7 +603,7 @@ class CodexTranslator {
           sandboxType: _text(_map(s['sandboxPolicy'])['type']),
           collaboration: _text(_map(s['collaborationMode'])['mode']),
         );
-        return threadId == null ? const [] : [InitEvent(sessionId: threadId!, model: model, permissionMode: mode, cwd: cwd, mcpServers: Map.of(mcp))];
+        return threadId == null ? const [] : [InitEvent(sessionId: threadId!, model: model, permissionMode: mode, cwd: cwd, mcpServers: Map.of(mcp), rules: rules)];
       case 'mcpServer/startupStatus/updated':
         final name = _text(p['name']);
         if (name != null) mcp[name] = (p['status'] ?? '').toString();

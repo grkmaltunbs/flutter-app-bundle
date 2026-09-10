@@ -208,6 +208,10 @@ class BridgeSession extends ChangeNotifier {
   String? error;
   String? sessionId;
   String? cliVersion;
+
+  /// What the engine loaded as the folder's rules ([InitEvent.rules]);
+  /// null until an engine says. Cleared with [cliVersion] on a switch.
+  List<String>? rules;
   int? pid;
   DateTime? startedAt;
 
@@ -277,6 +281,7 @@ class BridgeSession extends ChangeNotifier {
       engineId = want;
       _engine = null;
       cliVersion = null;
+      rules = null;
       _writeRecord();
     }
     notifyListeners();
@@ -506,6 +511,7 @@ class BridgeSession extends ChangeNotifier {
         engineId = knownEngine(made);
         _engine = null;
         cliVersion = null;
+        rules = null;
       }
     }
     _engine = _engines(engineId);
@@ -640,6 +646,7 @@ class BridgeSession extends ChangeNotifier {
     switch (e) {
       case InitEvent():
         if (state == BridgeState.starting) state = transcript.turnOpen ? BridgeState.busy : BridgeState.ready;
+        if (e.rules != null) rules = e.rules;
         if (e.sessionId.isNotEmpty && e.sessionId != sessionId) _adoptSessionId(e.sessionId, model: e.model);
         if (e.model != null && current?.model != e.model) {
           current?.model = e.model;
@@ -1148,6 +1155,7 @@ class BridgeSession extends ChangeNotifier {
         if (transcript.model != null) 'model': transcript.model,
         // Always written: an engine switch clears it until the new one says.
         'cliVersion': cliVersion,
+        if (rules != null) 'rules': rules,
         if (startedAt != null) 'startedAt': startedAt!.toUtc().toIso8601String(),
         if (transcript.pool?.resetsAt != null) 'poolResetsAt': transcript.pool!.resetsAt!.toIso8601String(),
         if (transcript.pool != null) 'pool': transcript.pool!.toMap(),

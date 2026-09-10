@@ -35,6 +35,12 @@ import 'rules_editor.dart';
 /// and, as its last row, what Claude is asking. One view, two
 /// sources: the host reads its own [BridgeSession]; the phone reads the
 /// mirror and sends commands. Neither owns the process from here.
+
+/// The RULES fact: what the engine loaded as the folder's rules — Codex
+/// says on `thread/start`; a folder Codex does not trust loads nothing,
+/// and that is the fact to notice (2026-09-10).
+String rulesFact(List<String> rules) => rules.isEmpty ? 'no rules file' : 'rules ${rules.join(', ')}';
+
 class DeckView extends StatefulWidget {
   const DeckView({
     super.key,
@@ -1379,6 +1385,7 @@ class DeckTab extends StatelessWidget {
             if (b.sessionId != null) 'session ${shortId(b.sessionId!)}',
             if (b.transcript.model != null) b.transcript.model!,
             if (b.cliVersion != null) '${b.engineId} ${b.cliVersion}${b.cliVersion == b.engine.provenOn ? '' : ' (proven on ${b.engine.provenOn})'}',
+            if (b.rules != null) rulesFact(b.rules!),
             if (b.running && b.transcript.permissionMode != null) '${modeLabel(b.transcript.permissionMode!)} mode',
           ],
           error: b.error,
@@ -1521,6 +1528,7 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
           if (d.sessionId != null) 'session ${shortId(d.sessionId!)}',
           if (d.model != null) d.model!,
           if (d.cliVersion != null) '${d.engine} ${d.cliVersion}',
+          if (d.rules != null) rulesFact(d.rules!),
           if (d.running && d.permissionMode != null) '${modeLabel(d.permissionMode!)} mode',
           if (d.machine != null) d.machine!,
         ],

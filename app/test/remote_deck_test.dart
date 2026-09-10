@@ -325,12 +325,16 @@ void main() {
     await _settle(tester);
     final notch = (await project.collection('commands').get()).docs.map((d) => d.data()).firstWhere((d) => d['engine'] != null);
     expect(notch['engine'], 'codex');
-    await project.set({'session': {'engine': 'codex', 'models': ['gpt-6-astra', 'gpt-5.5'], 'cliVersion': '0.153.4'}}, SetOptions(merge: true));
+    await project.set({'session': {'engine': 'codex', 'models': ['gpt-6-astra', 'gpt-5.5'], 'cliVersion': '0.153.4', 'rules': []}}, SetOptions(merge: true));
     await _settle(tester);
     expect(find.text('ENGINE · CODEX'), findsOneWidget);
     expect(find.text('BROWSER · NOT ON CODEX'), findsOneWidget);
     expect(find.textContaining('CODEX 0.153.4'), findsOneWidget);
-    await project.set({'session': {'engine': 'claude', 'models': FieldValue.delete(), 'cliVersion': FieldValue.delete()}}, SetOptions(merge: true));
+    expect(find.textContaining('NO RULES FILE'), findsOneWidget, reason: 'Codex loaded nothing for the folder — the fact to notice');
+    await project.set({'session': {'rules': ['CLAUDE.md']}}, SetOptions(merge: true));
+    await _settle(tester);
+    expect(find.textContaining('RULES CLAUDE.MD'), findsOneWidget);
+    await project.set({'session': {'engine': 'claude', 'models': FieldValue.delete(), 'cliVersion': FieldValue.delete(), 'rules': FieldValue.delete()}}, SetOptions(merge: true));
     await _settle(tester);
     expect(find.text('ENGINE · CLAUDE'), findsOneWidget);
     await project.set({'session': {'modelChoice': 'fable', 'effort': 'xhigh'}}, SetOptions(merge: true));

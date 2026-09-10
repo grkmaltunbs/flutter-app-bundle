@@ -80,6 +80,7 @@ void main() {
     expect(relay['provenOn'], codexProvenOn);
     expect(relay['models'], ['gpt-6-astra', 'gpt-5.5']);
     expect(relay['cliVersion'], '0.153.4');
+    expect(relay['rules'], ['CLAUDE.md'], reason: 'the RULES fact — what Codex loaded for the folder');
     expect(relay['chromeStatus'], 'unavailable');
     expect(s.transcript.pool!.sevenDay!.utilization, closeTo(0.09, 0.0001), reason: 'read at the start');
     await s.stop();

@@ -646,6 +646,9 @@ class RemoteDeck extends ChangeNotifier {
   String? get sessionId => session['sessionId']?.toString();
   String? get model => session['model']?.toString();
   String? get cliVersion => session['cliVersion']?.toString();
+
+  /// The rules files the engine loaded, by name; null when it did not say.
+  List<String>? get rules => session['rules'] is List ? [for (final r in session['rules'] as List) r.toString()] : null;
   String? get machine => session['machine']?.toString();
 
   /// The ENGINE notch as the host last published it, and the models the

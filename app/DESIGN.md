@@ -727,7 +727,7 @@ server → host   thread/started · turn/started · item/started · item/complet
                 turn/completed {turn: {status: completed | interrupted | failed, error, durationMs}} · thread/tokenUsage/updated · account/rateLimits/updated · thread/settings/updated · thread/compacted · mcpServer/startupStatus/updated · error {willRetry, error: {message, codexErrorInfo}} · warning
 ```
 
-Relay additions: `session.engine` (`claude` | `codex`), `session.provenOn`,
+Relay additions: `session.rules` (the rules files the engine loaded, by name — Codex's `instructionSources`; `[]` is the RULES fact reading NO RULES FILE, a folder Codex does not trust; absent under Claude), `session.engine` (`claude` | `codex`), `session.provenOn`,
 `session.models` (what the running engine listed, for the dial),
 `sessions/{id}.engine`, `asks/{id}.engine`, and `options` carries
 `engine` (refused while a session runs). The facts line reads

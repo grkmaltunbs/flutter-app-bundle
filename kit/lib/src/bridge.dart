@@ -728,8 +728,15 @@ sealed class BridgeEvent {
 
 /// `system` / `init` — the session exists.
 class InitEvent extends BridgeEvent {
-  const InitEvent({required this.sessionId, this.model, this.permissionMode, this.cwd, this.tools = const [], this.mcpServers = const {}});
+  const InitEvent({required this.sessionId, this.model, this.permissionMode, this.cwd, this.tools = const [], this.mcpServers = const {}, this.rules});
   final String sessionId;
+
+  /// The rules files the engine loaded for the folder, by name — Codex's
+  /// `instructionSources` on `thread/start` (`CLAUDE.md` through the
+  /// project's fallback, or nothing when the folder is not trusted; found
+  /// 2026-09-10). Null when the engine does not say — Claude reads
+  /// CLAUDE.md always.
+  final List<String>? rules;
   final String? model;
   final String? permissionMode;
   final String? cwd;
