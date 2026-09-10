@@ -42,7 +42,7 @@ enum BridgeState {
 /// conversation; the rules the user answered Always to, so the Session
 /// tab can list them; and the options the next Start runs with.
 class BridgeRecord {
-  const BridgeRecord({this.sessionId, required this.startedAt, this.pid, this.always = const [], this.mode = 'default', this.chrome = false, this.model, this.effort, this.sessions = const []});
+  const BridgeRecord({this.sessionId, required this.startedAt, this.pid, this.always = const [], this.mode = 'default', this.chrome = false, this.model, this.effort, this.sessions = const [], this.brief});
 
   /// Null when no session has run here yet — only options are recorded.
   /// Otherwise the current one — what Resume resumes — of [sessions].
@@ -67,6 +67,10 @@ class BridgeRecord {
   final String? model;
   final String? effort;
 
+  /// The user's own part of the standing brief for this folder — its own
+  /// block under the kit's lines at every Start.
+  final String? brief;
+
   Map<String, Object?> toJson() => {
         if (sessionId != null) 'sessionId': sessionId,
         'startedAt': startedAt.toUtc().toIso8601String(),
@@ -76,6 +80,7 @@ class BridgeRecord {
         'chrome': chrome,
         if (model != null) 'model': model,
         if (effort != null) 'effort': effort,
+        if (brief != null && brief!.trim().isNotEmpty) 'brief': brief,
         'sessions': [for (final s in sessions) s.toMap()],
       };
   static BridgeRecord? fromJson(Object? v) {
@@ -94,6 +99,7 @@ class BridgeRecord {
       chrome: v['chrome'] == true,
       model: _choice(v['model']),
       effort: _choice(v['effort']),
+      brief: v['brief']?.toString(),
     );
   }
 
@@ -136,6 +142,7 @@ class BridgeSession extends ChangeNotifier {
     chrome = prev?.chrome ?? false;
     modelChoice = prev?.model;
     effort = prev?.effort;
+    customBrief = prev?.brief;
     // An entry from before the list knows nothing but its id: the file
     // says what was said, once. Nothing runs at construction, so every
     // entry is over — its end is the file's last line.
@@ -310,8 +317,28 @@ class BridgeSession extends ChangeNotifier {
   String? get chromeStatus => transcript.mcpServers['claude-in-chrome'];
 
   /// What the next Start tells the session, on top of its own system
-  /// prompt — the phone, the browser, sign-ins as questions.
-  String get brief => deckBrief(chrome: chrome, mode: modeChoice, run: briefExtra?.call(), worktree: worktree, worktreePath: worktreePath);
+  /// prompt — the phone, the browser, sign-ins as questions, then the
+  /// user's own block.
+  String get brief => deckBrief(chrome: chrome, mode: modeChoice, run: briefExtra?.call(), worktree: worktree, worktreePath: worktreePath, custom: customBrief);
+
+  /// The kit's part of the brief alone — what the editor shows above the
+  /// user's block.
+  String get fixedBrief => deckBrief(chrome: chrome, mode: modeChoice, run: briefExtra?.call(), worktree: worktree, worktreePath: worktreePath);
+
+  /// The user's standing rules for this folder, kept in the record and
+  /// read at Start.
+  String? customBrief;
+
+  /// Saves the user's part of the brief. The line says when it applies:
+  /// the brief rides on the command line, so a running session sees it
+  /// only when its process starts again.
+  String setBrief(String? text) {
+    final t = text?.trim();
+    customBrief = t == null || t.isEmpty ? null : t;
+    _writeRecord();
+    notifyListeners();
+    return running ? 'Saved. It applies when the session starts again — Start, Resume, or a Chrome or effort change.' : 'Saved. It applies at the next Start.';
+  }
 
   /// This folder is a git worktree on this branch: the brief says so, and
   /// that the plan belongs to the main tree.
@@ -891,6 +918,7 @@ class BridgeSession extends ChangeNotifier {
           model: modelChoice,
           effort: effort,
           sessions: sessions,
+          brief: customBrief,
         ).toJson()));
     } on Object {
       // The record is a convenience for Resume; the session runs without it.
@@ -910,6 +938,8 @@ class BridgeSession extends ChangeNotifier {
         'modelChoice': modelChoice ?? 'default',
         'effort': effort ?? 'default',
         'restartPending': restartPending,
+        'brief': customBrief ?? '',
+        'briefFixed': fixedBrief,
         if (chromeStatus != null) 'chromeStatus': chromeStatus,
         if (sessionId != null) 'sessionId': sessionId,
         if (transcript.model != null) 'model': transcript.model,

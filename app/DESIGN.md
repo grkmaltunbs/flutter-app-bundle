@@ -357,6 +357,9 @@ projects/{slug}.session.build         {state, id, progress, version, error, buil
 projects/{slug}/commands/{auto}       + {type: build, action: start|delete|switch, buildId?, on?}
 projects/{slug}/commands/{auto}       + {type: host|input, action, …}
 projects/{slug}/commands/{auto}       + {type: host, action: blocks | step_done, step}   (built 2026-09-10; the result is the CLI's text)
+projects/{slug}/commands/{auto}       + {type: brief, text} | {type: host, action: write_file, path, text, base?}   (built 2026-09-10)
+projects/{slug}.session               + brief (the user's block), briefFixed (the kit's lines)   (built 2026-09-10)
+projects/{slug}/files/{id}            + stamp (the file's mtime, ms) — what a save hands back as `base`
 projects/{slug}/inbox/{auto}          + entries {kind: reorder, id, before} | {kind: step_done, id}; the host stamps appliedAt, applied, lines   (built 2026-09-10)
 projects/{slug}/chat/{auto}           + sessionId, parent? (the Agent tool_use_id a subagent's row hangs under), doneAt?, toolOutput? (≤ 24 KB), toolOutputCut?, progress? (an Agent row), diff?, turn?, by? (`autopilot` on the loop's /step rows)
 projects/{slug}/asks/{id}             + diff?, plan?
@@ -605,6 +608,67 @@ never change (`kit status` shows the order, the numbers ride along). The
 host notes the moved ranks in the step's history and tells the session
 on its next prompt ("From the app: step c moved before b …"). The phone
 waits for the batch's `appliedAt` and shows the Mac's lines.
+
+### Brief and rules (built 2026-09-10)
+
+The human's rules evolve where the human is. Two editors, on the Mac's
+Session tab and in the Deck's fold of both devices (BRIEF · n LINES,
+RULES · CLAUDE.MD pills under the dials).
+
+**Brief.** The standing brief keeps its fixed part — the kit's lines:
+driven from a phone, the browser, sign-ins as questions, store actions
+asked first — and gains a per-project part the user writes. It lives in
+the bridge record (`brief`), rides `--append-system-prompt` as its own
+block under the fixed text (`deckBrief(custom:)`, headed "Project brief
+— the user's standing rules for this project …", before the worktree
+and run-bay lines the host adds), and the session document carries both
+parts (`session.brief`, `session.briefFixed`). The editor folds the
+fixed text above a plain field; Save is `{type: brief, text}` and the
+host's line says when it applies — at the next Start, or, while a
+session runs, when its process starts again (Start, Resume, or a Chrome
+or effort change): the brief is on the command line, and mode and model
+switch in place without one. The Session tab shows the block under the
+fixed text.
+
+**Rules.** `CLAUDE.md` and the `qa.note` paragraph of `plan/kit.yaml`
+open in a plain editor with the mono face (`rules_editor.dart`; the two
+targets in `kit/lib/src/rules.dart`, the note as the path
+`plan/kit.yaml:qa.note`). A read carries the file's modification time
+as a `stamp` (`FileRead.stamp`; the note carries kit.yaml's). Save is
+`{type: host, action: write_file, path, text, base}`: the host
+(`RulesWriter`) refuses when the stamp moved — "refused: changed on
+disk since you opened it — reload, then save again", which the editor
+turns into a Changed-on-the-Mac dialog with KEEP EDITING and RELOAD —
+else writes the one file (the note by a YAML patch, the rest of the
+manifest untouched) and commits just that file with `git add -- <path>
+&& git commit -m … -- <path>`, named "rules: <the first line that is
+new>" (`rulesCommitMessage`: a removed line reads "rules: removed: …",
+nothing else "rules: <name> edited"). A dirty tree elsewhere is left
+alone; without a repository the line reads "saved, not committed". A
+project without a CLAUDE.md reads as an empty file and the first save
+creates it. The session hears every save as a host note ("CLAUDE.md was
+edited from the app and committed as … — read it again") and sees a
+`rules` row. Both editors scroll as one and keep Save as the bottom bar,
+so the largest text sizes stack rather than overflow.
+
+Proven 2026-09-10 on the Mac's own window, driven from the session with
+real mouse events (the phone had locked itself behind its fingerprint):
+"Always answer in Turkish." saved from the Deck's BRIEF pill ("Saved.
+It applies at the next Start."), the record on disk holding it, Start,
+"hi" → "Merhaba! Ben buradayım…"; the Session tab showing the block
+under the fixed text; a line appended to the scratch CLAUDE.md and
+saved → "saved and committed — [main d86b532] rules: - Answer in one
+line." with `git log -1 --stat` naming that one file; the file changed
+on the Mac behind the open editor → Save refused with the Changed-on-
+the-Mac dialog, RELOAD showing the Mac's line; the qa note target
+reading the manifest's field. The phone's road — `{type: brief}` and
+`write_file` over the relay — was sent by hand to the live host: the
+stale save came back refused in 80 ms and the brief cleared with "applies
+when the session starts again". Two things found: a save of a file whose
+last line had no newline left the file without one (a trailing newline
+is added now), and a mouse tap that lands while a list is still settling
+from a wheel scroll stops the scroll instead of pressing — a fact about
+driving the Mac, not the app.
 
 ### Risks, and what holds them
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter/services.dart';
-import 'package:flutter_kit/kit.dart' show PoolWindow, autopilotLine, mirrorLine, modeChoices, modeLabel, thousands, untilLabel;
+import 'package:flutter_kit/kit.dart' show PoolWindow, autopilotLine, mirrorLine, modeChoices, modeLabel, rulesQaNote, thousands, untilLabel;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../host/host_presence.dart';
@@ -11,6 +11,7 @@ import '../widgets/run_card.dart';
 import '../widgets/sessions_card.dart';
 import 'log_sheet.dart';
 import 'mirror_sheet.dart';
+import 'rules_editor.dart';
 import '../host/login_item.dart';
 import '../host/power.dart';
 import '../host/remote_control.dart';
@@ -156,9 +157,40 @@ class _SessionTabState extends State<SessionTab> {
                     ExpansionTile(
                       tilePadding: EdgeInsets.zero,
                       title: Text('What every session is told', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
-                      subtitle: Text('Appended to Claude Code\'s system prompt at Start: the phone, the browser, a sign-in as a question for you, store actions asked first.', style: TextStyle(fontSize: 12.5, color: t.ink2)),
+                      subtitle: Text('Appended to Claude Code\'s system prompt at Start: the phone, the browser, a sign-in as a question for you, store actions asked first — then your own block.', style: TextStyle(fontSize: 12.5, color: t.ink2)),
                       children: [
-                        Padding(padding: const EdgeInsets.only(bottom: 12), child: SelectableText(b.brief, style: t.mono(12, color: t.ink2))),
+                        Padding(padding: const EdgeInsets.only(bottom: 12), child: SelectableText(b.fixedBrief, style: t.mono(12, color: t.ink2))),
+                      ],
+                    ),
+                    // The user's block: shown under the fixed text, edited in place.
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 4),
+                      child: Text('THIS PROJECT\'S BRIEF', style: t.readout(10.5)),
+                    ),
+                    if (b.customBrief case final custom? when custom.trim().isNotEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: t.accentSoft.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(8)),
+                        child: SelectableText(custom, style: t.mono(12, color: t.ink)),
+                      )
+                    else
+                      Text('None yet — the session gets only the fixed lines.', style: TextStyle(fontSize: 12.5, color: t.ink2)),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: OutlinedButton.icon(
+                        onPressed: () => showBriefEditor(context, fixed: b.fixedBrief, current: b.customBrief ?? '', onSave: (text) async => b.setBrief(text)),
+                        icon: const Icon(Icons.edit_note, size: 18),
+                        label: const Text('EDIT BRIEF'),
+                      ),
+                    ),
+                    const SectionHead('Rules', sub: 'CLAUDE.md, and the qa note of plan/kit.yaml. Save writes the file and commits just that file — "rules: <the first changed line>". The phone edits the same two.'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(onPressed: () => showRulesEditor(context, read: h.readFile, write: h.writeRules), icon: const Icon(Icons.rule, size: 18), label: const Text('CLAUDE.MD')),
+                        OutlinedButton.icon(onPressed: () => showRulesEditor(context, read: h.readFile, write: h.writeRules, initialPath: rulesQaNote), icon: const Icon(Icons.notes, size: 18), label: const Text('QA NOTE')),
                       ],
                     ),
                     if (rules.isNotEmpty) ...[

@@ -29,6 +29,7 @@ import 'file_view.dart';
 import 'log_sheet.dart';
 import 'mirror_sheet.dart';
 import 'remote_asks.dart';
+import 'rules_editor.dart';
 
 /// The conversation with this project's session: what was said, what ran,
 /// and, as its last row, what Claude is asking. One view, two
@@ -105,6 +106,10 @@ class DeckView extends StatefulWidget {
     this.onDeleteSession,
     this.worktree,
     this.canAddWorktree = false,
+    this.brief,
+    this.briefFixed,
+    this.onBrief,
+    this.onWriteFile,
   });
 
   final BridgeState state;
@@ -278,6 +283,17 @@ class DeckView extends StatefulWidget {
   /// Sends a push to every registered phone, to see one arrive; returns
   /// the one-line result to toast. Null where the surface cannot.
   final Future<String?> Function()? onTestPush;
+
+  /// The standing brief's two parts — the user's block and the kit's
+  /// lines — and the save, which answers with when it applies. Null:
+  /// no BRIEF pill.
+  final String? brief;
+  final String? briefFixed;
+  final Future<String> Function(String text)? onBrief;
+
+  /// The Rules editor's save, through the host; with [loadFile] it makes
+  /// the RULES pill.
+  final Future<String> Function(String path, String text, {int? base})? onWriteFile;
 
   @override
   State<DeckView> createState() => _DeckViewState();
@@ -1281,7 +1297,7 @@ class _Attachments extends StatelessWidget {
 
 /// The host's Deck: straight off its own bridge.
 class DeckTab extends StatelessWidget {
-  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog, this.mirrorHooks, this.builds = const [], this.buildOnFlip = false, this.onBuild, this.onSwitchSession, this.onDeleteSession, this.worktree, this.canAddWorktree = false});
+  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.loadFile, this.onWriteFile, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog, this.mirrorHooks, this.builds = const [], this.buildOnFlip = false, this.onBuild, this.onSwitchSession, this.onDeleteSession, this.worktree, this.canAddWorktree = false});
   final BridgeSession bridge;
 
   /// See [DeckView.worktree].
@@ -1312,6 +1328,11 @@ class DeckTab extends StatelessWidget {
   final HostFiles? files;
   final GitStatus? git;
   final Future<String> Function(String op, {String? message, String? path})? onGit;
+
+  /// A file for the taps and the Rules editor when it is more than
+  /// [files] can read (the plan's qa note), and the editor's save.
+  final Future<FileRead> Function(String path)? loadFile;
+  final Future<String> Function(String path, String text, {int? base})? onWriteFile;
 
   /// See [DeckView.onChromeHidden].
   final void Function(bool hidden)? onChromeHidden;
@@ -1375,7 +1396,11 @@ class DeckTab extends StatelessWidget {
           onStop: () => b.stop(),
           onInterrupt: () => b.interrupt(),
           onWithdraw: (id) => b.withdrawQueued(id),
-          loadFile: files == null ? null : (path) async => files!.read(path),
+          loadFile: loadFile ?? (files == null ? null : (path) async => files!.read(path)),
+          onWriteFile: onWriteFile,
+          brief: b.customBrief,
+          briefFixed: b.fixedBrief,
+          onBrief: (text) async => b.setBrief(text),
           git: git,
           onGit: onGit,
           autopilot: autopilot,
@@ -1509,6 +1534,10 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         onStop: d.stopSession,
         onInterrupt: d.interrupt,
         loadFile: d.readFile,
+        onWriteFile: d.writeFile,
+        brief: d.brief,
+        briefFixed: d.briefFixed,
+        onBrief: d.setBrief,
         git: d.git,
         onGit: d.gitOp,
         run: d.run,
@@ -1763,6 +1792,14 @@ class _Header extends StatelessWidget {
 
   /// Everything the chevron folds: Start / Resume / Stop, the option
   /// pills, the test pill, the two dials.
+  /// `NONE`, `1 LINE`, `3 LINES` — what the BRIEF pill reads.
+  static String _briefCount(String? brief) {
+    final b = (brief ?? '').trim();
+    if (b.isEmpty) return 'NONE';
+    final n = b.split('\n').length;
+    return '$n LINE${n == 1 ? '' : 'S'}';
+  }
+
   List<Widget> _controls(BuildContext context, DeckView w, KitTokens t) => [
           if (!w.running || w.canResume)
             Padding(
@@ -1820,6 +1857,33 @@ class _Header extends StatelessWidget {
             _Dial(label: 'MODEL', choices: modelChoices, value: w.modelChoice, enabled: true, onChanged: (v) => w.onOptions!(model: v)),
             _Dial(label: 'EFFORT', choices: effortChoices, value: w.effort, enabled: true, onChanged: (v) => w.onOptions!(effort: v)),
             _Dial(label: 'MODE', choices: modeChoices, value: w.modeChoice, enabled: true, labelOf: modeLabel, warnOn: 'bypassPermissions', onChanged: (v) => w.onOptions!(mode: v)),
+            // The human's rules, edited where the human is.
+            if (w.onBrief != null || (w.onWriteFile != null && w.loadFile != null))
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (w.onBrief != null)
+                      _OptionPill(
+                        text: 'BRIEF · ${_briefCount(w.brief)}',
+                        color: t.accent,
+                        on: (w.brief ?? '').trim().isNotEmpty,
+                        enabled: true,
+                        onTap: () => showBriefEditor(context, fixed: w.briefFixed ?? '', current: w.brief ?? '', onSave: w.onBrief!),
+                      ),
+                    if (w.onWriteFile != null && w.loadFile != null)
+                      _OptionPill(
+                        text: 'RULES · CLAUDE.MD',
+                        color: t.accent,
+                        on: false,
+                        enabled: true,
+                        onTap: () => showRulesEditor(context, read: w.loadFile!, write: w.onWriteFile!),
+                      ),
+                  ],
+                ),
+              ),
             if (w.onResumeSession != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),

@@ -6,7 +6,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_kit/kit.dart' show kitHome;
+import 'package:flutter_kit/kit.dart' show Plan, PlanStore, kitHome, rulesClaudeMd, rulesCommitMessage, rulesQaNote;
 import 'package:path/path.dart' as p;
 
 import 'claude_cli.dart';
@@ -52,13 +52,14 @@ const fileMaxBytes = 8 * 1024 * 1024;
 
 /// What the host answers to a `read_file`: the text, or why not.
 class FileRead {
-  const FileRead.ok({required this.path, required this.text, required this.lines, required this.bytes, this.truncated = false, this.blob}) : refused = null;
+  const FileRead.ok({required this.path, required this.text, required this.lines, required this.bytes, this.truncated = false, this.blob, this.stamp}) : refused = null;
   const FileRead.refused(this.path, this.refused)
       : text = '',
         lines = 0,
         bytes = 0,
         truncated = false,
-        blob = null;
+        blob = null,
+        stamp = null;
 
   factory FileRead.fromMap(Map<String, Object?> m) {
     final refused = m['refused']?.toString();
@@ -71,6 +72,7 @@ class FileRead {
       bytes: (m['bytes'] as num?)?.toInt() ?? 0,
       truncated: m['truncated'] == true,
       blob: m['blob']?.toString(),
+      stamp: (m['stamp'] as num?)?.toInt(),
     );
   }
 
@@ -86,6 +88,10 @@ class FileRead {
   final String? blob;
   final String? refused;
 
+  /// The file's modification time (ms since the epoch) as read — what an
+  /// editor hands back so a save refuses a file that changed meanwhile.
+  final int? stamp;
+
   bool get ok => refused == null;
 
   Map<String, Object?> toMap() => {
@@ -96,6 +102,7 @@ class FileRead {
         'truncated': truncated,
         if (blob != null) 'blob': blob,
         if (refused != null) 'refused': refused,
+        if (stamp != null) 'stamp': stamp,
       };
 }
 
@@ -150,8 +157,111 @@ class HostFiles {
     if (head.contains(0)) return FileRead.refused(path, 'a binary file');
     final text = utf8.decode(bytes, allowMalformed: true);
     final lines = text.isEmpty ? 0 : '\n'.allMatches(text).length + (text.endsWith('\n') ? 0 : 1);
-    if (bytes.length <= inlineBytes) return FileRead.ok(path: path, text: text, lines: lines, bytes: bytes.length);
-    return FileRead.ok(path: path, text: utf8.decode(bytes.sublist(0, inlineBytes), allowMalformed: true), lines: lines, bytes: bytes.length, truncated: true);
+    final stamp = f.lastModifiedSync().millisecondsSinceEpoch;
+    if (bytes.length <= inlineBytes) return FileRead.ok(path: path, text: text, lines: lines, bytes: bytes.length, stamp: stamp);
+    return FileRead.ok(path: path, text: utf8.decode(bytes.sublist(0, inlineBytes), allowMalformed: true), lines: lines, bytes: bytes.length, truncated: true, stamp: stamp);
+  }
+}
+
+/// What a rules save came to: the file written or not, and the commit —
+/// or why there was none.
+class RulesResult {
+  const RulesResult({required this.ok, required this.line, this.committed = false, this.message});
+  final bool ok;
+
+  /// The one line the editor shows.
+  final String line;
+  final bool committed;
+
+  /// The commit's subject when [committed].
+  final String? message;
+}
+
+/// The Rules editor's hands on the host: reads and writes `CLAUDE.md` —
+/// or any text file inside the project — and the `qa.note` field of
+/// `plan/kit.yaml`, refuses to write over a file that changed since it
+/// was read, and commits just that file, named after the first changed
+/// line. A dirty tree elsewhere is left alone.
+class RulesWriter {
+  RulesWriter({required this.dir, required this.files, required this.git, required this.store});
+  final String dir;
+  final HostFiles files;
+  final GitOps git;
+  final PlanStore store;
+
+  String get _manifest => store.manifestPath;
+
+  int? _manifestStamp() {
+    final f = File(_manifest);
+    return f.existsSync() ? f.lastModifiedSync().millisecondsSinceEpoch : null;
+  }
+
+  /// A target as text with its stamp: the note out of the manifest, any
+  /// other path through [files].
+  FileRead read(String path) {
+    if (path != rulesQaNote) {
+      final r = files.read(path);
+      // A project without a CLAUDE.md yet: an empty file to write, not a
+      // refusal — the first save creates it.
+      if (!r.ok && r.refused == 'not found' && path == rulesClaudeMd) return FileRead.ok(path: path, text: '', lines: 0, bytes: 0);
+      return r;
+    }
+    try {
+      final note = (store.load().manifest.qa['note'] ?? '').toString();
+      final lines = note.isEmpty ? 0 : '\n'.allMatches(note).length + (note.endsWith('\n') ? 0 : 1);
+      return FileRead.ok(path: path, text: note, lines: lines, bytes: utf8.encode(note).length, stamp: _manifestStamp());
+    } on Object catch (e) {
+      return FileRead.refused(path, 'the plan would not load: $e');
+    }
+  }
+
+  /// The line a stale save gets — the editor recognises it and offers
+  /// to reload.
+  static const staleLine = 'refused: changed on disk since you opened it — reload, then save again';
+
+  Future<RulesResult> write(String path, String text, {int? base}) async {
+    if (path == rulesQaNote) return _writeNote(text, base: base);
+    final abs = files.resolve(path);
+    if (abs == null) return const RulesResult(ok: false, line: 'refused: outside the project folder');
+    final f = File(abs);
+    if (Directory(abs).existsSync()) return const RulesResult(ok: false, line: 'refused: a folder, not a file');
+    final before = f.existsSync() ? f.readAsStringSync() : '';
+    if (base != null && f.existsSync() && f.lastModifiedSync().millisecondsSinceEpoch != base) {
+      return const RulesResult(ok: false, line: staleLine);
+    }
+    // A text file ends with a newline; an editor's last line rarely does.
+    final t = text.isEmpty || text.endsWith('\n') ? text : '$text\n';
+    if (before == t) return const RulesResult(ok: true, line: 'nothing changed');
+    f
+      ..createSync(recursive: true)
+      ..writeAsStringSync(t);
+    return _commit(p.relative(abs, from: dir), before, t, name: p.basename(abs));
+  }
+
+  Future<RulesResult> _writeNote(String text, {int? base}) async {
+    final Plan plan;
+    try {
+      plan = store.load();
+    } on Object catch (e) {
+      return RulesResult(ok: false, line: 'refused: the plan would not load: $e');
+    }
+    if (base != null && _manifestStamp() != base) return const RulesResult(ok: false, line: staleLine);
+    final before = (plan.manifest.qa['note'] ?? '').toString();
+    final t = text.trimRight();
+    if (before == t) return const RulesResult(ok: true, line: 'nothing changed');
+    store.patch(_manifest, ['qa', 'note'], t);
+    return _commit(p.relative(_manifest, from: dir), before, t, name: 'qa note');
+  }
+
+  Future<RulesResult> _commit(String rel, String before, String after, {required String name}) async {
+    final message = rulesCommitMessage(before, after, name: name);
+    final r = await git.commitPaths([rel], message);
+    if (!r.ok) {
+      final first = r.output.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => 'git said no');
+      return RulesResult(ok: true, line: 'saved, not committed: $first', message: message);
+    }
+    final first = r.output.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => '');
+    return RulesResult(ok: true, line: 'saved and committed — $first', committed: true, message: message);
   }
 }
 
@@ -246,6 +356,18 @@ class GitOps {
     final add = await _git(['add', '-A']);
     if (add.exitCode != 0) return GitResult(ok: false, output: _out(add));
     final c = await _git(['commit', '-m', m]);
+    return GitResult(ok: c.exitCode == 0, output: _out(c));
+  }
+
+  /// `git add -- <paths> && git commit -m <message> -- <paths>`: only
+  /// those paths go into the commit, whatever else is staged or dirty.
+  Future<GitResult> commitPaths(List<String> paths, String message) async {
+    final m = message.trim();
+    if (m.isEmpty) return const GitResult(ok: false, output: 'a commit needs a message');
+    if (paths.isEmpty) return const GitResult(ok: false, output: 'nothing to commit');
+    final add = await _git(['add', '--', ...paths]);
+    if (add.exitCode != 0) return GitResult(ok: false, output: _out(add));
+    final c = await _git(['commit', '-m', m, '--', ...paths]);
     return GitResult(ok: c.exitCode == 0, output: _out(c));
   }
 

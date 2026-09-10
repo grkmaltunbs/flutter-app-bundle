@@ -532,4 +532,23 @@ void main() {
     expect(r.ok, isTrue);
     expect(r.response['still_queued'], isEmpty);
   });
+  test('the project brief is its own block under the fixed lines, before the folder\'s; blank means none', () {
+    final b = deckBrief(chrome: false, mode: 'default', custom: '  Always answer in Turkish.\nNever touch main.  ', worktree: 'settings', run: 'Run bay: idle.');
+    final head = b.indexOf(projectBriefHead);
+    expect(head, greaterThan(b.indexOf('If you hand work to a subagent')));
+    expect(b.substring(head), startsWith('$projectBriefHead\nAlways answer in Turkish.\nNever touch main.\n\nWorktree:'));
+    expect(b, endsWith('Run bay: idle.'));
+    expect(deckBrief(chrome: false, mode: 'default', custom: '   '), deckBrief(chrome: false, mode: 'default'));
+    expect(deckBrief(chrome: false, mode: 'default'), isNot(contains(projectBriefHead)));
+  });
+
+  test('a rules commit is named after the first line that changed', () {
+    expect(rulesCommitMessage('a\nb\n', 'a\nb\nAlways run tests first\n', name: 'CLAUDE.md'), 'rules: Always run tests first');
+    expect(rulesCommitMessage('a\nb\n', 'a\n', name: 'CLAUDE.md'), 'rules: removed: b');
+    expect(rulesCommitMessage('a\n', 'a\n\n', name: 'CLAUDE.md'), 'rules: CLAUDE.md edited');
+    expect(rulesCommitMessage('', 'x' * 100, name: 'CLAUDE.md').length, 72);
+    expect(rulesCommitPath(rulesQaNote), 'plan/kit.yaml');
+    expect(rulesCommitPath(rulesClaudeMd), 'CLAUDE.md');
+    expect(rulesLabel(rulesQaNote), 'qa note');
+  });
 }

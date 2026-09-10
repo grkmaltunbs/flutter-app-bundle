@@ -61,6 +61,17 @@ class HostProject extends ChangeNotifier {
   late final HostFiles files = HostFiles(dir: dir, attachmentsDir: bridge.attachments.folder.path);
   late final GitOps git = GitOps(dir);
 
+  /// The Rules editor's hands: CLAUDE.md and the plan's qa note, read with
+  /// a stamp and written with a one-file commit.
+  late final RulesWriter rules = RulesWriter(dir: dir, files: files, git: git, store: source.store);
+
+  /// A file for the Deck's taps and the editors — the plan's qa note
+  /// included, which is a field rather than a file.
+  Future<FileRead> readFile(String path) async => rules.read(path);
+
+  /// A save from the Mac's own editors — the same road the phone takes.
+  Future<String> writeRules(String path, String text, {int? base}) => applyCommand({'type': 'host', 'action': 'write_file', 'path': path, 'text': text, 'base': ?base, 'from': 'Mac'});
+
   /// The Git card's numbers — read after every turn and every hook event.
   GitStatus? gitStatus;
   Timer? _gitTimer;
@@ -633,6 +644,10 @@ class HostProject extends ChangeNotifier {
         if (bridge.modePending || bridge.modelPending) return 'applies when this turn ends';
         if (!bridge.running) return 'options saved';
         return cmd['chrome'] == null && cmd['effort'] == null ? 'switched in place' : 'restarting on the same conversation';
+      case 'brief':
+        // `{type: brief, text}` — the user's part of the standing brief;
+        // the line says when it applies.
+        return bridge.setBrief(cmd['text']?.toString());
       case 'push-test':
         return testPush();
       case 'compact':
@@ -691,7 +706,7 @@ class HostProject extends ChangeNotifier {
     switch (cmd['action']) {
       case 'read_file':
         final path = (cmd['path'] ?? '').toString();
-        final r = files.read(path);
+        final r = rules.read(path);
         final doc = r.toMap();
         if (r.ok && r.truncated) {
           // The whole file rides in Storage; the document keeps the start.
@@ -742,6 +757,19 @@ class HostProject extends ChangeNotifier {
         bridge.noteHostAction('git $op${message != null ? ' "$message"' : ''}${path != null ? ' $path' : ''} — ${r.ok ? 'ok' : 'failed'}: $first');
         _refreshGit(soon: true);
         return r.ok ? 'ok: $first' : 'failed: $first';
+      case 'write_file':
+        // `{type: host, action: write_file, path, text, base?}` — the Rules
+        // editor's save: the one file written and committed by itself;
+        // refused when the file changed since `base`.
+        final path = (cmd['path'] ?? '').toString();
+        final r = await rules.write(path, (cmd['text'] ?? '').toString(), base: (cmd['base'] as num?)?.toInt());
+        if (r.ok && r.line != 'nothing changed') {
+          bridge.addHostRow(toolName: 'rules', input: {'path': path, if (r.message != null) 'commit': r.message}, result: r.line, isError: false);
+          bridge.noteHostAction('${path == rulesQaNote ? 'The qa note in plan/kit.yaml' : path} was edited from the app${r.committed ? ' and committed as "${r.message}"' : ' (not committed: ${r.line})'} — read it again before you rely on what it said.');
+          if (path == rulesQaNote) source.reload();
+          _refreshGit(soon: true);
+        }
+        return r.line;
       case 'blocks':
         // `{type: host, action: blocks, step}` — what stands between the
         // step and done, as `kit blocks` prints it. No model.

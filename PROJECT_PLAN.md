@@ -1339,7 +1339,7 @@ ticks — except that these ops need no Claude; the button reads
 ---
 
 ## Step 25 — Brief and rules — the standing brief and CLAUDE.md edited on the phone, committed on save
-- [ ]
+- [x]
 - id: brief-and-rules
 - depends_on: session-options, review
 - qa_required: true
@@ -1473,7 +1473,6 @@ The step's checkbox stays `[ ]` until these are checked:
 
 ## Step 28 — Codex engine — the same Deck drives ChatGPT Codex, and the plugin runs there too
 - [ ]
-- state: blocked — waiting on brief-and-rules
 - id: codex-engine
 - depends_on: session-history, brief-and-rules
 - qa_required: true

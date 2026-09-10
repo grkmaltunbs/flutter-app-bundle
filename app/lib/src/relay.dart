@@ -25,7 +25,7 @@ import 'screens/mirror_sheet.dart';
 /// projects/{slug}/inbox/{auto}    a batch from the phone (ticks, answers, notes, reorder {id, before}, step_done {id}); the host stamps appliedAt, applied, lines
 /// projects/{slug}/events/{auto}   milestones from hooks (prompt, stop, notification)
 /// projects/{slug}/asks/{requestId} an Ask the bridge raised; the host stamps answeredAt, answer, by
-/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|interrupt|withdraw|options|push-test|compact|autopilot|host, …}; withdraw names a queued messageId; options carry mode, chrome, model, effort; autopilot carries on, budget?, nightShift?; host carries action: read_file (path) | git (op: commit|push|revert, message?, path?) | blocks (step) | step_done (step); the host stamps doneAt, result
+/// projects/{slug}/commands/{auto} phone → host: {type: answer|send|start|stop|interrupt|withdraw|options|push-test|compact|autopilot|host, …}; withdraw names a queued messageId; options carry mode, chrome, model, effort; autopilot carries on, budget?, nightShift?; host carries action: read_file (path) | write_file (path, text, base?) | git (op: commit|push|revert, message?, path?) | blocks (step) | step_done (step); brief carries text; the host stamps doneAt, result
 /// projects/{slug}/files/{commandId} the host's answer to a read_file: FileRead.toMap() — {path, text, lines, bytes, truncated, blob?, refused?}; the phone deletes it once read
 /// projects/{slug}/chat/{messageId} the transcript, one DeckMessage.toMap() per row, the last 300
 /// projects/{slug}/runs/{runId}/log/{chunk} the run bay's log: {from, lines} — 200 lines a document, the last 10 documents kept, one write a second at most; the phone joins them in order
@@ -1013,6 +1013,19 @@ class RemoteDeck extends ChangeNotifier {
   /// hands the choice back to the CLI.
   Future<void> setOptions({String? mode, bool? chrome, String? model, String? effort}) =>
       CommandSender(db, slug).send({'type': 'options', 'mode': ?mode, 'chrome': ?chrome, 'model': ?model, 'effort': ?effort}, from: from);
+
+  /// The user's part of the standing brief, as the host last published it,
+  /// and the kit's part above it.
+  String get brief => (session['brief'] ?? '').toString();
+  String get briefFixed => (session['briefFixed'] ?? '').toString();
+
+  /// Saves the user's part of the brief on the Mac; the host's line says
+  /// when it applies.
+  Future<String> setBrief(String text) => _waited({'type': 'brief', 'text': text});
+
+  /// The Rules editor's save: the host writes the one file and commits it
+  /// by itself, or refuses when the file changed since [base].
+  Future<String> writeFile(String path, String text, {int? base}) => hostCommand({'action': 'write_file', 'path': path, 'text': text, 'base': ?base});
 
   /// Asks the Mac to push to every registered phone, and waits for what
   /// came of it — or says so when the Mac does not answer.
