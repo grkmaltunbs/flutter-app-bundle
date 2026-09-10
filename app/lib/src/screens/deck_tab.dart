@@ -1384,8 +1384,8 @@ class DeckTab extends StatelessWidget {
           facts: [
             if (b.sessionId != null) 'session ${shortId(b.sessionId!)}',
             if (b.transcript.model != null) b.transcript.model!,
-            if (b.cliVersion != null) '${b.engineId} ${b.cliVersion}${b.cliVersion == b.engine.provenOn ? '' : ' (proven on ${b.engine.provenOn})'}',
             if (b.rules != null) rulesFact(b.rules!),
+            if (b.cliVersion != null) '${b.engineId} ${b.cliVersion}${b.cliVersion == b.engine.provenOn ? '' : ' (proven on ${b.engine.provenOn})'}',
             if (b.running && b.transcript.permissionMode != null) '${modeLabel(b.transcript.permissionMode!)} mode',
           ],
           error: b.error,
@@ -1527,8 +1527,8 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         facts: [
           if (d.sessionId != null) 'session ${shortId(d.sessionId!)}',
           if (d.model != null) d.model!,
-          if (d.cliVersion != null) '${d.engine} ${d.cliVersion}',
           if (d.rules != null) rulesFact(d.rules!),
+          if (d.cliVersion != null) '${d.engine} ${d.cliVersion}',
           if (d.running && d.permissionMode != null) '${modeLabel(d.permissionMode!)} mode',
           if (d.machine != null) d.machine!,
         ],
@@ -1793,7 +1793,7 @@ class _Header extends StatelessWidget {
                       Flexible(child: _Gauges(view: w, size: 30, labels: true, pill: true)),
                       const SizedBox(width: 10),
                     ],
-                    Expanded(child: Text(w.facts.join(' · ').toUpperCase(), maxLines: open ? 2 : 1, overflow: TextOverflow.ellipsis, style: t.readout(11))),
+                    Expanded(child: Text(w.facts.join(' · ').toUpperCase(), maxLines: open ? 3 : 1, overflow: TextOverflow.ellipsis, style: t.readout(11))),
                   ],
                 ),
               ),
