@@ -113,7 +113,13 @@ class DeckView extends StatefulWidget {
     this.engine = 'claude',
     this.models = const [],
     this.provenOn,
+    this.rowEngine,
   });
+
+  /// Whose words the rows on the Deck are — the engine that made the
+  /// session they belong to, which is not the notch once it has moved
+  /// while the last conversation still shows. Null: the notch.
+  final String? rowEngine;
 
   /// The ENGINE notch — `claude` or `codex`, one of [engineChoices];
   /// switched only while nothing runs. [models] is what the running
@@ -487,7 +493,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
     }
     final row = _Row(
       message: m,
-      engine: widget.engine,
+      engine: widget.rowEngine ?? widget.engine,
       progress: widget.uploadProgress,
       queued: widget.queued.contains(m.id),
       onWithdraw: widget.onWithdraw == null ? null : () => widget.onWithdraw!(m.id),
@@ -1395,6 +1401,7 @@ class DeckTab extends StatelessWidget {
           restartPending: b.restartPending,
           onOptions: ({mode, chrome, model, effort, engine}) => b.setOptions(mode: mode, chrome: chrome, model: model, effort: effort, engine: engine),
           engine: b.engineId,
+          rowEngine: b.current?.engine ?? 'claude',
           models: b.engine.models,
           provenOn: b.engine.provenOn,
           onTestPush: testPush,
@@ -1537,6 +1544,7 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         restartPending: d.restartPending,
         onOptions: ({mode, chrome, model, effort, engine}) => d.setOptions(mode: mode, chrome: chrome, model: model, effort: effort, engine: engine),
         engine: d.engine,
+        rowEngine: d.sessionEngine,
         models: d.models,
         onTestPush: d.testPush,
         uploadProgress: d.uploadProgress,

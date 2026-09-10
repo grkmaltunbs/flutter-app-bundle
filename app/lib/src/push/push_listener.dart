@@ -92,6 +92,11 @@ class _PushListenerState extends State<PushListener> {
     // up comes down; the card drops through the relay on its own.
     if (LocalNotice.withdrawnId(data) != null) {
       unawaited(LocalNotices.handle(data));
+      // The bar for that ask comes off the composer too — its 4 s do not
+      // run everywhere (a bar with a button stays up under accessible
+      // navigation), and it was seen sitting there a minute after the
+      // ask was answered (2026-09-10).
+      if (mounted) ScaffoldMessenger.of(context).clearSnackBars();
       return;
     }
     // A turn that ended, a step that flipped: on the screen already.

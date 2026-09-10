@@ -652,6 +652,16 @@ class RemoteDeck extends ChangeNotifier {
   /// running engine listed for the dial.
   String get engine => knownEngine(session['engine']);
   List<String> get models => [for (final m in (session['models'] as List? ?? const [])) m.toString()];
+
+  /// The engine that made the session on the Deck — the list's entry for
+  /// it; the notch when the list does not know it.
+  String get sessionEngine {
+    final id = sessionId;
+    for (final s in sessions) {
+      if (s.id == id) return s.engine ?? 'claude';
+    }
+    return engine;
+  }
   /// The mode dial; [permissionMode] is what the CLI last reported, and
   /// [modePending] that the dial moved mid-turn and waits for its end.
   String get modeChoice => knownMode(session['modeChoice']);

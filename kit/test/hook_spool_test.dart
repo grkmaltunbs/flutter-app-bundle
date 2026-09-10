@@ -24,7 +24,7 @@ void main() {
     expect(events.map((e) => e.name), ['PostToolUse', 'Stop', 'Notification']);
     expect(events[0].summary, 'Bash · flutter test');
     expect(events[0].needsYou, isFalse);
-    expect(events[1].summary, 'Claude finished a turn');
+    expect(events[1].summary, 'Finished a turn');
     expect(events[2].needsYou, isTrue);
     expect(events[2].summary, contains('permission'));
     expect(events[0].at, t0);

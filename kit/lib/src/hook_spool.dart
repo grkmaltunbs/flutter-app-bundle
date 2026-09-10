@@ -69,7 +69,8 @@ class HookEvent {
         }
         return detail.isEmpty ? tool : '$tool · ${_clip(detail.replaceAll('\n', ' '), 120)}';
       case 'Stop':
-        return 'Claude finished a turn';
+        // Whichever engine ran it — Codex spools the same hooks.
+        return 'Finished a turn';
       case 'SubagentStop':
         return 'A subagent finished';
       case 'Notification':
