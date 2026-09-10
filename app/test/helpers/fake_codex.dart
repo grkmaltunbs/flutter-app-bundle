@@ -215,6 +215,36 @@ class FakeCodex implements Process {
     }, id: id);
   }
 
+  /// An MCP server's question — the browser's origin permission as
+  /// Browser use sends it (captured 2026-09-10): an empty form, remembered
+  /// on accept. [schema] for a form with fields.
+  void scriptElicitation({Object id = 0, String origin = 'https://example.org', String turnId = fakeTurn, Map<String, Object?> schema = const {'type': 'object', 'properties': {}}, String? riskLevel}) =>
+      request('mcpServer/elicitation/request', {
+        'threadId': threadId,
+        'turnId': turnId,
+        'serverName': 'cua_repl',
+        'mode': 'form',
+        '_meta': {
+          'codex_approval_kind': 'mcp_tool_call',
+          'codex_request_type': 'approval_request',
+          'codex_sensitive_action': true,
+          'connector_id': 'browser-use',
+          'connector_name': 'Browser use',
+          'origin': origin,
+          'persist': 'always',
+          'riskLevel': ?riskLevel,
+          'tool_name': 'access_browser_origin',
+          'tool_params': {'origin': origin},
+          'tool_params_display': [],
+          'tool_title': 'Access browser origin',
+        },
+        'message': 'Allow Browser use to access $origin?',
+        'requestedSchema': schema,
+      }, id: id);
+
+  /// `mcpServer/startupStatus/updated` — `starting`, `ready`, `failed`.
+  void scriptMcpStatus(String name, String status) => notify('mcpServer/startupStatus/updated', {'threadId': threadId, 'name': name, 'status': status, 'error': null, 'failureReason': null});
+
   void scriptCommandDone({String status = 'completed', String turnId = fakeTurn, String? output}) => notify('item/completed', {
         'item': {'type': 'commandExecution', 'id': 'exec-1', 'command': "/bin/zsh -lc 'x'", 'cwd': startedIn, 'status': status, 'commandActions': [{'type': 'unknown', 'command': 'x'}], 'aggregatedOutput': output, 'exitCode': status == 'completed' ? 0 : null},
         'threadId': threadId,

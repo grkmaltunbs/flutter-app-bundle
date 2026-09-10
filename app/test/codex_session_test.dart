@@ -81,7 +81,7 @@ void main() {
     expect(relay['models'], ['gpt-6-astra', 'gpt-5.5']);
     expect(relay['cliVersion'], '0.153.4');
     expect(relay['rules'], ['CLAUDE.md'], reason: 'the RULES fact — what Codex loaded for the folder');
-    expect(relay['chromeStatus'], 'unavailable');
+    expect(relay['chromeStatus'], 'off', reason: 'no cua_repl listed yet');
     expect(s.transcript.pool!.sevenDay!.utilization, closeTo(0.09, 0.0001), reason: 'read at the start');
     await s.stop();
     expect(s.state, BridgeState.stopped);
@@ -204,6 +204,73 @@ void main() {
     fake.scriptTurn(text: 'You chose coffee.');
     await pumpEventQueue();
     expect(s.transcript.lastResult!.text, 'You chose coffee.');
+  });
+
+  test('the browser\'s origin question reaches the phone as a card and ALLOW goes back as accept; the pill follows cua_repl', () async {
+    final fake = FakeCodex();
+    final s = codexSession(fake, dir: project.path, home: home.path);
+    await s.start();
+    await fake.requested('thread/start');
+    await pumpEventQueue();
+    expect(s.chromeStatus, 'off');
+    fake.scriptMcpStatus('cua_repl', 'starting');
+    await pumpEventQueue();
+    expect(s.chromeStatus, 'starting');
+    fake.scriptMcpStatus('cua_repl', 'ready');
+    await pumpEventQueue();
+    expect(s.chromeStatus, 'ready');
+    expect(s.toRelay()['chromeStatus'], 'ready');
+    s.send('open example.org in Chrome and read the title');
+    await fake.requested('turn/start');
+    fake.scriptElicitation(origin: 'https://example.org');
+    await pumpEventQueue();
+    expect(s.state, BridgeState.waiting);
+    final ask = s.transcript.pending!;
+    expect(ask.isElicitation, isTrue);
+    expect(ask.engine, 'codex');
+    expect(ask.summary, 'Allow Browser use to access https://example.org?');
+    expect(ask.suggestions, isNotEmpty, reason: 'ALWAYS is offered');
+    s.answer(AskAnswer.allow(ask), by: 'phone');
+    await fake.writtenLines(fake.written.length);
+    await pumpEventQueue();
+    expect(fake.results[0], {'action': 'accept', 'content': {}});
+    expect(s.state, BridgeState.busy);
+    expect(s.transcript.pending, isNull);
+    fake.scriptElicitation(id: 1, origin: 'https://example.net');
+    await pumpEventQueue();
+    final second = s.transcript.pending!;
+    s.answer(AskAnswer.always(second), by: 'phone');
+    await fake.writtenLines(fake.written.length);
+    await pumpEventQueue();
+    expect(fake.results[1], {'action': 'accept', 'content': {}, '_meta': {'persist': 'always'}}, reason: 'ALWAYS rides as persist: always');
+    expect(s.alwaysApplied, isEmpty, reason: 'no rule of the host\'s own — the server keeps it');
+    fake.scriptTurn(text: 'Example Domain');
+    await pumpEventQueue();
+    expect(s.transcript.lastResult!.text, 'Example Domain');
+    await s.stop();
+  });
+
+  test('bypass mode lets an origin through without a card, and the Deck says which', () async {
+    final fake = FakeCodex();
+    final s = codexSession(fake, dir: project.path, home: home.path);
+    s.setOptions(mode: 'bypassPermissions');
+    await s.start();
+    await fake.requested('thread/start');
+    await pumpEventQueue();
+    s.send('open example.com in Chrome');
+    await fake.requested('turn/start');
+    final turn = fake.lastParams('turn/start');
+    expect(turn['approvalPolicy'], 'on-request', reason: 'never would decline the question before the host sees it');
+    expect(turn['sandboxPolicy'], {'type': 'dangerFullAccess'});
+    fake.scriptElicitation(origin: 'https://example.com');
+    await fake.writtenLines(fake.written.length);
+    await pumpEventQueue();
+    expect(s.transcript.pending, isNull, reason: 'no card');
+    expect(fake.results[0], {'action': 'accept', 'content': {}});
+    expect(s.state, BridgeState.busy);
+    expect(s.transcript.messages.last.role, DeckRole.note);
+    expect(s.transcript.messages.last.text, 'Let through (bypass): Allow Browser use to access https://example.com?');
+    await s.stop();
   });
 
   test('a command under default asks; Deny declines and the row says so; Always carries the execpolicy amendment and lands on the Session tab, where it can be taken back', () async {
@@ -431,7 +498,7 @@ void main() {
       await tester.pumpWidget(_app(DeckTab(bridge: s), scale: scale));
       await tester.pump();
       expect(find.text('ENGINE · CODEX'), findsOneWidget, reason: '$scale×');
-      expect(find.text('BROWSER · NOT ON CODEX'), findsOneWidget);
+      expect(find.text('BROWSER · OFF'), findsOneWidget, reason: 'idle: no browser server yet');
       expect(find.text('MODEL · DEFAULT'), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'idle at $scale×');
       // The MODEL dial's last notch is Codex's, not Claude's.

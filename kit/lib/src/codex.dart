@@ -59,7 +59,11 @@ class CodexPolicy {
 CodexPolicy codexPolicyFor(String mode) => switch (knownMode(mode)) {
       'plan' => const CodexPolicy(approval: 'on-request', sandbox: 'read-only', collaboration: 'plan'),
       'acceptEdits' => const CodexPolicy(approval: 'on-request', sandbox: 'workspace-write', collaboration: 'default'),
-      'bypassPermissions' => const CodexPolicy(approval: 'never', sandbox: 'danger-full-access', collaboration: 'default'),
+      // `on-request`, not `never`: with full access the sandbox never blocks a
+      // command, so nothing asks — and `never` makes the app-server decline
+      // the browser's origin question on its own (found 2026-09-10). The host
+      // answers that one accept in bypass mode.
+      'bypassPermissions' => const CodexPolicy(approval: 'on-request', sandbox: 'danger-full-access', collaboration: 'default'),
       _ => const CodexPolicy(approval: 'untrusted', sandbox: 'workspace-write', collaboration: 'default'),
     };
 
@@ -87,10 +91,15 @@ const codexDeclinedNote = 'declined — the user did not allow it';
 /// JSON-RPC id to answer on, and what the answer needs (the amendment an
 /// Always carries, the question ids).
 class CodexAsk {
-  const CodexAsk({required this.kind, required this.rpcId, this.amendment, this.questionIds = const {}, this.proposed});
+  const CodexAsk({required this.kind, required this.rpcId, this.amendment, this.questionIds = const {}, this.proposed, this.field, this.boolean = false});
 
-  /// `command`, `fileChange`, `question`, `permissions`.
+  /// `command`, `fileChange`, `question`, `permissions`, `elicitation`.
   final String kind;
+
+  /// An elicitation with one field: its name, and whether it is a boolean
+  /// (answered Yes / No) rather than a choice.
+  final String? field;
+  final bool boolean;
   final Object rpcId;
   final List<String>? amendment;
 
@@ -338,6 +347,23 @@ class CodexTranslator {
       case 'permissions':
         if (!a.allowed) return replyError(c.rpcId, 'The user declined.');
         return reply(c.rpcId, {'permissions': c.proposed ?? const {}, 'scope': 'turn'});
+      case 'elicitation':
+        // `{action: accept | decline, content}` — RMCP's CreateElicitationResult.
+        if (!a.allowed) return reply(c.rpcId, {'action': 'decline'});
+        final content = <String, Object?>{};
+        if (c.field case final field?) {
+          final updated = a.response['updatedInput'];
+          final given = updated is Map ? updated['answers'] : null;
+          final v = given is Map ? given.values.map((x) => x.toString()).firstOrNull : null;
+          if (v != null) content[field] = c.boolean ? v.toLowerCase() == 'yes' : v;
+        }
+        return reply(c.rpcId, {
+          'action': 'accept',
+          'content': content,
+          // `persist: always` → the server keeps the allow globally (its
+          // `wB`: `session` = this conversation, `always` = global).
+          if (a.appliesAlways) '_meta': {'persist': 'always'},
+        });
     }
     return replyError(c.rpcId, 'not handled');
   }
@@ -513,10 +539,81 @@ class CodexTranslator {
             engine: 'codex',
           )),
         ];
+      case 'mcpServer/elicitation/request':
+        // An MCP server's own question — the browser's origin permission
+        // above all (`_meta.tool_name: access_browser_origin`, an empty
+        // form; proven 2026-09-10). A plain answer holds for the
+        // conversation, allow and deny alike; `_meta.persist: always` on
+        // the request means the server keeps an allow for good when the
+        // answer says `persist: always` back — the card's ALWAYS. A form
+        // with one choice or one yes/no is a question card; anything else
+        // is allow / deny with an empty answer.
+        final meta = _map(p['_meta']);
+        final message = _text(p['message']) ?? 'The server asks for permission.';
+        final connector = _text(meta['connector_name']) ?? _text(p['serverName']) ?? 'MCP server';
+        final origin = _text(meta['origin']);
+        final persist = _text(meta['persist']);
+        final risk = _text(meta['riskLevel']);
+        final props = _map(_map(p['requestedSchema'])['properties']);
+        if (props.length == 1) {
+          final field = props.keys.single;
+          final spec = _map(props[field]);
+          final enumOptions = spec['enum'] is List ? [for (final o in spec['enum'] as List) o.toString()] : null;
+          final oneOf = spec['oneOf'] is List ? [for (final o in spec['oneOf'] as List) if (o is Map) (o['title'] ?? o['const'] ?? '').toString()] : null;
+          final options = enumOptions ?? oneOf ?? (spec['type'] == 'boolean' ? const ['Yes', 'No'] : null);
+          if (options != null && options.isNotEmpty) {
+            asks[rid] = CodexAsk(kind: 'elicitation', rpcId: id, questionIds: {message: field}, field: field, boolean: spec['type'] == 'boolean');
+            return [
+              AskEvent(Ask(
+                requestId: rid,
+                toolName: 'AskUserQuestion',
+                toolUseId: 'elicitation-$id',
+                input: {
+                  'questions': [
+                    {
+                      'question': message,
+                      'header': connector,
+                      'multiSelect': false,
+                      'options': [for (final o in options) {'label': o, 'description': ''}],
+                    },
+                  ],
+                },
+                at: _now(),
+                displayName: connector,
+                requiresUserInteraction: true,
+                engine: 'codex',
+              )),
+            ];
+          }
+        }
+        asks[rid] = CodexAsk(kind: 'elicitation', rpcId: id);
+        return [
+          AskEvent(Ask(
+            requestId: rid,
+            toolName: elicitationTool,
+            toolUseId: 'elicitation-$id',
+            input: {
+              'message': message,
+              'connector': connector,
+              if (origin != null) 'origin': origin,
+              if (persist != null) 'persist': persist,
+              'server': _text(p['serverName']) ?? '',
+            },
+            at: _now(),
+            description: [
+              if (risk == 'high') 'High risk.',
+              if (origin != null) '$connector wants to reach $origin in the Mac\'s Chrome.' else '$connector asks.',
+              'Your answer holds for this conversation.',
+              if (persist == 'always' && origin != null) 'ALWAYS keeps an allow for this site for good.',
+            ].join(' '),
+            displayName: connector,
+            suggestions: persist == 'always' && origin != null ? [{'type': 'browser-origin', 'origin': origin}] : const [],
+            engine: 'codex',
+          )),
+        ];
       default:
-        // An elicitation form, a token refresh, an attestation, a dynamic
-        // tool: nothing on a phone can answer these — say so at once so
-        // the turn goes on.
+        // A token refresh, an attestation, a dynamic tool: nothing on a
+        // phone can answer these — say so at once so the turn goes on.
         outbox.add(replyError(id, 'not supported by K.A.T.Y.A', code: -32601));
         return [OtherEvent('request', method)];
     }
@@ -606,8 +703,10 @@ class CodexTranslator {
         return threadId == null ? const [] : [InitEvent(sessionId: threadId!, model: model, permissionMode: mode, cwd: cwd, mcpServers: Map.of(mcp), rules: rules)];
       case 'mcpServer/startupStatus/updated':
         final name = _text(p['name']);
-        if (name != null) mcp[name] = (p['status'] ?? '').toString();
-        return const [];
+        if (name == null) return const [];
+        final status = (p['status'] ?? '').toString();
+        mcp[name] = status;
+        return [McpStatusEvent(name, status)];
       case 'thread/compacted':
         return [const CompactEvent(trigger: 'manual')];
       case 'error':

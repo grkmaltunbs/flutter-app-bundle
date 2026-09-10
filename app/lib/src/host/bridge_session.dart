@@ -384,7 +384,11 @@ class BridgeSession extends ChangeNotifier {
   /// before init or when [chrome] was off. On Codex the browser is the
   /// ChatGPT app's own plugin and is not available under a host-spawned
   /// app-server (proven 2026-09-10): `unavailable`.
-  String? get chromeStatus => engineId == 'codex' ? (running ? 'unavailable' : null) : transcript.mcpServers['claude-in-chrome'];
+  /// The browser: Claude's `claude-in-chrome` server, or Codex's
+  /// `cua_repl` — the Browser use runtime, `starting` / `ready` /
+  /// `failed`, `off` when the session lists no such server (built
+  /// 2026-09-10; before that the pill said NOT ON CODEX).
+  String? get chromeStatus => engineId == 'codex' ? (running ? (transcript.mcpServers['cua_repl'] ?? 'off') : null) : transcript.mcpServers['claude-in-chrome'];
 
   /// What the next Start tells the session, on top of its own system
   /// prompt — the phone, the browser, sign-ins as questions, then the
@@ -669,12 +673,19 @@ class BridgeSession extends ChangeNotifier {
         _flushQueue();
       case AskEvent():
         e.ask.diff ??= _diffForRow(e.ask.toolUseId) ?? diffFor?.call(e.ask.toolName, e.ask.input);
-        if (!e.ask.isQuestion && !e.ask.isPlan && _sessionAllows.contains(e.ask.key)) {
+        if (e.ask.isElicitation && modeChoice == 'bypassPermissions') {
+          // Bypass means no permission cards: the browser's origin
+          // question is let through, and the Deck says which site.
+          _answerRemembered(e.ask, note: 'Let through (bypass): ${e.ask.summary}');
+        } else if (!e.ask.isQuestion && !e.ask.isPlan && _sessionAllows.contains(e.ask.key)) {
           _answerRemembered(e.ask);
         } else {
           state = BridgeState.waiting;
           onAsk?.call(e.ask);
         }
+      case McpStatusEvent():
+        // The pill follows it; the transcript already took the status.
+        break;
       case ResultEvent():
         state = BridgeState.ready;
         if (e.numTurns > 0 && current != null) {
@@ -1001,11 +1012,11 @@ class BridgeSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _answerRemembered(Ask ask) {
+  void _answerRemembered(Ask ask, {String? note}) {
     final proc = _proc;
     if (proc == null) return;
     final a = AskAnswer.allow(ask);
-    transcript.answer(a, note: 'Allowed (this session): ${ask.summary}');
+    transcript.answer(a, note: note ?? 'Allowed (this session): ${ask.summary}');
     final line = engine.answer(ask, a);
     if (line != null) _write(proc, line);
     state = BridgeState.busy;

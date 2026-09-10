@@ -73,6 +73,13 @@ so the plugin carries its second shape beside the first:
   runs a plugin's hooks only after you have reviewed and trusted them once
   (`/hooks` in its TUI; trust is kept against the hook's hash, an edit asks
   again). It has no `Notification` event and ignores that entry.
+- **Chrome.** Codex drives the Mac's own Chrome through the ChatGPT app's
+  Browser use runtime (the bundled `chrome` and `browser` plugins). A site's
+  first visit asks — *Allow Browser use to access <origin>?* — and K.A.T.Y.A
+  shows that as a permission card on the phone: ALLOW and DENY hold for the
+  conversation, ALWAYS keeps the site allowed for good. In bypass mode the
+  host lets the site through and the Deck says so.
+  The BROWSER pill reads the runtime's status. Keep the ChatGPT app open.
 
 Codex copies an installed plugin to `~/.codex/plugins/cache/<marketplace>/flutter-kit/<version>`
 and refreshes it on a version bump. The symlink trick does **not** apply here:

@@ -1864,11 +1864,19 @@ class _Header extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  // On Codex the browser is the ChatGPT app's own plugin, and
-                  // it does not come up under a host-spawned app-server: the
-                  // pill says so and flips nothing.
+                  // On Codex the browser is Browser use — the ChatGPT app's
+                  // runtime driving the Mac's Chrome — and there is no toggle:
+                  // the pill reads the `cua_repl` server's status (STARTING,
+                  // READY, FAILED; OFF when the session lists none) and flips
+                  // nothing. A site asks once, as a card (built 2026-09-10).
                   if (w.engine == 'codex')
-                    _OptionPill(text: 'BROWSER · NOT ON CODEX', color: t.ink2, on: false, enabled: false, onTap: () {})
+                    _OptionPill(
+                      text: 'BROWSER · ${(w.running ? (w.chromeStatus ?? 'off') : 'off').toUpperCase()}',
+                      color: w.running && w.chromeStatus == 'ready' ? t.accent : w.chromeStatus == 'failed' ? t.critical : t.ink2,
+                      on: w.running && w.chromeStatus == 'ready',
+                      enabled: false,
+                      onTap: () {},
+                    )
                   else
                     _OptionPill(
                       text: 'CHROME · ${w.chrome ? (w.running && w.chromeStatus != null ? w.chromeStatus!.toUpperCase() : 'ON') : 'OFF'}',

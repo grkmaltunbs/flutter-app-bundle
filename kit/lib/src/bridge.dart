@@ -198,7 +198,7 @@ const projectBriefHead = 'Project brief — the user\'s standing rules for this 
 String codexBrief({required String mode, String? run, String? worktree, String? worktreePath, String? custom}) => [
       'You are driven from K.A.T.Y.A, a phone app that talks to this Codex session on the user\'s Mac. The user reads you on a phone screen: answer short and concrete, and lead with the result.',
       '',
-      'Browser: when the browser tool is available it is the Mac\'s own Chrome, signed in as the user — use it for anything that needs a website (App Store Connect, Google Play Console, RevenueCat, documentation). Downloads land in ~/Downloads on the Mac; a file the user attached is saved under ~/.flutter_kit/attachments/ and its path is in the message.',
+      'Browser: when the browser tool is available it is the Mac\'s own Chrome, signed in as the user — use it for anything that needs a website (App Store Connect, Google Play Console, RevenueCat, documentation). Downloads land in ~/Downloads on the Mac; a file the user attached is saved under ~/.flutter_kit/attachments/ and its path is in the message. The first visit to a site asks the user for permission on the phone — expect a pause; once allowed the site is remembered.',
       '',
       'When a site wants a sign-in, a second factor, a captcha, or a payment confirmation: stop and ask with the request_user_input tool — one question naming the site and the tab, with the single option "$signedInOption". The user reaches the Mac over remote desktop, signs in there, and answers; then look at the page again. Never type or guess a password, and never work around a sign-in. Questions always go through request_user_input, never as plain text: a question typed as text is one the user never sees.',
       '',
@@ -409,6 +409,14 @@ class Ask {
 
   bool get isQuestion => toolName == 'AskUserQuestion';
 
+  /// An MCP server's own question, forwarded by Codex's app-server
+  /// (`mcpServer/elicitation/request`) — the browser's *Allow Browser use
+  /// to access ‹origin›?* above all (built 2026-09-10). `input.message`
+  /// is the question, `input.origin` the site, `input.connector` who
+  /// asks; the answer is accept or decline, and Codex remembers an
+  /// accepted origin by itself (`input.persist == always`).
+  bool get isElicitation => toolName == elicitationTool;
+
   /// An `ExitPlanMode`: the session finished planning and waits for the
   /// plan to be approved. [plan] is the markdown it wrote — `input.plan`,
   /// beside `planFilePath` (proven 2026-09-04, 2.1.260).
@@ -442,6 +450,7 @@ class Ask {
   /// for a question, the tool and its input otherwise.
   String get summary {
     if (isQuestion) return questions.map((q) => q.question).join(' · ');
+    if (isElicitation) return (input['message'] ?? '').toString();
     if (isPlan) return planTitle.isEmpty ? 'A plan is ready' : planTitle;
     if (toolName == 'Bash') return (input['command'] ?? '').toString();
     final path = input['file_path'] ?? input['path'] ?? input['pattern'] ?? input['url'];
@@ -605,7 +614,8 @@ Notice noticeForAsk(Ask ask, {required String project}) {
   if (ask.isQuestion) {
     return Notice(kind: NoticeKind.question, title: '${ask.engineLabel} asks · $project', body: _clip(ask.summary, 240), requestId: ask.requestId, actions: noticeActions(ask));
   }
-  final what = ask.toolName == 'Bash' ? 'Run' : toolLabel(ask.toolName);
+  // The browser's origin question names its connector, not the wire name.
+  final what = ask.isElicitation ? (ask.displayName ?? 'the browser') : ask.toolName == 'Bash' ? 'Run' : toolLabel(ask.toolName);
   // An edit shows its first changed lines under the file: what changes,
   // not only where.
   final changes = ask.diff == null ? const <String>[] : diffPreview(ask.diff!);
@@ -722,6 +732,9 @@ class AskAnswer {
 
 // -------------------------------------------------------------- events
 
+/// The tool name an elicitation rides under ([Ask.isElicitation]).
+const elicitationTool = 'mcp_elicitation';
+
 sealed class BridgeEvent {
   const BridgeEvent();
 }
@@ -745,6 +758,15 @@ class InitEvent extends BridgeEvent {
   /// MCP server name → status (`connected`, `pending`, `failed`,
   /// `needs-auth`); `claude-in-chrome` is the browser.
   final Map<String, String> mcpServers;
+}
+
+/// One MCP server's status changed after the init — Codex reports each
+/// server as it comes up (`mcpServer/startupStatus/updated`: `starting`,
+/// `ready`, `failed`); `cua_repl` is the browser (built 2026-09-10).
+class McpStatusEvent extends BridgeEvent {
+  const McpStatusEvent(this.name, this.status);
+  final String name;
+  final String status;
 }
 
 /// A piece of the assistant's text, as it is written.
@@ -1523,6 +1545,8 @@ class Transcript {
         model = e.model;
         permissionMode = e.permissionMode;
         mcpServers = e.mcpServers;
+      case McpStatusEvent():
+        mcpServers = {...mcpServers, e.name: e.status};
       case TextDeltaEvent():
         deltasSeen++;
         // A subagent's draft is not streamed; its final blocks become

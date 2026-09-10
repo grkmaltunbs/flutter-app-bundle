@@ -737,6 +737,30 @@ Relay additions: `session.rules` (the rules files the engine loaded, by name —
 
 Later the same day, with the phone on USB, the same walk on the phone in hand (driven over adb; the user's hooks trusted by then): the ENGINE dial dragged to CODEX sent the command and the fold re-read itself (BROWSER · NOT ON CODEX, the Claude version gone from the facts); START brought a thread up; the model answered on a row labelled CODEX; the NOW strip moved on the hooks (*You: …*, *Finished a turn*, then the `apply_patch` PostToolUse) — the first proof that the trusted spool fills under Codex; Deny held on the card, Always wrote the rule; CODEX ASKS took *Coffee* from the option list; MODE dragged to PLAN, the plan card's APPROVE sent the implement turn, its APPLY_PATCH card with the diff was allowed and the line landed; Stop, ENGINE back to CLAUDE, START, and Claude Fable answered on a CLAUDE row. Three more fixes from it: the NOW strip said *Claude finished a turn* whichever engine ran (now *Finished a turn*); rows of the last Claude conversation took the new notch's label while the Deck was idle (`DeckView.rowEngine` — the engine of the session the rows belong to); and the foreground push bar for an ask outlived the ask by a minute, sitting over the composer (it clears on the withdraw push now). A phone call arrived mid-test and the walk paused for it; nothing on the session minded.
 
+### Chrome under Codex (built 2026-09-10)
+
+Step 28's spike 4 read *No browser is available* as the ChatGPT app's browser
+not coming up under a host-spawned app-server, and the pill said BROWSER ·
+NOT ON CODEX. The same day's second spike (the row above, revisited) showed the
+browser does come up: `cua_repl` reports ready, the model calls
+`cua.createBrowserTab("chrome", url)`, the tab opens in the Mac's own Chrome
+through the "ChatGPT for Chrome" extension host, and the page comes back. What
+stood in the way was a question nobody answered.
+
+| What | How | Why |
+|---|---|---|
+| The question | Browser use asks per origin — *Allow Browser use to access https://example.org?* — as an MCP elicitation the app-server forwards to its client: `mcpServer/elicitation/request` with `serverName: cua_repl`, `mode: form`, `message`, `requestedSchema` (`{type: object, properties: {}}` for this one) and `_meta` (`origin`, `connector_name: Browser use`, `tool_name: access_browser_origin`, `tool_title`, `persist: always`, `codex_sensitive_action`, `riskLevel: high` for raw CDP). The answer is the JSON-RPC response under the request's own id: `{action: accept \| decline \| cancel, content}` — RMCP's CreateElicitationResult. | The shape captured live twice; the empty form means the answer is the action alone. |
+| The card | The translator makes it an [Ask] under `mcp_elicitation` (`Ask.isElicitation`): the message as the summary, the connector as the name, `input.origin` / `persist` / `server` beside it, and a description saying the answer holds for the conversation. On the phone and in the Mac window it is the permission card: ALLOW and DENY are remembered by Browser use for the conversation (its store scopes a plain answer to the thread — a deny too, proven on the phone: the second ask of a denied site was blocked without a card), and ALWAYS — offered when the request carries `_meta.persist: always` — answers `_meta: {persist: always}` back, which the server keeps globally for the site (its `wB`: `session` = conversation, `always` = global). The host writes no rule of its own for it. A form with one enum or one boolean field is a question card whose answer is the `content`; a form the phone cannot fill is allow / deny with `{}`. | One card family; nothing new to learn on the phone. |
+| Bypass | `codexPolicyFor('bypassPermissions')` is `approvalPolicy: on-request` + `danger-full-access` now, not `never`: with full access the sandbox never blocks a command, so nothing asks — and `never` made the app-server decline the elicitation by itself ("The user declined permission for this action"). In bypass the host answers it accept and the Deck gets a row, *Let through (bypass): Allow Browser use to access <origin>?*. Autopilot inherits that. | Bypass means no cards, not no browser. |
+| The pill | `chromeStatus` under Codex is the `cua_repl` server's status from `mcpServer/startupStatus/updated` — `starting`, `ready`, `failed` — or `off` when the session lists none; the pill reads BROWSER · READY and flips nothing (there is no toggle on Codex). The transcript keeps every server's status ([McpStatusEvent]); the relay carries `session.chromeStatus` as before. | The user sees whether the browser is there before asking for it. |
+| The brief | The Codex brief says a site's first visit asks the user on the phone and is then remembered. | The model expects the pause. |
+
+The runtime's processes belong to the ChatGPT app's own codex and to Chrome's
+"ChatGPT for Chrome" host; the spike ran with the app open, and closed is
+untested. The `chrome` and `browser` bundled plugins are enabled at user level
+in `~/.codex/config.toml` (`node_repl`, `cua_repl`); a Mac without the ChatGPT
+app has no `cua_repl` and the pill reads OFF.
+
 ### Risks, and what holds them
 
 - *More undocumented protocol.* Every new request is behind a spike and a

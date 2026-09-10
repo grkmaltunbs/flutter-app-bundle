@@ -1605,6 +1605,80 @@ The step's checkbox stays `[ ]` until these are checked:
 
 ---
 
+## Step 30 — Chrome under Codex — the browser's permission question becomes a card, and the pill goes live
+- [x]
+- id: codex-chrome
+- depends_on: codex-engine
+- qa_required: true
+
+### Description
+Step 28 read "No browser is available" as *the ChatGPT app's browser
+does not come up under a host-spawned app-server*, and the Deck's
+pill has said BROWSER · NOT ON CODEX since. The spike of 2026-09-10
+(DESIGN.md, Codex engine, spike 4 revisited) showed the browser does
+come up: `cua_repl` reports ready, the model calls
+`cua.createBrowserTab("chrome", url)`, the tab opens in the Mac's own
+Chrome through the "ChatGPT for Chrome" extension host, and the page
+comes back. What stood in the way was a question nobody answered:
+Browser use asks per origin — *Allow Browser use to access
+https://example.org?* — as an MCP elicitation the app-server forwards
+to its client (`mcpServer/elicitation/request`: `serverName`,
+`mode: form`, `message`, `requestedSchema` — empty for this one —
+and `_meta` with `origin`, `connector_name`, `tool_title`,
+`persist: always`), answered `{action: accept | decline | cancel,
+content}`. Under `approvalPolicy: never` the app-server declines it
+on its own.
+
+**This step.**
+- The translator turns an elicitation into an [Ask]: the connector's
+  name as the tool, the message as the summary, the origin as what
+  it is about; an empty form is allow / deny, a form with one enum or
+  boolean field is a question with those options (its answer is the
+  `content`). The answer line is the JSON-RPC response with the
+  request's own id.
+- The card on the phone and in the Mac window is the permission card:
+  ALLOW and DENY hold for the conversation (Browser use keeps a plain
+  answer per thread — a deny too), ALWAYS answers `persist: always`
+  back and the server keeps the site allowed for good.
+- Bypass mode maps to `approvalPolicy: on-request` +
+  `danger-full-access` instead of `never`: the sandbox never blocks a
+  command, so nothing asks, and the browser's question still reaches
+  the host — which answers it accept in bypass, with a row on the
+  Deck saying which origin was let through. Autopilot inherits that.
+- The BROWSER pill under Codex reads the `cua_repl` server's status
+  (`mcpServer/startupStatus/updated`): STARTING, READY, FAILED, or
+  OFF when the server is not configured. It flips nothing; there is
+  no toggle on Codex.
+- The brief tells Codex the browser is there when it is.
+
+### Acceptance
+- A Codex session asked to open a page in Chrome raises a card on the
+  phone: *Codex asks · scratch* / Browser use / Allow Browser use to
+  access <origin>? — ALLOW opens the tab in the Mac's Chrome and the
+  answer comes back; DENY leaves a declined row and no tab. A second
+  turn to the same origin in the same conversation asks no more,
+  either way; a new conversation asks again unless ALWAYS was given.
+- In bypass mode the tab opens without a card and the Deck shows a
+  row naming the origin.
+- The pill reads BROWSER · READY on a running Codex session with the
+  runtime up, and OFF / FAILED otherwise. Under Claude nothing
+  changes.
+- kit and app suites green; the translator's shapes captured in tests.
+
+### QA walkthrough
+On ~/kit-scratch (slug `scratch`), the ChatGPT app open on the Mac:
+1. ENGINE → CODEX, MODE default, START; the pill reads BROWSER · READY.
+2. Send: *Open https://example.org in Chrome and tell me the title.*
+   The card arrives on the phone (and as a push); DENY → the row
+   reads declined, no tab.
+3. Send it again; ALLOW → a tab opens in Chrome; the reply is
+   "Example Domain". Send once more: no card (remembered).
+4. MODE → BYPASS; send it for https://example.com: no card, the
+   Deck row says the origin was let through, the reply comes back.
+5. ENGINE → CLAUDE: the pill is CHROME · OFF/ON as before.
+
+---
+
 ## Step 26 — Voice and biometrics — hear the ask and the summary, answer by voice, and prove it is you before the dangerous taps
 - [ ]
 - id: voice-and-biometrics

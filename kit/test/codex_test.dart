@@ -54,7 +54,7 @@ void main() {
     expect(codexPolicyFor('default').approval, 'untrusted');
     expect(codexPolicyFor('default').sandbox, 'workspace-write');
     expect(codexPolicyFor('acceptEdits').approval, 'on-request');
-    expect(codexPolicyFor('bypassPermissions').approval, 'never');
+    expect(codexPolicyFor('bypassPermissions').approval, 'on-request', reason: 'never would make the app-server decline the browser\'s origin question by itself (2026-09-10)');
     expect(codexPolicyFor('bypassPermissions').sandboxPolicy, {'type': 'dangerFullAccess'});
     expect(codexPolicyFor('plan').collaboration, 'plan');
     expect(codexPolicyFor('plan').sandboxPolicy, {'type': 'readOnly'});
@@ -214,6 +214,74 @@ void main() {
     t.feed(_question);
     final own = t.answerLine(ask, AskAnswer.answers(ask, {ask.questions.single.question: 'Mate, please'}));
     expect((jsonDecode(own!) as Map)['result'], {'answers': {'drink': {'answers': ['Mate, please']}}});
+  });
+
+  String elicitationLine(int id, {String origin = 'https://example.org', Map<String, Object?> schema = const {'type': 'object', 'properties': {}}}) => jsonEncode({
+        'method': 'mcpServer/elicitation/request',
+        'id': id,
+        'params': {
+          'threadId': _thread,
+          'turnId': _turn,
+          'serverName': 'cua_repl',
+          'mode': 'form',
+          '_meta': {'codex_approval_kind': 'mcp_tool_call', 'codex_request_type': 'approval_request', 'codex_sensitive_action': true, 'connector_id': 'browser-use', 'connector_name': 'Browser use', 'origin': origin, 'persist': 'always', 'tool_name': 'access_browser_origin', 'tool_params': {'origin': origin}, 'tool_params_display': [], 'tool_title': 'Access browser origin'},
+          'message': 'Allow Browser use to access $origin?',
+          'requestedSchema': schema,
+        },
+      });
+
+  test('the browser\'s origin question — an MCP elicitation — is a permission card without ALWAYS; accept and decline go back under the request\'s id', () {
+    final t = CodexTranslator();
+    final id = (jsonDecode(t.threadStartLine(cwd: '/p', mode: 'default')) as Map)['id'] as int;
+    t.feed(_threadStartResponse(id));
+    final ask = (t.feed(elicitationLine(0)).single as AskEvent).ask;
+    expect(ask.isElicitation, isTrue);
+    expect(ask.isQuestion, isFalse);
+    expect(ask.summary, 'Allow Browser use to access https://example.org?');
+    expect(ask.displayName, 'Browser use');
+    expect(ask.input['origin'], 'https://example.org');
+    expect(ask.input['persist'], 'always');
+    expect(ask.suggestions, [{'type': 'browser-origin', 'origin': 'https://example.org'}], reason: 'ALWAYS on the card — the server said it can persist');
+    expect(ask.description, 'Browser use wants to reach https://example.org in the Mac\'s Chrome. Your answer holds for this conversation. ALWAYS keeps an allow for this site for good.');
+    expect(ask.engine, 'codex');
+    expect(noticeForAsk(ask, project: 'scratch').title, 'Allow Browser use? · scratch');
+    expect(noticeForAsk(ask, project: 'scratch').body, 'Allow Browser use to access https://example.org?');
+    expect(jsonDecode(t.answerLine(ask, AskAnswer.deny('The user declined from the phone.'))!), {'jsonrpc': '2.0', 'id': 0, 'result': {'action': 'decline'}});
+    expect(t.answerLine(ask, AskAnswer.allow(ask)), isNull, reason: 'answered once');
+    final again = (t.feed(elicitationLine(1, origin: 'https://example.com')).single as AskEvent).ask;
+    expect(again.key, isNot(ask.key), reason: 'one site, one memory');
+    expect(jsonDecode(t.answerLine(again, AskAnswer.allow(again))!), {'jsonrpc': '2.0', 'id': 1, 'result': {'action': 'accept', 'content': {}}});
+    final third = (t.feed(elicitationLine(2, origin: 'https://example.net')).single as AskEvent).ask;
+    expect(jsonDecode(t.answerLine(third, AskAnswer.always(third))!)['result'], {'action': 'accept', 'content': {}, '_meta': {'persist': 'always'}}, reason: 'ALWAYS: the server keeps the allow for good');
+  });
+
+  test('an elicitation with one choice or one yes/no is a question card, and its answer is the content', () {
+    final t = CodexTranslator();
+    final id = (jsonDecode(t.threadStartLine(cwd: '/p', mode: 'default')) as Map)['id'] as int;
+    t.feed(_threadStartResponse(id));
+    final choice = (t.feed(elicitationLine(0, schema: {'type': 'object', 'properties': {'remember': {'type': 'string', 'enum': ['once', 'always']}}})).single as AskEvent).ask;
+    expect(choice.isQuestion, isTrue);
+    expect(choice.questions.single.header, 'Browser use');
+    expect(choice.questions.single.options.map((o) => o.label), ['once', 'always']);
+    expect(jsonDecode(t.answerLine(choice, AskAnswer.answers(choice, {choice.questions.single.question: 'always'}))!)['result'], {'action': 'accept', 'content': {'remember': 'always'}});
+    final yesNo = (t.feed(elicitationLine(1, schema: {'type': 'object', 'properties': {'ok': {'type': 'boolean', 'title': 'Go ahead?'}}})).single as AskEvent).ask;
+    expect(yesNo.questions.single.options.map((o) => o.label), ['Yes', 'No']);
+    expect(jsonDecode(t.answerLine(yesNo, AskAnswer.answers(yesNo, {yesNo.questions.single.question: 'No'}))!)['result'], {'action': 'accept', 'content': {'ok': false}});
+    final two = (t.feed(elicitationLine(2, schema: {'type': 'object', 'properties': {'a': {'type': 'string'}, 'b': {'type': 'string'}}})).single as AskEvent).ask;
+    expect(two.isElicitation, isTrue, reason: 'a form the phone cannot fill is allow / deny with an empty answer');
+    expect(jsonDecode(t.answerLine(two, AskAnswer.allow(two))!)['result'], {'action': 'accept', 'content': {}});
+  });
+
+  test('an MCP server\'s startup status is an event the transcript keeps — cua_repl is the browser', () {
+    final t = CodexTranslator();
+    final id = (jsonDecode(t.threadStartLine(cwd: '/p', mode: 'default')) as Map)['id'] as int;
+    t.feed(_threadStartResponse(id));
+    final e = t.feed(jsonEncode({'method': 'mcpServer/startupStatus/updated', 'params': {'threadId': _thread, 'name': 'cua_repl', 'status': 'ready', 'error': null, 'failureReason': null}})).single;
+    expect(e, isA<McpStatusEvent>());
+    expect((e as McpStatusEvent).name, 'cua_repl');
+    expect(e.status, 'ready');
+    final tr = Transcript()..apply(InitEvent(sessionId: _thread, mcpServers: const {'dart': 'ready'}))..apply(e);
+    expect(tr.mcpServers, {'dart': 'ready', 'cua_repl': 'ready'});
   });
 
   test('a command under untrusted is an ask with the plain command; deny declines, allow accepts, always carries the execpolicy amendment', () {
@@ -407,7 +475,7 @@ void main() {
     expect(compact['method'], 'thread/compact/start');
     expect(t.feed(_n('thread/compacted', {'threadId': _thread, 'turnId': _turn})).single, isA<CompactEvent>());
     expect(t.feed(_n('item/started', {'item': _item('contextCompaction', 'cc', {}), 'threadId': _thread, 'turnId': _turn})).single, isA<StatusEvent>());
-    final refused = t.feed(jsonEncode({'method': 'mcpServer/elicitation/request', 'id': 9, 'params': {}}));
+    final refused = t.feed(jsonEncode({'method': 'attestation/generate', 'id': 9, 'params': {}}));
     expect(refused.single, isA<OtherEvent>());
     expect(jsonDecode(t.outbox.single), {'jsonrpc': '2.0', 'id': 9, 'error': {'code': -32601, 'message': 'not supported by K.A.T.Y.A'}});
     t.feed(_n('mcpServer/startupStatus/updated', {'threadId': _thread, 'name': 'firebase', 'status': 'ready', 'error': null}));
