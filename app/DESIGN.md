@@ -651,8 +651,15 @@ edited from the app and committed as … — read it again") and sees a
 `rules` row. Both editors scroll as one and keep Save as the bottom bar,
 so the largest text sizes stack rather than overflow.
 
-Proven 2026-09-10 on the Mac's own window, driven from the session with
-real mouse events (the phone had locked itself behind its fingerprint):
+Proven 2026-09-10 on the phone in hand once the user unlocked it —
+the Turkish rule typed into the fold's BRIEF editor and saved, Start,
+"hi" → "Merhaba! Nasıl yardımcı olabilirim?"; RULES · CLAUDE.MD reading
+the file over the relay, a line appended and saved as "[main 0273011]
+rules: - From the phone." with that one file in the commit; a line
+appended on the Mac behind the open editor → Save refused with the
+dialog, RELOAD showing the Mac's line; the qa note target — and, before
+that, on the Mac's own window, driven from the session with real mouse
+events while the phone was locked behind its fingerprint:
 "Always answer in Turkish." saved from the Deck's BRIEF pill ("Saved.
 It applies at the next Start."), the record on disk holding it, Start,
 "hi" → "Merhaba! Ben buradayım…"; the Session tab showing the block
@@ -664,11 +671,14 @@ the-Mac dialog, RELOAD showing the Mac's line; the qa note target
 reading the manifest's field. The phone's road — `{type: brief}` and
 `write_file` over the relay — was sent by hand to the live host: the
 stale save came back refused in 80 ms and the brief cleared with "applies
-when the session starts again". Two things found: a save of a file whose
+when the session starts again". Three things found: a save of a file whose
 last line had no newline left the file without one (a trailing newline
-is added now), and a mouse tap that lands while a list is still settling
-from a wheel scroll stops the scroll instead of pressing — a fact about
-driving the Mac, not the app.
+is added now); the Save bar as the Scaffold's bottom bar sat behind the
+phone's keyboard, since a bottom bar does not rise with it — the bar is
+the last child of the body now, so it rides above the keyboard; and a
+mouse tap that lands while a list is still settling from a wheel scroll
+stops the scroll instead of pressing — a fact about driving the Mac, not
+the app.
 
 ### Risks, and what holds them
 

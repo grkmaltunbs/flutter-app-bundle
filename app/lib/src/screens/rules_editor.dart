@@ -58,16 +58,13 @@ class _BriefEditorScreenState extends State<BriefEditorScreen> {
     final t = context.tokens;
     return Scaffold(
       appBar: AppBar(title: const Text('Brief')),
-      // The body scrolls as one; Save is the bottom bar, so it stays
-      // reachable at every text size.
-      bottomNavigationBar: _SaveBar(
-        note: 'Kept on the Mac beside the session options.',
-        line: _line,
-        lineIsError: _line != null && _line!.startsWith('Could not'),
-        saving: _saving,
-        onSave: _save,
-      ),
-      body: SingleChildScrollView(
+      // The body scrolls as one and Save sits under it inside the body —
+      // not as the Scaffold's bottom bar, which the keyboard would cover —
+      // so it stays reachable at every text size and with the keyboard up.
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -106,6 +103,16 @@ class _BriefEditorScreenState extends State<BriefEditorScreen> {
           ),
           ],
         ),
+            ),
+          ),
+          _SaveBar(
+            note: 'Kept on the Mac beside the session options.',
+            line: _line,
+            lineIsError: _line != null && _line!.startsWith('Could not'),
+            saving: _saving,
+            onSave: _save,
+          ),
+        ],
       ),
     );
   }
@@ -296,14 +303,10 @@ class _RulesEditorScreenState extends State<RulesEditorScreen> {
         title: Text(p.basename(_path == rulesClaudeMd ? _path : rulesLabel(_path)), maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [IconButton(tooltip: 'Reload', icon: const Icon(Icons.refresh), onPressed: _loading ? null : _load)],
       ),
-      bottomNavigationBar: _SaveBar(
-        note: 'Save writes the file on the Mac and commits just that file.',
-        line: _line,
-        lineIsError: failed,
-        saving: _saving,
-        onSave: _saving || _loading || f == null || !f.ok || f.truncated ? null : _save,
-      ),
-      body: SingleChildScrollView(
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -362,6 +365,16 @@ class _RulesEditorScreenState extends State<RulesEditorScreen> {
             ),
           ],
         ),
+            ),
+          ),
+          _SaveBar(
+            note: 'Save writes the file on the Mac and commits just that file.',
+            line: _line,
+            lineIsError: failed,
+            saving: _saving,
+            onSave: _saving || _loading || f == null || !f.ok || f.truncated ? null : _save,
+          ),
+        ],
       ),
     );
   }
