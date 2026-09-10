@@ -1,0 +1,2 @@
+# flutter-kit: Codex reads the project rules from CLAUDE.md where it would read AGENTS.md.
+project_doc_fallback_filenames = ["CLAUDE.md"]

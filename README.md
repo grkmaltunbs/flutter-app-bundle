@@ -89,6 +89,11 @@ changes daily, refresh the copy by adding the plugin again —
 `codex plugin add flutter-kit@flutter-app-bundle` re-copies the checkout and
 keeps the hooks' trust (it is kept by hook hash, not by path).
 
+This checkout is itself set up for Codex: `.codex/` holds the nine profiles
+and the `CLAUDE.md` fallback, and the root `CLAUDE.md` is the rules file both
+engines read here. Trust the folder once (`codex` in it, or the two lines
+above) and `$kit-step` works the plan in `plan/` the way `/step` does.
+
 The K.A.T.Y.A host runs a project on either engine from its **ENGINE**
 notch (`app/DESIGN.md`, *Codex engine*): the Deck, the asks, the plan card,
 autopilot and the instruments are the same over `codex app-server` as over
