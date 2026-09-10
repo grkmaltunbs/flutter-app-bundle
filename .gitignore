@@ -13,3 +13,6 @@
 *.env
 **/*service-account*.json
 kit/build/
+
+# Codex writes its own command→skill migration into an installed plugin; with the cache symlinked here it lands in the checkout.
+.codex-plugin/migrated-command-skills/

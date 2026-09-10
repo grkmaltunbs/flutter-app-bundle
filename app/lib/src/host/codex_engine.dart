@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_kit/kit.dart';
 
 import 'codex_cli.dart';
@@ -38,11 +40,24 @@ class CodexEngine extends Engine {
       final parts = path.split('/');
       final i = parts.lastIndexOf('skills');
       if (i <= 0) continue;
-      final kit = '${parts.sublist(0, i).join('/')}/kit';
+      final kit = realPath('${parts.sublist(0, i).join('/')}/kit');
       if (!roots.contains(kit)) roots.add(kit);
       break;
     }
     return roots;
+  }
+
+  /// Codex refuses a writable root with a symlink in it ("symlinked
+  /// writable roots are not supported", 0.153.4) — and its plugin cache is
+  /// one while this checkout is symlinked into it (README). The real path
+  /// is accepted, and a write through the symlink still lands (probed
+  /// 2026-09-10). A path that does not exist goes as it is.
+  static String realPath(String path) {
+    try {
+      return Directory(path).resolveSymbolicLinksSync();
+    } on Object {
+      return path;
+    }
   }
 
   @override

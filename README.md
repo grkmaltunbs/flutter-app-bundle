@@ -73,7 +73,8 @@ so the plugin carries its second shape beside the first:
 
 Codex copies an installed plugin to `~/.codex/plugins/cache/<marketplace>/flutter-kit/<version>`
 and refreshes it on a version bump — the same symlink trick as above applies
-while this branch changes daily.
+while this branch changes daily. (Codex refuses a writable root with a symlink
+in it, so the host hands its sandbox the plugin's real path — `CodexEngine.realPath`.)
 
 The K.A.T.Y.A host runs a project on either engine from its **ENGINE**
 notch (`app/DESIGN.md`, *Codex engine*): the Deck, the asks, the plan card,

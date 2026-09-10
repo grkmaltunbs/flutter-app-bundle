@@ -23,7 +23,10 @@ CFG="$PROJECT/.codex/config.toml"
 if [ -f "$CFG" ] && grep -q '^project_doc_fallback_filenames' "$CFG"; then
   echo "▸ config: project_doc_fallback_filenames already set in .codex/config.toml"
 else
-  { [ -f "$CFG" ] && [ -s "$CFG" ] && echo; echo '# flutter-kit: Codex reads the project rules from CLAUDE.md where it would read AGENTS.md.'; echo 'project_doc_fallback_filenames = ["CLAUDE.md"]'; } >> "$CFG"
+  # A top-level key must come before any [table] in TOML — appended after a
+  # `[mcp_servers.dart]` it would land inside that table (found 2026-09-10),
+  # so it goes at the top of the file, above whatever is already there.
+  { echo '# flutter-kit: Codex reads the project rules from CLAUDE.md where it would read AGENTS.md.'; echo 'project_doc_fallback_filenames = ["CLAUDE.md"]'; if [ -s "$CFG" ]; then echo; cat "$CFG"; fi; } > "$CFG.tmp" && mv "$CFG.tmp" "$CFG"
   echo "▸ config: project_doc_fallback_filenames = [\"CLAUDE.md\"] written to .codex/config.toml"
 fi
 

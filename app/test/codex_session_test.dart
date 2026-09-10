@@ -86,6 +86,27 @@ void main() {
     expect(s.state, BridgeState.stopped);
   });
 
+  test('the plugin root reaches the sandbox as its real path — Codex refuses a symlinked writable root', () async {
+    // The cache Codex lists the skills from is a symlink to the checkout
+    // (README); the sandbox wants the folder behind it (0.153.4, probed
+    // 2026-09-10).
+    final checkout = Directory(p.join(project.path, 'checkout'))..createSync();
+    Directory(p.join(checkout.path, 'kit')).createSync();
+    final cache = Link(p.join(project.path, 'cache'))..createSync(checkout.path);
+    final fake = FakeCodex(skills: {'flutter-kit:kit-step': '${cache.path}/skills/kit-step/SKILL.md'});
+    final s = codexSession(fake, dir: project.path, home: home.path);
+    await s.start();
+    await fake.requested('thread/start');
+    await pumpEventQueue();
+    s.send('hi');
+    await fake.requested('turn/start');
+    final roots = ((fake.lastParams('turn/start')['sandboxPolicy'] as Map)['writableRoots'] as List).cast<String>();
+    expect(roots.last, Directory(p.join(checkout.path, 'kit')).resolveSymbolicLinksSync(), reason: 'the real path, not the cache symlink');
+    expect(roots.last, isNot(contains('/cache/')));
+    expect(roots.first, '/fake/flutter/bin/cache', reason: 'a root that does not exist goes as it is');
+    await s.stop();
+  });
+
   test('a turn: the message is a turn/start with the dials on it; the reply streams; the end counts', () async {
     final fake = FakeCodex();
     final s = codexSession(fake, dir: project.path, home: home.path);
