@@ -30,6 +30,18 @@ else
   echo "▸ config: project_doc_fallback_filenames = [\"CLAUDE.md\"] written to .codex/config.toml"
 fi
 
+# A project's own .codex/config.toml counts only once Codex trusts the folder
+# (proven 2026-09-10: the fallback loaded CLAUDE.md on a trusted folder and
+# nothing on the same folder untrusted) — so say where this one stands.
+USERCFG="${CODEX_HOME:-$HOME/.codex}/config.toml"
+if [ -f "$USERCFG" ] && awk -v p="[projects.\"$PROJECT\"]" '$0==p{f=1;next} f&&/^\[/{f=0} f&&/^trust_level *= *"trusted"/{ok=1} END{exit !ok}' "$USERCFG"; then
+  echo "▸ trust: Codex trusts this folder — its .codex/config.toml is read"
+else
+  echo "▸ trust: Codex does NOT trust this folder yet, so it ignores .codex/config.toml here (the CLAUDE.md fallback, the Dart server). Open codex in this folder once and accept, or add to $USERCFG:"
+  echo "         [projects.\"$PROJECT\"]"
+  echo "         trust_level = \"trusted\""
+fi
+
 CODEX="$(command -v codex || true)"
 [ -n "$CODEX" ] || [ ! -x /Applications/ChatGPT.app/Contents/Resources/codex ] || CODEX=/Applications/ChatGPT.app/Contents/Resources/codex
 if [ -n "$CODEX" ]; then

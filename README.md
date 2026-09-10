@@ -64,7 +64,10 @@ so the plugin carries its second shape beside the first:
 - the 9 agents are profiles under `assets/agents/*.toml`; `$kit-codex-setup`
   copies them into a project's `.codex/agents/` and sets
   `project_doc_fallback_filenames = ["CLAUDE.md"]` in its `.codex/config.toml`,
-  so Codex reads `CLAUDE.md` where it would read `AGENTS.md`;
+  so Codex reads `CLAUDE.md` where it would read `AGENTS.md` — a project's own
+  config counts only once Codex trusts the folder, and the script says where
+  it stands (trusting is yours: open `codex` there once, or the two lines under
+  `[projects."<path>"]` in `~/.codex/config.toml`);
 - `hooks/hooks.json` is shared: the analyze gate matches `apply_patch` as it
   matches `Write|Edit`, and `kit hook` spools the session for the app. Codex
   runs a plugin's hooks only after you have reviewed and trusted them once
