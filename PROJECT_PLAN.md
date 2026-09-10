@@ -1420,6 +1420,7 @@ The step's checkbox stays `[ ]` until these are checked:
 
 ## Step 28 — Codex engine — the same Deck drives ChatGPT Codex, and the plugin runs there too
 - [ ]
+- state: code complete — waiting on 2 human item(s)
 - id: codex-engine
 - depends_on: session-history, brief-and-rules
 - qa_required: true

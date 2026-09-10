@@ -1,0 +1,14 @@
+{
+  "name": "flutter-kit",
+  "version": "2.0.0",
+  "description": "Human-in-the-loop Flutter development kit — the same plan, commands, agents and hooks as the Claude Code plugin, for Codex: the 19 commands are $kit-* skills, the agents are profiles $kit-codex-setup puts into .codex/agents/, and the hooks spool the session for the K.A.T.Y.A phone app once trusted",
+  "author": {
+    "name": "grkmaltunbs",
+    "url": "https://github.com/grkmaltunbs"
+  },
+  "homepage": "https://github.com/grkmaltunbs/flutter-app-bundle",
+  "repository": "https://github.com/grkmaltunbs/flutter-app-bundle",
+  "license": "MIT",
+  "keywords": ["flutter", "dart", "bloc", "firebase", "testing", "mobile"],
+  "hooks": "./hooks/hooks.json"
+}

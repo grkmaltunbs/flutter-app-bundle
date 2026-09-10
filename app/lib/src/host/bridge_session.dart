@@ -10,6 +10,9 @@ import 'package:path/path.dart' as p;
 import '../attachments.dart';
 import 'attachment_store.dart';
 import 'claude_cli.dart';
+import 'codex_cli.dart';
+import 'codex_engine.dart';
+import 'engine.dart';
 import 'permission_rules.dart';
 
 /// How a process is started — injected so a test can hand the session a
@@ -18,6 +21,10 @@ typedef ProcessStarter = Future<Process> Function(String executable, List<String
 
 Future<Process> _startProcess(String executable, List<String> args, {String? workingDirectory, Map<String, String>? environment}) =>
     Process.start(executable, args, workingDirectory: workingDirectory, environment: environment);
+
+/// The engine for an id — injected so a test can hand the session a fake
+/// Codex or a fake Claude.
+typedef EngineFactory = Engine Function(String id);
 
 enum BridgeState {
   idle,
@@ -42,7 +49,7 @@ enum BridgeState {
 /// conversation; the rules the user answered Always to, so the Session
 /// tab can list them; and the options the next Start runs with.
 class BridgeRecord {
-  const BridgeRecord({this.sessionId, required this.startedAt, this.pid, this.always = const [], this.mode = 'default', this.chrome = false, this.model, this.effort, this.sessions = const [], this.brief});
+  const BridgeRecord({this.sessionId, required this.startedAt, this.pid, this.always = const [], this.mode = 'default', this.chrome = false, this.model, this.effort, this.sessions = const [], this.brief, this.engine = 'claude'});
 
   /// Null when no session has run here yet — only options are recorded.
   /// Otherwise the current one — what Resume resumes — of [sessions].
@@ -71,6 +78,10 @@ class BridgeRecord {
   /// block under the kit's lines at every Start.
   final String? brief;
 
+  /// The engine the next Start runs on — one of [engineChoices]; a record
+  /// from before the notch reads as `claude`.
+  final String engine;
+
   Map<String, Object?> toJson() => {
         if (sessionId != null) 'sessionId': sessionId,
         'startedAt': startedAt.toUtc().toIso8601String(),
@@ -81,6 +92,7 @@ class BridgeRecord {
         if (model != null) 'model': model,
         if (effort != null) 'effort': effort,
         if (brief != null && brief!.trim().isNotEmpty) 'brief': brief,
+        'engine': engine,
         'sessions': [for (final s in sessions) s.toMap()],
       };
   static BridgeRecord? fromJson(Object? v) {
@@ -100,6 +112,7 @@ class BridgeRecord {
       model: _choice(v['model']),
       effort: _choice(v['effort']),
       brief: v['brief']?.toString(),
+      engine: knownEngine(v['engine']),
     );
   }
 
@@ -109,11 +122,17 @@ class BridgeRecord {
   }
 }
 
-/// One headless `claude -p` for one project, driven over stdio: the host
-/// writes user messages and control responses, reads the stream, and keeps
-/// the [Transcript] the window shows. Sibling of [RemoteControlSession] —
-/// the other way the same folder gets a session — and, like it, never a
-/// second one at a time.
+/// One headless session for one project — `claude -p` or `codex
+/// app-server`, whichever the ENGINE notch names — driven over stdio: the
+/// host writes user messages and answers, reads the stream through the
+/// engine's translation, and keeps the [Transcript] the window shows.
+/// Sibling of [RemoteControlSession] — the other way the same folder gets
+/// a session — and, like it, never a second one at a time.
+///
+/// Everything here is the same over both engines: the record, the
+/// sessions list, the queue, the host notes, the asks, the options, the
+/// brief, the Always rules, the relay. Only what goes down the pipe and
+/// what comes back differ, and that is the [Engine]'s.
 ///
 /// No trust check here: `claude -p` runs in an untrusted folder (proven
 /// 2026-08-30); only Remote Control refuses one.
@@ -128,12 +147,19 @@ class BridgeSession extends ChangeNotifier {
     bool Function(String sessionId)? transcriptExists,
     List<String>? Function(String sessionId)? readTranscript,
     this.readyGrace = const Duration(milliseconds: 1500),
+    EngineFactory? engines,
+    this.codexHome,
   })  : _starter = starter ?? _startProcess,
-        _transcriptExists = transcriptExists ?? ((id) => File(p.join(ClaudeCli.projectStateDir(dir), '$id.jsonl')).existsSync()),
-        _readTranscript = readTranscript ?? ((id) => _readLines(File(p.join(ClaudeCli.projectStateDir(dir), '$id.jsonl')))),
-        _findBinary = findBinary ?? ClaudeCli.findBinary,
-        _versionOf = versionOf ?? _claudeVersion,
         _shellPath = shellPath ?? ClaudeCli.shellPath {
+    _engines = engines ??
+        (id) => id == 'codex'
+            ? CodexEngine()
+            : ClaudeEngine(
+                findBinary: findBinary,
+                versionOf: versionOf,
+                transcriptExists: transcriptExists ?? ((id) => File(p.join(ClaudeCli.projectStateDir(dir), '$id.jsonl')).existsSync()),
+                readTranscript: readTranscript ?? ((id) => _readLines(File(p.join(ClaudeCli.projectStateDir(dir), '$id.jsonl')))),
+              );
     final prev = previous();
     alwaysApplied.addAll(prev?.always ?? const []);
     sessions.addAll(prev?.sessions ?? const []);
@@ -143,13 +169,14 @@ class BridgeSession extends ChangeNotifier {
     modelChoice = prev?.model;
     effort = prev?.effort;
     customBrief = prev?.brief;
+    engineId = prev?.engine ?? 'claude';
     // An entry from before the list knows nothing but its id: the file
     // says what was said, once. Nothing runs at construction, so every
     // entry is over — its end is the file's last line.
     var filled = false;
     for (final s in sessions) {
-      if (s.firstMessage != null || s.turns > 0) continue;
-      final lines = _readTranscript(s.id);
+      if (s.firstMessage != null || s.turns > 0 || s.isCodex) continue;
+      final lines = _engines('claude').readTranscript(s.id);
       if (lines == null) continue;
       final sum = summarizeTranscript(lines);
       s.firstMessage = sum.firstMessage;
@@ -163,12 +190,14 @@ class BridgeSession extends ChangeNotifier {
 
   final String dir;
   final ProcessStarter _starter;
-  final Future<String?> Function() _findBinary;
-  final Future<String?> Function(String bin) _versionOf;
   final Future<String> Function() _shellPath;
+  late final EngineFactory _engines;
 
   /// Overrides `~/.flutter_kit` — tests keep their records in a temp folder.
   final String? home;
+
+  /// Overrides `~/.codex` — where an Always rule lands on Codex.
+  final String? codexHome;
 
   final Transcript transcript = Transcript();
 
@@ -230,17 +259,43 @@ class BridgeSession extends ChangeNotifier {
   /// The next Start's `--effort` level; null is the CLI's own.
   String? effort;
 
+  /// The ENGINE notch: which engine the next Start runs — `claude` or
+  /// `codex`. Persisted. Switched only while no session runs: a session
+  /// belongs to the engine that made it.
+  String engineId = 'claude';
+  Engine? _engine;
+
+  /// The engine the session runs on, or the one the next Start would.
+  Engine get engine => _engine ??= _engines(engineId);
+  String get engineLabel => engine.label;
+
+  /// Moves the notch. Refused while a session runs; the line to toast.
+  String setEngine(String id) {
+    final want = knownEngine(id);
+    if (running) return want == engineId ? 'already on ${engine.label}' : 'stop the session first — the engine switches between sessions';
+    if (want != engineId) {
+      engineId = want;
+      _engine = null;
+      cliVersion = null;
+      _writeRecord();
+    }
+    notifyListeners();
+    return 'engine: ${engine.label}';
+  }
+
   /// Options for the next Start — and, while a session runs, for this
-  /// one. [chrome], [model] and [effort] are flags of the process, not the
-  /// conversation, so the process is stopped and started again on the
-  /// same session (`--resume`) with the new flags. [mode] the CLI switches
-  /// in place (`set_permission_mode`), nothing restarted. Either way: at
-  /// once between turns; while a turn runs or an ask is open, when that
-  /// turn ends, so nothing in flight is cut. `default` for [model] or
+  /// one. On Claude, [chrome] and [effort] are flags of the process, not
+  /// the conversation, so the process is stopped and started again on the
+  /// same session (`--resume`) with the new flags, and [mode] and [model]
+  /// the CLI switches in place (`set_permission_mode`, `set_model`). On
+  /// Codex all four ride on the next turn; nothing restarts. Either way:
+  /// at once between turns; while a turn runs or an ask is open, when
+  /// that turn ends, so nothing in flight is cut. `default` for [model] or
   /// [effort] hands the choice back to the CLI. Returns false only when
   /// nothing was given.
-  bool setOptions({String? mode, bool? chrome, String? model, String? effort}) {
-    if (mode == null && chrome == null && model == null && effort == null) return false;
+  bool setOptions({String? mode, bool? chrome, String? model, String? effort, String? engine}) {
+    if (mode == null && chrome == null && model == null && effort == null && engine == null) return false;
+    if (engine != null) setEngine(engine);
     final before = modelChoice;
     if (mode != null) modeChoice = knownMode(mode);
     if (chrome != null) this.chrome = chrome;
@@ -248,15 +303,21 @@ class BridgeSession extends ChangeNotifier {
     if (effort != null) this.effort = BridgeRecord._choice(effort);
     _writeRecord();
     if (running) {
-      if (mode != null && modeChoice != transcript.permissionMode) {
-        _modeWanted = modeChoice;
-        _applyPendingMode();
+      final e = this.engine;
+      if (e.switchesByRequest) {
+        if (mode != null && modeChoice != transcript.permissionMode) {
+          _modeWanted = modeChoice;
+          _applyPendingMode();
+        }
+        if (model != null && modelChoice != before) {
+          _modelWanted = modelChoice ?? 'default';
+          _applyPendingModel();
+        }
+      } else if (mode != null) {
+        // The next turn carries it; the facts line says so now.
+        transcript.permissionMode = modeChoice;
       }
-      if (model != null && modelChoice != before) {
-        _modelWanted = modelChoice ?? 'default';
-        _applyPendingModel();
-      }
-      if (chrome != null || effort != null) {
+      if ((chrome != null && e.hasChrome) || (effort != null && e.restartsOnEffort)) {
         restartPending = true;
         _applyPendingRestart();
       }
@@ -281,7 +342,8 @@ class BridgeSession extends ChangeNotifier {
     final want = _modeWanted;
     if (proc == null || want == null || state != BridgeState.ready || restartPending) return;
     _modeWanted = null;
-    _write(proc, encodeSetPermissionMode('mode-${++_ctlSeq}', want));
+    final line = engine.setMode('mode-${++_ctlSeq}', want);
+    if (line != null) _write(proc, line);
   }
 
   void _applyPendingModel() {
@@ -289,7 +351,8 @@ class BridgeSession extends ChangeNotifier {
     final want = _modelWanted;
     if (proc == null || want == null || state != BridgeState.ready || restartPending) return;
     _modelWanted = null;
-    _write(proc, encodeSetModel('model-${++_ctlSeq}', want));
+    final line = engine.setModel('model-${++_ctlSeq}', want);
+    if (line != null) _write(proc, line);
   }
 
   /// A change made while a turn was running — applied when it ends.
@@ -313,17 +376,20 @@ class BridgeSession extends ChangeNotifier {
   }
 
   /// What `init` said about the browser: `connected`, `failed`, … — null
-  /// before init or when [chrome] was off.
-  String? get chromeStatus => transcript.mcpServers['claude-in-chrome'];
+  /// before init or when [chrome] was off. On Codex the browser is the
+  /// ChatGPT app's own plugin and is not available under a host-spawned
+  /// app-server (proven 2026-09-10): `unavailable`.
+  String? get chromeStatus => engineId == 'codex' ? (running ? 'unavailable' : null) : transcript.mcpServers['claude-in-chrome'];
 
   /// What the next Start tells the session, on top of its own system
   /// prompt — the phone, the browser, sign-ins as questions, then the
-  /// user's own block.
-  String get brief => deckBrief(chrome: chrome, mode: modeChoice, run: briefExtra?.call(), worktree: worktree, worktreePath: worktreePath, custom: customBrief);
+  /// user's own block. Claude reads it as `--append-system-prompt`, Codex
+  /// as `developerInstructions`.
+  String get brief => deckBrief(chrome: chrome, mode: modeChoice, run: briefExtra?.call(), worktree: worktree, worktreePath: worktreePath, custom: customBrief, engine: engineId);
 
   /// The kit's part of the brief alone — what the editor shows above the
   /// user's block.
-  String get fixedBrief => deckBrief(chrome: chrome, mode: modeChoice, run: briefExtra?.call(), worktree: worktree, worktreePath: worktreePath);
+  String get fixedBrief => deckBrief(chrome: chrome, mode: modeChoice, run: briefExtra?.call(), worktree: worktree, worktreePath: worktreePath, engine: engineId);
 
   /// The user's standing rules for this folder, kept in the record and
   /// read at Start.
@@ -337,7 +403,8 @@ class BridgeSession extends ChangeNotifier {
     customBrief = t == null || t.isEmpty ? null : t;
     _writeRecord();
     notifyListeners();
-    return running ? 'Saved. It applies when the session starts again — Start, Resume, or a Chrome or effort change.' : 'Saved. It applies at the next Start.';
+    if (!running) return 'Saved. It applies at the next Start.';
+    return engine.restartsOnEffort ? 'Saved. It applies when the session starts again — Start, Resume, or a Chrome or effort change.' : 'Saved. It applies when the session starts again — Start or Resume.';
   }
 
   /// This folder is a git worktree on this branch: the brief says so, and
@@ -396,22 +463,17 @@ class BridgeSession extends ChangeNotifier {
     return running && state != BridgeState.starting;
   }
 
-  /// Whether the CLI wrote the session down — it does on the first turn,
-  /// so a session that never spoke has nothing to resume.
-  final bool Function(String sessionId) _transcriptExists;
-
-  /// The session's file, line by line — the rows a resume brings back.
-  /// Null when there is none.
-  final List<String>? Function(String sessionId) _readTranscript;
-
   /// Every conversation this folder had, oldest first. Persisted with the
   /// record; mirrored to the phone as `sessions/{id}`.
   final List<SessionEntry> sessions = [];
 
   /// The entry of the session on the Deck — running, or last run.
-  SessionEntry? get current {
+  SessionEntry? get current => _entry(sessionId);
+
+  SessionEntry? _entry(String? id) {
+    if (id == null) return null;
     for (final s in sessions) {
-      if (s.id == sessionId) return s;
+      if (s.id == id) return s;
     }
     return null;
   }
@@ -420,20 +482,36 @@ class BridgeSession extends ChangeNotifier {
 
   /// With stream-json input the CLI says nothing until the first message —
   /// its init comes with the first turn. A process still alive this long
-  /// after Start is waiting for input: ready, not starting.
+  /// after Start is waiting for input: ready, not starting. Codex answers
+  /// its handshake, so its init is what makes it ready.
   final Duration readyGrace;
+
+  /// The engine's start: what Start gave it, so `/clear` and a restart
+  /// run the same.
+  EngineStart? _startArgs;
 
   /// Starts a session: a fresh conversation, or — [resume] — the one the
   /// record names, or [id] from the list. The rows on the Deck belong to
   /// one conversation: a fresh start, or a resume of a different one than
   /// shown, begins from nothing, and a resume the host has no rows for
-  /// brings the tail back from the session's file.
+  /// brings the tail back from the session's file. A session from the
+  /// list runs on the engine that made it — the notch follows.
   Future<void> start({bool resume = false, String? id}) async {
     if (running) return;
     final want = id ?? (resume ? (sessionId ?? previous()?.sessionId) : null);
     if (resume && want == null) return _fail('Nothing to resume for this folder.');
+    if (want != null) {
+      final made = _entry(want)?.engine ?? 'claude';
+      if (made != engineId) {
+        engineId = knownEngine(made);
+        _engine = null;
+        cliVersion = null;
+      }
+    }
+    _engine = _engines(engineId);
+    final e = engine;
     String? fresh;
-    if (resume && !_transcriptExists(want!)) {
+    if (resume && !e.canResume(want!)) {
       // `--resume` of it would report its init and then fail on the first
       // message with "No conversation found". A fresh one loses nothing —
       // and a session that never spoke is nothing to list.
@@ -465,36 +543,47 @@ class BridgeSession extends ChangeNotifier {
     }
     state = BridgeState.starting;
     notifyListeners();
-    final bin = await _findBinary();
-    if (bin == null) return _fail('claude is not installed (looked on your shell PATH, ~/.local/bin, /opt/homebrew/bin).');
-    sessionId = resume ? want : _uuid4();
+    final bin = await e.findBinary();
+    if (bin == null) return _fail('${e.id} is not installed (looked on ${e.whereLooked}).');
+    // Claude takes the id the host chooses; Codex names its thread with
+    // the init, so a fresh one has no id until then.
+    sessionId = resume ? want : (e.namesSession ? null : _uuid4());
     transcript.sessionId = sessionId;
     if (resume) {
       var cur = current;
       if (cur == null) {
-        cur = SessionEntry(id: want!, startedAt: DateTime.now());
+        cur = SessionEntry(id: want!, startedAt: DateTime.now(), engine: e.id == 'claude' ? null : e.id);
         sessions.add(cur);
       }
       cur.endedAt = null;
       cur.mode = modeChoice;
       if (switching) _restoreRows(want!, cur);
-    } else {
+    } else if (sessionId != null) {
       sessions.add(SessionEntry(id: sessionId!, startedAt: DateTime.now(), mode: modeChoice, model: modelChoice));
     }
-    final args = bridgeArgs(sessionId: sessionId!, resume: resume, model: modelChoice, effort: effort, permissionMode: modeChoice, chrome: chrome, appendSystemPrompt: brief);
+    final s = EngineStart(dir: dir, mode: modeChoice, model: modelChoice, effort: effort, chrome: chrome, brief: brief, sessionId: sessionId, resume: resume);
+    _startArgs = s;
+    final args = e.args(s);
     try {
       _proc = await _starter(bin, args, workingDirectory: dir, environment: {...Platform.environment, 'PATH': await _shellPath()});
-    } on ProcessException catch (e) {
-      return _fail('Could not start claude: ${e.message}');
+    } on ProcessException catch (err) {
+      return _fail('Could not start ${e.id}: ${err.message}');
     }
     pid = _proc!.pid;
     startedAt = DateTime.now();
     _out = _proc!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(_line);
     _err = _proc!.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(_logLine);
     unawaited(_proc!.exitCode.then(_exited));
+    final spawnedProc = _proc!;
+    for (final l in await e.opening(s)) {
+      if (!identical(_proc, spawnedProc)) break; // it died while the engine looked around
+      _write(spawnedProc, l);
+    }
     final spawned = _proc;
     _grace?.cancel();
-    if (readyGrace == Duration.zero) {
+    if (e.readyOnInit) {
+      // Its init makes it ready; the runner waits.
+    } else if (readyGrace == Duration.zero) {
       state = BridgeState.ready;
     } else {
       _grace = Timer(readyGrace, () {
@@ -507,14 +596,14 @@ class BridgeSession extends ChangeNotifier {
     }
     _writeRecord();
     notifyListeners();
-    cliVersion = await _versionOf(bin);
+    cliVersion = await e.versionOf(bin);
     notifyListeners();
   }
 
   /// The tail of a session's file onto the Deck, and what the file says
   /// about the session into an entry the record had nothing on.
   void _restoreRows(String id, SessionEntry entry) {
-    final lines = _readTranscript(id);
+    final lines = engine.readTranscript(id);
     if (lines == null) return;
     final rows = restoreRows(lines);
     if (rows.isNotEmpty) {
@@ -528,23 +617,44 @@ class BridgeSession extends ChangeNotifier {
   }
 
   void _line(String raw) {
-    final e = parseBridgeLine(raw);
-    if (e == null) {
+    final e = engine;
+    final events = e.feed(raw);
+    if (events == null) {
       _logLine(raw);
       return;
     }
+    final proc = _proc;
+    for (final ev in events) {
+      _event(ev);
+    }
+    if (proc != null) {
+      for (final l in e.drain()) {
+        _write(proc, l);
+      }
+    }
+    notifyListeners();
+  }
+
+  void _event(BridgeEvent e) {
     transcript.apply(e);
     switch (e) {
       case InitEvent():
         if (state == BridgeState.starting) state = transcript.turnOpen ? BridgeState.busy : BridgeState.ready;
-        if (e.sessionId.isNotEmpty && e.sessionId != sessionId) {
-          // A resumed session keeps its id; a fresh one is what we asked for.
-          sessionId = e.sessionId;
-          _writeRecord();
-        }
+        if (e.sessionId.isNotEmpty && e.sessionId != sessionId) _adoptSessionId(e.sessionId, model: e.model);
         if (e.model != null && current?.model != e.model) {
           current?.model = e.model;
           _writeRecord();
+        }
+        final restored = engine.takeRestored();
+        if (restored.isNotEmpty) {
+          transcript.restore(restored);
+          transcript.addNote('Resumed — the last ${restored.length} rows, from the thread.');
+          final cur = current;
+          if (cur != null) {
+            cur.firstMessage ??= _firstUserLine(restored);
+            if (cur.turns == 0) cur.turns = restored.where((m) => m.role == DeckRole.user).length;
+            _writeRecord();
+          }
         }
         _applyPendingRestart();
         _applyPendingMode();
@@ -552,7 +662,7 @@ class BridgeSession extends ChangeNotifier {
         _flushQueue();
       case AskEvent():
         e.ask.diff ??= _diffForRow(e.ask.toolUseId) ?? diffFor?.call(e.ask.toolName, e.ask.input);
-        if (!e.ask.isQuestion && _sessionAllows.contains(e.ask.key)) {
+        if (!e.ask.isQuestion && !e.ask.isPlan && _sessionAllows.contains(e.ask.key)) {
           _answerRemembered(e.ask);
         } else {
           state = BridgeState.waiting;
@@ -565,7 +675,7 @@ class BridgeSession extends ChangeNotifier {
           _writeRecord();
         }
         final by = _interruptedBy;
-        lastTurnInterrupted = by != null;
+        lastTurnInterrupted = by != null || e.subtype == 'interrupted';
         if (by != null) {
           _interruptedBy = null;
           transcript.addNote('Interrupted from the $by.');
@@ -575,13 +685,22 @@ class BridgeSession extends ChangeNotifier {
         _applyPendingModel();
         _flushQueue();
       case ControlResponseEvent():
-        if (!e.ok) _logLine('${e.requestId} refused: ${e.error ?? 'no reason given'}');
+        if (!e.ok) {
+          _logLine('${e.requestId} refused: ${e.error ?? 'no reason given'}');
+          if (state == BridgeState.starting) {
+            // The handshake failed — a thread that cannot be resumed, a
+            // server that would not start one: the session is not coming.
+            error = '${engine.label}: ${e.error ?? 'could not start a thread'}';
+            unawaited(stop());
+          }
+        }
       case StatusEvent():
       case CompactEvent():
       case ResetEvent():
       case TaskEvent():
-        // The transcript took the mode, the compaction or the subagent's
-        // progress; nothing for the process to do.
+      case UsageEvent():
+        // The transcript took the mode, the compaction, the tokens or the
+        // subagent's progress; nothing for the process to do.
         break;
       case AssistantEvent():
         // An edit's row gets its diff now, while the file is still as it
@@ -600,12 +719,42 @@ class BridgeSession extends ChangeNotifier {
       case ToolResultEvent():
         if (state != BridgeState.waiting) state = BridgeState.busy;
       case OtherEvent():
-        if (e.type != 'stream_event' && e.type != 'system') _logLine('${e.type}${e.subtype == null ? '' : '/${e.subtype}'}');
+        if (e.type == 'error' || e.type == 'warning') {
+          _logLine('${e.type}: ${e.subtype ?? ''}');
+        } else if (e.type != 'stream_event' && e.type != 'system') {
+          _logLine('${e.type}${e.subtype == null ? '' : '/${e.subtype}'}');
+        }
       case UserEchoEvent():
       case RateLimitEvent():
         break;
     }
-    notifyListeners();
+  }
+
+  /// The engine named the session: a fresh thread got its id, a resumed
+  /// one kept it — or `/clear` on Codex made a new thread, which is a new
+  /// entry in the list.
+  void _adoptSessionId(String id, {String? model}) {
+    final old = sessionId;
+    sessionId = id;
+    transcript.sessionId = id;
+    final cur = _entry(old);
+    final engineTag = engineId == 'claude' ? null : engineId;
+    if (cur == null) {
+      sessions.add(SessionEntry(id: id, startedAt: DateTime.now(), mode: modeChoice, model: modelChoice ?? model, engine: engineTag));
+    } else if (cur.turns == 0 && cur.firstMessage == null) {
+      sessions[sessions.indexOf(cur)] = SessionEntry(id: id, startedAt: cur.startedAt, mode: cur.mode, model: cur.model ?? model, engine: engineTag);
+    } else {
+      cur.endedAt = DateTime.now();
+      sessions.add(SessionEntry(id: id, startedAt: DateTime.now(), mode: modeChoice, model: modelChoice ?? model, engine: engineTag));
+    }
+    _writeRecord();
+  }
+
+  static String? _firstUserLine(List<DeckMessage> rows) {
+    for (final m in rows) {
+      if (m.role == DeckRole.user && m.text.trim().isNotEmpty) return clipLine(m.text, 120);
+    }
+    return null;
   }
 
   /// One line to the CLI's stdin. Never flushed: an IOSink is bound
@@ -655,10 +804,12 @@ class BridgeSession extends ChangeNotifier {
     }
     var prompt = about == null ? t : scopedPrompt(t, about, describeAbout?.call(about));
     final images = <InlineImage>[];
+    final imagePaths = <String>[];
     final inline = <int>{};
     for (var i = 0; i < files.length; i++) {
       if (!files[i].inlinable) continue;
       images.add(InlineImage(mediaType: files[i].mime, data: base64Encode(files[i].bytes)));
+      if (saved[i].path != null) imagePaths.add(saved[i].path!);
       inline.add(i);
     }
     prompt = attachmentsPrompt(prompt, saved, inline: inline);
@@ -666,9 +817,37 @@ class BridgeSession extends ChangeNotifier {
       prompt = 'Since your last turn the user did this from the app, outside this session:\n${_hostNotes.map((l) => '- $l').join('\n')}\n\n$prompt';
       _hostNotes.clear();
     }
-    final line = encodeUserMessage(prompt, images: images);
+    final body = prompt;
+    String? build() {
+      final e = engine;
+      final s = _startArgs;
+      // `/clear` and `/compact` are requests on an engine that has them,
+      // messages on one that does not.
+      if (t == '/clear' && s != null) {
+        final l = e.clear(EngineStart(dir: s.dir, mode: modeChoice, model: modelChoice, effort: effort, chrome: chrome, brief: brief, clear: true));
+        if (l != null) return l;
+      }
+      if (t == '/compact') {
+        final l = e.compact();
+        if (l != null) {
+          transcript.compacting = true;
+          return l;
+        }
+      }
+      return e.userMessage(body, images: images, imagePaths: imagePaths, turn: EngineTurn(mode: modeChoice, model: modelChoice, effort: effort));
+    }
+
     if (queued) {
-      _queue.add((row: row, line: line));
+      _queue.add((row: row, build: build));
+      notifyListeners();
+      return true;
+    }
+    final line = build();
+    if (line == null) {
+      // The engine cannot take it yet (its thread is still starting): it
+      // goes the moment the init lands, and its turn opens then.
+      _queue.add((row: row, build: build));
+      transcript.hold(row);
       notifyListeners();
       return true;
     }
@@ -696,8 +875,9 @@ class BridgeSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Messages sent while a turn ran, with the stdin line each becomes.
-  final List<({DeckMessage row, String line})> _queue = [];
+  /// Messages sent while a turn ran, each with the way its stdin line is
+  /// built — at write time, since on Codex the dials ride on it.
+  final List<({DeckMessage row, String? Function() build})> _queue = [];
 
   /// What the host did on the user's behalf since the last turn — a commit
   /// from the phone, a reverted file — told to the session with the next
@@ -731,11 +911,17 @@ class BridgeSession extends ChangeNotifier {
   void _flushQueue() {
     final proc = _proc;
     if (proc == null || _queue.isEmpty || state != BridgeState.ready || restartPending) return;
+    final line = _queue.first.build();
+    if (line == null) return; // the engine is not ready for it yet
     final next = _queue.removeAt(0);
     transcript.release(next.row);
-    _write(proc, next.line);
+    _write(proc, line);
     state = BridgeState.busy;
   }
+
+  /// Whether `/<name>` runs here — the engine's word, or null when it
+  /// cannot tell (Claude answers "Unknown command" as text instead).
+  bool? knowsCommand(String name) => engine.knowsCommand(name);
 
   /// Who interrupted the running turn — the note the `result` gets.
   String? _interruptedBy;
@@ -749,6 +935,8 @@ class BridgeSession extends ChangeNotifier {
   bool interrupt({String by = 'Mac'}) {
     final proc = _proc;
     if (proc == null || !transcript.turnOpen) return false;
+    final line = engine.interrupt('int-${++_ctlSeq}');
+    if (line == null) return false;
     final open = transcript.pending;
     if (open != null) {
       transcript.pending = null;
@@ -756,7 +944,7 @@ class BridgeSession extends ChangeNotifier {
       onWithdrawn?.call(open);
     }
     _interruptedBy = by;
-    _write(proc, encodeInterrupt('int-${++_ctlSeq}'));
+    _write(proc, line);
     state = BridgeState.busy;
     notifyListeners();
     return true;
@@ -781,7 +969,7 @@ class BridgeSession extends ChangeNotifier {
       }
       _writeRecord();
     }
-    final line = transcript.answer(a, note: remember && !a.appliesAlways ? 'Allowed (this session): ${ask.summary}' : null);
+    transcript.answer(a, note: remember && !a.appliesAlways ? 'Allowed (this session): ${ask.summary}' : null);
     final after = a.modeAfter;
     if (after != null) {
       // A plan approved, or every edit allowed: the CLI switches the
@@ -791,8 +979,17 @@ class BridgeSession extends ChangeNotifier {
       _modeWanted = null;
       _writeRecord();
     }
-    _write(proc, line);
-    state = BridgeState.busy;
+    final line = engine.answer(ask, a);
+    if (line != null) {
+      _write(proc, line);
+      state = BridgeState.busy;
+    } else {
+      // A card the host raised itself (a Codex plan): nothing to write —
+      // what follows is the next turn.
+      state = BridgeState.ready;
+      final follow = engine.followUp(ask, a);
+      if (follow != null) send(follow);
+    }
     onAnswered?.call(ask, a, by);
     notifyListeners();
   }
@@ -801,15 +998,17 @@ class BridgeSession extends ChangeNotifier {
     final proc = _proc;
     if (proc == null) return;
     final a = AskAnswer.allow(ask);
-    final line = transcript.answer(a, note: 'Allowed (this session): ${ask.summary}');
-    _write(proc, line);
+    transcript.answer(a, note: 'Allowed (this session): ${ask.summary}');
+    final line = engine.answer(ask, a);
+    if (line != null) _write(proc, line);
     state = BridgeState.busy;
     onAnswered?.call(ask, a, 'host');
   }
 
-  /// Takes an Always rule back out of its settings file and this record.
+  /// Takes an Always rule back out of where it lives — a Claude settings
+  /// file, or Codex's execpolicy — and this record.
   bool forgetAlways(AppliedRule rule) {
-    final removed = PermissionRules.remove(dir, rule);
+    final removed = rule.isExecpolicy ? ExecPolicyRules.remove(rule.pattern, home: codexHome) : PermissionRules.remove(dir, rule);
     alwaysApplied.remove(rule);
     _writeRecord();
     notifyListeners();
@@ -874,8 +1073,8 @@ class BridgeSession extends ChangeNotifier {
     _grace?.cancel();
     _grace = null;
     final clean = code == 0 || code == 143 || code == -15;
-    state = clean ? BridgeState.stopped : BridgeState.failed;
-    if (!clean && error == null) error = 'claude exited with code $code${log.isEmpty ? '' : ' — ${log.last}'}';
+    state = clean && error == null ? BridgeState.stopped : BridgeState.failed;
+    if (!clean && error == null) error = '${engine.id} exited with code $code${log.isEmpty ? '' : ' — ${log.last}'}';
     _proc = null;
     pid = null;
     _sessionAllows.clear();
@@ -919,6 +1118,7 @@ class BridgeSession extends ChangeNotifier {
           effort: effort,
           sessions: sessions,
           brief: customBrief,
+          engine: engineId,
         ).toJson()));
     } on Object {
       // The record is a convenience for Resume; the session runs without it.
@@ -930,6 +1130,9 @@ class BridgeSession extends ChangeNotifier {
         'state': state.name,
         'pendingAsks': transcript.pending == null ? 0 : 1,
         'canResume': !running && sessionId != null,
+        'engine': engineId,
+        'provenOn': engine.provenOn,
+        if (engine.models.isNotEmpty) 'models': engine.models,
         'modeChoice': modeChoice,
         'modePending': modePending,
         'modelPending': modelPending,
@@ -943,7 +1146,8 @@ class BridgeSession extends ChangeNotifier {
         if (chromeStatus != null) 'chromeStatus': chromeStatus,
         if (sessionId != null) 'sessionId': sessionId,
         if (transcript.model != null) 'model': transcript.model,
-        if (cliVersion != null) 'cliVersion': cliVersion,
+        // Always written: an engine switch clears it until the new one says.
+        'cliVersion': cliVersion,
         if (startedAt != null) 'startedAt': startedAt!.toUtc().toIso8601String(),
         if (transcript.pool?.resetsAt != null) 'poolResetsAt': transcript.pool!.resetsAt!.toIso8601String(),
         if (transcript.pool != null) 'pool': transcript.pool!.toMap(),
@@ -953,11 +1157,11 @@ class BridgeSession extends ChangeNotifier {
         'error': error,
       };
 
-  /// `/compact` as a message — the CLI compacts in `-p` (proven 2026-09-06,
-  /// 2.1.261: `status compacting`, a `compact_boundary` with the tokens
-  /// before and after, a fresh `init`, a `result` with no turns; the next
-  /// call read 22K where the last had read 81K). Queued like any message
-  /// while a turn runs. Returns the one-line outcome.
+  /// `/compact` — a message on Claude (the CLI compacts in `-p`, proven
+  /// 2026-09-06, 2.1.261: `status compacting`, a `compact_boundary` with
+  /// the tokens before and after, a fresh `init`, a `result` with no
+  /// turns), a `thread/compact/start` request on Codex. Queued like any
+  /// message while a turn runs. Returns the one-line outcome.
   String compact() {
     if (!running) return 'no session';
     return send('/compact') ? 'queued' : 'compacting';
@@ -997,16 +1201,6 @@ String scopedPrompt(String text, Map<String, Object?> about, String? shown) {
 List<String>? _readLines(File f) {
   try {
     return f.existsSync() ? f.readAsLinesSync() : null;
-  } on Object {
-    return null;
-  }
-}
-
-Future<String?> _claudeVersion(String bin) async {
-  try {
-    final r = await Process.run(bin, ['--version']).timeout(const Duration(seconds: 15));
-    final out = (r.stdout as String).trim();
-    return out.isEmpty ? null : out.split(' ').first;
   } on Object {
     return null;
   }

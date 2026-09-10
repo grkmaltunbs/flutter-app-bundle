@@ -310,7 +310,7 @@ void main() {
           onStop: () {},
           onSend: (_, _) async {},
           foldOnScroll: false,
-          onOptions: ({mode, chrome, model, effort}) {},
+          onOptions: ({mode, chrome, model, effort, engine}) {},
           brief: 'Always answer in Turkish.\nNever touch main.',
           briefFixed: 'You are driven from K.A.T.Y.A.',
           onBrief: (t) async => 'Saved.',

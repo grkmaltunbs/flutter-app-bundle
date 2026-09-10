@@ -26,7 +26,7 @@ const historyRows = 80;
 /// the bridge fills it in as the session goes: the first message, the
 /// turn count, the model init reported, the end.
 class SessionEntry {
-  SessionEntry({required this.id, required this.startedAt, this.endedAt, this.firstMessage, this.turns = 0, this.model, this.mode});
+  SessionEntry({required this.id, required this.startedAt, this.endedAt, this.firstMessage, this.turns = 0, this.model, this.mode, this.engine});
 
   factory SessionEntry.fromMap(Map<String, Object?> m) => SessionEntry(
         id: (m['id'] ?? '').toString(),
@@ -36,6 +36,7 @@ class SessionEntry {
         turns: (m['turns'] as num?)?.toInt() ?? 0,
         model: _text(m['model']),
         mode: _text(m['mode']),
+        engine: _text(m['engine']),
       );
 
   final String id;
@@ -50,6 +51,11 @@ class SessionEntry {
   String? model;
   String? mode;
 
+  /// `codex` for a Codex thread; null (Claude) for every session from
+  /// before the ENGINE notch. Resume runs the engine that made it.
+  String? engine;
+  bool get isCodex => engine == 'codex';
+
   Map<String, Object?> toMap() => {
         'id': id,
         'startedAt': startedAt.toUtc().toIso8601String(),
@@ -58,6 +64,7 @@ class SessionEntry {
         'turns': turns,
         if (model != null) 'model': model,
         if (mode != null) 'mode': mode,
+        if (engine != null) 'engine': engine,
       };
 
   /// The line the list shows when nothing was said yet.

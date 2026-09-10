@@ -19,10 +19,15 @@ class ClaudeCli {
     if (_version != null) return _version;
     final bin = await findBinary();
     if (bin == null) return null;
+    return _version = await versionOf(bin);
+  }
+
+  /// `claude --version` of [bin] — `2.1.261 (Claude Code)` → the number.
+  static Future<String?> versionOf(String bin) async {
     try {
       final r = await Process.run(bin, ['--version']).timeout(const Duration(seconds: 15));
       final out = (r.stdout as String).trim();
-      return _version = out.isEmpty ? null : out.split(' ').first;
+      return out.isEmpty ? null : out.split(' ').first;
     } on Object {
       return null;
     }

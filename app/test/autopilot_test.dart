@@ -140,7 +140,7 @@ DeckView _deck({required AutopilotState auto, required Future<String?> Function(
       onStop: () {},
       onSend: (_, _) async {},
       onInterrupt: () {},
-      onOptions: ({mode, chrome, model, effort}) {},
+      onOptions: ({mode, chrome, model, effort, engine}) {},
       foldOnScroll: foldOnScroll,
       autopilot: auto,
       onAutopilot: onAutopilot,

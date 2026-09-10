@@ -1,14 +1,14 @@
 id: codex-engine
 number: "28"
 title: Codex engine — the same Deck drives ChatGPT Codex, and the plugin runs there too
-status: pending
+status: active
 rank: 1500
 depends_on: [session-history, brief-and-rules]
 meta: { qa_required: true }
 gates:
-  analyze: { status: pending }
-  tests: { status: pending }
-  qa: { status: pending }
+  analyze: { at: 2026-09-10, note: "dart analyze kit + flutter analyze app clean, 2026-09-10", status: passed}
+  tests: { at: 2026-09-10, note: "kit 147, app 234 (3 live skips), 2026-09-10", status: passed}
+  qa: { at: 2026-09-10, note: "Mac window + relay: engine notch, GPT answer, deny\/always\/remove, question card, plan card → implement, autopilot 2 steps in 2 threads, back to Claude; phone screens by widget tests at 1.0\/2.0\/3.12", status: passed}
 sections:
   - title: Description
     body: |
@@ -184,3 +184,14 @@ sections:
       - `.codex-plugin/plugin.json` (new), `skills/` (the commands as skills), `assets/agents/*.toml` (new), `hooks/hooks.json`, `README.md`, `app/DESIGN.md`
 history:
   - { at: "2026-09-09", event: added, note: "28, rank 1500, before the parked hand-over; from the 2026-09-06 Codex check — the app-server probed on the ChatGPT Plus login, the protocol mapped, three spikes named" }
+  - at: 2026-09-10
+    event: started
+  - at: 2026-09-10
+    event: gate analyze passed
+    note: "dart analyze kit + flutter analyze app clean, 2026-09-10"
+  - at: 2026-09-10
+    event: gate tests passed
+    note: "kit 147, app 234 (3 live skips), 2026-09-10"
+  - at: 2026-09-10
+    event: gate qa passed
+    note: "Mac window + relay: engine notch, GPT answer, deny\/always\/remove, question card, plan card → implement, autopilot 2 steps in 2 threads, back to Claude; phone screens by widget tests at 1.0\/2.0\/3.12"

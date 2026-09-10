@@ -110,7 +110,18 @@ class DeckView extends StatefulWidget {
     this.briefFixed,
     this.onBrief,
     this.onWriteFile,
+    this.engine = 'claude',
+    this.models = const [],
+    this.provenOn,
   });
+
+  /// The ENGINE notch — `claude` or `codex`, one of [engineChoices];
+  /// switched only while nothing runs. [models] is what the running
+  /// engine reported for the MODEL dial (empty: the engine's defaults);
+  /// [provenOn] the version its protocol was captured on.
+  final String engine;
+  final List<String> models;
+  final String? provenOn;
 
   final BridgeState state;
   final List<String> facts;
@@ -278,7 +289,7 @@ class DeckView extends StatefulWidget {
 
   /// Changes an option — the host writes its record, the phone sends a
   /// command. Null where the surface cannot.
-  final void Function({String? mode, bool? chrome, String? model, String? effort})? onOptions;
+  final void Function({String? mode, bool? chrome, String? model, String? effort, String? engine})? onOptions;
 
   /// Sends a push to every registered phone, to see one arrive; returns
   /// the one-line result to toast. Null where the surface cannot.
@@ -476,6 +487,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
     }
     final row = _Row(
       message: m,
+      engine: widget.engine,
       progress: widget.uploadProgress,
       queued: widget.queued.contains(m.id),
       onWithdraw: widget.onWithdraw == null ? null : () => widget.onWithdraw!(m.id),
@@ -1360,7 +1372,7 @@ class DeckTab extends StatelessWidget {
           facts: [
             if (b.sessionId != null) 'session ${shortId(b.sessionId!)}',
             if (b.transcript.model != null) b.transcript.model!,
-            if (b.cliVersion != null) 'claude ${b.cliVersion}${b.cliVersion == bridgeProvenOn ? '' : ' (proven on $bridgeProvenOn)'}',
+            if (b.cliVersion != null) '${b.engineId} ${b.cliVersion}${b.cliVersion == b.engine.provenOn ? '' : ' (proven on ${b.engine.provenOn})'}',
             if (b.running && b.transcript.permissionMode != null) '${modeLabel(b.transcript.permissionMode!)} mode',
           ],
           error: b.error,
@@ -1381,7 +1393,10 @@ class DeckTab extends StatelessWidget {
           modelChoice: b.modelChoice ?? 'default',
           effort: b.effort ?? 'default',
           restartPending: b.restartPending,
-          onOptions: ({mode, chrome, model, effort}) => b.setOptions(mode: mode, chrome: chrome, model: model, effort: effort),
+          onOptions: ({mode, chrome, model, effort, engine}) => b.setOptions(mode: mode, chrome: chrome, model: model, effort: effort, engine: engine),
+          engine: b.engineId,
+          models: b.engine.models,
+          provenOn: b.engine.provenOn,
           onTestPush: testPush,
           askSlot: pending == null
               ? null
@@ -1498,7 +1513,7 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         facts: [
           if (d.sessionId != null) 'session ${shortId(d.sessionId!)}',
           if (d.model != null) d.model!,
-          if (d.cliVersion != null) 'claude ${d.cliVersion}',
+          if (d.cliVersion != null) '${d.engine} ${d.cliVersion}',
           if (d.running && d.permissionMode != null) '${modeLabel(d.permissionMode!)} mode',
           if (d.machine != null) d.machine!,
         ],
@@ -1520,7 +1535,9 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         modelChoice: d.modelChoice,
         effort: d.effort,
         restartPending: d.restartPending,
-        onOptions: ({mode, chrome, model, effort}) => d.setOptions(mode: mode, chrome: chrome, model: model, effort: effort),
+        onOptions: ({mode, chrome, model, effort, engine}) => d.setOptions(mode: mode, chrome: chrome, model: model, effort: effort, engine: engine),
+        engine: d.engine,
+        models: d.models,
         onTestPush: d.testPush,
         uploadProgress: d.uploadProgress,
         hostLine: d.presence.line,
@@ -1793,6 +1810,11 @@ class _Header extends StatelessWidget {
   /// Everything the chevron folds: Start / Resume / Stop, the option
   /// pills, the test pill, the two dials.
   /// `NONE`, `1 LINE`, `3 LINES` — what the BRIEF pill reads.
+  /// A dial's words with the current one among them — a model the record
+  /// keeps from another engine, or one the list does not know, still
+  /// shows rather than snapping the dial to `default`.
+  static List<String> _withCurrent(List<String> choices, String current) => choices.contains(current) ? choices : [...choices, current];
+
   static String _briefCount(String? brief) {
     final b = (brief ?? '').trim();
     if (b.isEmpty) return 'NONE';
@@ -1826,13 +1848,19 @@ class _Header extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _OptionPill(
-                    text: 'CHROME · ${w.chrome ? (w.running && w.chromeStatus != null ? w.chromeStatus!.toUpperCase() : 'ON') : 'OFF'}',
-                    color: w.chrome ? (w.chromeStatus == 'failed' ? t.critical : t.accent) : t.ink2,
-                    on: w.chrome,
-                    enabled: true,
-                    onTap: () => w.onOptions!(chrome: !w.chrome),
-                  ),
+                  // On Codex the browser is the ChatGPT app's own plugin, and
+                  // it does not come up under a host-spawned app-server: the
+                  // pill says so and flips nothing.
+                  if (w.engine == 'codex')
+                    _OptionPill(text: 'BROWSER · NOT ON CODEX', color: t.ink2, on: false, enabled: false, onTap: () {})
+                  else
+                    _OptionPill(
+                      text: 'CHROME · ${w.chrome ? (w.running && w.chromeStatus != null ? w.chromeStatus!.toUpperCase() : 'ON') : 'OFF'}',
+                      color: w.chrome ? (w.chromeStatus == 'failed' ? t.critical : t.accent) : t.ink2,
+                      on: w.chrome,
+                      enabled: true,
+                      onTap: () => w.onOptions!(chrome: !w.chrome),
+                    ),
                   if (w.onTestPush != null)
                     _OptionPill(
                       text: 'PUSH · TEST',
@@ -1854,8 +1882,12 @@ class _Header extends StatelessWidget {
             ),
           if (w.onOptions != null) ...[
             const SizedBox(height: 4),
-            _Dial(label: 'MODEL', choices: modelChoices, value: w.modelChoice, enabled: true, onChanged: (v) => w.onOptions!(model: v)),
-            _Dial(label: 'EFFORT', choices: effortChoices, value: w.effort, enabled: true, onChanged: (v) => w.onOptions!(effort: v)),
+            // The engine first: the dials under it are its words. A
+            // session belongs to the engine that made it, so the notch
+            // waits for a stop.
+            _Dial(label: 'ENGINE', choices: engineChoices, value: w.engine, enabled: !w.running, onChanged: (v) => w.onOptions!(engine: v)),
+            _Dial(label: 'MODEL', choices: _withCurrent(modelChoicesFor(w.engine, reported: w.models), w.modelChoice), value: w.modelChoice, enabled: true, onChanged: (v) => w.onOptions!(model: v)),
+            _Dial(label: 'EFFORT', choices: _withCurrent(effortChoicesFor(w.engine), w.effort), value: w.effort, enabled: true, onChanged: (v) => w.onOptions!(effort: v)),
             _Dial(label: 'MODE', choices: modeChoices, value: w.modeChoice, enabled: true, labelOf: modeLabel, warnOn: 'bypassPermissions', onChanged: (v) => w.onOptions!(mode: v)),
             // The human's rules, edited where the human is.
             if (w.onBrief != null || (w.onWriteFile != null && w.loadFile != null))
@@ -1927,7 +1959,9 @@ class _Header extends StatelessWidget {
                       ? 'Applies when this turn ends — the session restarts on the same conversation.'
                       : w.switchPending
                           ? 'The change applies when this turn ends.'
-                          : 'Model and mode switch in place; Chrome and effort restart the session on the same conversation.',
+                          : w.engine == 'codex'
+                              ? 'Model, effort and mode ride on the next turn; nothing restarts. The engine switches after a stop.'
+                              : 'Model and mode switch in place; Chrome and effort restart the session on the same conversation. The engine switches after a stop.',
                   style: t.mono(11, color: w.restartPending || w.switchPending ? t.warn : t.muted),
                 ),
               ),
@@ -2352,8 +2386,11 @@ class _OptionPill extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.message, this.progress = const {}, this.queued = false, this.onWithdraw, this.onTap});
+  const _Row({required this.message, this.progress = const {}, this.queued = false, this.onWithdraw, this.onTap, this.engine = 'claude'});
   final DeckMessage message;
+
+  /// Whose words an assistant row is — the head reads CLAUDE or CODEX.
+  final String engine;
   final Map<String, double> progress;
 
   /// A tool row with a diff or a file behind it.
@@ -2428,7 +2465,7 @@ class _Row extends StatelessWidget {
                 const SizedBox(width: 8),
                 // Loose: at the largest text sizes the caption is wider than a phone.
                 // The turn's cost rides on its last row: the context read, the output written.
-                Flexible(child: Text('CLAUDE · ${hm(m.at)}${m.turn == null ? '' : ' · ${tokensLabel(m.turn!.context)} CTX · ${tokensLabel(m.turn!.output)} OUT'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(11))),
+                Flexible(child: Text('${engineLabel(engine).toUpperCase()} · ${hm(m.at)}${m.turn == null ? '' : ' · ${tokensLabel(m.turn!.context)} CTX · ${tokensLabel(m.turn!.output)} OUT'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(11))),
               ]),
               const SizedBox(height: 6),
               if (m.text.isEmpty && m.streaming) Padding(padding: const EdgeInsets.only(top: 4), child: ThinkingDots(color: t.muted)) else Md(m.streaming ? '${m.text} ▍' : m.text, color: t.ink),

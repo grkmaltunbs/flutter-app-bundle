@@ -60,7 +60,7 @@ class SessionsCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(cur.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: t.ink)),
             const SizedBox(height: 2),
-            Text(sessionLine(cur, now: at, running: running && cur.id == currentId), style: t.readout(10.5)),
+            Text('${sessionLine(cur, now: at, running: running && cur.id == currentId)}${cur.isCodex ? ' · codex' : ''}', style: t.readout(10.5)),
           ] else ...[
             const SizedBox(height: 4),
             Text(sorted.isEmpty ? 'No conversation yet — Start opens one.' : 'Nothing on the Deck — pick a conversation from the list, or start new.', style: TextStyle(fontSize: 12.5, color: t.ink2)),
@@ -168,7 +168,7 @@ Future<void> showSessionsSheet(
                         ),
                         Padding(
                           padding: const EdgeInsets.only(left: 22, top: 2),
-                          child: Text('${sessionLine(s, now: at, running: live)}${s.mode == null ? '' : ' · ${modeLabel(s.mode!)}'}', style: t.readout(10.5)),
+                          child: Text('${sessionLine(s, now: at, running: live)}${s.mode == null ? '' : ' · ${modeLabel(s.mode!)}'}${s.isCodex ? ' · codex' : ''}', style: t.readout(10.5)),
                         ),
                         Padding(
                           padding: const EdgeInsets.only(left: 14),

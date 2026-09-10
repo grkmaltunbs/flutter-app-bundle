@@ -407,7 +407,7 @@ void main() {
               onResume: () {},
               onStop: () {},
               onSend: (_, _) async {},
-              onOptions: ({mode, chrome, model, effort}) {},
+              onOptions: ({mode, chrome, model, effort, engine}) {},
               foldOnScroll: false,
               run: run,
               onRun: (action, {device, on}) async => 'ok',

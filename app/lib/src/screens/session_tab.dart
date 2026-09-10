@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter/services.dart';
-import 'package:flutter_kit/kit.dart' show PoolWindow, autopilotLine, mirrorLine, modeChoices, modeLabel, rulesQaNote, thousands, untilLabel;
+import 'package:flutter_kit/kit.dart' show PoolWindow, autopilotLine, engineChoices, engineLabel, mirrorLine, modeChoices, modeLabel, rulesQaNote, thousands, untilLabel;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../host/host_presence.dart';
@@ -100,7 +100,10 @@ class _SessionTabState extends State<SessionTab> {
               if (s.environmentUrl != null) _Link(label: 'Environment', url: s.environmentUrl!),
             ],
             const SectionHead('Checks'),
-            _check(context, ok: h.hooksInstalled, text: h.hooksInstalled ? 'Hooks are installed — the phone sees what Claude is doing.' : 'No kit hook in .claude/settings.json — the session works, but the "now" line stays empty. Add `kit hook` to PostToolUse, Stop, UserPromptSubmit and Notification.'),
+            if (h.bridge.engineId == 'codex')
+              _check(context, ok: h.codexPluginInstalled, text: h.codexPluginInstalled ? 'flutter-kit is installed into Codex — its skills reach the session; the hooks spool once you have trusted them in Codex (/hooks in its TUI).' : 'flutter-kit is not installed into Codex — /step has no skill there, and the "now" line stays empty. Add the checkout as a marketplace in Codex and install flutter-kit; then trust its hooks.')
+            else
+              _check(context, ok: h.hooksInstalled, text: h.hooksInstalled ? 'Hooks are installed — the phone sees what Claude is doing.' : 'No kit hook in .claude/settings.json — the session works, but the "now" line stays empty. Add `kit hook` to PostToolUse, Stop, UserPromptSubmit and Notification.'),
             _check(context, ok: h.relayError == null, text: h.relayError ?? 'Mirror: ${h.relayStatus}'),
             if (h.push != null) _check(context, ok: h.push!.ready && h.push!.lastError == null, text: h.push!.status),
             if (h.push != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(h.push!.quietLine(h.slug ?? ''), style: TextStyle(fontSize: 12.5, color: t.ink2))),
@@ -127,12 +130,24 @@ class _SessionTabState extends State<SessionTab> {
                       onNew: () => h.switchSession(),
                       onDelete: h.deleteSession,
                     ),
-                    SectionHead('Session options', sub: b.running ? 'How claude -p runs in this folder. The mode switches in place; Chrome waits for a stop. The phone can flip these too.' : 'How Start runs claude -p in this folder. The phone can flip these too.'),
+                    SectionHead('Session options', sub: b.running ? (b.engineId == 'codex' ? 'How codex app-server runs in this folder. Mode, model and effort ride on the next turn. The phone can flip these too.' : 'How claude -p runs in this folder. The mode switches in place; Chrome waits for a stop. The phone can flip these too.') : 'How Start runs the session in this folder. The phone can flip these too.'),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text('Engine', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
+                          const SizedBox(height: 8),
+                          SegmentedButton<String>(
+                            showSelectedIcon: false,
+                            style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                            segments: [for (final e in engineChoices) ButtonSegment(value: e, label: Text(engineLabel(e).toUpperCase()))],
+                            selected: {b.engineId},
+                            onSelectionChanged: b.running ? null : (v) => b.setOptions(engine: v.first),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(b.running ? 'A session belongs to the engine that made it — stop it to switch.' : (b.engineId == 'codex' ? 'Codex: `codex app-server` from the ChatGPT app, on the ChatGPT account signed into this Mac. Resume runs a session on the engine that made it.' : 'Claude Code: `claude -p` on the Claude subscription signed into this Mac. Resume runs a session on the engine that made it.'), style: TextStyle(fontSize: 12.5, color: t.ink2)),
+                          const SizedBox(height: 14),
                           Text('Mode', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
                           const SizedBox(height: 8),
                           SegmentedButton<String>(
@@ -143,21 +158,25 @@ class _SessionTabState extends State<SessionTab> {
                             onSelectionChanged: (v) => b.setOptions(mode: v.first),
                           ),
                           const SizedBox(height: 6),
-                          Text('${_modeNote(b.modeChoice)}${b.modePending ? ' Switches when this turn ends.' : ''}', style: TextStyle(fontSize: 12.5, color: b.modeChoice == 'bypassPermissions' ? t.warn : t.ink2)),
+                          Text('${_modeNote(b.modeChoice, b.engineId)}${b.modePending ? ' Switches when this turn ends.' : ''}', style: TextStyle(fontSize: 12.5, color: b.modeChoice == 'bypassPermissions' ? t.warn : t.ink2)),
                         ],
                       ),
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      value: b.chrome,
-                      onChanged: b.running ? null : (v) => b.setOptions(chrome: v),
+                      value: b.engineId == 'codex' ? false : b.chrome,
+                      onChanged: b.running || b.engineId == 'codex' ? null : (v) => b.setOptions(chrome: v),
                       title: Text('Drive Chrome', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
-                      subtitle: Text('--chrome: the session gets the Claude in Chrome tools and works in this Mac\'s own browser — App Store Connect, Play Console, RevenueCat, signed in as you. Each browser action asks unless permissions are skipped.${b.running && b.chromeStatus != null ? ' Now: ${b.chromeStatus}.' : ''}', style: TextStyle(fontSize: 12.5, color: t.ink2)),
+                      subtitle: Text(
+                          b.engineId == 'codex'
+                              ? 'Not on Codex: its browser is the ChatGPT app\'s own plugin, and it does not come up under an app-server this host starts (2026-09-10, 0.153.4). Nothing else depends on it.'
+                              : '--chrome: the session gets the Claude in Chrome tools and works in this Mac\'s own browser — App Store Connect, Play Console, RevenueCat, signed in as you. Each browser action asks unless permissions are skipped.${b.running && b.chromeStatus != null ? ' Now: ${b.chromeStatus}.' : ''}',
+                          style: TextStyle(fontSize: 12.5, color: t.ink2)),
                     ),
                     ExpansionTile(
                       tilePadding: EdgeInsets.zero,
                       title: Text('What every session is told', style: t.display(15, weight: FontWeight.w600, ls: 0.4)),
-                      subtitle: Text('Appended to Claude Code\'s system prompt at Start: the phone, the browser, a sign-in as a question for you, store actions asked first — then your own block.', style: TextStyle(fontSize: 12.5, color: t.ink2)),
+                      subtitle: Text(b.engineId == 'codex' ? 'Codex reads it as developer instructions at Start: the phone, the browser, a sign-in as a question for you, store actions asked first — then your own block.' : 'Appended to Claude Code\'s system prompt at Start: the phone, the browser, a sign-in as a question for you, store actions asked first — then your own block.', style: TextStyle(fontSize: 12.5, color: t.ink2)),
                       children: [
                         Padding(padding: const EdgeInsets.only(bottom: 12), child: SelectableText(b.fixedBrief, style: t.mono(12, color: t.ink2))),
                       ],
@@ -194,7 +213,7 @@ class _SessionTabState extends State<SessionTab> {
                       ],
                     ),
                     if (rules.isNotEmpty) ...[
-                      const SectionHead('Allowed always', sub: 'Rules Claude Code wrote to this project because an ask was answered Always. Remove one and it asks again.'),
+                      const SectionHead('Allowed always', sub: 'Rules an engine wrote because an ask was answered Always — Claude Code to this project\'s settings, Codex to ~/.codex/rules/default.rules. Remove one and it asks again.'),
                       for (final r in rules)
                         Row(children: [
                         Expanded(child: Text('${r.ruleString}  ·  ${r.behavior}, ${r.destination}', maxLines: 2, overflow: TextOverflow.ellipsis, style: t.mono(12))),
@@ -350,10 +369,21 @@ class _Link extends StatelessWidget {
   }
 }
 
-/// What each position of the mode dial means, in the words of the flag.
-String _modeNote(String mode) => switch (mode) {
+/// What each position of the mode dial means, in the words of the flag —
+/// or, on Codex, of the approval policy and the sandbox it becomes.
+String _modeNote(String mode, [String engine = 'claude']) {
+  if (engine == 'codex') {
+    return switch (mode) {
+      'plan' => 'Plan collaboration mode over a read-only sandbox: the session reads and thinks, and its plan comes to the phone as a card — approve it there (IMPLEMENT sends the next turn) or send back what to change.',
+      'acceptEdits' => 'approval on-request, sandbox workspace-write: edits inside the project and sandboxed commands run without asking; only what needs more asks.',
+      'bypassPermissions' => 'approval never, no sandbox: nothing waits on Allow, every command runs. Questions still reach the phone. Only for a folder you trust.',
+      _ => 'approval untrusted, sandbox workspace-write: only read-only commands run on their own; a command that changes anything waits on Allow, on the phone or here.',
+    };
+  }
+  return switch (mode) {
       'plan' => '--permission-mode plan: the session reads and thinks but edits nothing. When its plan is ready it comes to the phone as a card — approve it there, or send back what to change.',
       'acceptEdits' => '--permission-mode acceptEdits: edits to files run without asking; commands still wait on Allow.',
       'bypassPermissions' => '--permission-mode bypassPermissions is --dangerously-skip-permissions: nothing waits on Allow, every command runs. Questions still reach the phone. Only for a folder you trust.',
       _ => '--permission-mode default: a command or an edit waits on Allow, on the phone or here.',
     };
+}

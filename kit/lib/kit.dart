@@ -23,3 +23,4 @@ export 'src/history.dart';
 export 'src/pushes.dart';
 export 'src/steps.dart';
 export 'src/rules.dart';
+export 'src/codex.dart';

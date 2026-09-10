@@ -15,6 +15,7 @@ import 'autopilot.dart';
 import 'bridge_session.dart';
 import 'builds.dart';
 import 'claude_cli.dart';
+import 'codex_cli.dart';
 import 'hook_watcher.dart';
 import 'host_actions.dart';
 import 'mirror.dart';
@@ -102,6 +103,10 @@ class HostProject extends ChangeNotifier {
   String relayStatus = 'not published yet';
   String? relayError;
   bool get hooksInstalled => ClaudeCli.hooksInstalled(dir);
+
+  /// The plugin is installed into Codex on this Mac — its skills and
+  /// hooks reach a Codex session here once the hooks are trusted.
+  bool get codexPluginInstalled => CodexCli.pluginInstalled();
   bool _publishing = false;
   bool _dirty = false;
   final List<String> applied = [];
@@ -638,7 +643,8 @@ class HostProject extends ChangeNotifier {
         if (cmd['on'] != true) return autopilot.stop(by: cmd['from'] == 'phone' ? 'the phone' : 'the Mac');
         return autopilot.start(budget: (cmd['budget'] as num?)?.toInt(), nightShift: cmd['nightShift'] as bool?);
       case 'options':
-        final ok = bridge.setOptions(mode: cmd['mode'] as String?, chrome: cmd['chrome'] as bool?, model: cmd['model'] as String?, effort: cmd['effort'] as String?);
+        if (cmd['engine'] != null && bridge.running) return bridge.setEngine(cmd['engine'].toString());
+        final ok = bridge.setOptions(mode: cmd['mode'] as String?, chrome: cmd['chrome'] as bool?, model: cmd['model'] as String?, effort: cmd['effort'] as String?, engine: cmd['engine'] as String?);
         if (!ok) return 'nothing to change';
         if (bridge.restartPending) return 'applies when this turn ends';
         if (bridge.modePending || bridge.modelPending) return 'applies when this turn ends';
@@ -936,7 +942,7 @@ class HostProject extends ChangeNotifier {
     pub.publishNow(e);
     if (e.name != 'PreToolUse' && e.name != 'PostToolUse') pub.publishMilestone(e);
     // `kit notify` from the session: a line for the phone, on purpose.
-    if (e.name == 'Notify' && e.summary.isNotEmpty) _notify(noticeForNote(e.summary, project: projectName));
+    if (e.name == 'Notify' && e.summary.isNotEmpty) _notify(noticeForNote(e.summary, project: projectName, engine: bridge.engineId));
   }
 
   @override

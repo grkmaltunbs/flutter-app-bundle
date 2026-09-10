@@ -315,10 +315,24 @@ void main() {
     expect(cmd.containsKey('chrome'), isFalse);
     expect(cmd.containsKey('model'), isFalse);
     // A dial is one command, sent when the finger lifts.
-    await tester.drag(find.byType(Slider).first, const Offset(400, 0));
+    await tester.drag(find.byType(Slider).at(1), const Offset(400, 0));
     await _settle(tester);
     final dial = (await project.collection('commands').get()).docs.map((d) => d.data()).firstWhere((d) => d['model'] != null);
     expect(dial['model'], 'fable');
+    // The engine notch is a command too, and what the host publishes is what shows.
+    expect(find.text('ENGINE · CLAUDE'), findsOneWidget);
+    await tester.drag(find.byType(Slider).first, const Offset(400, 0));
+    await _settle(tester);
+    final notch = (await project.collection('commands').get()).docs.map((d) => d.data()).firstWhere((d) => d['engine'] != null);
+    expect(notch['engine'], 'codex');
+    await project.set({'session': {'engine': 'codex', 'models': ['gpt-6-astra', 'gpt-5.5'], 'cliVersion': '0.153.4'}}, SetOptions(merge: true));
+    await _settle(tester);
+    expect(find.text('ENGINE · CODEX'), findsOneWidget);
+    expect(find.text('BROWSER · NOT ON CODEX'), findsOneWidget);
+    expect(find.textContaining('CODEX 0.153.4'), findsOneWidget);
+    await project.set({'session': {'engine': 'claude', 'models': FieldValue.delete(), 'cliVersion': FieldValue.delete()}}, SetOptions(merge: true));
+    await _settle(tester);
+    expect(find.text('ENGINE · CLAUDE'), findsOneWidget);
     await project.set({'session': {'modelChoice': 'fable', 'effort': 'xhigh'}}, SetOptions(merge: true));
     await _settle(tester);
     expect(find.text('MODEL · FABLE'), findsOneWidget);
@@ -345,7 +359,7 @@ void main() {
     await tester.tap(find.text('PUSH · TEST'));
     await _settle(tester);
     final cmds = (await project.collection('commands').get()).docs;
-    expect(cmds.length, 4);
+    expect(cmds.length, 5);
     final test = cmds.firstWhere((d) => d.data()['type'] == 'push-test');
     await test.reference.set({'doneAt': FieldValue.serverTimestamp(), 'result': 'sent to 1 phone'}, SetOptions(merge: true));
     await _settle(tester);

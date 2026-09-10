@@ -40,6 +40,46 @@ Two things to know:
   ln -s <checkout> ~/.claude/plugins/cache/flutter-app-bundle/flutter-kit/<version>`.
   Edits then apply on the next session.
 
+## Codex
+
+The same plugin runs in OpenAI's Codex — the checkout is a local marketplace
+for it too (`.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`):
+
+```bash
+codex plugin marketplace add ~/StudioProjects/flutter-app-bundle-2     # once per machine
+codex plugin add flutter-kit@flutter-app-bundle
+codex mcp add dart -- dart mcp-server                                  # the Dart MCP server, once
+```
+
+Codex reads a plugin's `skills/` and `hooks/`, not `commands/` or `agents/`,
+so the plugin carries its second shape beside the first:
+
+- the 19 commands are skills, `$kit-step`, `$kit-next`, `$kit-done`… (Codex
+  lists a plugin's skills namespaced: `$flutter-kit:kit-step`) —
+  generated into `skills/kit-<name>/SKILL.md` by `tool/codex/generate.py`
+  from `commands/`, with a preamble that names the plugin root (Codex
+  substitutes nothing in a skill) and `$ARGUMENTS` as the words after the
+  mention; the `kit-` prefix keeps Claude Code, which reads `skills/` too,
+  from seeing a skill and a command under one name;
+- the 9 agents are profiles under `assets/agents/*.toml`; `$kit-codex-setup`
+  copies them into a project's `.codex/agents/` and sets
+  `project_doc_fallback_filenames = ["CLAUDE.md"]` in its `.codex/config.toml`,
+  so Codex reads `CLAUDE.md` where it would read `AGENTS.md`;
+- `hooks/hooks.json` is shared: the analyze gate matches `apply_patch` as it
+  matches `Write|Edit`, and `kit hook` spools the session for the app. Codex
+  runs a plugin's hooks only after you have reviewed and trusted them once
+  (`/hooks` in its TUI; trust is kept against the hook's hash, an edit asks
+  again). It has no `Notification` event and ignores that entry.
+
+Codex copies an installed plugin to `~/.codex/plugins/cache/<marketplace>/flutter-kit/<version>`
+and refreshes it on a version bump — the same symlink trick as above applies
+while this branch changes daily.
+
+The K.A.T.Y.A host runs a project on either engine from its **ENGINE**
+notch (`app/DESIGN.md`, *Codex engine*): the Deck, the asks, the plan card,
+autopilot and the instruments are the same over `codex app-server` as over
+`claude -p`.
+
 ## Use it on a new app
 
 ```bash
@@ -153,11 +193,13 @@ Specialist agents invoked automatically by the commands:
 ```
 commands/     19 slash commands
 agents/       9 specialist agents
-skills/       19 Dart + Flutter skills
+skills/       19 Dart + Flutter skills · the 19 commands again as `kit-*` skills for Codex (+ kit-codex-setup)
+assets/       the 9 agents as Codex agent profiles (agents/*.toml)
 kit/          the plan engine — the `kit` CLI and the library behind it
 schema/       what a plan/ directory is, field by field
 hooks/        batched `dart analyze` gate (queue on edit, check at turn end)
               · `kit hook`, which spools session events for the app
+tool/codex/   generate.py (commands → skills, agents → profiles) · setup.sh ($kit-codex-setup)
 reference/    flutter-rules.md · requirements-checklist.md · lessons-learned.md
 templates/    CLAUDE.md · PRODUCT_SPEC · PROJECT_PLAN · HUMAN_SETUP · ci.yml
               · settings.json · gitignore · plan/ (kit.yaml · step · item)

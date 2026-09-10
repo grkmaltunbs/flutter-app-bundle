@@ -74,7 +74,7 @@ class _AskCardState extends State<AskCard> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(children: [
-                Expanded(child: Text(ask.isPlan ? 'PLAN READY' : ask.isQuestion ? 'CLAUDE ASKS' : 'AUTHORIZATION REQUESTED', style: t.display(13, ls: 2.3, color: t.warn))),
+                Expanded(child: Text(ask.isPlan ? 'PLAN READY' : ask.isQuestion ? '${ask.engineLabel.toUpperCase()} ASKS' : 'AUTHORIZATION REQUESTED', style: t.display(13, ls: 2.3, color: t.warn))),
                 Text((ask.isPlan ? 'plan' : ask.isQuestion ? 'question' : ask.toolName).toUpperCase(), style: t.readout(11)),
               ]),
               const SizedBox(height: 10),

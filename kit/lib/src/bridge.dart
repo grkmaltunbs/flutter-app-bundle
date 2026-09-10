@@ -62,6 +62,40 @@ String knownMode(Object? v) {
   return modeChoices.contains(s) ? s : 'default';
 }
 
+/// The engines the host can run a project on: Claude Code over `claude -p`
+/// (this file), and Codex over `codex app-server` (`codex.dart`). The
+/// ENGINE notch on the Deck; per project, switched while no session runs.
+const engineChoices = ['claude', 'codex'];
+
+/// An engine the notch knows, or `claude` for anything else — an old record
+/// from before the notch.
+String knownEngine(Object? v) {
+  final s = v?.toString().trim() ?? '';
+  return engineChoices.contains(s) ? s : 'claude';
+}
+
+/// `Claude`, `Codex` — how a push, a card and the facts line name the engine.
+String engineLabel(String engine) => engine == 'codex' ? 'Codex' : 'Claude';
+
+/// The MODEL dial's words for an engine: the CLI's aliases on Claude; on
+/// Codex what `model/list` reported ([reported]) when it has, else the
+/// models known on [codexProvenOn]. `default` first, always.
+List<String> modelChoicesFor(String engine, {List<String> reported = const []}) {
+  if (engine != 'codex') return modelChoices;
+  if (reported.isEmpty) return codexModelChoices;
+  return ['default', for (final m in reported) if (m != 'default') m];
+}
+
+/// The EFFORT dial's words for an engine — Codex has `ultra` on top.
+List<String> effortChoicesFor(String engine) => engine == 'codex' ? codexEffortChoices : effortChoices;
+
+/// The models the Codex app-server listed on 0.153.4 (2026-09-10) — the
+/// dial's words until a session's own `model/list` says otherwise.
+const codexModelChoices = ['default', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.3-codex-spark'];
+
+/// Codex's reasoning efforts (`model/list` → `supportedReasoningEfforts`).
+const codexEffortChoices = ['default', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
+
 /// The stdin line that switches a running session's mode in place. The CLI
 /// answers with a `control_response` carrying `{mode}`, then a
 /// `system/status` and a fresh `init` that name it (proven 2026-09-04,
@@ -122,7 +156,9 @@ List<String> bridgeArgs({required String sessionId, bool resume = false, String?
 /// its own road to the phone (its own notification text).
 const signedInOption = 'Signed in — continue';
 
-String deckBrief({required bool chrome, required String mode, String? run, String? worktree, String? worktreePath, String? custom}) => [
+String deckBrief({required bool chrome, required String mode, String? run, String? worktree, String? worktreePath, String? custom, String engine = 'claude'}) => engine == 'codex'
+    ? codexBrief(mode: mode, run: run, worktree: worktree, worktreePath: worktreePath, custom: custom)
+    : [
       'You are driven from K.A.T.Y.A, a phone app that talks to this Claude Code session on the user\'s Mac. The user reads you on a phone screen: answer short and concrete, and lead with the result.',
       '',
       if (chrome)
@@ -154,6 +190,35 @@ String deckBrief({required bool chrome, required String mode, String? run, Strin
 
 /// The line over the user's own part of the brief.
 const projectBriefHead = 'Project brief — the user\'s standing rules for this project, written on the phone; they come after everything above:';
+
+/// What a Codex session is told (`developerInstructions` on `thread/start`)
+/// — the same standing rules in Codex's words: its question tool is
+/// `request_user_input`, its plan is the plan collaboration mode, and the
+/// browser is the ChatGPT app's own plugin, not a flag.
+String codexBrief({required String mode, String? run, String? worktree, String? worktreePath, String? custom}) => [
+      'You are driven from K.A.T.Y.A, a phone app that talks to this Codex session on the user\'s Mac. The user reads you on a phone screen: answer short and concrete, and lead with the result.',
+      '',
+      'Browser: when the browser tool is available it is the Mac\'s own Chrome, signed in as the user — use it for anything that needs a website (App Store Connect, Google Play Console, RevenueCat, documentation). Downloads land in ~/Downloads on the Mac; a file the user attached is saved under ~/.flutter_kit/attachments/ and its path is in the message.',
+      '',
+      'When a site wants a sign-in, a second factor, a captcha, or a payment confirmation: stop and ask with the request_user_input tool — one question naming the site and the tab, with the single option "$signedInOption". The user reaches the Mac over remote desktop, signs in there, and answers; then look at the page again. Never type or guess a password, and never work around a sign-in. Questions always go through request_user_input, never as plain text: a question typed as text is one the user never sees.',
+      '',
+      'Before anything a store cannot undo — submitting for review, publishing a release, changing a price or an in-app product, deleting anything — ask with request_user_input first, in one line.',
+      '',
+      if (mode == 'bypassPermissions')
+        'Permissions: every command runs without asking. Be deliberate with anything destructive.'
+      else if (mode == 'plan')
+        'Permissions: this session is in plan mode. Read and think; write the plan as your plan — the user reads it on the phone and approves it there, or sends back what to change. After approval the next turn implements it, and a command may then wait for the user to allow it on the phone; that is expected.'
+      else
+        'Permissions: a command may wait for the user to allow it on the phone; that is expected.',
+      '',
+      '',
+      'Notifications: the app tells the user itself when you ask something, when a turn ends, and when something fails. To tell the user something at a point mid-task — a build uploaded, tests green before a long release step — run `kit notify "one line"` in this folder; it reaches the phone as a notification. Use it when the user asked to be told, not for every step.',
+      '',
+      'If you hand work to a subagent that will use the browser, put these rules in its prompt.',
+      if (custom != null && custom.trim().isNotEmpty) ...['', projectBriefHead, custom.trim()],
+      if (worktree != null) ...['', worktreeBrief(worktree, path: worktreePath)],
+      if (run != null) ...['', run],
+    ].join('\n');
 
 /// What a session in a git worktree is told: its branch, and that the plan
 /// belongs to the main tree.
@@ -298,6 +363,7 @@ class Ask {
     this.blockedPath,
     this.suggestions = const [],
     this.requiresUserInteraction = false,
+    this.engine = 'claude',
   });
 
   factory Ask.fromMap(Map<String, Object?> m) => Ask(
@@ -311,6 +377,7 @@ class Ask {
         blockedPath: m['blockedPath']?.toString(),
         suggestions: [for (final s in (m['suggestions'] as List? ?? const [])) if (s is Map) _map(s)],
         requiresUserInteraction: m['requiresUserInteraction'] == true,
+        engine: knownEngine(m['engine']),
       )..diff = m['diff']?.toString();
 
   final String requestId;
@@ -326,6 +393,11 @@ class Ask {
   /// `.claude/settings.json`, would stop this request from asking again.
   final List<Map<String, Object?>> suggestions;
   final bool requiresUserInteraction;
+
+  /// Which engine asks — `claude` or `codex`; the card's head and the
+  /// push's title name it.
+  final String engine;
+  String get engineLabel => engine == 'codex' ? 'Codex' : 'Claude';
 
   /// For an editing tool: the unified diff the host computed against the
   /// file on disk (`diff.dart`), so the card shows what will change
@@ -388,6 +460,7 @@ class Ask {
         if (blockedPath != null) 'blockedPath': blockedPath,
         'suggestions': suggestions,
         'requiresUserInteraction': requiresUserInteraction,
+        if (engine != 'claude') 'engine': engine,
         if (diff != null) 'diff': diff,
       };
 }
@@ -530,7 +603,7 @@ Notice noticeForAsk(Ask ask, {required String project}) {
     return Notice(kind: NoticeKind.signIn, title: 'Sign in needed · $project', body: _clip(ask.questions.map((q) => q.question).join(' · '), 240), requestId: ask.requestId, actions: noticeActions(ask));
   }
   if (ask.isQuestion) {
-    return Notice(kind: NoticeKind.question, title: 'Claude asks · $project', body: _clip(ask.summary, 240), requestId: ask.requestId, actions: noticeActions(ask));
+    return Notice(kind: NoticeKind.question, title: '${ask.engineLabel} asks · $project', body: _clip(ask.summary, 240), requestId: ask.requestId, actions: noticeActions(ask));
   }
   final what = ask.toolName == 'Bash' ? 'Run' : toolLabel(ask.toolName);
   // An edit shows its first changed lines under the file: what changes,
@@ -574,7 +647,7 @@ Notice noticeForBuild({required String project, required String buildId, require
     : Notice(kind: NoticeKind.build, title: 'Build failed · $project', body: _clip(error ?? 'see the log', 240), extra: {'buildId': buildId});
 
 /// The notification for a line Claude sent with `kit notify`.
-Notice noticeForNote(String text, {required String project}) => Notice(kind: NoticeKind.note, title: 'Claude · $project', body: _clip(text.trim(), 240));
+Notice noticeForNote(String text, {required String project, String engine = 'claude'}) => Notice(kind: NoticeKind.note, title: '${engineLabel(engine)} · $project', body: _clip(text.trim(), 240));
 
 /// The user's answer to an [Ask], as the `response` of a control_response.
 class AskAnswer {
@@ -724,12 +797,17 @@ class ContentBlock {
   const ContentBlock.text(this.text)
       : toolUseId = null,
         toolName = null,
-        toolInput = null;
-  const ContentBlock.toolUse({required this.toolUseId, required this.toolName, required this.toolInput}) : text = null;
+        toolInput = null,
+        diff = null;
+  const ContentBlock.toolUse({required this.toolUseId, required this.toolName, required this.toolInput, this.diff}) : text = null;
   final String? text;
   final String? toolUseId;
   final String? toolName;
   final Map<String, Object?>? toolInput;
+
+  /// An edit's diff when the engine hands it over ready (Codex's
+  /// `fileChange` items carry one); the host computes Claude's.
+  final String? diff;
   bool get isToolUse => toolUseId != null;
 }
 
@@ -881,6 +959,15 @@ class CompactEvent extends BridgeEvent {
 /// hook again, a fresh `init`, a `result` with no turns; no model call).
 class ResetEvent extends BridgeEvent {
   const ResetEvent();
+}
+
+/// Tokens on their own — an engine that reports usage apart from the
+/// message (Codex's `thread/tokenUsage/updated`): what the model read on
+/// its last call, and the window it fits in.
+class UsageEvent extends BridgeEvent {
+  const UsageEvent(this.usage, {this.contextWindow});
+  final Usage usage;
+  final int? contextWindow;
 }
 
 /// The result of a tool call, as the model sees it.
@@ -1267,6 +1354,7 @@ class DeckMessage {
     final path = input['file_path'] ?? input['path'] ?? input['pattern'] ?? input['query'] ?? input['url'];
     if (path != null) return '$name · $path';
     if (name == 'AskUserQuestion') return 'asked you a question';
+    if (name == 'apply_patch') return 'edited files';
     if (name == 'ExitPlanMode') return 'proposed a plan';
     if (isAgent) return '${input['subagent_type'] ?? 'agent'} · $agentDescription';
     if (name == 'git') {
@@ -1321,7 +1409,7 @@ class Transcript {
   Usage? usage;
   DateTime? usageAt;
   int get contextUsed => usage?.context ?? 0;
-  int get contextWindow => _windows[model] ?? contextWindowFor(model);
+  int get contextWindow => _windows[model] ?? _windows[''] ?? contextWindowFor(model);
   Map<String, int> _windows = const {};
   double get contextFraction => contextWindow == 0 ? 0 : contextUsed / contextWindow;
 
@@ -1367,6 +1455,17 @@ class Transcript {
     _about = about;
     lastAbout = about;
     return m;
+  }
+
+  /// A row that opened a turn but could not go yet (the engine had no
+  /// thread): held back as queued, its turn closed again until [release].
+  void hold(DeckMessage m) {
+    m.queued = true;
+    if (identical(_turnRow, m)) {
+      turnOpen = false;
+      _turnRow = null;
+      _about = null;
+    }
   }
 
   /// A queued row's turn: it opens now, with its own scope.
@@ -1431,7 +1530,7 @@ class Transcript {
           // folded under the Agent row. Its usage is its own context.
           for (final b in e.blocks) {
             if (b.isToolUse) {
-              messages.add(DeckMessage(id: _nextId(), role: DeckRole.tool, text: '', at: now(), toolName: b.toolName, toolInput: b.toolInput, toolUseId: b.toolUseId, about: _about, parentToolUseId: parent));
+              messages.add(DeckMessage(id: _nextId(), role: DeckRole.tool, text: '', at: now(), toolName: b.toolName, toolInput: b.toolInput, toolUseId: b.toolUseId, about: _about, parentToolUseId: parent, diff: b.diff));
             } else if ((b.text ?? '').isNotEmpty) {
               messages.add(DeckMessage(id: _nextId(), role: DeckRole.assistant, text: b.text!, at: now(), about: _about, parentToolUseId: parent));
             }
@@ -1445,7 +1544,7 @@ class Transcript {
         for (final b in e.blocks) {
           if (b.isToolUse) {
             _closeStreaming();
-            messages.add(DeckMessage(id: _nextId(), role: DeckRole.tool, text: '', at: now(), toolName: b.toolName, toolInput: b.toolInput, toolUseId: b.toolUseId, about: _about));
+            messages.add(DeckMessage(id: _nextId(), role: DeckRole.tool, text: '', at: now(), toolName: b.toolName, toolInput: b.toolInput, toolUseId: b.toolUseId, about: _about, diff: b.diff));
           } else {
             final text = b.text ?? '';
             final s = _streaming;
@@ -1529,6 +1628,11 @@ class Transcript {
         usageAt = now();
       case RateLimitEvent():
         pool = e;
+      case UsageEvent():
+        usage = e.usage;
+        usageAt = now();
+        // The window is the running model's, whatever init has said so far.
+        if (e.contextWindow != null) _windows = {..._windows, model ?? '': e.contextWindow!, '': e.contextWindow!};
       case StatusEvent():
         if (e.permissionMode != null) permissionMode = e.permissionMode;
         if (e.status == 'compacting') compacting = true;

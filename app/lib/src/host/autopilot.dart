@@ -164,6 +164,9 @@ class Autopilot extends ChangeNotifier {
           notifyListeners();
           return 'clearing the context before /step ${step.id}';
         }
+        // An engine that knows its commands says when `/step` is not one
+        // here (Codex: the plugin's skills); Claude answers as text.
+        if (bridge.knowsCommand('step') == false) return _stop('/step is not a command in this folder — the kit\'s skills are not installed into ${bridge.engineLabel}');
         _cleared = false;
         _phase = _Phase.step;
         _step = step;

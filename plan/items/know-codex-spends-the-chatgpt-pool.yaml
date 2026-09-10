@@ -7,10 +7,16 @@ step: codex-engine
 added: "2026-09-09"
 body: |
   A Codex session started from the phone runs on the ChatGPT account
-  signed into the Mac's Codex — on 2026-09-06 a Plus plan with a 5-hour
-  window and a weekly window, both reported by the app-server with
-  `usedPercent` and `resetsAt`. Autopilot under Codex spends that pool the
-  way the Claude loop spends the Claude pool, and night shift waits on
-  the reset the account reports. Two engines are two pools: a refused one
-  is a reason to switch the ENGINE notch, not to wait. Nothing to do,
-  unless it changes which engine you leave a project on.
+  signed into the Mac's Codex — on 2026-09-06 a Plus plan; on 2026-09-10
+  the app-server reported **Pro** (`planType: pro`) with one weekly
+  window (`primary`, 10,080 minutes, 9 % used) and no five-hour window on
+  the main `codex` limit, both reported with `usedPercent` and
+  `resetsAt`. The Deck's five-hour arc is therefore empty on Codex and
+  the countdown reads the weekly window; the Session tab shows both.
+  Autopilot under Codex spends that pool the way the Claude loop spends
+  the Claude pool, and night shift waits on the reset the account
+  reports (`usageLimitExceeded` is the refusal). Two engines are two
+  pools: a refused one is a reason to switch the ENGINE notch, not to
+  wait. The four spikes and the QA of this step spent about one percent
+  of the weekly window. Nothing to do, unless it changes which engine
+  you leave a project on.

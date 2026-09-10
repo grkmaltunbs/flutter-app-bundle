@@ -273,6 +273,7 @@ void main() {
     expect(pushes, 1);
     expect(find.text('sent to 1 phone'), findsOneWidget, reason: 'what came of it, toasted');
     expect(find.text('MODE · DEFAULT'), findsOneWidget);
+    expect(find.text('ENGINE · CLAUDE'), findsOneWidget, reason: 'the first dial is the engine');
     // The mode dial's last notch is bypass — what the Skip permissions pill did.
     await tester.drag(find.byType(Slider).last, const Offset(400, 0));
     await tester.pump();
@@ -284,11 +285,11 @@ void main() {
     // The dials: drag to the end, one write when the finger lifts.
     expect(find.text('MODEL · DEFAULT'), findsOneWidget);
     expect(find.text('EFFORT · DEFAULT'), findsOneWidget);
-    await tester.drag(find.byType(Slider).first, const Offset(400, 0));
+    await tester.drag(find.byType(Slider).at(1), const Offset(400, 0));
     await tester.pump();
     expect(find.text('MODEL · FABLE'), findsOneWidget);
     expect(s.previous()!.model, 'fable');
-    await tester.drag(find.byType(Slider).at(1), const Offset(400, 0));
+    await tester.drag(find.byType(Slider).at(2), const Offset(400, 0));
     await tester.pump();
     expect(find.text('EFFORT · MAX'), findsOneWidget);
     expect(s.previous()!.effort, 'max');
@@ -305,7 +306,8 @@ void main() {
     await tester.pump();
     expect(find.text('CHROME · CONNECTED'), findsOneWidget, reason: 'while running, what init said');
     expect(fake.startedWith, containsAllInOrder(['--model', 'fable', '--effort', 'max']));
-    expect(tester.widget<Slider>(find.byType(Slider).first).onChanged, isNotNull, reason: 'dials move while live');
+    expect(tester.widget<Slider>(find.byType(Slider).at(1)).onChanged, isNotNull, reason: 'dials move while live');
+    expect(tester.widget<Slider>(find.byType(Slider).first).onChanged, isNull, reason: 'the engine waits for a stop');
     expect(find.textContaining('restart the session on the same conversation'), findsOneWidget);
     expect(find.textContaining('BYPASS MODE'), findsOneWidget, reason: 'the facts line shows the mode the CLI reported');
     await tester.tap(find.textContaining('SESSION '));

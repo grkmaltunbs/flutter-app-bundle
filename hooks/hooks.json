@@ -1,9 +1,9 @@
 {
-  "description": "Two things: the batched dart analyze gate (queue edited .dart paths on each Write/Edit, one analyzer pass at turn end, block only on errors in files edited this turn), and `kit hook`, which spools every event for the flutter-kit app so a phone can see what the session is doing \u2014 only in a project that has a plan/, and silently no-op where dart is not installed.",
+  "description": "Two things: the batched dart analyze gate (queue edited .dart paths on each Write/Edit \u2014 apply_patch in Codex \u2014 one analyzer pass at turn end, block only on errors in files edited this turn), and `kit hook`, which spools every event for the flutter-kit app so a phone can see what the session is doing \u2014 only in a project that has a plan/, and silently no-op where dart is not installed. Codex runs these too (${CLAUDE_PLUGIN_ROOT} is its compatibility alias) once the hooks are trusted; it has no Notification event and ignores that entry.",
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|apply_patch",
         "hooks": [
           {
             "type": "command",

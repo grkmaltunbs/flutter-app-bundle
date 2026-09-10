@@ -1,0 +1,12 @@
+{
+  "name": "flutter-app-bundle",
+  "interface": { "displayName": "flutter-app-bundle" },
+  "plugins": [
+    {
+      "name": "flutter-kit",
+      "source": { "source": "local", "path": "./" },
+      "policy": { "installation": "AVAILABLE" },
+      "category": "Development"
+    }
+  ]
+}

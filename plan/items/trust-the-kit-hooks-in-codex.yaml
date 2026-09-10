@@ -11,8 +11,19 @@ body: |
   `hooks/hooks.json` or to a script asks again. The host could pass
   `--dangerously-bypass-hook-trust`; it will not: the trust is yours to
   give. Until it is given, the hook spool is silent under Codex and the
-  phone does not see what a Codex session is doing.
+  phone does not see what a Codex session is doing (the Deck still shows
+  every row — that comes from the app-server, not the hooks).
+
+  flutter-kit was installed into Codex on this Mac on 2026-09-10
+  (`codex plugin marketplace add <checkout>` · `codex plugin add
+  flutter-kit@flutter-app-bundle`). The app-server's `hooks/list` for
+  ~/kit-scratch then listed the plugin's six hooks (`postToolUse` ×2,
+  `sessionStart`, `sessionEnd`, `userPromptSubmit`, `stop`, `subagentStop`)
+  under `~/.codex/plugins/cache/flutter-app-bundle/flutter-kit/2.0.0/`,
+  each with `trustStatus: untrusted` and a `currentHash`. Codex keeps the
+  trust in `~/.codex/config.toml` under `hooks.state` (a `trusted_hash`
+  per hook key).
 runbook:
-  - do: In a project with flutter-kit installed into Codex, open the Codex TUI and start a session; when it lists the plugin's hooks for review, read them (hooks/analyze-queue.sh, hooks/analyze-check.sh, kit/kit.sh hook) and trust them.
-    expect: The next tool call writes an event to the hook spool and the phone's now-line moves.
-    if_fails: If nothing is asked, the plugin is not installed into that Codex — `codex plugin list` says. After any edit to the hooks Codex asks again; that is by design.
+  - do: In ~/kit-scratch (or any project with a plan/), open the Codex TUI from the ChatGPT app's Codex and type `/hooks`; it lists the flutter-kit hooks with their status. Read them (hooks/analyze-queue.sh, hooks/analyze-check.sh, kit/kit.sh hook) and trust each.
+    expect: The hooks list shows the six as trusted. The next Codex session from the phone writes events to the hook spool and the phone's now-line moves; the Session tab's Checks line on the Mac says the plugin is installed into Codex.
+    if_fails: If `/hooks` lists nothing for flutter-kit, `codex plugin list` says whether it is installed and enabled. After any edit to the hooks — or a version bump that refreshes the cache copy — Codex asks again; that is by design.

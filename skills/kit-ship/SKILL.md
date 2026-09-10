@@ -1,0 +1,40 @@
+---
+name: kit-ship
+description: "Prepare a release — audit, full tests, version bump, changelog, artifacts"
+---
+
+> **Where things are.** This file is `skills/kit-ship/SKILL.md` inside the flutter-kit plugin; the plugin root is two folders above it. Before anything else set, in the shell, `PLUGIN` to that root (Claude Code: `${CLAUDE_PLUGIN_ROOT}`) and `KIT="$PLUGIN/kit/kit.sh"`; every `kit` command below runs as `bash "$KIT" …`, in the project folder. `$ARGUMENTS` means the words after `$kit-ship` in the user's message. Agents named in bold (flutter-tester, flutter-qa, …) are the Codex custom agents `$kit-codex-setup` installs into the project's `.codex/agents/`; spawn them by name, and where one is not installed do that part yourself.
+
+
+Prepare a release: $ARGUMENTS
+
+Workflow:
+
+1. Check `git status`. If the tree is dirty, stop and ask the user to commit
+   or stash first. Once clean, delegate to the **flutter-reviewer** to audit
+   the changes since the last release tag (`git diff <last-tag>..HEAD`, or a
+   full review if no tag exists).
+
+2. Run the full test suite. Block on failure.
+
+3. Run the full **iOS** `$kit-qa` sweep — all flows plus the overflow-guard size
+   matrix (this is the pre-release home of the checks the per-step gates
+   skip). Block on FAIL. QA never runs on Android; remind the user to do a
+   manual pass on their Android device before the Play upload.
+
+4. Delegate to the **flutter-releaser** agent. They will:
+   - Run pre-flight Firebase + signing guardrail checks (project ID is the
+     Firebase project ID recorded in CLAUDE.md (Project overview → "Firebase
+     project"), verified at runtime via `firebase use`; rules locked,
+     key.properties `.gitignored`).
+   - Confirm version bump with the user
+   - Propose a CHANGELOG entry from git log since last tag
+   - Build artifacts (after explicit confirmation per platform)
+
+5. Output:
+   - Artifact paths (APK, AAB, IPA)
+   - File sizes
+   - Submission checklist (the user uploads to stores — agent does not)
+
+This is the one workflow where confirmations are required at every irreversible
+step. Even with aggressive autonomy enabled, releases are gated.

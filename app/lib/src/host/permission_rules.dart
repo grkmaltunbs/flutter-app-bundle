@@ -15,8 +15,15 @@ class AppliedRule {
         behavior: (m['behavior'] ?? 'allow').toString(),
       );
 
-  /// The rules one `permission_suggestions` entry of type `addRules` adds.
+  /// The rules one `permission_suggestions` entry of type `addRules` adds —
+  /// or, from a Codex ask, the execpolicy prefix rule its Always writes
+  /// to `~/.codex/rules/default.rules` (`type: execpolicy, pattern: […]`).
   static List<AppliedRule> fromSuggestion(Map<String, Object?> s) {
+    if (s['type'] == 'execpolicy') {
+      final pattern = s['pattern'];
+      if (pattern is! List || pattern.isEmpty) return const [];
+      return [AppliedRule.execpolicy([for (final t in pattern) t.toString()])];
+    }
     if (s['type'] != 'addRules') return const [];
     final destination = (s['destination'] ?? 'localSettings').toString();
     final behavior = (s['behavior'] ?? 'allow').toString();
@@ -26,10 +33,21 @@ class AppliedRule {
     ];
   }
 
+  /// A Codex execpolicy rule: the command's words, as the prefix the rule
+  /// allows. [destination] `execpolicy`, [tool] `prefix_rule`.
+  factory AppliedRule.execpolicy(List<String> pattern) => AppliedRule(destination: execpolicyDestination, tool: 'prefix_rule', rule: pattern.join(' '), behavior: 'allow');
+
+  static const execpolicyDestination = 'execpolicy';
+
   final String destination;
   final String tool;
   final String rule;
   final String behavior;
+
+  bool get isExecpolicy => destination == execpolicyDestination;
+
+  /// The words of an execpolicy rule's pattern.
+  List<String> get pattern => rule.split(' ');
 
   /// The settings-file spelling: `Bash(touch:*)`, or the bare tool.
   String get ruleString => rule.isEmpty ? tool : '$tool($rule)';
