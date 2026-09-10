@@ -1380,59 +1380,6 @@ file that changed on disk since it was opened and offers to reload.
 
 ---
 
-## Step 26 — Voice and biometrics — hear the ask and the summary, answer by voice, and prove it is you before the dangerous taps
-- [ ]
-- id: voice-and-biometrics
-- depends_on: instrument-skin, plan-mode, review, autopilot
-- qa_required: true
-
-### Description
-On-device only, no service. Narrowed on 2026-09-04 to what matters
-on the move:
-
-**Voice.** `speech_to_text` on the composer's mic — hold to talk,
-release to edit or send. `flutter_tts` reads aloud two things when
-the toggle is on: an ask as it arrives (the question and its
-options, or "Allow <tool>: <description>") and the finished turn's
-summary — never the streamed reply. An ask can be answered by
-voice: after the read-out the mic opens for "allow", "deny", or an
-option's label or number; anything else is typed into the Other
-field for the user to confirm. Denied microphone permission
-degrades to the keyboard, with a line.
-
-**Biometrics.** `local_auth` gates the taps that make the phone a
-shell on the Mac: Start, Allow, Always, Send, the mode dial's
-*bypass*, Autopilot on, Revert file, Merge into main and Remove
-worktree. Both are settings; both default on for the phone and off
-for the Mac. A **kill switch** in the Deck's fold — behind the
-same gate — stops every session on every project and the run bay,
-and pushes "Stopped everything".
-
-### Acceptance
-- A dictated `/next` reaches the host as text; the ask that follows
-  is read aloud; "allow" spoken answers it; the summary is read at
-  the end and the streamed text is not.
-- Allow without a fingerprint does nothing; with one it answers;
-  bypass on the dial and Autopilot on ask for it too.
-- Kill switch: two sessions and a run stop; one push.
-- Denied microphone permission degrades to the keyboard, with a line.
-
-### QA walkthrough
-1. Phone: hold the mic, say "what is next", release. Hear the ask; say "allow".
-2. Send `touch /tmp/kit-bio`; tap Allow; the biometric prompt; approve.
-3. Phone: kill switch → everything stops.
-
-### Touchpoints
-- `app/lib/src/screens/deck_tab.dart`, `app/lib/src/voice/**`, `app/lib/src/auth_gate.dart`, `app/lib/src/host/host_projects.dart` (stop all)
-
-### Your part (human)
-
-The step's checkbox stays `[ ]` until these are checked:
-
-  - [x] Decide when voice ships — it is on-device and free, but it is a step of its own *(item `voice-now-or-later`)*
-
----
-
 ## Step 27 — The iPhone — the same app on the user's second phone, with pushes
 - [ ]
 - id: iphone
@@ -1655,6 +1602,59 @@ The step's checkbox stays `[ ]` until these are checked:
 
   - [ ] A Codex session from the phone spends the ChatGPT plan signed into the Mac *(item `know-codex-spends-the-chatgpt-pool`)*
   - [ ] Review and trust the kit's hooks in Codex, once *(item `trust-the-kit-hooks-in-codex`)*
+
+---
+
+## Step 26 — Voice and biometrics — hear the ask and the summary, answer by voice, and prove it is you before the dangerous taps
+- [ ]
+- id: voice-and-biometrics
+- depends_on: instrument-skin, plan-mode, review, autopilot
+- qa_required: true
+
+### Description
+On-device only, no service. Narrowed on 2026-09-04 to what matters
+on the move:
+
+**Voice.** `speech_to_text` on the composer's mic — hold to talk,
+release to edit or send. `flutter_tts` reads aloud two things when
+the toggle is on: an ask as it arrives (the question and its
+options, or "Allow <tool>: <description>") and the finished turn's
+summary — never the streamed reply. An ask can be answered by
+voice: after the read-out the mic opens for "allow", "deny", or an
+option's label or number; anything else is typed into the Other
+field for the user to confirm. Denied microphone permission
+degrades to the keyboard, with a line.
+
+**Biometrics.** `local_auth` gates the taps that make the phone a
+shell on the Mac: Start, Allow, Always, Send, the mode dial's
+*bypass*, Autopilot on, Revert file, Merge into main and Remove
+worktree. Both are settings; both default on for the phone and off
+for the Mac. A **kill switch** in the Deck's fold — behind the
+same gate — stops every session on every project and the run bay,
+and pushes "Stopped everything".
+
+### Acceptance
+- A dictated `/next` reaches the host as text; the ask that follows
+  is read aloud; "allow" spoken answers it; the summary is read at
+  the end and the streamed text is not.
+- Allow without a fingerprint does nothing; with one it answers;
+  bypass on the dial and Autopilot on ask for it too.
+- Kill switch: two sessions and a run stop; one push.
+- Denied microphone permission degrades to the keyboard, with a line.
+
+### QA walkthrough
+1. Phone: hold the mic, say "what is next", release. Hear the ask; say "allow".
+2. Send `touch /tmp/kit-bio`; tap Allow; the biometric prompt; approve.
+3. Phone: kill switch → everything stops.
+
+### Touchpoints
+- `app/lib/src/screens/deck_tab.dart`, `app/lib/src/voice/**`, `app/lib/src/auth_gate.dart`, `app/lib/src/host/host_projects.dart` (stop all)
+
+### Your part (human)
+
+The step's checkbox stays `[ ]` until these are checked:
+
+  - [x] Decide when voice ships — it is on-device and free, but it is a step of its own *(item `voice-now-or-later`)*
 
 ---
 

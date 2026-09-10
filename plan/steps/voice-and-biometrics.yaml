@@ -2,7 +2,7 @@ id: voice-and-biometrics
 number: "26"
 title: Voice and biometrics — hear the ask and the summary, answer by voice, and prove it is you before the dangerous taps
 status: pending
-rank: 900
+rank: 1750
 depends_on: [instrument-skin, plan-mode, review, autopilot]
 meta: { qa_required: true }
 gates:
@@ -52,3 +52,6 @@ sections:
 history:
   - { at: "2026-08-30", event: added }
   - { at: "2026-09-04", event: renumbered, note: "8 → 26; voice narrowed to asks and summaries, biometrics widened to bypass, autopilot, revert, merge; kill switch added" }
+  - at: 2026-09-10
+    event: moved
+    note: before handover
