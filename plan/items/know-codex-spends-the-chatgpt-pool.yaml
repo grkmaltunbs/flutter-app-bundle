@@ -1,6 +1,6 @@
 id: know-codex-spends-the-chatgpt-pool
 title: A Codex session from the phone spends the ChatGPT plan signed into the Mac
-status: open
+status: done
 needs: [know]
 blocks: [codex-engine]
 step: codex-engine
@@ -20,3 +20,5 @@ body: |
   wait. The four spikes and the QA of this step spent about one percent
   of the weekly window. Nothing to do, unless it changes which engine
   you leave a project on.
+done_at: 2026-09-10
+note: the user read it 2026-09-10

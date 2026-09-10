@@ -1,7 +1,7 @@
 id: codex-engine
 number: "28"
 title: Codex engine — the same Deck drives ChatGPT Codex, and the plugin runs there too
-status: active
+status: done
 rank: 1500
 depends_on: [session-history, brief-and-rules]
 meta: { qa_required: true }
@@ -195,3 +195,5 @@ history:
   - at: 2026-09-10
     event: gate qa passed
     note: "Mac window + relay: engine notch, GPT answer, deny\/always\/remove, question card, plan card → implement, autopilot 2 steps in 2 threads, back to Claude; phone screens by widget tests at 1.0\/2.0\/3.12"
+  - at: 2026-09-10
+    event: done

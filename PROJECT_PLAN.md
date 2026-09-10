@@ -1419,8 +1419,7 @@ The step's checkbox stays `[ ]` until these are checked:
 ---
 
 ## Step 28 — Codex engine — the same Deck drives ChatGPT Codex, and the plugin runs there too
-- [ ]
-- state: code complete — waiting on 2 human item(s)
+- [x]
 - id: codex-engine
 - depends_on: session-history, brief-and-rules
 - qa_required: true
@@ -1601,8 +1600,8 @@ bridge's do — they spend the ChatGPT pool.
 
 The step's checkbox stays `[ ]` until these are checked:
 
-  - [ ] A Codex session from the phone spends the ChatGPT plan signed into the Mac *(item `know-codex-spends-the-chatgpt-pool`)*
-  - [ ] Review and trust the kit's hooks in Codex, once *(item `trust-the-kit-hooks-in-codex`)*
+  - [x] A Codex session from the phone spends the ChatGPT plan signed into the Mac *(item `know-codex-spends-the-chatgpt-pool`)*
+  - [x] Review and trust the kit's hooks in Codex, once *(item `trust-the-kit-hooks-in-codex`)*
 
 ---
 

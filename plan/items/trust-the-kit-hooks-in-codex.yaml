@@ -1,6 +1,6 @@
 id: trust-the-kit-hooks-in-codex
 title: Review and trust the kit's hooks in Codex, once
-status: open
+status: done
 needs: [decision]
 blocks: [codex-engine]
 step: codex-engine
@@ -27,3 +27,5 @@ runbook:
   - do: In ~/kit-scratch (or any project with a plan/), open the Codex TUI from the ChatGPT app's Codex and type `/hooks`; it lists the flutter-kit hooks with their status. Read them (hooks/analyze-queue.sh, hooks/analyze-check.sh, kit/kit.sh hook) and trust each.
     expect: The hooks list shows the six as trusted. The next Codex session from the phone writes events to the hook spool and the phone's now-line moves; the Session tab's Checks line on the Mac says the plugin is installed into Codex.
     if_fails: If `/hooks` lists nothing for flutter-kit, `codex plugin list` says whether it is installed and enabled. After any edit to the hooks — or a version bump that refreshes the cache copy — Codex asks again; that is by design.
+done_at: 2026-09-10
+note: trusted in the Codex TUI 2026-09-10
