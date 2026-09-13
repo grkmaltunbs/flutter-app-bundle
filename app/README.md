@@ -15,7 +15,7 @@ The two roles:
   project folder that has `plan/`, mirrors it to the relay, applies what the
   phone sends, watches Claude Code's hooks, and starts `claude
   remote-control` in the folder on the user's own login.
-- **Remote** (Android first) — reads the mirror, shows the **Deck** (the
+- **Remote** (Android and iPhone) — reads the mirror, shows the **Deck** (the
   conversation with the session: send, attach a screenshot or any file,
   watch it stream, answer what Claude asks, Start / Stop / Resume — all as
   commands the host runs) and the same
@@ -48,10 +48,32 @@ europe-west3, Email/Password auth, one user, owner-only rules in
 bash app/tool/ship.sh          # Mac + Android
 bash app/tool/ship.sh mac      # ~/Applications/kit_app.app, relaunched if it was running
 bash app/tool/ship.sh android  # ~/Desktop/kit_app.apk, installed over USB when a phone is plugged in
+bash app/tool/ship.sh ios-sim  # build, install and launch on the single booted iOS simulator
+bash app/tool/ship.sh ios      # signed build installed on the single paired iPhone
 ```
 
 Run it after any change under `app/`. The plugin half of the bundle needs
 no shipping — Nahmatik's installed plugin is a symlink to this checkout.
+
+For multiple Apple devices, pass the chosen device ID as the second argument.
+The iPhone build uses iOS 15 or later, the same relay and sign-in as Android,
+and an iOS share extension. Signing/physical-device registration and an APNs
+key in Firebase are needed for device installation and remote pushes. Missing
+APNs registration leaves the relay usable.
+
+Simulator regression suite (native Firebase/plugin bootstrap, phone Deck,
+permission/question answers, constellation and work-item drafts; isolated
+Firestore fixtures, no engine calls):
+
+```bash
+cd app
+flutter test integration_test/iphone_test.dart -d <simulator-id>
+```
+
+K.A.T.Y.A requests Codex’s maximum supported context through process-local
+arguments. The current subscription catalog allows Astra 872,000 tokens,
+with 828,400 usable after Codex’s reserve; smaller models retain their own
+limits. New or resumed sessions use this setting after the host is updated.
 
 ## Run
 

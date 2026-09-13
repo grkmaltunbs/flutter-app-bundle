@@ -1382,6 +1382,7 @@ file that changed on disk since it was opened and offers to reload.
 
 ## Step 27 — The iPhone — the same app on the user's second phone, with pushes
 - [ ]
+- state: code complete — waiting on 2 human item(s)
 - id: iphone
 - depends_on: deck-on-the-phone, notifications
 - qa_required: true
@@ -1404,7 +1405,21 @@ iOS share extension.
 - TRY IT with the iPhone paired installs the project's app on it.
 
 ### QA walkthrough
-1. iPhone: sign in, open Nahmatik, the constellation, an ask from the Mac.
+1. iPhone: sign in, open scratch, the constellation, an ask from the Mac.
+2. Simulator: run app/integration_test/iphone_test.dart for native startup
+   and isolated scratch Deck, permission/question, Steps and Work flows.
+3. A physical paired iPhone proves TRY IT installation and APNs delivery
+   after register-the-iphone and apns-key-for-iphone-pushes are closed.
+
+### Built 2026-09-13
+iOS 15+ Runner and native share extension are implemented. Firebase uses
+the registered Apple app, APNs approval categories route through a
+queued native bridge, and absent APNs registration leaves the relay usable.
+TRY IT supports a single paired physical iPhone; ship.sh adds ios and
+ios-sim. The iPhone 17 Pro simulator passed all 3 integration flows:
+native bootstrap/sign-in UI, scratch Deck messaging/answers, Steps/Work.
+Physical installation, authenticated relay/share intake and remote APNs
+delivery still await the two open human items and device walkthrough.
 
 ### Touchpoints
 - `app/ios/**`, `app/tool/ship.sh`, `app/lib/firebase_options.dart`, `app/lib/src/host/builds.dart`

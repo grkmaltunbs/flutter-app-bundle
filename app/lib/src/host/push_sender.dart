@@ -82,15 +82,19 @@ Map<String, Object?> fcmMessage(Notice n, {required String slug, required String
   return {
     'token': token,
     'notification': {'title': n.title, 'body': n.body},
-    'data': n.data(slug),
+    'data': androidData(n, slug: slug),
     'android': {
       'priority': 'high',
       'notification': {'channel_id': n.channel, 'tag': '${n.channel}-$slug', 'sound': 'default'},
     },
     'apns': {
-      'headers': {'apns-priority': '10'},
+      'headers': {'apns-priority': '10', 'apns-push-type': 'alert'},
       'payload': {
-        'aps': {'sound': 'default', 'thread-id': slug},
+        'aps': {
+          'sound': 'default', 'thread-id': slug,
+          if (n.kind == NoticeKind.permission) 'category': 'kit.permission',
+          if (n.kind == NoticeKind.plan) 'category': 'kit.plan',
+        },
       },
     },
   };

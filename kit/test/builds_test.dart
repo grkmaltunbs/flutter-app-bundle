@@ -20,6 +20,15 @@ void main() {
     expect(b.copyWith(state: BuildState.failed, error: 'no').failed, isTrue);
   });
 
+  test('legacy records remain Android; iPhone records round-trip the installed device', () {
+    expect(BuildRecord.fromMap({'id': 'old'}).target, BuildTarget.android);
+    final b = BuildRecord.fromMap(const BuildRecord(id: 'ios', target: BuildTarget.ios, device: 'Ren iPhone', state: BuildState.ready, version: '1.0').toMap()).copyWith(progress: 1);
+    expect(b.target, BuildTarget.ios);
+    expect(b.device, 'Ren iPhone');
+    expect(b.path, isNull);
+    expect(buildLine(b), 'Installed · 1.0 · Ren iPhone');
+  });
+
   test('the lines: building with a percentage, ready with version, size and age, failed with the reason', () {
     final at = DateTime.utc(2026, 9, 6, 7);
     expect(buildLine(const BuildRecord(id: 'b', progress: 0.42)), 'Building · 42 %');

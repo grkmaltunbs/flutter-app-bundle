@@ -26,10 +26,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         return macos;
       case TargetPlatform.windows:
@@ -55,6 +52,17 @@ class DefaultFirebaseOptions {
     messagingSenderId: '893903216331',
     projectId: 'flutterappbundle',
     storageBucket: 'flutterappbundle.firebasestorage.app',
+  );
+
+  // Firebase's Apple app is registered for this bundle on both Apple platforms.
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyDQbRMlc22Ke2sIusL8GmtY001tN7LuOj8',
+    appId: '1:893903216331:ios:0da2325bcd589b51d6854e',
+    messagingSenderId: '893903216331',
+    projectId: 'flutterappbundle',
+    storageBucket: 'flutterappbundle.firebasestorage.app',
+    iosClientId: '893903216331-v5953mu88hq2m28if73v38qpia6jvtkr.apps.googleusercontent.com',
+    iosBundleId: 'dev.flutterkit.kitApp',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(

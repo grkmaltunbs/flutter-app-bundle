@@ -10,6 +10,8 @@ import 'package:flutter_kit/kit.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path/path.dart' as p;
 
+import 'ios_notification_actions.dart';
+
 import '../../firebase_options.dart';
 import '../relay.dart';
 
@@ -118,25 +120,54 @@ class LocalNotice {
 }
 
 /// The phone's notifications, drawn here from the Mac's data messages —
-/// with Allow and Deny on an ask, answered from the lock screen by
-/// [kitNotificationAction] without opening the app.
+/// with Allow and Deny on an ask. Android answers in the background via
+/// [kitNotificationAction]; iOS opens the app to restore the signed-in relay.
 class LocalNotices {
   static final FlutterLocalNotificationsPlugin plugin = FlutterLocalNotificationsPlugin();
   static bool _ready = false;
+  static final _actions = IosNotificationActions(answer: _answerAction);
+
+  static final darwinCategories = [
+    DarwinNotificationCategory('kit.permission', actions: [
+      DarwinNotificationAction.plain('allow', 'Allow', options: {DarwinNotificationActionOption.foreground}),
+      DarwinNotificationAction.plain('deny', 'Deny', options: {DarwinNotificationActionOption.foreground, DarwinNotificationActionOption.destructive}),
+    ]),
+    DarwinNotificationCategory('kit.plan', actions: [
+      DarwinNotificationAction.plain('allow', 'Approve', options: {DarwinNotificationActionOption.foreground}),
+    ]),
+  ];
+
+  /// iOS categories have fixed labels. Questions open the card with its actual
+  /// choices; approval buttons use the same action IDs as the Android path.
+  static String? darwinCategory(LocalNotice n) {
+    if (n.actions.length == 2 && n.actions[0].id == 'allow' && n.actions[1].id == 'deny') return 'kit.permission';
+    if (n.actions.length == 1 && n.actions.single.id == 'allow') return 'kit.plan';
+    return null;
+  }
 
   /// Once per isolate. [onTap] runs on the main isolate when a
   /// notification's body is tapped with the app up.
   static Future<void> init({void Function(Map<String, Object?> data)? onTap}) async {
     if (_ready) return;
-    _ready = true;
     await plugin.initialize(
-      settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+      settings: InitializationSettings(
+        android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
+        iOS: DarwinInitializationSettings(requestAlertPermission: false, requestBadgePermission: false, requestSoundPermission: false, notificationCategories: darwinCategories),
+      ),
       onDidReceiveNotificationResponse: (r) {
         final data = dataOf(r.payload);
-        if (data != null && onTap != null) onTap(data);
+        if (data == null) return;
+        final action = r.actionId;
+        if (action != null && action.isNotEmpty) {
+          _answerAction(data, action);
+        } else {
+          onTap?.call(data);
+        }
       },
       onDidReceiveBackgroundNotificationResponse: kitNotificationAction,
     );
+    if (Platform.isIOS) await _actions.start();
+    _ready = true;
   }
 
   /// The notification the app was opened from, if it was — so a cold start
@@ -160,7 +191,10 @@ class LocalNotices {
   /// A data message from the Mac: drawn, or — a withdrawal — taken down.
   static Future<void> handle(Map<String, Object?> data) async {
     final w = LocalNotice.withdrawnId(data);
-    if (w != null) return plugin.cancel(id: w);
+    if (w != null) {
+      if (Platform.isIOS) await _actions.withdraw(data['requestId'].toString());
+      return plugin.cancel(id: w);
+    }
     final n = LocalNotice.from(data);
     if (n == null) return;
     return show(n);
@@ -180,7 +214,7 @@ class LocalNotices {
         picture = null; // the words still go up
       }
     }
-    return plugin.show(id: n.id, title: n.title, body: n.body, notificationDetails: NotificationDetails(android: androidDetails(n, picture: picture)), payload: n.payload);
+    return plugin.show(id: n.id, title: n.title, body: n.body, notificationDetails: NotificationDetails(android: androidDetails(n, picture: picture), iOS: DarwinNotificationDetails(categoryIdentifier: darwinCategory(n), threadIdentifier: n.slug, attachments: picture == null ? null : [DarwinNotificationAttachment(picture)])), payload: n.payload);
   }
 
   /// A frame from the bucket, through the SDK as the signed-in user —
@@ -214,12 +248,14 @@ class LocalNotices {
 }
 
 /// FCM's background entry: a data message while the app is in the
-/// background or closed. Its own isolate — Firebase first.
+/// background or closed. Android uses its own isolate — Firebase first.
 @pragma('vm:entry-point')
 Future<void> kitBackgroundMessage(RemoteMessage m) async {
   await _firebase();
   // Its own isolate: the plugin is set up here too, once.
   await LocalNotices.init();
+  // APNs displays its alert itself; drawing it again would duplicate it.
+  if (Platform.isIOS && m.notification != null) return;
   await LocalNotices.handle(m.data);
 }
 
@@ -232,6 +268,10 @@ Future<void> kitNotificationAction(NotificationResponse r) async {
   if (data == null || action == null || action.isEmpty) return;
   await _firebase();
   await LocalNotices.init();
+  await _answerAction(data, action);
+}
+
+Future<void> _answerAction(Map<String, Object?> data, String action) async {
   final outcome = await answerFromNotification(FirebaseFirestore.instance, data, action, signedIn: _signedIn);
   final n = LocalNotice.from(data);
   if (n == null) return;

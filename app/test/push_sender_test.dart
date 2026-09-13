@@ -56,18 +56,22 @@ void main() {
     final m = fcmMessage(n, slug: 'kit', token: 'T');
     expect(m['token'], 'T');
     expect(m['notification'], {'title': 'Allow Run? · kit', 'body': 'git push'});
-    expect(m['data'], {'slug': 'kit', 'kind': 'permission', 'requestId': 'req_1'});
+    expect(m['data'], androidData(n, slug: 'kit'));
+    expect(jsonDecode((m['data'] as Map)['actions'] as String), [{'id': 'allow', 'label': 'Allow'}, {'id': 'deny', 'label': 'Deny'}]);
     final android = m['android'] as Map;
     expect(android['priority'], 'high');
     expect(android['notification'], {'channel_id': 'asks', 'tag': 'asks-kit', 'sound': 'default'});
-    expect(((m['apns'] as Map)['payload'] as Map)['aps'], {'sound': 'default', 'thread-id': 'kit'});
+    expect(((m['apns'] as Map)['payload'] as Map)['aps'], {'sound': 'default', 'thread-id': 'kit', 'category': 'kit.permission'});
 
     final p = fcmMessage(noticeForProblem('it broke', project: 'kit'), slug: 'kit', token: 'T');
     expect((p['android'] as Map)['notification'], {'channel_id': 'problems', 'tag': 'problems-kit', 'sound': 'default'});
-    expect(p['data'], {'slug': 'kit', 'kind': 'problem'});
+    expect(p['data'], containsPair('kind', 'problem'));
+    expect((((p['apns'] as Map)['payload'] as Map)['aps'] as Map).containsKey('category'), isFalse);
     final d = fcmMessage(noticeForDone(const ResultEvent(subtype: 'success', sessionId: 's', text: 'ok'), project: 'kit'), slug: 'kit', token: 'T');
     expect((d['android'] as Map)['notification'], {'channel_id': 'done', 'tag': 'done-kit', 'sound': 'default'});
-    expect(d['data'], {'slug': 'kit', 'kind': 'done'});
+    expect(d['data'], containsPair('kind', 'done'));
+    final plan = fcmMessage(const Notice(kind: NoticeKind.plan, title: 'Plan', body: 'Ready'), slug: 'kit', token: 'T');
+    expect((((plan['apns'] as Map)['payload'] as Map)['aps'] as Map)['category'], 'kit.plan');
 
     // An Android phone draws the notification itself: a data message with
     // the words, the channel and the buttons — no tray block.

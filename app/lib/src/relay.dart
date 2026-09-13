@@ -796,8 +796,8 @@ class RemoteDeck extends ChangeNotifier {
   Map<String, Object?> get _build => session['build'] is Map ? {for (final e in (session['build'] as Map).entries) e.key.toString(): e.value as Object?} : const {};
   bool get buildOnFlip => _build['buildOnFlip'] == true;
 
-  /// `{type: build, action: start|delete|switch, id?, on?}` — waited on.
-  Future<String> buildCommand(String action, {String? id, bool? on}) => _waited({'type': 'build', 'action': action, 'buildId': ?id, 'on': ?on}, wait: const Duration(seconds: 60));
+  /// `{type: build, action: start|delete|switch, buildId?, on?, target}` — waited on.
+  Future<String> buildCommand(String action, {String? id, bool? on}) => _waited({'type': 'build', 'action': action, 'buildId': ?id, 'on': ?on, 'target': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android'}, wait: const Duration(seconds: 60));
 
   /// Opens the system installer for a test — the default is open_filex.
   static Future<String> Function(String path)? opener;
@@ -808,6 +808,8 @@ class RemoteDeck extends ChangeNotifier {
   /// Downloads a ready build to the phone's cache and opens the system
   /// installer on it. Returns the one line to toast.
   Future<String> installBuild(BuildRecord b, void Function(double fraction) onProgress) async {
+    if (b.target == BuildTarget.ios) return b.ready ? 'Installed on ${b.device ?? 'the paired iPhone'} by the Mac' : 'that build is not ready';
+    if (defaultTargetPlatform == TargetPlatform.iOS) return 'Android builds cannot install on iPhone. Use TRY IT to build for iOS.';
     final path = b.path;
     if (!b.ready || path == null) return 'that build is not ready';
     final dir = await (cacheDir ?? getTemporaryDirectory)();

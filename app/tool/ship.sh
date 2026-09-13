@@ -2,11 +2,50 @@
 # Rebuilds the kit app after a change and puts it where it runs:
 #   Mac   → ~/Applications/kit_app.app (relaunched if it was running)
 #   Phone → ~/Desktop/kit_app.apk, and installed over USB when a phone is plugged in
-# Usage: bash app/tool/ship.sh [mac|android|all]   (default: all)
+# Usage: bash app/tool/ship.sh [mac|android|ios|ios-sim|all] [device-id]   (default: all)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WHAT="${1:-all}"
 cd "$HERE"
+case "$WHAT" in
+  mac|android|ios|ios-sim|all) ;;
+  *) echo "Usage: bash app/tool/ship.sh [mac|android|ios|ios-sim|all] [device-id]" >&2; exit 2 ;;
+esac
+
+# iOS is explicit: `all` preserves the Mac + Android workflow. Never pick an
+# arbitrary paired phone or simulator when several are available.
+if [ "$WHAT" = ios ] || [ "$WHAT" = ios-sim ]; then
+  DEVICES="$(mktemp)"
+  flutter devices --machine >"$DEVICES"
+  IOS_DEVICE="$(python3 - "$DEVICES" "$WHAT" "${2:-${IOS_DEVICE_ID:-}}" <<'PYDEVICE'
+import json, sys
+rows = json.load(open(sys.argv[1]))
+simulator = sys.argv[2] == 'ios-sim'
+requested = sys.argv[3]
+rows = [r for r in rows if r.get('targetPlatform') == 'ios' and bool(r.get('emulator')) == simulator and r.get('isSupported', True)]
+if requested:
+    rows = [r for r in rows if r['id'] == requested]
+if len(rows) != 1:
+    print('Select one available iOS ' + ('simulator' if simulator else 'device') + ' by passing its ID from flutter devices (boot the simulator first).', file=sys.stderr)
+    for r in rows:
+        print(r['id'] + '  ' + r['name'], file=sys.stderr)
+    sys.exit(2)
+print(rows[0]['id'])
+PYDEVICE
+)" || { rm -f "$DEVICES"; exit 2; }
+  rm -f "$DEVICES"
+  if [ "$WHAT" = ios-sim ]; then
+    echo "▸ iPhone simulator: building debug…"
+    flutter build ios --simulator --debug
+    xcrun simctl install "$IOS_DEVICE" "$HERE/build/ios/iphonesimulator/Runner.app"
+    xcrun simctl launch "$IOS_DEVICE" dev.flutterkit.kitApp
+    open -a Simulator
+  else
+    echo "▸ iPhone: building signed release…"
+    flutter build ios --release
+    flutter install --release -d "$IOS_DEVICE"
+  fi
+fi
 
 if [ "$WHAT" = mac ] || [ "$WHAT" = all ]; then
   echo "▸ Mac: building release…"

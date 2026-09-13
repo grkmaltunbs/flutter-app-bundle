@@ -28,8 +28,21 @@ const codexProvenOn = '0.153.4';
 /// development, off by default); the host turns it on for every session.
 const codexQuestionFeature = 'default_mode_request_user_input';
 
-/// The command line the host starts.
-List<String> codexArgs({List<String> enable = const [codexQuestionFeature]}) => ['app-server', '--stdio', for (final f in enable) ...['--enable', f]];
+/// Maximum advertised by the subscription model catalog on 2026-09-13.
+/// Codex caps this to the active model's own maximum (including after a
+/// model switch), then reserves 5%: Astra reports 828,400 usable tokens;
+/// GPT-5.5 still reports 258,400. Keep automatic compaction at 95% of
+/// that usable window, instead of inheriting the smaller default window.
+const codexMaxContextWindow = 872000;
+const codexAutoCompactTokenLimit = 786980;
+
+/// These overrides belong to K.A.T.Y.A's process, not the user's config.
+List<String> codexArgs({List<String> enable = const [codexQuestionFeature]}) => [
+      'app-server', '--stdio',
+      '-c', 'model_context_window=$codexMaxContextWindow',
+      '-c', 'model_auto_compact_token_limit=$codexAutoCompactTokenLimit',
+      for (final f in enable) ...['--enable', f],
+    ];
 
 /// Where the ChatGPT app keeps its Codex when `codex` is not on PATH.
 const codexInChatGptApp = '/Applications/ChatGPT.app/Contents/Resources/codex';

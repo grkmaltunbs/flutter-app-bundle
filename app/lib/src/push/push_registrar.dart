@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_kit/kit.dart';
 
 /// Phone only. Puts this phone on the list the Mac pushes to: asks the
-/// system for permission (Android 13 and up prompt), takes the FCM token,
+/// system for permission (iOS and Android 13 and up), takes the FCM token,
 /// writes it under `devices/{token}`, and rewrites it when it changes.
 ///
 /// The platform calls are injectable so a test runs it without Firebase
@@ -23,7 +23,7 @@ class PushRegistrar extends ChangeNotifier {
     String? platform,
     String? deviceName,
   })  : _requestPermission = requestPermission ?? _askSystem,
-        _getToken = getToken ?? (() => FirebaseMessaging.instance.getToken()),
+        _getToken = getToken ?? _systemToken,
         _tokenRefresh = tokenRefresh ?? FirebaseMessaging.instance.onTokenRefresh,
         _uid = uid ?? (() => FirebaseAuth.instance.currentUser?.uid),
         platform = platform ?? Platform.operatingSystem,
@@ -59,10 +59,16 @@ class PushRegistrar extends ChangeNotifier {
         notifyListeners();
         return;
       }
-      final t = await _getToken();
-      if (t == null || t.isEmpty) throw StateError('no token from Firebase Messaging');
-      await _write(t);
       _refresh ??= _tokenRefresh.listen((t) => _write(t).catchError(_fail));
+      final t = await _getToken();
+      if (t == null || t.isEmpty) {
+        if (platform != 'ios') throw StateError('no token from Firebase Messaging');
+        status = 'Push notifications are waiting for Apple registration. You can keep using the relay.';
+        error = null;
+        notifyListeners();
+        return;
+      }
+      await _write(t);
       status = 'Notifications on — this phone hears when Claude asks, needs a sign-in, or hits a problem';
       error = null;
     } on Object catch (e) {
@@ -82,6 +88,8 @@ class PushRegistrar extends ChangeNotifier {
       if (!was.exists) 'registeredAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     token = t;
+    status = 'Notifications on — this phone hears when Claude asks, needs a sign-in, or hits a problem';
+    error = null;
     quiet = QuietWindow.fromMap(was.data()?['quiet']);
     notifyListeners();
   }
@@ -100,6 +108,13 @@ class PushRegistrar extends ChangeNotifier {
     error = e.toString();
     status = 'Notifications could not be set up: $e';
     notifyListeners();
+  }
+
+  static Future<String?> _systemToken() async {
+    // Simulators and devices without an APNs profile can still use the relay.
+    // Calling getToken before APNs is ready throws apns-token-not-set.
+    if (Platform.isIOS && await FirebaseMessaging.instance.getAPNSToken() == null) return null;
+    return FirebaseMessaging.instance.getToken();
   }
 
   static Future<bool> _askSystem() async {

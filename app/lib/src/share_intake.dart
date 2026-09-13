@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
@@ -13,7 +14,7 @@ class Shared {
   bool get isEmpty => files.isEmpty && (text == null || text!.isEmpty);
 }
 
-/// The files Android's share sheet handed over, read into attachments —
+/// The files the phone's share sheet handed over, read into attachments —
 /// a screenshot of the app under test, most days. Text comes as text.
 Shared sharedFrom(List<SharedMediaFile> media) {
   final files = <PendingAttachment>[];
@@ -54,6 +55,7 @@ class ShareIntake {
   ShareIntake({required this.onShared});
   final void Function(Shared shared) onShared;
   bool _started = false;
+  StreamSubscription<List<SharedMediaFile>>? _subscription;
 
   void start() {
     if (_started) return;
@@ -61,12 +63,17 @@ class ShareIntake {
     final r = ReceiveSharingIntent.instance;
     r.getInitialMedia().then((m) {
       final s = sharedFrom(m);
-      if (!s.isEmpty) onShared(s);
+      if (_started && !s.isEmpty) onShared(s);
       r.reset();
     }, onError: (Object _) {});
-    r.getMediaStream().listen((m) {
+    _subscription = r.getMediaStream().listen((m) {
       final s = sharedFrom(m);
-      if (!s.isEmpty) onShared(s);
+      if (_started && !s.isEmpty) onShared(s);
     }, onError: (Object _) {});
+  }
+  void dispose() {
+    _started = false;
+    _subscription?.cancel();
+    _subscription = null;
   }
 }

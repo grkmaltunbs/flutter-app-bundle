@@ -776,3 +776,74 @@ app has no `cua_repl` and the pill reads OFF.
   been read.
 - *Storage cost.* Frames at one a second only while a sheet is open and a
   phone heartbeat says so; three builds kept; uploads deleted on save.
+
+## Codex maximum context (2026-09-13)
+
+K.A.T.Y.A starts its own `codex app-server` with
+`model_context_window=872000` and `model_auto_compact_token_limit=786980`.
+These process arguments override a smaller inherited window without editing
+`~/.codex/config.toml`. The subscription model catalog on this Mac advertises
+872,000 as Astra/Sol/Terra/Luna's maximum (272,000 by default), and smaller
+limits for older models. The server caps the requested window to each model's
+own maximum before applying its 95% usable-context allowance. Compaction is
+kept at 95% of Astra's usable window; the server also caps this for a smaller
+model. The Deck continues to display the server's reported usable window.
+
+Live probe with `KIT_LIVE=1`, ephemeral read-only threads in `~/kit-scratch`,
+2026-09-13: Astra returned `modelContextWindow: 828400`; GPT-5.5 under the
+same arguments returned `modelContextWindow: 258400`. Both answered `OK`.
+This verifies configuration and model caps, not an 800K-token workload.
+Automatic compaction and the existing per-step `/clear` remain enabled.
+Official setting reference: https://learn.chatgpt.com/docs/config-file/config-reference.
+
+## Step 27 — iPhone (2026-09-13)
+
+The phone role now has a native iOS target (`app/ios/`, iOS 15 minimum for
+the installed Firebase SDK). It shares the already registered Firebase Apple
+app and bundle `dev.flutterkit.kitApp` with macOS; it remains a remote, and
+never starts an engine on iOS. Signing uses team `8J4ASHVDQ5`. No APNs key or
+user configuration was changed. Missing APNs registration keeps the relay
+usable and a later token refresh updates the registration status.
+
+The share target `dev.flutterkit.kitApp.ShareExtension` subclasses the
+installed receive_sharing_intent controller and uses the app group
+`group.dev.flutterkit.kitApp` and `ShareMedia-` URL scheme. Both targets are
+embedded in the simulator build. The extension's Swift package reference
+uses Flutter's generated receive_sharing_intent-1.9.0 package directory;
+update that reference together with a future package-version upgrade.
+App icons reuse the existing K.A.T.Y.A artwork.
+
+APNs displays remote alerts. `kit.permission` has Allow/Deny, `kit.plan`
+has Approve, and questions open their full card. Actions foreground the
+phone so Firebase Auth can restore before the relay answer. Local-notification
+plugins do not own remote APNs actions, so AppDelegate queues those actions
+until Dart is ready and acknowledges them only after processing. The channel
+adapter is injectable and tested with actual relay-answer payloads over fake
+Firestore. Withdrawal matches native notifications by `requestId`, including
+silent background pushes, instead of cancelling only an Android-style local
+integer ID. Share subscriptions are cancelled when the phone listener ends.
+
+TRY IT tags an iPhone command with `target: ios`. The host requires exactly
+one paired physical iOS device, builds a signed debug app, and installs it
+through Flutter. No APK is uploaded or offered on iOS. Existing Android build
+records still decode as Android, and build-on-flip remembers its chosen
+platform. No/multiple device cases, build and installation failures, and
+Android compatibility have regression tests.
+
+`ship.sh ios-sim [id]` builds, installs and launches on an available simulator;
+`ship.sh ios [id]` builds and installs to a paired physical iPhone. Ambiguous
+or missing devices fail with selection instructions. `all` keeps its existing
+Mac + Android meaning. Physical registration, device installation, real
+FCM/APNs delivery and an authenticated share-sheet round trip still need the
+physical-phone acceptance walkthrough; the two human items remain open.
+
+Verification: 151 `kit` tests and 252 Flutter tests passed (3 quota-spending
+live tests skipped by default); final `flutter analyze --no-pub` is clean.
+All three `integration_test/iphone_test.dart` tests passed on the booted
+**iPhone 17 Pro / iOS 26.5**: real native Firebase/notification/share plugin
+initialization and the sign-in screen, actual phone Deck widgets over an
+isolated scratch Firestore fixture (Start, Send, Deny, question answer), and
+constellation selection plus persisted work-item drafts. No Dart exceptions
+or overflow. The authenticated live relay and physical APNs delivery were
+not exercised. The Mac release was installed and relaunched; its
+K.A.T.Y.A window is present. The Codex plugin cache was refreshed.

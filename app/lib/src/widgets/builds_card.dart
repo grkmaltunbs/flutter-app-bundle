@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_kit/kit.dart';
 
@@ -94,7 +95,7 @@ class _BuildsCardState extends State<BuildsCard> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               FilledButton.tonal(onPressed: busy || building ? null : () => _run('start'), child: Text(building ? 'BUILDING…' : _busy == 'start' ? 'STARTING…' : 'TRY IT')),
-              Text('A debug build for the phone in your hand.', style: t.mono(11, color: t.muted)),
+              Text(defaultTargetPlatform == TargetPlatform.iOS ? 'The Mac installs on your paired iPhone.' : 'A debug build for the phone in your hand.', style: t.mono(11, color: t.muted)),
             ],
           ),
           Padding(
@@ -114,7 +115,7 @@ class _BuildsCardState extends State<BuildsCard> {
               ],
             ),
           ),
-          for (final b in builds) _BuildRow(record: b, downloading: _downloading[b.id], now: widget.now, onInstall: widget.onInstall == null || !b.ready ? null : () => _install(b), onLog: widget.onLog == null ? null : () => widget.onLog!(b), onDelete: busy || b.building ? null : () => _run('delete', id: b.id)),
+          for (final b in builds) _BuildRow(record: b, downloading: _downloading[b.id], now: widget.now, onInstall: widget.onInstall == null || !b.ready || b.target == BuildTarget.ios || defaultTargetPlatform == TargetPlatform.iOS ? null : () => _install(b), onLog: widget.onLog == null ? null : () => widget.onLog!(b), onDelete: busy || b.building ? null : () => _run('delete', id: b.id)),
         ],
       ),
     );

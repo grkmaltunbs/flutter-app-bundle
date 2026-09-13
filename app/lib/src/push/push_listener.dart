@@ -36,6 +36,7 @@ class PushListener extends StatefulWidget {
 
 class _PushListenerState extends State<PushListener> {
   final _subs = <StreamSubscription<RemoteMessage>>[];
+  ShareIntake? _shareIntake;
 
   @override
   void initState() {
@@ -55,7 +56,7 @@ class _PushListenerState extends State<PushListener> {
     _subs.add(FirebaseMessaging.onMessageOpenedApp.listen((m) => _open(m.data)));
     _subs.add(FirebaseMessaging.onMessage.listen(_arrived));
     // A screenshot shared from the phone's share sheet: the Deck, with it attached.
-    ShareIntake(onShared: _shared).start();
+    _shareIntake = ShareIntake(onShared: _shared)..start();
   }
 
   /// A share arrived: one open project takes it straight; more than one
@@ -144,6 +145,7 @@ class _PushListenerState extends State<PushListener> {
 
   @override
   void dispose() {
+    _shareIntake?.dispose();
     for (final s in _subs) {
       s.cancel();
     }

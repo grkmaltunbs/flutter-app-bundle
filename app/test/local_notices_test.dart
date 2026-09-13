@@ -11,6 +11,15 @@ import 'package:kit_app/src/host/push_sender.dart';
 import 'package:kit_app/src/push/local_notices.dart';
 
 void main() {
+  test('iOS categories use fixed permission/plan actions and leave questions on the card', () {
+    LocalNotice notice(String kind, List<NoticeAction> actions) => LocalNotice(id: 1, channel: NoticeChannel.asks, title: 'Ask', body: '', actions: actions, data: {'slug': 'scratch', 'kind': kind});
+    expect(LocalNotices.darwinCategory(notice('permission', const [NoticeAction('allow', 'Allow'), NoticeAction('deny', 'Deny')])), 'kit.permission');
+    expect(LocalNotices.darwinCategory(notice('plan', const [NoticeAction('allow', 'Approve')])), 'kit.plan');
+    expect(LocalNotices.darwinCategory(notice('question', const [NoticeAction('q:0:0', 'iPhone')])), isNull);
+    expect(LocalNotices.darwinCategories.map((c) => c.identifier), ['kit.permission', 'kit.plan']);
+    expect(LocalNotices.darwinCategories.first.actions.map((a) => a.identifier), ['allow', 'deny']);
+  });
+
   Ask bash(String id) => Ask.fromMap({'requestId': id, 'toolName': 'Bash', 'toolUseId': 't$id', 'at': '2026-09-04T10:00:00Z', 'input': {'command': 'touch /tmp/kit-lock'}, 'description': 'A marker'});
 
   test('a data message from the Mac becomes the notification the phone draws: words, channel, buttons, a stable id', () {

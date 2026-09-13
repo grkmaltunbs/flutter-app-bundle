@@ -9,6 +9,8 @@ import 'bridge.dart' show formatBytes;
 
 enum BuildState { building, ready, failed }
 
+enum BuildTarget { android, ios }
+
 /// How many builds a project keeps in the bucket and the relay.
 const buildsKeep = 3;
 
@@ -32,6 +34,8 @@ class BuildRecord {
     this.log = const [],
     this.by,
     this.name = '',
+    this.target = BuildTarget.android,
+    this.device,
   });
 
   factory BuildRecord.fromMap(Map<String, Object?> m) => BuildRecord(
@@ -48,6 +52,8 @@ class BuildRecord {
         log: [for (final l in (m['log'] as List? ?? const [])) l.toString()],
         by: _text(m['by']),
         name: (m['name'] ?? '').toString(),
+        target: m['target'] == 'ios' ? BuildTarget.ios : BuildTarget.android,
+        device: _text(m['device']),
       );
 
   final String id;
@@ -74,6 +80,10 @@ class BuildRecord {
   /// The app's name, for the installer's line.
   final String name;
 
+  /// Legacy records are Android APKs; iOS records describe a host install.
+  final BuildTarget target;
+  final String? device;
+
   bool get building => state == BuildState.building;
   bool get ready => state == BuildState.ready;
   bool get failed => state == BuildState.failed;
@@ -92,9 +102,11 @@ class BuildRecord {
         'log': log,
         'by': by,
         'name': name,
+        'target': target.name,
+        'device': device,
       };
 
-  BuildRecord copyWith({BuildState? state, String? sha, String? branch, String? version, int? size, DateTime? at, String? path, double? progress, String? error, List<String>? log, String? by, String? name}) => BuildRecord(
+  BuildRecord copyWith({BuildState? state, String? sha, String? branch, String? version, int? size, DateTime? at, String? path, double? progress, String? error, List<String>? log, String? by, String? name, BuildTarget? target, String? device}) => BuildRecord(
         id: id,
         state: state ?? this.state,
         sha: sha ?? this.sha,
@@ -108,6 +120,8 @@ class BuildRecord {
         log: log ?? this.log,
         by: by ?? this.by,
         name: name ?? this.name,
+        target: target ?? this.target,
+        device: device ?? this.device,
       );
 
   static String? _text(Object? v) {
@@ -124,6 +138,7 @@ String buildLine(BuildRecord b, {DateTime? now}) {
     case BuildState.ready:
       final t = now ?? DateTime.now();
       final age = b.at == null ? '' : ' · ${_ago(t.difference(b.at!))}';
+      if (b.target == BuildTarget.ios) return 'Installed · ${b.version.isEmpty ? b.sha : b.version} · ${b.device ?? 'iPhone'}$age';
       return 'Ready · ${b.version.isEmpty ? b.sha : b.version} · ${formatBytes(b.size)}$age';
     case BuildState.failed:
       return 'Failed · ${b.error ?? 'see the log'}';
@@ -156,6 +171,7 @@ const debugApkPath = 'build/app/outputs/flutter-apk/app-debug.apk';
 
 /// How far the build is, read off its output: the Gradle run is most of it.
 double buildProgressFor(String line, double current) {
+  if (line.contains('Running Xcode build')) return current < 0.15 ? 0.15 : current;
   if (line.contains('Running Gradle task')) return current < 0.15 ? 0.15 : current;
   if (line.contains('✓ Built') || line.contains('Built build/')) return 0.85;
   return current;

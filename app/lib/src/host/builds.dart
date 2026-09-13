@@ -17,8 +17,9 @@ Future<Process> _startProcess(String executable, List<String> args, {String? wor
 Future<ProcessResult> _runCommand(String executable, List<String> args, {String? workingDirectory, Map<String, String>? environment}) =>
     Process.run(executable, args, workingDirectory: workingDirectory, environment: environment);
 
-/// Try it: the host builds the app under test — `flutter build apk
-/// --debug --target-platform android-arm64` in the project — puts the APK in the bucket at
+/// Try it: the host builds the app under test. iOS builds a signed
+/// debug app and installs on the single paired physical phone. Android
+/// builds an arm64 debug APK and puts it in the bucket at
 /// `projects/{slug}/builds/{id}.apk`, writes `builds/{id}` for the phone,
 /// pushes "Build ready" (or "Build failed" with the first error line),
 /// and keeps the last [buildsKeep] builds, deleting older objects. TRY
@@ -72,6 +73,7 @@ class Builds extends ChangeNotifier {
 
   /// Build on its own when a step flips — a switch per project, kept.
   bool buildOnFlip = false;
+  BuildTarget buildOnFlipTarget = BuildTarget.android;
   Process? _proc;
   bool _busy = false;
 
@@ -88,6 +90,8 @@ class Builds extends ChangeNotifier {
       'version': b?.version,
       'error': b?.error,
       'buildOnFlip': buildOnFlip,
+      'target': b?.target.name,
+      'buildOnFlipTarget': buildOnFlipTarget.name,
     };
   }
 
@@ -98,18 +102,22 @@ class Builds extends ChangeNotifier {
       final f = _settingsFile;
       if (!f.existsSync()) return;
       final j = jsonDecode(f.readAsStringSync());
-      if (j is Map) buildOnFlip = j['buildOnFlip'] == true;
+      if (j is Map) {
+        buildOnFlip = j['buildOnFlip'] == true;
+        buildOnFlipTarget = j['target'] == 'ios' ? BuildTarget.ios : BuildTarget.android;
+      }
     } on Object {
       // The switch is a convenience; off is the default.
     }
   }
 
-  void setBuildOnFlip(bool on) {
+  void setBuildOnFlip(bool on, {BuildTarget? target}) {
     buildOnFlip = on;
+    buildOnFlipTarget = target ?? buildOnFlipTarget;
     try {
       _settingsFile
         ..createSync(recursive: true)
-        ..writeAsStringSync(jsonEncode({'buildOnFlip': on}));
+        ..writeAsStringSync(jsonEncode({'buildOnFlip': on, 'target': buildOnFlipTarget.name}));
     } on Object {
       // Kept for the session at least.
     }
@@ -119,7 +127,7 @@ class Builds extends ChangeNotifier {
   /// A step flipped: build, when the switch says so and nothing runs.
   Future<void> onFlip() async {
     if (!buildOnFlip || _busy) return;
-    await start(by: 'flip');
+    await start(by: 'flip', target: buildOnFlipTarget);
   }
 
   Future<Map<String, String>> _env() async => {...Platform.environment, 'PATH': await _shellPath()};
@@ -157,7 +165,7 @@ class Builds extends ChangeNotifier {
 
   /// Starts a build. Returns the one line to toast; the work goes on
   /// after it, and the record says how far.
-  Future<String> start({String by = 'phone'}) async {
+  Future<String> start({String by = 'phone', BuildTarget target = BuildTarget.android}) async {
     if (_busy) return 'a build is running';
     _busy = true;
     final env = await _env();
@@ -169,7 +177,7 @@ class Builds extends ChangeNotifier {
       return 'no pubspec.yaml in this folder';
     }
     final id = 'b${_now().toUtc().millisecondsSinceEpoch ~/ 1000}';
-    var b = BuildRecord(id: id, at: _now(), sha: await _git(['rev-parse', '--short', 'HEAD'], env), branch: await _git(['rev-parse', '--abbrev-ref', 'HEAD'], env), version: versionOf(pubspec), name: nameOf(pubspec), by: by);
+    var b = BuildRecord(id: id, at: _now(), sha: await _git(['rev-parse', '--short', 'HEAD'], env), branch: await _git(['rev-parse', '--abbrev-ref', 'HEAD'], env), version: versionOf(pubspec), name: nameOf(pubspec), by: by, target: target);
     _set(b);
     unawaited(_run(b, env));
     return 'building ${b.version.isEmpty ? '' : '${b.version} '}on the Mac';
@@ -188,19 +196,48 @@ class Builds extends ChangeNotifier {
 
     try {
       final bin = await _bin('flutter');
-      // The phone in hand is arm64; a fat debug APK is three times the size.
-      _proc = await _starter(bin, ['build', 'apk', '--debug', '--target-platform', 'android-arm64'], workingDirectory: dir, environment: env);
-      final out = _proc!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(line);
-      final err = _proc!.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(line);
-      final code = await _proc!.exitCode;
-      // The last lines, if the pipes are still draining; a process that
-      // never closes them does not hold the build up.
-      await Future.wait([out.asFuture<void>(), err.asFuture<void>()]).timeout(const Duration(milliseconds: 400), onTimeout: () => const []);
-      await out.cancel();
-      await err.cancel();
-      _proc = null;
+      String? deviceId;
+      if (b.target == BuildTarget.ios) {
+        final result = await _runner(bin, ['devices', '--machine'], workingDirectory: dir, environment: env).timeout(const Duration(seconds: 45));
+        if (result.exitCode != 0) {
+          await _fail(b, 'Could not find the paired iPhone: ${result.stderr.toString().trim()}', log);
+          return;
+        }
+        final devices = jsonDecode(result.stdout.toString());
+        if (devices is! List) throw const FormatException('Flutter returned an invalid device list');
+        final phones = devices.whereType<Map>().where((d) => d['targetPlatform'] == 'ios' && d['emulator'] == false && d['isSupported'] != false && (d['id']?.toString().isNotEmpty ?? false)).toList();
+        if (phones.length != 1) {
+          await _fail(b, phones.isEmpty
+              ? 'No paired iPhone is available. Connect and trust the iPhone in Xcode, enable Developer Mode, and keep it connected by USB or paired on this Mac’s network.'
+              : 'More than one iPhone is available (${phones.map((d) => d['name'] ?? d['id']).join(', ')}). Disconnect the others so TRY IT has exactly one target.', log);
+          return;
+        }
+        deviceId = phones.single['id'].toString();
+        _set(b = b.copyWith(device: (phones.single['name'] ?? 'iPhone').toString()));
+      }
+      // Android keeps its arm64 APK; iOS builds a signed app for the
+      // single paired physical phone and installs it directly from the Mac.
+      final code = await _command(bin, b.target == BuildTarget.ios
+          ? ['build', 'ios', '--debug']
+          : ['build', 'apk', '--debug', '--target-platform', 'android-arm64'], env, line);
       if (code != 0) {
         await _fail(b, firstErrorLine(log), log);
+        return;
+      }
+      if (b.target == BuildTarget.ios) {
+        _set(b = b.copyWith(progress: 0.9, log: List.of(log)));
+        final installLog = <String>[];
+        final installed = await _command(bin, ['install', '-d', deviceId!, '--debug'], env, (l) {
+          installLog.add(l);
+          line(l);
+        });
+        if (installed != 0) {
+          await _fail(b, 'Could not install on ${b.device}: ${firstErrorLine(installLog)}. Check signing, trust and Developer Mode on the iPhone.', log);
+          return;
+        }
+        _set(b = b.copyWith(state: BuildState.ready, progress: 1, at: _now(), log: List.of(log)));
+        push?.call(noticeForBuild(project: b.name.isEmpty ? p.basename(dir) : b.name, buildId: b.id, ready: true, version: b.version).copyWith(body: 'Installed on ${b.device}. Open the app on your iPhone.'));
+        await _pruneOld();
         return;
       }
       final apk = File(p.join(dir, debugApkPath));
@@ -233,6 +270,19 @@ class Builds extends ChangeNotifier {
     }
   }
 
+  Future<int> _command(String bin, List<String> args, Map<String, String> env, void Function(String) line) async {
+    _proc = await _starter(bin, args, workingDirectory: dir, environment: env);
+    final out = _proc!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(line);
+    final err = _proc!.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(line);
+    final code = await _proc!.exitCode;
+    // Let final lines drain without letting an open pipe hold up the build.
+    await Future.wait([out.asFuture<void>(), err.asFuture<void>()]).timeout(const Duration(milliseconds: 400), onTimeout: () => const []);
+    await out.cancel();
+    await err.cancel();
+    _proc = null;
+    return code;
+  }
+
   Future<void> _fail(BuildRecord b, String why, List<String> log) async {
     _set(b.copyWith(state: BuildState.failed, error: why, log: List.of(log), at: _now()));
     push?.call(noticeForBuild(project: b.name.isEmpty ? p.basename(dir) : b.name, buildId: b.id, ready: false, version: b.version, error: why));
@@ -261,7 +311,7 @@ class Builds extends ChangeNotifier {
     final b = i < 0 ? null : builds.removeAt(i);
     final store = blobs;
     final s = slug();
-    final path = b?.path ?? (s == null ? null : buildPath(s, id));
+    final path = b == null ? (s == null ? null : buildPath(s, id)) : b.path;
     if (path != null && store != null) await store.delete(path).catchError((Object _) {});
     final rm = remove;
     if (rm != null) await rm(id).catchError((Object _) {});

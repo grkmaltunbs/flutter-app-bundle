@@ -50,7 +50,7 @@ void main() {
     expect(s.previous()!.engine, 'codex', reason: 'the notch is in the record before any session');
     expect(s.engineLabel, 'Codex');
     await s.start();
-    expect(fake.startedWith, ['app-server', '--stdio', '--enable', 'default_mode_request_user_input']);
+    expect(fake.startedWith, ['app-server', '--stdio', '-c', 'model_context_window=872000', '-c', 'model_auto_compact_token_limit=786980', '--enable', 'default_mode_request_user_input']);
     expect(fake.startedIn, project.path);
     await fake.requested('thread/start');
     await pumpEventQueue();

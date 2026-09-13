@@ -666,11 +666,11 @@ class HostProject extends ChangeNotifier {
         // rides as `buildId`.
         switch (cmd['action']) {
           case 'start':
-            return builds.start(by: cmd['from'] == 'phone' ? 'phone' : 'Mac');
+            return builds.start(by: cmd['from'] == 'phone' ? 'phone' : 'Mac', target: cmd['target'] == 'ios' ? BuildTarget.ios : BuildTarget.android);
           case 'delete':
             return builds.delete((cmd['buildId'] ?? '').toString());
           case 'switch':
-            builds.setBuildOnFlip(cmd['on'] == true);
+            builds.setBuildOnFlip(cmd['on'] == true, target: cmd['target'] == 'ios' ? BuildTarget.ios : BuildTarget.android);
             return 'build on flip ${cmd['on'] == true ? 'on' : 'off'}';
           default:
             return 'unknown build action ${cmd['action']}';

@@ -1,11 +1,12 @@
 // Try it: the host's build against a scripted flutter, the bucket kept
 // to three, the pushes, the switch; the relay; the phone's install; the
 // share intake; the card.
+import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_kit/kit.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,6 +40,8 @@ class _Rig {
         return f;
       },
       runner: (bin, args, {workingDirectory, environment}) async {
+        commands.add(args);
+        if (args.first == 'devices') return ProcessResult(1, deviceExit, jsonEncode(devices), 'device discovery failed');
         if (args.contains('--short')) return ProcessResult(1, 0, 'abc1234\n', '');
         if (args.contains('--abbrev-ref')) return ProcessResult(1, 0, 'main\n', '');
         return ProcessResult(1, 0, '', '');
@@ -59,7 +62,24 @@ class _Rig {
   final removed = <String>[];
   final pushes = <Notice>[];
   final spawned = <FakeClaude>[];
+  final commands = <List<String>>[];
+  int deviceExit = 0;
+  List<Map<String, Object?>> devices = [];
+
+  Future<void> finished() async {
+    for (var i = 0; i < 200 && builds.building; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(builds.building, isFalse);
+  }
   DateTime clock = DateTime.utc(2026, 9, 6, 7);
+
+  Future<void> processes(int count) async {
+    for (var i = 0; i < 400 && spawned.length < count; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(spawned.length, count);
+  }
 
   /// The process is spawned a tick after start() returns.
   Future<void> spawnedOne() async {
@@ -138,6 +158,85 @@ void main() {
       r.close();
     });
 
+    test('iPhone TRY IT discovers one physical phone, builds and installs without uploading an APK', () async {
+      final r = _Rig();
+      addTearDown(r.close);
+      r.devices = [
+        {'id': 'sim', 'name': 'Simulator', 'targetPlatform': 'ios', 'emulator': true},
+        {'id': 'phone', 'name': 'Ren iPhone', 'targetPlatform': 'ios', 'emulator': false, 'isSupported': true},
+        {'id': 'android', 'targetPlatform': 'android-arm64', 'emulator': false},
+      ];
+      await r.builds.start(target: BuildTarget.ios);
+      await r.spawnedOne();
+      expect(r.commands.last, ['devices', '--machine']);
+      expect(r.spawned.single.startedWith, ['build', 'ios', '--debug']);
+      expect(r.builds.latest!.target, BuildTarget.ios);
+      r.spawned.single.emit('✓ Built build/ios/iphone/Runner.app');
+      await pumpEventQueue();
+      r.spawned.single.exit(0);
+      await r.processes(2);
+      expect(r.spawned.length, 2);
+      expect(r.spawned.last.startedWith, ['install', '-d', 'phone', '--debug']);
+      expect(r.builds.latest!.ready, isFalse, reason: 'success means installed, not just compiled');
+      r.spawned.last.exit(0);
+      await r.finished();
+      expect(r.builds.latest!.ready, isTrue);
+      expect(r.builds.latest!.device, 'Ren iPhone');
+      expect(r.builds.latest!.path, isNull);
+      expect(r.published.values.last['target'], 'ios');
+      expect(r.pushes.single.body, 'Installed on Ren iPhone. Open the app on your iPhone.');
+      expect(await r.store.list('projects/demo/builds'), isEmpty);
+    });
+
+    for (final count in [0, 2]) {
+      test('iPhone TRY IT refuses $count physical targets without starting a build', () async {
+        final r = _Rig();
+        addTearDown(r.close);
+        r.devices = [
+          {'id': 'sim', 'targetPlatform': 'ios', 'emulator': true},
+          for (var i = 0; i < count; i++) {'id': 'phone$i', 'name': 'iPhone $i', 'targetPlatform': 'ios', 'emulator': false},
+        ];
+        await r.builds.start(target: BuildTarget.ios);
+        await r.finished();
+        expect(r.spawned, isEmpty);
+        expect(r.builds.latest!.failed, isTrue);
+        expect(r.builds.latest!.error, contains(count == 0 ? 'Connect and trust' : 'Disconnect the others'));
+        expect(r.pushes.single.kind, NoticeKind.build);
+      });
+    }
+
+    test('failed iPhone install preserves an actionable failure and never reports ready', () async {
+      final r = _Rig();
+      addTearDown(r.close);
+      r.devices = [{'id': 'phone', 'name': 'iPhone', 'targetPlatform': 'ios', 'emulator': false}];
+      await r.builds.start(target: BuildTarget.ios);
+      await r.spawnedOne();
+      r.spawned.single.exit(0);
+      await r.processes(2);
+      r.spawned.last.emitErr('Error: device is locked');
+      await pumpEventQueue();
+      r.spawned.last.exit(1);
+      await r.finished();
+      expect(r.builds.latest!.failed, isTrue);
+      expect(r.builds.latest!.error, contains('device is locked'));
+      expect(r.builds.latest!.error, contains('Developer Mode'));
+      expect(r.pushes.single.title, startsWith('Build failed'));
+    });
+
+    test('build on flip retains the iPhone target across host restarts', () async {
+      final r = _Rig();
+      addTearDown(r.close);
+      r.builds.setBuildOnFlip(true, target: BuildTarget.ios);
+      final restored = Builds(dir: r.project.path, blobs: r.store, slug: () => 'demo', home: r.home.path);
+      addTearDown(restored.dispose);
+      expect(restored.buildOnFlipTarget, BuildTarget.ios);
+      await r.builds.onFlip();
+      await r.finished();
+      expect(r.builds.latest!.target, BuildTarget.ios);
+      expect(r.builds.latest!.failed, isTrue, reason: 'no physical iPhone is paired');
+      expect(r.spawned, isEmpty, reason: 'must not fall back to Android');
+    });
+
     test('four builds: the bucket and the list hold three, the oldest object and document go', () async {
       final r = _Rig();
       final ids = <String>[];
@@ -209,6 +308,22 @@ void main() {
   });
 
   group('the relay', () {
+    test('iPhone commands name the iOS target and cannot download Android APKs', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final db = FakeFirebaseFirestore();
+      final deck = RemoteDeck(db, 'scratch');
+      addTearDown(deck.dispose);
+      final sent = deck.buildCommand('start');
+      await pumpEventQueue();
+      final command = (await db.collection('projects').doc('scratch').collection('commands').get()).docs.single;
+      expect(command.data()['target'], 'ios');
+      await command.reference.set({'doneAt': Timestamp.now(), 'result': 'building'}, SetOptions(merge: true));
+      expect(await sent, 'building');
+      expect(await deck.installBuild(const BuildRecord(id: 'android', state: BuildState.ready, path: 'apk'), (_) => fail('no download')), contains('cannot install on iPhone'));
+      expect(await deck.installBuild(const BuildRecord(id: 'ios', target: BuildTarget.ios, state: BuildState.ready, device: 'Ren iPhone'), (_) => fail('no download')), 'Installed on Ren iPhone by the Mac');
+    });
+
     test('the host writes and prunes; the phone lists three newest first, reads the switch, sends the command, and installs', () async {
       final db = FakeFirebaseFirestore();
       final pub = RelayPublisher(db, 'demo', dir: '/x', machine: 'm');
@@ -232,6 +347,7 @@ void main() {
       final start = cmds.firstWhere((c) => c.data()['action'] == 'start').data();
       final delDoc = cmds.firstWhere((c) => c.data()['action'] == 'delete').data();
       expect(start['type'], 'build');
+      expect(start['target'], 'android');
       expect(start.containsKey('id'), isFalse, reason: 'no id to clash with the command doc id');
       expect(delDoc['buildId'], 'b1', reason: 'the build rides as buildId');
       for (final c in cmds) {
@@ -283,6 +399,22 @@ void main() {
   });
 
   group('the card', () {
+    testWidgets('iPhone shows host installation and never offers an APK installer', (tester) async {
+      await tester.pumpWidget(_app(BuildsCard(
+        builds: const [
+          BuildRecord(id: 'ios', target: BuildTarget.ios, state: BuildState.ready, version: '1.0', device: 'Ren iPhone'),
+          BuildRecord(id: 'android', state: BuildState.ready, path: 'apk'),
+        ],
+        buildOnFlip: false,
+        onAction: (action, {id, on}) async => 'ok',
+        onInstall: (b, progress) async => throw StateError('no APK installer on iPhone'),
+      )));
+      expect(find.text('The Mac installs on your paired iPhone.'), findsOneWidget);
+      expect(find.textContaining('INSTALLED · 1.0 · REN IPHONE'), findsWidgets);
+      expect(find.text('INSTALL'), findsNothing);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
     for (final scale in [1.0, 2.0, 3.12]) {
       testWidgets('at ${scale}x: none yet, building, a ready row that installs, a failed row with its log — no overflow', (tester) async {
         tester.view.physicalSize = const Size(360, 780);

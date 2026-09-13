@@ -11,8 +11,7 @@ import 'src/push/local_notices.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // An Android phone draws the Mac's data messages itself — app in the
-  // background or closed — so Allow and Deny sit on the notification.
-  if (Platform.isAndroid) FirebaseMessaging.onBackgroundMessage(kitBackgroundMessage);
+  // Android draws data notifications; iOS also handles silent withdrawals.
+  if (Platform.isAndroid || Platform.isIOS) FirebaseMessaging.onBackgroundMessage(kitBackgroundMessage);
   runApp(const KitApp());
 }

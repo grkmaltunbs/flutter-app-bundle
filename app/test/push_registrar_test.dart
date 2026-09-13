@@ -74,6 +74,23 @@ void main() {
     expect(PushTap.from({'slug': 'kit', 'requestId': ''})?.requestId, isNull);
   });
 
+  test('iOS without APNs remains usable and a later token refresh registers it', () async {
+    final r = PushRegistrar(db, requestPermission: () async => true, getToken: () async => null,
+        tokenRefresh: refresh.stream, uid: () => 'qa', platform: 'ios', deviceName: 'iPhone simulator');
+    addTearDown(r.dispose);
+    await r.register();
+    expect(r.registered, isFalse);
+    expect(r.error, isNull);
+    expect(r.status, contains('waiting for Apple'));
+    expect((await db.collection('devices').get()).docs, isEmpty);
+    refresh.add('APNS-READY');
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(r.registered, isTrue);
+    expect(r.status, contains('Notifications on'));
+    expect((await db.collection('devices').doc('APNS-READY').get()).data()!['platform'], 'ios');
+  });
+
   test('quiet hours go onto the row and come back with the next registration; a tap carries the turn', () async {
     final r = make();
     await r.register();

@@ -63,7 +63,7 @@ void main() {
     expect(codexModeFor(approval: 'on-request', sandboxType: 'workspaceWrite', collaboration: 'default'), 'acceptEdits');
     expect(codexModeFor(approval: 'never', sandboxType: 'dangerFullAccess'), 'bypassPermissions');
     expect(codexModeFor(approval: 'on-request', sandboxType: 'workspaceWrite', collaboration: 'plan'), 'plan');
-    expect(codexArgs(), ['app-server', '--stdio', '--enable', 'default_mode_request_user_input']);
+    expect(codexArgs(), ['app-server', '--stdio', '-c', 'model_context_window=872000', '-c', 'model_auto_compact_token_limit=786980', '--enable', 'default_mode_request_user_input']);
     expect(codexPlainCommand("/bin/zsh -lc 'touch /tmp/kit-codex-1'"), 'touch /tmp/kit-codex-1');
     expect(codexPlainCommand('/bin/zsh -lc "pwd && ls"'), 'pwd && ls');
     expect(codexPlainCommand('ls -la'), 'ls -la');
