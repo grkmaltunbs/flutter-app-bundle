@@ -847,3 +847,28 @@ constellation selection plus persisted work-item drafts. No Dart exceptions
 or overflow. The authenticated live relay and physical APNs delivery were
 not exercised. The Mac release was installed and relaunched; its
 K.A.T.Y.A window is present. The Codex plugin cache was refreshed.
+
+## Deck scroll shrinking on iPhone (2026-09-14)
+
+A phone drag folds the header by the finger's travel, not by the distance the
+platform scroll physics lets the list move. iOS edge friction had reduced a
+300-pixel upward swipe to only 116.7 pixels of header movement at the newest
+message. Scroll updates and clamping overscroll can carry the same drag event,
+so it is counted once. Short transcripts remain draggable with the native
+platform physics. Programmatic scrolls and ballistic bounce do not fold the
+header on their own.
+
+The expanded header remains laid out offstage when the compact row takes
+over. Removing its controls at that point previously changed the measured
+height, moved the list's top inset and jumped the conversation. Tests now check
+small iOS touch movements and that Show the header, the controls toggle and
+PUSH TEST are actually hittable after collapsing and expanding, alongside the
+existing reading-position and desktop regressions.
+
+Runtime QA on the signed-in iPhone 17 Pro / iOS 26.5: the same 300-pixel swipe
+now folds 275 pixels after touch recognition, and a second swipe reaches the
+48-pixel compact row. Partial fold/reverse, the expand chevron and reopened
+controls work. Collapse/reveal also passes at larger accessibility text sizes,
+including ~3.12x, with no runtime exceptions or overflows. Original text size
+restored; no engine session was started. Verification: 151 kit tests, 255
+Flutter tests (3 live tests skipped), analysis clean.

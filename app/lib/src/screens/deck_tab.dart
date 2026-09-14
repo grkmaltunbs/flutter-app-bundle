@@ -354,6 +354,10 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
   /// move the list under it — not a new row, not the chrome folding.
   bool _dragging = false;
 
+  /// A clamped drag can dispatch both an update and overscroll for one
+  /// touch event. Its raw delta must fold the header only once.
+  DragUpdateDetails? _lastFoldDrag;
+
   /// A drag from the Finder is over the Deck.
   bool _dragOver = false;
 
@@ -664,18 +668,29 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
   bool _onScroll(ScrollNotification n) {
     if (n.depth != 0) return false;
     if (n is ScrollStartNotification) {
+      _lastFoldDrag = null;
       if (n.dragDetails != null) _dragging = true;
       return false;
     }
-    if (n is ScrollEndNotification) _dragging = false;
+    if (n is ScrollEndNotification) {
+      _dragging = false;
+      _lastFoldDrag = null;
+    }
     if (n is UserScrollNotification) return false;
     if (n is! ScrollUpdateNotification && n is! ScrollEndNotification && n is! OverscrollNotification) return false;
     // The chrome follows a finger, not a fling and not the host's jump
     // to the newest row: at the list's end the drag becomes overscroll,
     // and that folds it too.
-    if (!_snapping) {
-      if (n is ScrollUpdateNotification && n.dragDetails != null) _foldBy(n.scrollDelta ?? 0);
-      if (n is OverscrollNotification && n.dragDetails != null) _foldBy(n.overscroll);
+    final drag = switch (n) {
+      ScrollUpdateNotification(:final dragDetails) => dragDetails,
+      OverscrollNotification(:final dragDetails) => dragDetails,
+      _ => null,
+    };
+    // iOS bounce applies friction to the scroll offset at either edge.
+    // The header follows the finger itself, including at the newest row.
+    if (!_snapping && drag != null && !identical(drag, _lastFoldDrag)) {
+      _lastFoldDrag = drag;
+      _foldBy(-(drag.primaryDelta ?? 0));
     }
     final m = n.metrics;
     final pinned = m.pixels >= m.maxScrollExtent - 48;
@@ -843,10 +858,12 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
         // by choice — Start, the pills, three dials and the Git card — it
         // may take more of the screen than folded, at the text sizes where
         // the composer's own share leaves room.
-        final roomy = _headerOpen && !_chromeHidden && MediaQuery.textScalerOf(context).scale(1) <= 1.3;
+        // Keep the full header laid out at its expanded size even while
+        // offstage: its height is also the transcript's stable top inset.
+        final roomy = _headerOpen && MediaQuery.textScalerOf(context).scale(1) <= 1.3;
         final header = _Header(
           view: w,
-          open: _headerOpen && !_chromeHidden,
+          open: _headerOpen,
           compact: false,
           onToggle: () => setState(() => _openChoice = !_headerOpen),
           onExpand: () => _setChromeHidden(false),
@@ -928,6 +945,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
                   ? Padding(padding: EdgeInsets.only(top: _chromeMax), child: empty)
                   : list(ListView.builder(
                       controller: _scroll,
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: EdgeInsets.fromLTRB(16, _chromeMax + 12, 16, 12),
                       itemCount: count,
                       itemBuilder: (context, i) => rowAt(i),
