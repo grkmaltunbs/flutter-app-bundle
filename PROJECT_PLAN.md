@@ -1605,6 +1605,14 @@ bridge's do — they spend the ChatGPT pool.
    "Stopped · budget".
 6. Mac: ENGINE → Claude → Start → step 1 again, on Claude.
 
+### Model selection and confirmation — 2026-09-14
+`/model` opens a local picker; `/model <id>` selects without sending a
+chat turn. The selected model stays separate from the model Codex
+reports for an accepted turn. Replies retain their own reported model;
+reroutes are visible. Default selection explicitly resets Codex's sticky
+override. Tests cover protocol acknowledgement, pending selections,
+relay failures, retained attachments and an iPhone integration flow.
+
 ### Touchpoints
 - `kit/lib/src/codex.dart` (new), `kit/lib/src/bridge.dart` (the shared transcript model split out), `kit/test/codex_test.dart` (captured lines)
 - `app/lib/src/host/engine_session.dart` (new), `app/lib/src/host/codex_session.dart` (new), `app/lib/src/host/codex_cli.dart` (new), `app/lib/src/host/bridge_session.dart`, `app/lib/src/host/permission_rules.dart`, `app/lib/src/host/host_project.dart`, `app/lib/src/host/autopilot.dart`, `app/lib/src/host/push_sender.dart`

@@ -195,6 +195,20 @@ class CodexTranslator {
   String? threadId;
   String? turnId;
   String? model;
+  /// Effective project configuration from config/read, independent of
+  /// the thread's sticky model override.
+  String? configuredDefaultModel;
+  String? _catalogDefaultModel;
+  // The server only emits settings updates when configuration changes.
+  // Keep its last report separate from a single turn's model reroute.
+  String? _serverSettingsModel;
+  String? _turnSettingsModel;
+  bool _turnRequested = false;
+  int? _turnRequestId;
+  bool _turnAccepted = false;
+  String? _reportedTurnModel;
+
+  String? get defaultModel => configuredDefaultModel ?? _catalogDefaultModel;
   String? cwd;
   String? cliVersion;
 
@@ -249,6 +263,7 @@ class CodexTranslator {
   String request(String method, Map<String, Object?> params) {
     final id = ++_seq;
     _sent[id] = (method: method, params: params);
+    if (method == 'turn/start') _turnRequestId = id;
     return jsonEncode({'jsonrpc': '2.0', 'id': id, 'method': method, 'params': params});
   }
 
@@ -262,6 +277,8 @@ class CodexTranslator {
       request('initialize', {'clientInfo': {'name': name, 'title': 'K.A.T.Y.A', 'version': version}, 'capabilities': {'experimentalApi': true}});
 
   String initializedLine() => notify('initialized');
+
+  String configReadLine(String cwd) => request('config/read', {'cwd': cwd, 'includeLayers': false});
 
   String modelListLine() => request('model/list', {});
 
@@ -311,6 +328,12 @@ class CodexTranslator {
     _planText = '';
     _turnError = null;
     _turnOutput = 0;
+    turnId = null;
+    _turnRequested = true;
+    _turnAccepted = false;
+    _reportedTurnModel = null;
+    final requestedModel = model ?? defaultModel;
+    _turnSettingsModel = requestedModel == _serverSettingsModel ? _serverSettingsModel : null;
     return request('turn/start', {
       'threadId': threadId,
       'input': input,
@@ -318,9 +341,9 @@ class CodexTranslator {
       'sandboxPolicy': {...p.sandboxPolicy, if (p.sandbox == 'workspace-write' && writableRoots.isNotEmpty) 'writableRoots': writableRoots},
       'collaborationMode': {
         'mode': p.collaboration,
-        'settings': {'model': model ?? this.model ?? ''},
+        'settings': {'model': requestedModel ?? ''},
       },
-      if (model != null) 'model': model,
+      if (requestedModel != null) 'model': requestedModel,
       if (effort != null) 'effort': effort,
     });
   }
@@ -409,11 +432,15 @@ class CodexTranslator {
     final sent = id is num ? _sent.remove(id.toInt()) : null;
     if (sent == null) return const [];
     final method = sent.method;
+    if (method == 'turn/start' && (id != _turnRequestId || !_turnRequested)) return const [];
     if (error != null) {
       final e = _map(error);
       final message = (e['message'] ?? 'error').toString();
       final events = <BridgeEvent>[ControlResponseEvent(requestId: method, ok: false, error: message)];
       if (method == 'turn/start') {
+        _turnRequested = false;
+        _turnAccepted = false;
+        _turnSettingsModel = null;
         // The turn never opened on the server: close it on the Deck.
         events.add(ResultEvent(subtype: 'error', sessionId: threadId ?? '', isError: true, text: message));
       }
@@ -426,6 +453,8 @@ class CodexTranslator {
         final thread = _map(r['thread']);
         threadId = (thread['id'] ?? '').toString();
         model = _text(r['model']) ?? _text(thread['model']);
+        _serverSettingsModel = model;
+        if (method == 'thread/start' && sent.params['model'] == null && defaultModel == null) configuredDefaultModel = model;
         cliVersion = _text(thread['cliVersion']) ?? cliVersion;
         turnId = null;
         _turnsInThread = (thread['turns'] as List? ?? const []).length;
@@ -439,10 +468,17 @@ class CodexTranslator {
         return [init];
       case 'turn/start':
         turnId = _text(_map(r['turn'])['id']) ?? turnId;
-        return const [];
+        _turnAccepted = turnId != null;
+        return _confirmTurnModel();
       case 'turn/interrupt':
         return [ControlResponseEvent(requestId: method, ok: true, response: r)];
+      case 'config/read':
+        configuredDefaultModel = _text(_map(r['config'])['model']);
+        return const [];
       case 'model/list':
+        for (final entry in (r['data'] as List? ?? const [])) {
+          if (entry is Map && entry['isDefault'] == true) _catalogDefaultModel = _text(entry['model']) ?? _text(entry['id']);
+        }
         models = [
           for (final m in (r['data'] as List? ?? const []))
             if (m is Map && m['hidden'] != true && m['id'] != null) m['id'].toString(),
@@ -632,11 +668,34 @@ class CodexTranslator {
     }
   }
 
+  /// Pair acceptance with reported settings: a fresh report when the model
+  /// changes, or the last server configuration when the request matches it.
+  /// A failed request or configuration alone proves no turn.
+  List<BridgeEvent> _confirmTurnModel() {
+    final reported = _turnSettingsModel;
+    if (!_turnRequested || !_turnAccepted || reported == null || reported == _reportedTurnModel) return const [];
+    _reportedTurnModel = reported;
+    return [TurnModelEvent(reported)];
+  }
+
   List<BridgeEvent> _notification(String method, Map<String, Object?> p) {
+    if (p['threadId'] != null && p['threadId'] != threadId) return const [];
+    if (p['turnId'] != null && turnId != null && p['turnId'] != turnId) return const [];
     switch (method) {
       case 'turn/started':
-        turnId = _text(_map(p['turn'])['id']) ?? turnId;
-        return const [];
+        final startedId = _text(_map(p['turn'])['id']);
+        if (turnId != null && startedId != turnId) return const [];
+        turnId = startedId ?? turnId;
+        _turnAccepted = turnId != null;
+        return _confirmTurnModel();
+      case 'model/rerouted':
+        if (turnId == null || p['turnId'] != turnId || !_turnAccepted || !_turnRequested) return const [];
+        final to = _text(p['toModel']);
+        if (to == null) return const [];
+        _reportedTurnModel = to;
+        _turnSettingsModel = to;
+        model = to;
+        return [TurnModelEvent(to, reroutedFrom: _text(p['fromModel']))];
       case 'item/started':
         final item = _map(p['item']);
         final id = (item['id'] ?? '').toString();
@@ -657,6 +716,7 @@ class CodexTranslator {
         return const [];
       case 'turn/completed':
         final turn = _map(p['turn']);
+        if (turnId != null && turn['id'] != null && turn['id'] != turnId) return const [];
         final status = (turn['status'] ?? '').toString();
         final err = _map(turn['error']);
         final failed = status == 'failed';
@@ -691,6 +751,8 @@ class CodexTranslator {
           )));
         }
         turnId = null;
+        _turnRequested = false;
+        _turnAccepted = false;
         return events;
       case 'thread/tokenUsage/updated':
         final u = _map(p['tokenUsage']);
@@ -706,14 +768,17 @@ class CodexTranslator {
         return [rateLimitEvent(_map(p['rateLimits']))];
       case 'thread/settings/updated':
         final s = _map(p['threadSettings']);
-        model = _text(s['model']) ?? model;
+        final reportedModel = _text(s['model']);
+        model = reportedModel ?? model;
+        _serverSettingsModel = reportedModel ?? _serverSettingsModel;
+        if (_turnRequested && reportedModel != null) _turnSettingsModel = reportedModel;
         final approval = s['approvalPolicy'];
         mode = codexModeFor(
           approval: approval is String ? approval : 'on-request',
           sandboxType: _text(_map(s['sandboxPolicy'])['type']),
           collaboration: _text(_map(s['collaborationMode'])['mode']),
         );
-        return threadId == null ? const [] : [InitEvent(sessionId: threadId!, model: model, permissionMode: mode, cwd: cwd, mcpServers: Map.of(mcp), rules: rules)];
+        return threadId == null ? const [] : [InitEvent(sessionId: threadId!, model: model, permissionMode: mode, cwd: cwd, mcpServers: Map.of(mcp), rules: rules), ..._confirmTurnModel()];
       case 'mcpServer/startupStatus/updated':
         final name = _text(p['name']);
         if (name == null) return const [];

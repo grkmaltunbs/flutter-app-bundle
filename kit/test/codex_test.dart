@@ -50,6 +50,68 @@ CodexTranslator _ready({String mode = 'default'}) {
 }
 
 void main() {
+  test('unchanged accepted model reuses server settings while reroutes remain per turn', () {
+    final t = _ready();
+    List<BridgeEvent> accept(String line, String turn) => t.feed(jsonEncode({'id': (jsonDecode(line) as Map)['id'], 'result': {'turn': {'id': turn}}}));
+    void complete(String turn) => t.feed(_n('turn/completed', {'threadId': _thread, 'turn': {'id': turn, 'status': 'completed'}}));
+    final first = t.turnStartLine(text: 'same as thread configuration', mode: 'default', model: 'gpt-6-astra');
+    expect(accept(first, 'first').whereType<TurnModelEvent>().single.model, 'gpt-6-astra', reason: 'unchanged settings produce no new notification');
+    final rerouted = t.feed(_n('model/rerouted', {'threadId': _thread, 'turnId': 'first', 'fromModel': 'gpt-6-astra', 'toModel': 'gpt-5.5'}));
+    expect(rerouted.whereType<TurnModelEvent>().single.model, 'gpt-5.5');
+    complete('first');
+    final second = t.turnStartLine(text: 'configured model again', mode: 'default', model: 'gpt-6-astra');
+    expect(accept(second, 'second').whereType<TurnModelEvent>().single.model, 'gpt-6-astra', reason: 'a reroute must not overwrite the configured thread model');
+    complete('second');
+    final different = t.turnStartLine(text: 'different model', mode: 'default', model: 'gpt-5.5');
+    expect(accept(different, 'third').whereType<TurnModelEvent>(), isEmpty, reason: 'a different request still needs fresh server settings');
+    final changed = t.feed(_n('thread/settings/updated', {'threadId': _thread, 'threadSettings': {'model': 'gpt-5.5'}}));
+    expect(changed.whereType<TurnModelEvent>().single.model, 'gpt-5.5');
+    complete('third');
+    final fourth = t.turnStartLine(text: 'same new configuration', mode: 'default', model: 'gpt-5.5');
+    expect(accept(fourth, 'fourth').whereType<TurnModelEvent>().single.model, 'gpt-5.5');
+  });
+
+  test('turn confirmation ignores stale RPC responses and unrelated settings or reroutes', () {
+    final t = CodexTranslator()..threadId = _thread;
+    final old = jsonDecode(t.turnStartLine(text: 'old', mode: 'default', model: 'old-model')) as Map;
+    final current = jsonDecode(t.turnStartLine(text: 'new', mode: 'default', model: 'new-model')) as Map;
+    List<BridgeEvent> settings(String thread, String model) => t.feed(jsonEncode({'method': 'thread/settings/updated', 'params': {'threadId': thread, 'threadSettings': {'model': model}}}));
+    expect(settings('other-thread', 'wrong-model'), isEmpty);
+    expect(settings(_thread, 'new-model').whereType<TurnModelEvent>(), isEmpty);
+    expect(t.feed(jsonEncode({'id': old['id'], 'result': {'turn': {'id': 'old-turn'}}})), isEmpty);
+    expect(t.turnId, isNull);
+    final acknowledged = t.feed(jsonEncode({'id': current['id'], 'result': {'turn': {'id': 'new-turn'}}}));
+    expect(acknowledged.whereType<TurnModelEvent>().single.model, 'new-model');
+    expect(t.feed(jsonEncode({'method': 'model/rerouted', 'params': {'threadId': _thread, 'turnId': 'old-turn', 'toModel': 'wrong-model'}})), isEmpty);
+    t.feed(jsonEncode({'method': 'turn/completed', 'params': {'threadId': _thread, 'turn': {'id': 'new-turn', 'status': 'completed'}}}));
+    expect(settings(_thread, 'late-settings').whereType<TurnModelEvent>(), isEmpty);
+    expect(t.feed(jsonEncode({'method': 'model/rerouted', 'params': {'threadId': _thread, 'turnId': 'new-turn', 'toModel': 'wrong-model'}})), isEmpty);
+    final next = jsonDecode(t.turnStartLine(text: 'no settings yet', mode: 'default', model: 'named-model')) as Map;
+    expect(t.feed(jsonEncode({'id': next['id'], 'result': {'turn': {'id': 'next-turn'}}})), isEmpty, reason: 'acceptance without model evidence stays unconfirmed');
+    expect(settings(_thread, 'named-model').whereType<TurnModelEvent>().single.model, 'named-model');
+  });
+
+  test('configured default and catalog fallback do not inherit a resumed model override', () {
+    final t = CodexTranslator();
+    final config = jsonDecode(t.configReadLine('/scratch')) as Map;
+    t.feed(jsonEncode({'id': config['id'], 'result': {'config': {'model': 'configured-default'}}}));
+    t.model = 'sticky-override';
+    final explicit = jsonDecode(t.turnStartLine(text: 'named', mode: 'default', model: 'named-model')) as Map;
+    expect(explicit['params']['model'], 'named-model');
+    final reset = jsonDecode(t.turnStartLine(text: 'default', mode: 'default')) as Map;
+    expect(reset['params']['model'], 'configured-default');
+    expect(reset['params']['collaborationMode']['settings']['model'], 'configured-default');
+    final catalog = jsonDecode(t.modelListLine()) as Map;
+    t.feed(jsonEncode({'id': catalog['id'], 'result': {'data': [{'id': 'catalog-default', 'model': 'catalog-default', 'isDefault': true}]}}));
+    expect(t.defaultModel, 'configured-default');
+    final empty = jsonDecode(t.configReadLine('/scratch')) as Map;
+    t.feed(jsonEncode({'id': empty['id'], 'result': {'config': {}}}));
+    expect(t.defaultModel, 'catalog-default');
+    final resume = jsonDecode(t.threadStartLine(cwd: '/scratch', mode: 'default', resume: _thread)) as Map;
+    t.feed(_threadStartResponse(resume['id'] as int));
+    expect(t.defaultModel, 'catalog-default', reason: 'resume model is a thread override, not the configured default');
+  });
+
   test('the notches become an approval policy, a sandbox and a collaboration mode — and read back', () {
     expect(codexPolicyFor('default').approval, 'untrusted');
     expect(codexPolicyFor('default').sandbox, 'workspace-write');
@@ -141,7 +203,7 @@ void main() {
     final plan = jsonDecode(t.turnStartLine(text: 'plan it', mode: 'plan')) as Map;
     expect((plan['params'] as Map)['collaborationMode'], {'mode': 'plan', 'settings': {'model': 'gpt-6-astra'}}, reason: 'the thread\'s model when the dial is default');
     expect((plan['params'] as Map)['sandboxPolicy'], {'type': 'readOnly'});
-    expect((plan['params'] as Map).containsKey('model'), isFalse);
+    expect((plan['params'] as Map)['model'], 'gpt-6-astra', reason: 'default must reset the sticky per-turn model explicitly');
     final roots = jsonDecode(t.turnStartLine(text: 'x', mode: 'acceptEdits', writableRoots: ['/sdk/bin/cache'])) as Map;
     expect((roots['params'] as Map)['sandboxPolicy'], {'type': 'workspaceWrite', 'writableRoots': ['/sdk/bin/cache']});
     final ro = jsonDecode(t.turnStartLine(text: 'x', mode: 'plan', writableRoots: ['/sdk/bin/cache'])) as Map;

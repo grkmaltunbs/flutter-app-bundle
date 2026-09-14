@@ -259,6 +259,19 @@ class BridgeSession extends ChangeNotifier {
   /// The next Start's `--model` alias (`opus`, `fable`, …); null is the
   /// CLI's own choice. Distinct from [Transcript.model], what init said.
   String? modelChoice;
+  String? _confirmedModel;
+  ModelConfirmation _modelConfirmation = ModelConfirmation.unknown;
+  int _modelRevision = 0;
+  int _turnModelRevision = -1;
+
+  String? get confirmedModel => _confirmedModel;
+  ModelConfirmation get modelConfirmation => _modelConfirmation;
+
+  Future<void> selectModel(String model) async {
+    final choices = modelChoicesFor(engineId, reported: engine.models);
+    if (!choices.contains(model)) throw ArgumentError.value(model, 'model', 'Not in the available model catalog');
+    setOptions(model: model);
+  }
 
   /// The next Start's `--effort` level; null is the CLI's own.
   String? effort;
@@ -280,6 +293,9 @@ class BridgeSession extends ChangeNotifier {
     if (want != engineId) {
       engineId = want;
       _engine = null;
+      _confirmedModel = null;
+      _modelConfirmation = ModelConfirmation.unknown;
+      _turnModelRevision = -1;
       cliVersion = null;
       rules = null;
       _writeRecord();
@@ -302,9 +318,18 @@ class BridgeSession extends ChangeNotifier {
     if (mode == null && chrome == null && model == null && effort == null && engine == null) return false;
     if (engine != null) setEngine(engine);
     final before = modelChoice;
+    if (model != null && !modelChoicesFor(engineId, reported: this.engine.models).contains(model)) {
+      throw ArgumentError.value(model, 'model', 'Not in the available model catalog');
+    }
     if (mode != null) modeChoice = knownMode(mode);
     if (chrome != null) this.chrome = chrome;
-    if (model != null) modelChoice = BridgeRecord._choice(model);
+    if (model != null) {
+      modelChoice = BridgeRecord._choice(model);
+      if (modelChoice != before) {
+        _modelRevision++;
+        _modelConfirmation = ModelConfirmation.pending;
+      }
+    }
     if (effort != null) this.effort = BridgeRecord._choice(effort);
     _writeRecord();
     if (running) {
@@ -536,6 +561,9 @@ class BridgeSession extends ChangeNotifier {
     _sessionAllows.clear();
     _modeWanted = null; // the flags carry the dials
     _modelWanted = null;
+    _confirmedModel = null;
+    _modelConfirmation = ModelConfirmation.unknown;
+    _turnModelRevision = -1;
     final switching = resume && want != transcript.sessionId;
     if (!resume || switching) {
       // A fresh session is a fresh conversation; Resume keeps the old one
@@ -648,6 +676,9 @@ class BridgeSession extends ChangeNotifier {
   void _event(BridgeEvent e) {
     transcript.apply(e);
     switch (e) {
+      case TurnModelEvent():
+        _confirmedModel = e.model;
+        if (_turnModelRevision == _modelRevision) _modelConfirmation = ModelConfirmation.confirmed;
       case InitEvent():
         if (state == BridgeState.starting) state = transcript.turnOpen ? BridgeState.busy : BridgeState.ready;
         if (e.rules != null) rules = e.rules;
@@ -712,15 +743,22 @@ class BridgeSession extends ChangeNotifier {
             unawaited(stop());
           }
         }
+      case ResetEvent():
+        _confirmedModel = null;
+        _modelConfirmation = ModelConfirmation.unknown;
+        _turnModelRevision = -1;
       case StatusEvent():
       case CompactEvent():
-      case ResetEvent():
       case TaskEvent():
       case UsageEvent():
         // The transcript took the mode, the compaction, the tokens or the
         // subagent's progress; nothing for the process to do.
         break;
       case AssistantEvent():
+        if (e.parentToolUseId == null && e.model != null) {
+          _confirmedModel = e.model;
+          if (_turnModelRevision == _modelRevision) _modelConfirmation = ModelConfirmation.confirmed;
+        }
         // An edit's row gets its diff now, while the file is still as it
         // was — the ask, if one comes, reuses it.
         for (final b in e.blocks) {
@@ -852,6 +890,8 @@ class BridgeSession extends ChangeNotifier {
           return l;
         }
       }
+      _turnModelRevision = _modelRevision;
+      _modelConfirmation = ModelConfirmation.pending;
       return e.userMessage(body, images: images, imagePaths: imagePaths, turn: EngineTurn(mode: modeChoice, model: modelChoice, effort: effort));
     }
 
@@ -1154,6 +1194,8 @@ class BridgeSession extends ChangeNotifier {
         'modeChoice': modeChoice,
         'modePending': modePending,
         'modelPending': modelPending,
+        'modelConfirmation': modelConfirmation.name,
+        'confirmedModel': confirmedModel,
         if (transcript.permissionMode != null) 'permissionMode': transcript.permissionMode,
         'chrome': chrome,
         'modelChoice': modelChoice ?? 'default',

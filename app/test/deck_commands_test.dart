@@ -44,6 +44,20 @@ void main() {
     }
   });
 
+  testWidgets('Session commands are available only on Codex and do not alter the plugin table', (tester) async {
+    String? picked;
+    for (final codex in [false, true]) {
+      await tester.pumpWidget(MaterialApp(theme: kitTheme(KitTokens.light), home: Scaffold(body: DeckCommandsSheet(codex: codex, onPick: (c) => picked = c))));
+      expect(find.text('/model'), codex ? findsOneWidget : findsNothing);
+      expect(find.text('SESSION'), codex ? findsOneWidget : findsNothing);
+      if (codex) {
+        await tester.tap(find.text('/model'));
+        expect(picked, '/model');
+      }
+    }
+    expect(kDeckCommands.any((c) => c.name == '/model'), isFalse);
+  });
+
   for (final scale in [1.0, 3.12]) {
     testWidgets('at ${scale}x: the palette renders every group and hands back a pick', (tester) async {
       tester.view.physicalSize = const Size(360, 780);

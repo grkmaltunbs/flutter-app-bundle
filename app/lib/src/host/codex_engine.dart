@@ -116,6 +116,7 @@ class CodexEngine extends Engine {
     if (_handshake(line)) {
       final s = _start!;
       _outbox.add(translator.initializedLine());
+      _outbox.add(translator.configReadLine(s.dir));
       _outbox.add(translator.modelListLine());
       _outbox.add(translator.skillsListLine(s.dir));
       _outbox.add(translator.threadStartLine(cwd: s.dir, mode: s.mode, model: s.model, developerInstructions: s.brief, resume: s.resume ? s.sessionId : null));

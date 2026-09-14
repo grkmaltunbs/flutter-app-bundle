@@ -75,6 +75,13 @@ arguments. The current subscription catalog allows Astra 872,000 tokens,
 with 828,400 usable after Codex’s reserve; smaller models retain their own
 limits. New or resumed sessions use this setting after the host is updated.
 
+In a Codex Deck, type `/model` for the picker or `/model <model-id>` to
+select directly. Selection creates no model turn. “Selected for next turn”
+and “Server confirmed” are separate: confirmation arrives when Codex accepts
+a turn and reports its model. New reply rows keep that model label, and any
+reported reroute appears in the conversation. `/model default` restores the
+configured default for the next turn. Attachments stay in the composer.
+
 ## Run
 
 ```

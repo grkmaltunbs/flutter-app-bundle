@@ -735,6 +735,16 @@ class AskAnswer {
 /// The tool name an elicitation rides under ([Ask.isElicitation]).
 const elicitationTool = 'mcp_elicitation';
 
+/// Whether the requested model has current server evidence.
+enum ModelConfirmation { unknown, pending, confirmed }
+
+/// A model reported for an accepted turn, never inferred from a request.
+class TurnModelEvent extends BridgeEvent {
+  const TurnModelEvent(this.model, {this.reroutedFrom});
+  final String model;
+  final String? reroutedFrom;
+}
+
 sealed class BridgeEvent {
   const BridgeEvent();
 }
@@ -841,7 +851,8 @@ class ContentBlock {
 }
 
 class AssistantEvent extends BridgeEvent {
-  const AssistantEvent(this.blocks, {this.usage, this.parentToolUseId});
+  const AssistantEvent(this.blocks, {this.usage, this.parentToolUseId, this.model});
+  final String? model;
   final List<ContentBlock> blocks;
 
   /// The call's own `usage` — what the model read to write this message.
@@ -1173,7 +1184,7 @@ BridgeEvent? parseBridgeLine(String line) {
           blocks.add(ContentBlock.toolUse(toolUseId: (cm['id'] ?? '').toString(), toolName: (cm['name'] ?? '').toString(), toolInput: _map(cm['input'])));
         }
       }
-      return AssistantEvent(blocks, usage: msg['usage'] is Map ? Usage.fromMap(_map(msg['usage'])) : null, parentToolUseId: parent);
+      return AssistantEvent(blocks, model: _text(msg['model']), usage: msg['usage'] is Map ? Usage.fromMap(_map(msg['usage'])) : null, parentToolUseId: parent);
     case 'user':
       final msg = _map(m['message']);
       final content = msg['content'];
@@ -1281,6 +1292,7 @@ class DeckMessage {
     this.toolOutputCut = false,
     this.progress,
     this.by,
+    this.model,
   });
 
   factory DeckMessage.fromMap(Map<String, Object?> m) => DeckMessage(
@@ -1305,10 +1317,14 @@ class DeckMessage {
         toolOutputCut: m['toolOutputCut'] == true,
         progress: m['progress'] is Map ? _map(m['progress']) : null,
         by: _text(m['by']),
+        model: _text(m['model']),
       );
 
   final String id;
   final DeckRole role;
+
+  /// The server-reported model for this row; absent for legacy history.
+  String? model;
   String text;
   final DateTime at;
   final String? toolName;
@@ -1398,6 +1414,7 @@ class DeckMessage {
   Map<String, Object?> toMap() => {
         'id': id,
         'role': role.name,
+        if (model != null) 'model': model,
         'text': text,
         'at': at.toUtc().toIso8601String(),
         if (toolName != null) 'toolName': toolName,
@@ -1428,6 +1445,7 @@ class Transcript {
   Ask? pending;
   String? sessionId;
   String? model;
+  String? _turnModel;
   String? permissionMode;
   RateLimitEvent? pool;
   ResultEvent? lastResult;
@@ -1480,6 +1498,7 @@ class Transcript {
     messages.add(m);
     if (queued) return m; // the running turn keeps its scope
     turnOpen = true;
+    _turnModel = null;
     _turnRow = m;
     _about = about;
     lastAbout = about;
@@ -1501,6 +1520,7 @@ class Transcript {
   void release(DeckMessage m) {
     m.queued = false;
     turnOpen = true;
+    _turnModel = null;
     _turnRow = m;
     _about = m.about;
     lastAbout = m.about;
@@ -1540,6 +1560,10 @@ class Transcript {
 
   void apply(BridgeEvent e) {
     switch (e) {
+      case TurnModelEvent():
+        _turnModel = e.model;
+        model = e.model;
+        if (e.reroutedFrom != null) addNote('Codex rerouted this turn from ${e.reroutedFrom} to ${e.model}.');
       case InitEvent():
         sessionId = e.sessionId;
         model = e.model;
@@ -1556,6 +1580,7 @@ class Transcript {
         s.text += e.text;
       case AssistantEvent():
         final parent = e.parentToolUseId;
+        if (parent == null && e.model != null) _turnModel = e.model;
         if (parent != null) {
           // The subagent's own rows: its tool uses and what it wrote,
           // folded under the Agent row. Its usage is its own context.
@@ -1563,7 +1588,7 @@ class Transcript {
             if (b.isToolUse) {
               messages.add(DeckMessage(id: _nextId(), role: DeckRole.tool, text: '', at: now(), toolName: b.toolName, toolInput: b.toolInput, toolUseId: b.toolUseId, about: _about, parentToolUseId: parent, diff: b.diff));
             } else if ((b.text ?? '').isNotEmpty) {
-              messages.add(DeckMessage(id: _nextId(), role: DeckRole.assistant, text: b.text!, at: now(), about: _about, parentToolUseId: parent));
+              messages.add(DeckMessage(id: _nextId(), role: DeckRole.assistant, text: b.text!, at: now(), about: _about, parentToolUseId: parent, model: e.model));
             }
           }
           break;
@@ -1582,10 +1607,11 @@ class Transcript {
             if (s != null) {
               // The final block is authoritative; the deltas were its draft.
               s.text = text;
+              s.model = e.model ?? _turnModel;
               s.streaming = false;
               _streaming = null;
             } else if (text.isNotEmpty) {
-              messages.add(DeckMessage(id: _nextId(), role: DeckRole.assistant, text: text, at: now(), about: _about));
+              messages.add(DeckMessage(id: _nextId(), role: DeckRole.assistant, text: text, at: now(), about: _about, model: e.model ?? _turnModel));
             }
           }
         }
@@ -1690,7 +1716,7 @@ class Transcript {
   }
 
   DeckMessage _open() {
-    final m = DeckMessage(id: _nextId(), role: DeckRole.assistant, text: '', at: now(), streaming: true, about: _about);
+    final m = DeckMessage(id: _nextId(), role: DeckRole.assistant, text: '', at: now(), streaming: true, about: _about, model: _turnModel);
     messages.add(m);
     return m;
   }

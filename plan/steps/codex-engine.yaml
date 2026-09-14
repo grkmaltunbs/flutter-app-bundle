@@ -176,6 +176,14 @@ sections:
       5. Phone: AUTOPILOT, 2 steps, on ~/kit-scratch → two fresh threads,
          "Stopped · budget".
       6. Mac: ENGINE → Claude → Start → step 1 again, on Claude.
+  - title: Model selection and confirmation — 2026-09-14
+    body: |
+      `/model` opens a local picker; `/model <id>` selects without sending a
+      chat turn. The selected model stays separate from the model Codex
+      reports for an accepted turn. Replies retain their own reported model;
+      reroutes are visible. Default selection explicitly resets Codex's sticky
+      override. Tests cover protocol acknowledgement, pending selections,
+      relay failures, retained attachments and an iPhone integration flow.
   - title: Touchpoints
     body: |
       - `kit/lib/src/codex.dart` (new), `kit/lib/src/bridge.dart` (the shared transcript model split out), `kit/test/codex_test.dart` (captured lines)
@@ -197,3 +205,4 @@ history:
     note: "Mac window + relay: engine notch, GPT answer, deny\/always\/remove, question card, plan card → implement, autopilot 2 steps in 2 threads, back to Claude; phone screens by widget tests at 1.0\/2.0\/3.12"
   - at: 2026-09-10
     event: done
+  - { at: "2026-09-14", event: extended, note: "Local /model controls, server-confirmed turn models, per-reply attribution and default reset" }

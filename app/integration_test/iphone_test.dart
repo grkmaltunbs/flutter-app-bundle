@@ -104,6 +104,83 @@ void main() {
     await settle(tester);
   });
 
+  testWidgets('iPhone: /model selects locally and reports confirmed turns without relabelling history', (tester) async {
+    final db = FakeFirebaseFirestore();
+    final project = db.collection('projects').doc('scratch');
+    const astra = 'gpt-6-astra';
+    const luna = 'gpt-5.6-luna';
+    await project.set({'name': 'Scratch', 'session': {
+      'mode': 'bridge', 'state': 'ready', 'sessionId': 'model-qa', 'engine': 'codex',
+      'models': [astra, luna], 'modelChoice': astra, 'model': astra,
+      'confirmedModel': astra, 'modelConfirmation': 'confirmed',
+    }});
+    Map<String, Object?> row(String id, String model, String text) => {
+      'id': id, 'role': 'assistant', 'text': text, 'model': model,
+      'at': '2026-09-14T12:00:00Z', 'sessionId': 'model-qa',
+    };
+    await project.collection('chat').doc('m00000').set(row('m00000', astra, 'Before the model switch.'));
+    await tester.pumpWidget(shell(RemoteDeckTab(db: db, slug: 'scratch')));
+    await settle(tester);
+    await tester.enterText(find.byType(TextField), '/model');
+    await tester.tap(find.byIcon(Icons.arrow_forward));
+    await settle(tester);
+    expect(find.text('CODEX MODEL'), findsOneWidget);
+    expect((await project.collection('commands').get()).docs, isEmpty);
+    await tester.tap(find.byKey(const ValueKey('model-choice-gpt-5.6-luna')));
+    await settle(tester);
+    var commands = (await project.collection('commands').get()).docs;
+    expect(commands, hasLength(1));
+    expect(commands.single.data()['type'], 'options');
+    expect(commands.single.data()['model'], luna);
+    await project.update({'session.modelChoice': luna, 'session.modelConfirmation': 'pending'});
+    await commands.single.reference.update({'doneAt': DateTime.now().toUtc().toIso8601String(), 'result': 'applies to the next turn'});
+    await settle(tester);
+    expect(find.text('CODEX MODEL'), findsNothing);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
+    expect((await project.collection('chat').get()).docs, hasLength(1), reason: '/model never creates a chat turn');
+    await tester.tap(find.byTooltip('Show session controls'));
+    await settle(tester);
+    expect(find.textContaining('Last server confirmed: $astra'), findsOneWidget);
+    expect(find.text('Server confirmed: $luna'), findsNothing, reason: 'saving a selection is not server confirmation');
+    await project.update({'session.model': luna, 'session.confirmedModel': luna, 'session.modelConfirmation': 'confirmed'});
+    await project.collection('chat').doc('m00001').set(row('m00001', luna, 'After the model switch.'));
+    await settle(tester);
+    expect(find.text('Server confirmed: $luna'), findsOneWidget);
+    await tester.tap(find.byTooltip('Hide session controls'));
+    await settle(tester);
+    expect(find.text('Model: $astra'), findsOneWidget);
+    expect(find.text('Model: $luna'), findsOneWidget);
+
+    await tester.tap(find.byType(TextField));
+    await settle(tester);
+    await tester.enterText(find.byType(TextField), '/model default');
+    await settle(tester);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '/model default');
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await settle(tester);
+    commands = (await project.collection('commands').get()).docs;
+    expect(commands, hasLength(2));
+    final reset = commands.singleWhere((c) => c.data()['model'] == 'default');
+    expect(reset.data()['type'], 'options');
+    await project.update({'session.modelChoice': 'default', 'session.modelConfirmation': 'pending'});
+    await reset.reference.update({'doneAt': DateTime.now().toUtc().toIso8601String(), 'result': 'applies to the next turn'});
+    await settle(tester);
+    await project.update({'session.model': astra, 'session.confirmedModel': astra, 'session.modelConfirmation': 'confirmed'});
+    await settle(tester);
+    expect(find.text('Model: $luna'), findsOneWidget, reason: 'the older Luna reply keeps its provenance after default resolves to Astra');
+    await tester.tap(find.byType(TextField));
+    await settle(tester);
+    await tester.enterText(find.byType(TextField), '/model not-a-model');
+    await settle(tester);
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await settle(tester);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '/model not-a-model');
+    expect((await project.collection('commands').get()).docs, hasLength(2));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await settle(tester);
+  });
+
   testWidgets('iPhone: constellation selection and work-item draft persist', (tester) async {
     final plan = Plan(manifest: Manifest(projectName: 'Scratch'), steps: [Step(id: 'iphone', number: '1', title: 'iPhone simulator', rank: 10)], items: [Item(id: 'check', title: 'Check the simulator', needs: ['device'], blocks: ['iphone'])]);
     final graph = Graph(plan);

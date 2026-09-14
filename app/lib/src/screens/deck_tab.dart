@@ -21,6 +21,7 @@ import '../theme.dart';
 import '../widgets/builds_card.dart';
 import '../widgets/common.dart';
 import '../widgets/git_card.dart';
+import '../widgets/model_picker_sheet.dart';
 import '../widgets/run_card.dart';
 import '../widgets/sessions_card.dart';
 import '../widgets/tool_sheet.dart';
@@ -66,6 +67,9 @@ class DeckView extends StatefulWidget {
     this.chrome = false,
     this.chromeStatus,
     this.modelChoice = 'default',
+    this.confirmedModel,
+    this.modelConfirmation = ModelConfirmation.unknown,
+    this.onModelSelected,
     this.effort = 'default',
     this.restartPending = false,
     this.onOptions,
@@ -178,6 +182,9 @@ class DeckView extends StatefulWidget {
   /// [switchPending] says a dial moved mid-turn and the switch waits for
   /// the turn to end.
   final String modelChoice;
+  final String? confirmedModel;
+  final ModelConfirmation modelConfirmation;
+  final Future<void> Function(String)? onModelSelected;
   final String effort;
   final String modeChoice;
   final bool switchPending;
@@ -762,7 +769,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
 
   /// The command palette; [highlight] leads when a chip was long-pressed.
   void _palette(String? highlight) {
-    showDeckCommandsSheet(context, highlight: highlight, onPick: (c) {
+    showDeckCommandsSheet(context, highlight: highlight, codex: widget.engine == 'codex', onPick: (c) {
       _input.text = '$c ';
       _input.selection = TextSelection.collapsed(offset: _input.text.length);
       _focus.requestFocus();
@@ -819,9 +826,70 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
     _focus.requestFocus();
   }
 
+  String? _modelNotice;
+  bool _modelNoticeError = false;
+
+  void _showModelNotice(String text, {bool error = false}) {
+    if (mounted) setState(() { _modelNotice = text; _modelNoticeError = error; });
+  }
+
+  bool get _hasModelCommand => widget.engine == 'codex' && isDeckModelCommand(_input.text);
+
+  Future<void> _selectModel(String model) async {
+    final select = widget.onModelSelected;
+    if (select == null) throw StateError('Model selection is unavailable.');
+    await select(model);
+  }
+
+  Future<void> _modelCommand(String text) async {
+    final parts = text.split(RegExp(r'\s+'));
+    if (parts.length > 2) {
+      _showModelNotice('Use /model or /model <model-id>.', error: true);
+      return;
+    }
+    if (parts.length == 2 && !modelChoicesFor('codex', reported: widget.models).contains(parts[1])) {
+      _showModelNotice('Unknown model: ${parts[1]}. Use /model to see the available choices.', error: true);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final String? selected;
+      if (parts.length == 1) {
+        _focus.unfocus();
+        selected = await showModelPickerSheet(context,
+          selected: widget.modelChoice,
+          models: widget.models,
+          confirmation: widget.modelConfirmation,
+          confirmedModel: widget.confirmedModel,
+          onSelect: _selectModel,
+        );
+      } else {
+        selected = parts[1];
+        await _selectModel(selected);
+      }
+      if (!mounted) return;
+      if (selected != null) {
+        if (_input.text.trim() == text) _input.clear();
+        _showModelNotice('Selected for next turn: $selected.');
+      }
+    } on Object catch (error) {
+      _showModelNotice('Could not select model: $error', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _send() async {
     final text = _input.text.trim();
     if (_busy || (text.isEmpty && _files.isEmpty)) return;
+    if (_hasModelCommand) {
+      await _modelCommand(text);
+      return;
+    }
+    if (!widget.running) {
+      _toast('Start or resume a session to send a message.');
+      return;
+    }
     final files = List<PendingAttachment>.of(_files);
     setState(() {
       _busy = true;
@@ -849,6 +917,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
     final t = context.tokens;
     final w = widget;
     final canType = w.running && !_busy;
+    final canCompose = w.running || w.engine == 'codex';
     final rows = _rows;
     final crew = crewOf(w.messages);
     final body = LayoutBuilder(
@@ -999,6 +1068,11 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          if (_modelNotice != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Semantics(liveRegion: true, child: Text(_modelNotice!, style: t.mono(11, color: _modelNoticeError ? t.critical : t.accent))),
+                            ),
                           if (_files.isNotEmpty) ...[
                             _PendingFiles(files: _files, enabled: !_busy, onRemove: (f) => setState(() => _files.remove(f))),
                             const SizedBox(height: 8),
@@ -1050,15 +1124,18 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
                                 child: TextField(
                                   controller: _input,
                                   focusNode: _focus,
-                                  enabled: w.running,
+                                  enabled: canCompose,
                                   minLines: 1,
                                   maxLines: 3,
                                   textInputAction: TextInputAction.send,
+                                  onChanged: (_) {
+                                    if (_modelNotice != null) setState(() => _modelNotice = null);
+                                  },
                                   onSubmitted: (_) => _send(),
                                   style: TextStyle(fontSize: 15, color: t.ink),
                                   decoration: InputDecoration(
                                     hintText: !w.running
-                                        ? 'Not running'
+                                        ? (w.engine == 'codex' ? '/model to choose a model' : 'Not running')
                                         : _files.isEmpty
                                             ? 'Ask, or give an order…'
                                             : 'Say what to do with it — or just send',
@@ -1072,7 +1149,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
                                 height: 48,
                                 child: FilledButton(
                                   style: FilledButton.styleFrom(padding: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                                  onPressed: canType ? _send : null,
+                                  onPressed: canCompose && !_busy ? _send : null,
                                   child: _busy
                                       ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: t.onAccent))
                                       : const Icon(Icons.arrow_forward, size: 20),
@@ -1401,7 +1478,7 @@ class DeckTab extends StatelessWidget {
           onChromeHidden: onChromeHidden,
           facts: [
             if (b.sessionId != null) 'session ${shortId(b.sessionId!)}',
-            if (b.transcript.model != null) b.transcript.model!,
+            if (b.engineId != 'codex' && b.transcript.model != null) b.transcript.model!,
             if (b.rules != null) rulesFact(b.rules!),
             if (b.cliVersion != null) '${b.engineId} ${b.cliVersion}${b.cliVersion == b.engine.provenOn ? '' : ' (proven on ${b.engine.provenOn})'}',
             if (b.running && b.transcript.permissionMode != null) '${modeLabel(b.transcript.permissionMode!)} mode',
@@ -1421,6 +1498,9 @@ class DeckTab extends StatelessWidget {
           switchPending: b.modePending || b.modelPending,
           chrome: b.chrome,
           chromeStatus: b.chromeStatus,
+          confirmedModel: b.confirmedModel,
+          modelConfirmation: b.modelConfirmation,
+          onModelSelected: b.selectModel,
           modelChoice: b.modelChoice ?? 'default',
           effort: b.effort ?? 'default',
           restartPending: b.restartPending,
@@ -1544,7 +1624,7 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         onSeen: (seen) => LastSeen.save(widget.slug, seen),
         facts: [
           if (d.sessionId != null) 'session ${shortId(d.sessionId!)}',
-          if (d.model != null) d.model!,
+          if (d.engine != 'codex' && d.model != null) d.model!,
           if (d.rules != null) rulesFact(d.rules!),
           if (d.cliVersion != null) '${d.engine} ${d.cliVersion}',
           if (d.running && d.permissionMode != null) '${modeLabel(d.permissionMode!)} mode',
@@ -1565,6 +1645,9 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         switchPending: d.switchPending,
         chrome: d.chrome,
         chromeStatus: d.chromeStatus,
+        confirmedModel: d.confirmedModel,
+        modelConfirmation: d.modelConfirmation,
+        onModelSelected: d.selectModel,
         modelChoice: d.modelChoice,
         effort: d.effort,
         restartPending: d.restartPending,
@@ -1928,7 +2011,21 @@ class _Header extends StatelessWidget {
             // session belongs to the engine that made it, so the notch
             // waits for a stop.
             _Dial(label: 'ENGINE', choices: engineChoices, value: w.engine, enabled: !w.running, onChanged: (v) => w.onOptions!(engine: v)),
-            _Dial(label: 'MODEL', choices: _withCurrent(modelChoicesFor(w.engine, reported: w.models), w.modelChoice), value: w.modelChoice, enabled: true, onChanged: (v) => w.onOptions!(model: v)),
+            _Dial(label: 'MODEL', choices: _withCurrent(modelChoicesFor(w.engine, reported: w.models), w.modelChoice), value: w.modelChoice, enabled: true, onChanged: (v) async {
+              try {
+                if (w.engine == 'codex' && w.onModelSelected != null) {
+                  await w.onModelSelected!(v);
+                } else {
+                  w.onOptions!(model: v);
+                }
+              } on Object catch (error) {
+                if (context.mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text('Could not select model: $error')));
+              }
+            }),
+            if (w.engine == 'codex') ...[
+              Text('Selected for next turn: ${w.modelChoice}', style: t.mono(11, color: t.ink2)),
+              Text(modelConfirmationLabel(w.modelConfirmation, w.confirmedModel), style: t.mono(11, color: w.modelConfirmation == ModelConfirmation.confirmed ? t.ink2 : t.warn)),
+            ],
             _Dial(label: 'EFFORT', choices: _withCurrent(effortChoicesFor(w.engine), w.effort), value: w.effort, enabled: true, onChanged: (v) => w.onOptions!(effort: v)),
             _Dial(label: 'MODE', choices: modeChoices, value: w.modeChoice, enabled: true, labelOf: modeLabel, warnOn: 'bypassPermissions', onChanged: (v) => w.onOptions!(mode: v)),
             // The human's rules, edited where the human is.
@@ -2000,7 +2097,7 @@ class _Header extends StatelessWidget {
                   w.restartPending
                       ? 'Applies when this turn ends — the session restarts on the same conversation.'
                       : w.switchPending
-                          ? 'The change applies when this turn ends.'
+                          ? (w.engine == 'codex' ? 'Selected options apply on the next turn. Model confirmation waits for the server.' : 'The change applies when this turn ends.')
                           : w.engine == 'codex'
                               ? 'Model, effort and mode ride on the next turn; nothing restarts. The engine switches after a stop.'
                               : 'Model and mode switch in place; Chrome and effort restart the session on the same conversation. The engine switches after a stop.',
@@ -2509,6 +2606,8 @@ class _Row extends StatelessWidget {
                 // The turn's cost rides on its last row: the context read, the output written.
                 Flexible(child: Text('${engineLabel(engine).toUpperCase()} · ${hm(m.at)}${m.turn == null ? '' : ' · ${tokensLabel(m.turn!.context)} CTX · ${tokensLabel(m.turn!.output)} OUT'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(11))),
               ]),
+              if (engine == 'codex' && m.parentToolUseId == null && m.model != null)
+                Text('Model: ${m.model}', style: t.mono(11, color: t.ink2)),
               const SizedBox(height: 6),
               if (m.text.isEmpty && m.streaming) Padding(padding: const EdgeInsets.only(top: 4), child: ThinkingDots(color: t.muted)) else Md(m.streaming ? '${m.text} ▍' : m.text, color: t.ink),
             ],

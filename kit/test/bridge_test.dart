@@ -25,6 +25,25 @@ const _rate =
     '{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1788111600,"rateLimitType":"five_hour","overageStatus":"rejected","overageDisabledReason":"org_level_disabled"}}';
 
 void main() {
+  test('turn model stays on its own rows and subagents need their own evidence', () {
+    final t = Transcript();
+    t.addUser('first');
+    t.apply(const TurnModelEvent('parent-model'));
+    t.apply(const AssistantEvent([ContentBlock.text('parent answer')]));
+    t.apply(const AssistantEvent([ContentBlock.text('child answer')], parentToolUseId: 'agent-1'));
+    t.apply(const AssistantEvent([ContentBlock.text('known child')], parentToolUseId: 'agent-2', model: 'child-model'));
+    expect(t.messages[1].model, 'parent-model');
+    expect(t.messages[2].model, isNull);
+    expect(t.messages[3].model, 'child-model');
+    t.addUser('next');
+    t.apply(const InitEvent(sessionId: 'thread', model: 'new-configuration'));
+    t.apply(const AssistantEvent([ContentBlock.text('unconfirmed answer')]));
+    expect(t.messages.last.model, isNull, reason: 'configuration is not evidence for the turn');
+    expect(t.messages[1].model, 'parent-model');
+    expect(DeckMessage.fromMap(t.messages[1].toMap()).model, 'parent-model');
+    expect(DeckMessage.fromMap({'id': 'legacy', 'role': 'assistant'}).model, isNull);
+  });
+
   test('the command line names a fresh session or resumes one', () {
     final fresh = bridgeArgs(sessionId: 'abc');
     expect(fresh, containsAllInOrder(['-p', '--verbose', '--input-format', 'stream-json', '--output-format', 'stream-json']));

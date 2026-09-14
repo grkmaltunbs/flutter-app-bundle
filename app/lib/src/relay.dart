@@ -645,6 +645,8 @@ class RemoteDeck extends ChangeNotifier {
   bool get turnOpen => state == BridgeState.busy || state == BridgeState.waiting;
   String? get sessionId => session['sessionId']?.toString();
   String? get model => session['model']?.toString();
+  String? get confirmedModel => session['confirmedModel']?.toString();
+  ModelConfirmation get modelConfirmation => ModelConfirmation.values.firstWhere((v) => v.name == session['modelConfirmation'], orElse: () => ModelConfirmation.unknown);
   String? get cliVersion => session['cliVersion']?.toString();
 
   /// The rules files the engine loaded, by name; null when it did not say.
@@ -1031,6 +1033,13 @@ class RemoteDeck extends ChangeNotifier {
 
   /// The options the host's next Start runs with; `default` for a dial
   /// hands the choice back to the CLI.
+  Future<void> selectModel(String model) async {
+    final result = await _waited({'type': 'options', 'model': model});
+    if (!{'applies to the next turn', 'options saved', 'applies when this turn ends', 'switched in place'}.contains(result)) {
+      throw StateError(result.trim().isEmpty ? 'The Mac did not confirm the model selection. Try again.' : result);
+    }
+  }
+
   Future<void> setOptions({String? mode, bool? chrome, String? model, String? effort, String? engine}) =>
       CommandSender(db, slug).send({'type': 'options', 'mode': ?mode, 'chrome': ?chrome, 'model': ?model, 'effort': ?effort, 'engine': ?engine}, from: from);
 

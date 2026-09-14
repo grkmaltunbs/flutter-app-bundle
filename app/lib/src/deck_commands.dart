@@ -13,6 +13,14 @@ class DeckCommand {
   final String group;
 }
 
+/// Session commands are local app controls, separate from plugin commands.
+const kDeckSessionCommands = [
+  DeckCommand('/model', 'Choose the Codex model and inspect server confirmation', args: '[model-id]', group: 'Session'),
+];
+
+/// Exact token recognition keeps `/modelish` as ordinary conversation.
+bool isDeckModelCommand(String text) => RegExp(r'^/model(?:\s|$)').hasMatch(text.trim());
+
 const kDeckCommandGroups = ['Plan', 'Build', 'Quality', 'Setup'];
 
 const kDeckCommands = [
@@ -43,7 +51,7 @@ const kDeckCommands = [
 
 /// The command palette: every plugin command with its one-liner. Tapping a
 /// row hands the command back to the composer.
-Future<void> showDeckCommandsSheet(BuildContext context, {String? highlight, required void Function(String command) onPick}) {
+Future<void> showDeckCommandsSheet(BuildContext context, {String? highlight, bool codex = false, required void Function(String command) onPick}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -55,6 +63,7 @@ Future<void> showDeckCommandsSheet(BuildContext context, {String? highlight, req
       maxChildSize: 0.96,
       builder: (context, ctrl) => DeckCommandsSheet(
         highlight: highlight,
+        codex: codex,
         controller: ctrl,
         onPick: (c) {
           Navigator.of(sheet).pop();
@@ -66,8 +75,9 @@ Future<void> showDeckCommandsSheet(BuildContext context, {String? highlight, req
 }
 
 class DeckCommandsSheet extends StatelessWidget {
-  const DeckCommandsSheet({super.key, this.highlight, this.controller, required this.onPick});
+  const DeckCommandsSheet({super.key, this.highlight, this.controller, this.codex = false, required this.onPick});
   final String? highlight;
+  final bool codex;
   final ScrollController? controller;
   final void Function(String command) onPick;
 
@@ -75,24 +85,25 @@ class DeckCommandsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tokens;
     // The long-pressed chip's command leads; its group follows in order.
-    final lead = highlight == null ? null : kDeckCommands.where((c) => c.name == highlight).firstOrNull;
+    final commands = [...kDeckCommands, if (codex) ...kDeckSessionCommands];
+    final lead = highlight == null ? null : commands.where((c) => c.name == highlight).firstOrNull;
     return ListView(
       controller: controller,
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 24),
       children: [
         Text('COMMANDS', style: t.readout(11, color: t.accent)),
         const SizedBox(height: 4),
-        Text('Anything you type reaches the session; these are the plugin\'s. Tap one to put it in the composer.', style: TextStyle(fontSize: 12.5, color: t.ink2)),
+        Text(codex ? 'Session commands control K.A.T.Y.A locally. Plugin commands reach the session. Tap one to put it in the composer.' : 'Anything you type reaches the session; these are the plugin\'s. Tap one to put it in the composer.', style: TextStyle(fontSize: 12.5, color: t.ink2)),
         if (lead != null) ...[
           const SizedBox(height: 12),
           _Row(command: lead, highlighted: true, onPick: onPick),
         ],
-        for (final group in kDeckCommandGroups) ...[
+        for (final group in [if (codex) 'Session', ...kDeckCommandGroups]) ...[
           Padding(
             padding: const EdgeInsets.only(top: 16, bottom: 6),
             child: Text(group.toUpperCase(), style: t.readout(10.5)),
           ),
-          for (final c in kDeckCommands)
+          for (final c in commands)
             if (c.group == group && c.name != highlight) _Row(command: c, onPick: onPick),
         ],
       ],

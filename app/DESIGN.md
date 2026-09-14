@@ -872,3 +872,60 @@ controls work. Collapse/reveal also passes at larger accessibility text sizes,
 including ~3.12x, with no runtime exceptions or overflows. Original text size
 restored; no engine session was started. Verification: 151 kit tests, 255
 Flutter tests (3 live tests skipped), analysis clean.
+
+## Codex model controls and confirmation (2026-09-14)
+
+`/model` is a local Deck command on both devices: it opens a model picker;
+`/model <id>` selects directly. The picker lists the running Codex catalog,
+with a clearly identified fallback before a catalog arrives. The existing
+MODEL dial uses the same acknowledged selection path. Local model commands
+work before Start, create no chat turn, and preserve attached files. Rejected
+IDs, failed host acknowledgements and timeouts keep the input available to
+retry. Selection feedback is laid out inside the composer and clears when typing
+starts, so it cannot cover Send. Claude's existing model-control dispatch is unchanged.
+
+The requested model (`modelChoice`) and the last confirmed turn model
+(`confirmedModel`, `modelConfirmation`) are separate. A selected model stays
+pending until Codex reports the settings of an accepted/started turn. Selection
+revision tracking prevents a delayed event from an older turn from confirming
+a newer choice. The relay explicitly clears old confirmation when a session
+resets. Each new assistant row retains its own optional `model`; historical
+rows without evidence remain unlabelled, and subagents do not inherit the
+parent's model. `model/rerouted` changes the current turn's report and adds a
+visible from/to note. These labels describe protocol evidence, not a model's
+answer to "what model are you?".
+
+Codex keeps model overrides between turns. Selecting `default` now resolves
+the effective configured default using `config/read` for the project (catalog
+default fallback), then explicitly sends it on the next turn. The user's
+`~/.codex/config.toml` is not edited.
+
+Live protocol probe under `KIT_LIVE=1`, ephemeral read-only thread in
+`~/kit-scratch`: Astra → Luna → Astra each produced `thread/settings/updated`
+with the requested model before `turn/started`; all three turns completed.
+The Turn payload itself has no model field, so a request/selection alone is
+not treated as confirmation. API reference:
+https://learn.chatgpt.com/docs/app-server.
+
+Automated verification: 155 kit tests and 298 Flutter tests pass (3 live
+engine tests skipped by default); analysis is clean. The persistent iPhone
+integration suite now includes a model-selection flow: picker creates no turn,
+selection waits for a host acknowledgement, old confirmation remains visible
+while pending, new replies carry the new model, default selection is a control
+command and historical labels survive later selection. All 4 integration
+flows passed on iPhone 17 Pro / iOS 26.5. The model picker also passes its
+320/360/440/768/1280-width tests at 1.0/2.0/3.12 text scale.
+
+Codex can omit settings notifications on unchanged turns. The translator keeps
+the server-reported thread configuration separately from per-turn reroutes,
+and reuses it only for a matching next request that the server accepts.
+A selection alone still never confirms a model.
+
+Signed-in live QA on Scratch: `/model` selected Luna without starting a turn;
+the next reply was confirmed/tagged `gpt-5.6-luna`. `/model default` showed
+pending with Luna as the last confirmation, then the next reply was confirmed
+as `gpt-6-astra`; the Luna row kept its label. Direct `/model gpt-6-astra`
+selection also worked. After handling Codex's unchanged-settings optimization,
+two consecutive Astra replies were both confirmed and individually labelled.
+Dart runtime error sweep was clean. Original Scratch model choice restored,
+QA sessions stopped, and the user's login retained. Final host build installed.

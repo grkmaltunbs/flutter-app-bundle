@@ -109,6 +109,8 @@ class FakeCodex implements Process {
     switch (method) {
       case 'initialize':
         emitJson({'id': id, 'result': {'userAgent': 'katya/0.153.4', 'codexHome': '/fake/.codex', 'platformFamily': 'unix', 'platformOs': 'macos'}});
+      case 'config/read':
+        emitJson({'id': id, 'result': {'config': {'model': 'gpt-6-astra'}}});
       case 'model/list':
         emitJson({'id': id, 'result': {'data': [{'id': 'gpt-6-astra', 'hidden': false}, {'id': 'gpt-5.5', 'hidden': false}, {'id': 'gpt-reserve', 'hidden': true}]}});
       case 'skills/list':
@@ -124,6 +126,7 @@ class FakeCodex implements Process {
         }
       case 'turn/start':
         turnsStarted++;
+        if (autoTurn) notify('thread/settings/updated', {'threadId': threadId, 'threadSettings': {'model': params['model'] ?? 'gpt-6-astra', 'approvalPolicy': params['approvalPolicy'], 'sandboxPolicy': params['sandboxPolicy'], 'collaborationMode': params['collaborationMode']}});
         if (autoTurn) emitJson({'id': id, 'result': {'turn': {'id': fakeTurn, 'items': [], 'itemsView': 'notLoaded', 'status': 'inProgress', 'error': null}}});
       case 'turn/interrupt':
         emitJson({'id': id, 'result': {}});

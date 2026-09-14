@@ -646,6 +646,7 @@ class HostProject extends ChangeNotifier {
         if (cmd['engine'] != null && bridge.running) return bridge.setEngine(cmd['engine'].toString());
         final ok = bridge.setOptions(mode: cmd['mode'] as String?, chrome: cmd['chrome'] as bool?, model: cmd['model'] as String?, effort: cmd['effort'] as String?, engine: cmd['engine'] as String?);
         if (!ok) return 'nothing to change';
+        if (bridge.engineId == 'codex') return bridge.running ? 'applies to the next turn' : 'options saved';
         if (bridge.restartPending) return 'applies when this turn ends';
         if (bridge.modePending || bridge.modelPending) return 'applies when this turn ends';
         if (!bridge.running) return 'options saved';
