@@ -102,9 +102,11 @@ class Md extends StatelessWidget {
     final base = mono
         ? t.mono(compact ? 12 : 13, color: color ?? t.ink2, height: 1.45)
         : Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: compact ? 13 : 14.5, height: 1.5, color: color ?? t.ink2);
-    return MarkdownBody(
+    final body = MarkdownBody(
       data: data,
-      selectable: true,
+      // SelectableText isolates each Markdown block. Ordinary text instead
+      // joins the surrounding selection so a drag can cross paragraphs.
+      selectable: false,
       styleSheet: MarkdownStyleSheet(
         p: base,
         listBullet: base,
@@ -123,6 +125,9 @@ class Md extends StatelessWidget {
         horizontalRuleDecoration: BoxDecoration(border: Border(top: BorderSide(color: t.line))),
       ),
     );
+    // Deck already owns one selection across the conversation. Other
+    // surfaces still need a local region to keep their Markdown selectable.
+    return SelectionContainer.maybeOf(context) == null ? SelectionArea(child: body) : body;
   }
 }
 

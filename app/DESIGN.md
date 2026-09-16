@@ -777,6 +777,14 @@ app has no `cua_repl` and the pill reads OFF.
 - *Storage cost.* Frames at one a second only while a sheet is open and a
   phone heartbeat says so; three builds kept; uploads deleted on save.
 
+## Deck selection across paragraphs (2026-09-17)
+
+Md renders ordinary rich text into the transcript's existing SelectionArea.
+Independent SelectableText controls inside each Markdown block broke selection
+at paragraph boundaries, even though the surrounding replies shared a
+selection area. Outside a shared selection container, Md creates one local
+SelectionArea so standalone Markdown retains selection and copying.
+
 ## Codex maximum context (2026-09-13)
 
 K.A.T.Y.A starts its own `codex app-server` with

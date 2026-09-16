@@ -68,3 +68,29 @@ live Scratch QA verified picker selection to Luna, default reset to Astra,
 correct labels on both replies, and confirmation on consecutive unchanged
 Astra turns. No runtime exceptions. Selection feedback uses an inline composer
 message so it cannot intercept the next Send tap.
+
+## 2026-09-17 — Deck selection across Markdown paragraphs
+
+The Deck already wrapped its transcript in a SelectionArea, but the shared Md
+widget passed selectable: true to MarkdownBody. That option creates a separate
+SelectableText for each Markdown block. Each paragraph therefore owned its own
+selection and could not extend it into the next paragraph or reply. The outer
+SelectionArea could not coordinate those independent controls.
+
+Md now renders ordinary rich text that joins the existing selection area. When
+there is no surrounding selection container, Md supplies one local area so
+standalone Markdown stays selectable. The Deck keeps its single conversation
+selection, allowing a gesture to cross both paragraphs and reply boundaries.
+
+The five copy regressions failed before the fix and pass afterward: desktop
+selection across paragraphs and replies, iOS and Android long-press selection,
+and standalone Markdown. Twelve layout cases cover 320–768 logical pixels at
+1x, 2x and 3.12x text scaling. The full suites pass (155 kit and 315 Flutter
+tests, with 3 opt-in live tests skipped), and flutter analyze is clean.
+
+The same 17-case fixture passes natively on macOS, the iPhone 17 Pro simulator
+and an Android emulator, using the native clipboard with text restoration.
+The Mac Dart runtime-error sweeps were clean. Its debug launcher printed an
+OSStatus 13 / foreground warning before Dart main; this did not prevent the
+selection fixture or its assertions from running and is separate from the
+selection regression.
