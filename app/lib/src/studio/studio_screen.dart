@@ -6,6 +6,8 @@ import '../host/bridge_session.dart';
 import 'studio_constellation.dart';
 import 'studio_data.dart';
 import 'studio_desk.dart';
+import 'studio_media.dart';
+import 'studio_media_view.dart';
 import 'studio_thread.dart';
 import 'studio_draft.dart';
 import 'studio_graph.dart';
@@ -19,7 +21,17 @@ import 'studio_visuals.dart';
 /// the game's own documents. Read-only by design: it shows, the person
 /// decides, the orchestrator acts.
 class StudioScreen extends StatefulWidget {
-  const StudioScreen({super.key, required this.source, this.orchestrator, this.draft, this.desk, this.threads, this.onSettings, DateTime Function()? now}) : _now = now ?? DateTime.now;
+  const StudioScreen({super.key, required this.source, this.orchestrator, this.draft, this.desk, this.threads, this.media, this.mediaTab, this.remote = false, this.onSettings, DateTime Function()? now}) : _now = now ?? DateTime.now;
+
+  /// The MEDIA tab's content when it is not the Mac's gallery (the phone's).
+  final Widget? mediaTab;
+
+  /// The phone's Studio: read from the relay; the orchestrator's chat and
+  /// editing come later.
+  final bool remote;
+
+  /// The pictures and videos gathered for the MEDIA tab and the strip.
+  final StudioMedia? media;
 
   /// The step desk that answers questions on a step, and its threads.
   final BridgeSession? desk;
@@ -28,7 +40,7 @@ class StudioScreen extends StatefulWidget {
   /// The changes made on the graphs, waiting for SEND TO ORCHESTRATOR.
   final StudioDraft? draft;
 
-  final StudioSource source;
+  final StudioData source;
 
   /// The orchestrator's session; without one the ORCHESTRATOR tab says how
   /// to set its folder.
@@ -44,7 +56,7 @@ class _StudioScreenState extends State<StudioScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 6,
+      length: 7,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('STUDIO'),
@@ -60,7 +72,7 @@ class _StudioScreenState extends State<StudioScreen> {
             ),
             if (widget.onSettings != null) IconButton(tooltip: 'Folders', icon: const Icon(Icons.folder_outlined), onPressed: widget.onSettings),
           ],
-          bottom: TabBar(isScrollable: MediaQuery.textScalerOf(context).scale(10) > 15, tabAlignment: MediaQuery.textScalerOf(context).scale(10) > 15 ? TabAlignment.start : null, tabs: const [Tab(text: 'NOW'), Tab(text: 'ORCHESTRATOR'), Tab(text: 'LANES'), Tab(text: 'ROADMAP'), Tab(text: 'INBOX'), Tab(text: 'DOCS')]),
+          bottom: TabBar(isScrollable: _scrollTabs(context), tabAlignment: _scrollTabs(context) ? TabAlignment.start : null, tabs: const [Tab(text: 'NOW'), Tab(text: 'ORCHESTRATOR'), Tab(text: 'LANES'), Tab(text: 'ROADMAP'), Tab(text: 'INBOX'), Tab(text: 'MEDIA'), Tab(text: 'DOCS')]),
         ),
         bottomNavigationBar: widget.draft == null ? null : DraftBar(draft: widget.draft!, orchestrator: widget.orchestrator),
         body: ListenableBuilder(
@@ -70,12 +82,17 @@ class _StudioScreenState extends State<StudioScreen> {
             if (src.error != null && src.snapshot.lanes.isEmpty) return EmptyNote('Could not read the autopilot folder: ${src.error}');
             final s = src.snapshot;
             final now = widget._now();
-            return TabBarView(children: [
+            // No swiping between tabs: a sideways drag on LANES and ROADMAP
+            // pans the map; the tab bar changes tabs.
+            return TabBarView(physics: const NeverScrollableScrollPhysics(), children: [
               _NowTab(snapshot: s, now: now, source: src),
-              widget.orchestrator == null ? const EmptyNote('Pick the orchestrator\'s folder under Folders (usually the game repo) to talk to it here.') : OrchestratorTab(bridge: widget.orchestrator!, lanes: s.lanes),
+              widget.orchestrator == null
+                  ? EmptyNote(widget.remote ? 'The orchestrator\'s chat and the autopilot commands come to the phone in the next update. For now they are on the Mac.' : 'Pick the orchestrator\'s folder under Folders (usually the game repo) to talk to it here.')
+                  : OrchestratorTab(bridge: widget.orchestrator!, lanes: s.lanes, media: widget.media),
               _LanesTab(snapshot: s, now: now, source: src, orchestrator: widget.orchestrator, draft: widget.draft, desk: widget.desk, threads: widget.threads),
               _RoadmapTab(snapshot: s, orchestrator: widget.orchestrator, draft: widget.draft, desk: widget.desk, threads: widget.threads),
               _InboxTab(snapshot: s),
+              widget.mediaTab ?? (widget.media == null ? const EmptyNote('No media yet.') : MediaGallery(media: widget.media!)),
               _DocsTab(source: src),
             ]);
           },
@@ -212,7 +229,7 @@ class _NowTab extends StatelessWidget {
   const _NowTab({required this.snapshot, required this.now, required this.source});
   final StudioSnapshot snapshot;
   final DateTime now;
-  final StudioSource source;
+  final StudioData source;
 
   @override
   Widget build(BuildContext context) {
@@ -285,7 +302,7 @@ class _LaneGrid extends StatelessWidget {
   final List<Lane> lanes;
   final Map<String, LaneTrack> tracks;
   final DateTime now;
-  final StudioSource source;
+  final StudioData source;
 
   @override
   Widget build(BuildContext context) {
@@ -310,7 +327,7 @@ class _LanesTab extends StatefulWidget {
   final StudioThreads? threads;
   final StudioSnapshot snapshot;
   final DateTime now;
-  final StudioSource source;
+  final StudioData source;
   final BridgeSession? orchestrator;
   final StudioDraft? draft;
   @override
@@ -337,8 +354,8 @@ class _LanesTabState extends State<_LanesTab> {
       lanes: s.lanes,
       draft: widget.draft,
       threads: widget.threads,
-      onExplain: (lane, item) => explain(context, widget.desk, widget.threads, about: stepAbout(lane, item.id), stepText: [if (item.section != null) '(under "${item.section}")', '${item.done ? '[x]' : '[ ]'} ${item.text}'].join('\n')),
-      onAsk: (lane, item) => openThread(context,
+      onExplain: widget.desk == null ? null : (lane, item) => explain(context, widget.desk, widget.threads, about: stepAbout(lane, item.id), stepText: [if (item.section != null) '(under "${item.section}")', '${item.done ? '[x]' : '[ ]'} ${item.text}'].join('\n')),
+      onAsk: widget.desk == null ? null : (lane, item) => openThread(context,
           desk: widget.desk,
           threads: widget.threads,
           draft: widget.draft,
@@ -389,8 +406,8 @@ class _RoadmapTabState extends State<_RoadmapTab> {
       steps: _steps,
       draft: widget.draft,
       threads: widget.threads,
-      onExplainItem: (item) => explain(context, widget.desk, widget.threads, about: itemAbout(item.id), stepText: '${item.id} · ${item.task} · ${item.milestone}\nStatus: ${item.statusText}\n${item.summary}'),
-      onAskItem: (item) => openThread(context,
+      onExplainItem: widget.desk == null ? null : (item) => explain(context, widget.desk, widget.threads, about: itemAbout(item.id), stepText: '${item.id} · ${item.task} · ${item.milestone}\nStatus: ${item.statusText}\n${item.summary}'),
+      onAskItem: widget.desk == null ? null : (item) => openThread(context,
           desk: widget.desk,
           threads: widget.threads,
           draft: widget.draft,
@@ -409,7 +426,7 @@ class _LaneList extends StatelessWidget {
   const _LaneList({required this.snapshot, required this.now, required this.source});
   final StudioSnapshot snapshot;
   final DateTime now;
-  final StudioSource source;
+  final StudioData source;
 
   @override
   Widget build(BuildContext context) {
@@ -462,11 +479,11 @@ class _EventRow extends StatelessWidget {
   }
 }
 
-void openLane(BuildContext context, Lane lane, StudioSource source, DateTime now, [LaneTrack? track]) {
+void openLane(BuildContext context, Lane lane, StudioData source, DateTime now, [LaneTrack? track]) {
   Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => LaneScreen(lane: lane, source: source, now: now, track: track)));
 }
 
-void openLog(BuildContext context, StudioSource source, Lane lane, String step) {
+void openLog(BuildContext context, StudioData source, Lane lane, String step) {
   final text = source.stepLog(lane.id, step);
   Navigator.of(context).push(MaterialPageRoute<void>(
     builder: (context) => Scaffold(
@@ -482,7 +499,7 @@ void openLog(BuildContext context, StudioSource source, Lane lane, String step) 
 class LaneScreen extends StatelessWidget {
   const LaneScreen({super.key, required this.lane, required this.source, required this.now, this.track});
   final Lane lane;
-  final StudioSource source;
+  final StudioData source;
   final DateTime now;
   final LaneTrack? track;
 
@@ -616,7 +633,7 @@ class _InboxRow extends StatelessWidget {
 /// The game's documents, grouped as the person asks for them.
 class _DocsTab extends StatelessWidget {
   const _DocsTab({required this.source});
-  final StudioSource source;
+  final StudioData source;
 
   static const roadmap = [('production/production-plan.md', 'Production plan', 'scope and status — the source of truth'), ('production/timetable-2027.md', 'Timetable 2027', 'dates and milestones to Next Fest and Early Access')];
   static const rules = [('CLAUDE.md', 'Agent rules', 'how every agent works in the repo'), ('AGENTS.md', 'AGENTS.md', 'the same rules for Codex')];
@@ -669,7 +686,7 @@ class _DocRow extends StatelessWidget {
   }
 }
 
-void openDoc(BuildContext context, StudioSource source, String rel, String title) {
+void openDoc(BuildContext context, StudioData source, String rel, String title) {
   final raw = source.gameFile(rel);
   Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DocScreen(title: title, parts: DocPart.split(raw))));
 }
@@ -840,3 +857,8 @@ Future<void> explain(BuildContext context, BridgeSession? desk, StudioThreads? t
   final err = await askDesk(desk, threads, about: about, stepText: stepText, text: kSummarize);
   if (err != null) messenger.showSnackBar(SnackBar(content: Text(err)));
 }
+
+
+/// Seven tabs fit side by side from about 760 px; narrower (a phone) or with
+/// large text, the tab bar scrolls so every name reads whole.
+bool _scrollTabs(BuildContext context) => MediaQuery.sizeOf(context).width < 760 || MediaQuery.textScalerOf(context).scale(10) > 15;

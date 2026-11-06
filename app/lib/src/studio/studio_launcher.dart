@@ -4,52 +4,114 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:path/path.dart' as p;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../host/bridge_session.dart';
+import '../host/host_projects.dart';
 import 'studio_desk.dart';
+import 'studio_media.dart';
 import 'studio_draft.dart';
 import 'studio_orchestrator.dart';
+import 'studio_relay.dart';
 import 'studio_screen.dart';
 import 'studio_source.dart';
+
+/// The pictures and videos the autopilot shows — one per app, published to
+/// the relay for the phone.
+StudioMedia? _media;
+StudioMedia studioMediaFor({required String autopilot, required String? Function(String) resolve}) {
+  final m = _media ??= (StudioMedia(publisher: FirebaseMediaPublisher(db: FirebaseFirestore.instance, blobs: HostProjects.blobs))..load());
+  m
+    ..reviewDir = p.join(autopilot, 'review')
+    ..resolve = resolve
+    ..start();
+  return m;
+}
+
+/// Stops the Studio's background work on a clean quit.
+void stopStudioMedia() {
+  StudioHost.current?.stop();
+  _media?.stop();
+}
 
 /// The one draft of the app — it outlives the Studio screen and a relaunch.
 final StudioDraft studioDraft = StudioDraft()..restore();
 
+/// The Studio's background work, started with the app on the Mac: reading
+/// the autopilot folder, publishing it for the phone, gathering media, and
+/// (through the orchestrator) timed orders and the review loop — whether or
+/// not the Studio screen is open. Opening the Studio only shows it.
+class StudioHost {
+  StudioHost._(this.autopilot, this.game, this.orchDir) {
+    source = StudioSource(autopilotDir: autopilot, gameDir: game)..start();
+    StudioSource.current = source;
+    // The orchestrator runs where the person says, else in the game repo.
+    orchestrator = orchDir == null ? null : StudioOrchestrator.get(orchDir!, autopilotDir: autopilot);
+    // The step desk works in the same folder, on its own record.
+    desk = orchDir == null ? null : StudioDesk.get(orchDir!, autopilotDir: autopilot);
+    media = studioMediaFor(autopilot: autopilot, resolve: source.finderFor(null).resolve);
+    if (orchestrator != null) media.watch(orchestrator!, source: 'orchestrator');
+    if (desk != null) media.watch(desk!, source: 'desk');
+    publisher = StudioPublisher(db: FirebaseFirestore.instance, source: source, machine: Platform.localHostname)..start();
+  }
+
+  final String autopilot;
+  final String? game;
+  final String? orchDir;
+  late final StudioSource source;
+  BridgeSession? orchestrator;
+  BridgeSession? desk;
+  late final StudioMedia media;
+  late final StudioPublisher publisher;
+
+  static StudioHost? current;
+
+  /// The host for the saved (or usual) folders; null when no autopilot
+  /// folder is known yet. A change of folders replaces it.
+  static Future<StudioHost?> ensure({String? autopilotOverride}) async {
+    final saved = await StudioSettings.load();
+    final home = Platform.environment['HOME'] ?? '';
+    String? firstThat(List<String?> dirs, bool Function(String) ok) {
+      for (final d in dirs) {
+        if (d != null && ok(d)) return d;
+      }
+      return null;
+    }
+
+    final autopilot = firstThat([autopilotOverride, saved.autopilot, p.join(home, 'StudioProjects', 'sivas-autopilot'), p.join(home, 'StudioProjects', 'sivas-autopilot-snapshot')], StudioSettings.looksLikeAutopilot);
+    if (autopilot == null) return null;
+    final game = firstThat([saved.game, p.join(home, 'StudioProjects', 'sivas-the-game')], StudioSettings.looksLikeGame);
+    final orchDir = saved.orchestrator != null && Directory(saved.orchestrator!).existsSync() ? saved.orchestrator : game;
+    final cur = current;
+    if (cur != null && cur.autopilot == autopilot && cur.game == game && cur.orchDir == orchDir) return cur;
+    cur?.stop();
+    await StudioSettings.save(autopilot: autopilot, game: game);
+    return current = StudioHost._(autopilot, game, orchDir);
+  }
+
+  void stop() {
+    publisher.stop();
+    source.dispose();
+    media.stop();
+    if (identical(current, this)) current = null;
+  }
+}
+
 /// Opens the Studio: the folders saved last time, else the usual places
 /// under ~/StudioProjects, else asks.
 Future<void> openStudio(BuildContext context) async {
-  final saved = await StudioSettings.load();
-  final home = Platform.environment['HOME'] ?? '';
-  String? firstThat(List<String?> dirs, bool Function(String) ok) {
-    for (final d in dirs) {
-      if (d != null && ok(d)) return d;
-    }
-    return null;
-  }
-
-  var autopilot = firstThat([
-    saved.autopilot,
-    p.join(home, 'StudioProjects', 'sivas-autopilot'),
-    p.join(home, 'StudioProjects', 'sivas-autopilot-snapshot'),
-  ], StudioSettings.looksLikeAutopilot);
-  var game = firstThat([saved.game, p.join(home, 'StudioProjects', 'sivas-the-game')], StudioSettings.looksLikeGame);
+  var host = await StudioHost.ensure();
   if (!context.mounted) return;
-  if (autopilot == null) {
-    autopilot = await _pick(context, 'Pick the autopilot folder (the one with lane-a, mail and review).', StudioSettings.looksLikeAutopilot);
-    if (autopilot == null) return;
+  if (host == null) {
+    final picked = await _pick(context, 'Pick the autopilot folder (the one with lane-a, mail and review).', StudioSettings.looksLikeAutopilot);
+    if (picked == null) return;
+    host = await StudioHost.ensure(autopilotOverride: picked);
+    if (host == null || !context.mounted) return;
   }
-  await StudioSettings.save(autopilot: autopilot, game: game);
-  if (!context.mounted) return;
-  final source = StudioSource(autopilotDir: autopilot, gameDir: game)..start();
-  StudioSource.current = source;
-  // The orchestrator runs where the person says, else in the game repo — the
-  // folder its terminal session works in on the MacBook.
-  final orchDir = saved.orchestrator != null && Directory(saved.orchestrator!).existsSync() ? saved.orchestrator : game;
-  final orchestrator = orchDir == null ? null : StudioOrchestrator.get(orchDir, autopilotDir: autopilot);
-  // The step desk works in the same folder, on its own record.
-  final desk = orchDir == null ? null : StudioDesk.get(orchDir, autopilotDir: autopilot);
+  final h = host;
   await Navigator.of(context).push(MaterialPageRoute<void>(
-    builder: (context) => StudioScreen(source: source, orchestrator: orchestrator, draft: studioDraft, desk: desk, threads: StudioDesk.threads, onSettings: () => _folders(context, autopilot!, game, orchDir)),
+    builder: (context) => StudioScreen(source: h.source, orchestrator: h.orchestrator, draft: studioDraft, desk: h.desk, threads: StudioDesk.threads, media: h.media, onSettings: () => _folders(context, h.autopilot, h.game, h.orchDir)),
   ));
-  source.dispose();
 }
 
 Future<String?> _pick(BuildContext context, String why, bool Function(String) ok) async {

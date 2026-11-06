@@ -16,7 +16,11 @@ import '../host/project_registry.dart';
 import '../plan_source.dart';
 import '../push/push_listener.dart';
 import '../relay.dart';
+import '../blobs.dart';
 import '../studio/studio_launcher.dart';
+import '../studio/studio_media_view.dart';
+import '../studio/studio_relay.dart';
+import '../studio/studio_screen.dart';
 import '../studio/studio_desk.dart';
 import '../studio/studio_orchestrator.dart';
 import '../theme.dart';
@@ -48,6 +52,9 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         setState(() {});
       });
+      // The Studio's background work — reading and publishing the autopilot,
+      // media, timed orders — runs from launch, not only while it is open.
+      StudioHost.ensure().catchError((Object _) => null);
       // The phone hears this Mac is up from here on, and hears a clean
       // quit as "stopped" rather than a silence.
       final presence = HostProjects.presence..start();
@@ -56,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }).catchError((Object _) {});
       ClaudeCli.version().then((v) => presence.cli = v);
       _exit = AppLifecycleListener(onExitRequested: () async {
+        stopStudioMedia();
         await Future.wait([HostProjects.quitAll(), StudioOrchestrator.quit(), StudioDesk.quit()]);
         await presence.stop();
         HostProjects.power.releaseAll();
@@ -179,12 +187,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (snap.hasError) return EmptyNote('Could not read the relay: ${snap.error}');
                 if (!snap.hasData) return const Center(child: CircularProgressIndicator());
                 final projects = groupProjects(snap.data!.docs.map(ProjectSummary.fromDoc).toList());
-                if (projects.isEmpty) return const EmptyNote('Nothing published yet. Open a project in the Mac app first.');
+                // The Studio leads the list once the Mac publishes it.
+                final studio = StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance.collection('studio').doc('main').snapshots(),
+                  builder: (context, s) {
+                    final d = s.data?.data();
+                    final lanes = (d?['lanes'] as Map?)?.length ?? 0;
+                    final n = (d?['media'] as num?)?.toInt() ?? 0;
+                    if (lanes == 0 && n == 0) return const SizedBox.shrink();
+                    return Column(children: [
+                      ListTile(
+                        leading: Icon(Icons.hub_outlined, color: t.accent),
+                        title: const Text('STUDIO', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                        subtitle: Text(['THE GAME AUTOPILOT', if (lanes > 0) '$lanes LANES', if (n > 0) '$n PICTURES AND VIDEOS', if (d?['machine'] != null) '${d!['machine']}'].join(' · ').toUpperCase(), maxLines: 2, overflow: TextOverflow.ellipsis, style: t.readout(10)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => openPhoneStudio(context),
+                      ),
+                      Divider(height: 1, color: t.line),
+                    ]);
+                  },
+                );
+                if (projects.isEmpty) return ListView(children: [studio, const EmptyNote('Nothing published yet. Open a project in the Mac app first.')]);
                 return ListView.separated(
-                  itemCount: projects.length,
-                  separatorBuilder: (_, _) => Divider(height: 1, color: t.line),
+                  itemCount: projects.length + 1,
+                  separatorBuilder: (_, i) => i == 0 ? const SizedBox.shrink() : Divider(height: 1, color: t.line),
                   itemBuilder: (context, i) {
-                    final s = projects[i];
+                    if (i == 0) return studio;
+                    final s = projects[i - 1];
                     final open = (s.counts['open'] as num?)?.toInt();
                     final asking = s.pendingAsks > 0;
                     return ListTile(
@@ -201,4 +230,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
     );
   }
+}
+
+
+/// The phone's Studio: the Mac's, as the relay has it.
+Future<void> openPhoneStudio(BuildContext context) async {
+  final data = RemoteStudioData(FirebaseFirestore.instance)..start();
+  await Navigator.of(context).push(MaterialPageRoute<void>(
+    builder: (_) => StudioScreen(source: data, remote: true, mediaTab: PhoneMediaScreen(db: FirebaseFirestore.instance, blobs: FirebaseBlobStore(), embedded: true)),
+  ));
+  data.dispose();
 }

@@ -10,11 +10,27 @@ import 'studio_data.dart';
 import 'studio_plans.dart';
 import 'studio_resources.dart';
 
+/// What the Studio's screens read — the autopilot folder on the Mac
+/// ([StudioSource]), or the relay's copy of it on the phone.
+abstract class StudioData extends ChangeNotifier {
+  StudioSnapshot get snapshot;
+  String? get error;
+  Future<void> refresh();
+
+  /// The last lines of a step's log; '' where there is none.
+  String stepLog(String lane, String step, {int lines = 200});
+
+  /// Non-null when the game's documents can be read.
+  String? get gameDir;
+  String gameFile(String rel);
+  List<String> gddFiles();
+}
+
 /// Reads the autopilot folder into a [StudioSnapshot], again every [period]
 /// — the loop writes plain files and nothing announces a change, so the
 /// Studio polls as the reviewer does. Read-only: the Studio never writes
 /// into the autopilot folder or the game repo.
-class StudioSource extends ChangeNotifier {
+class StudioSource extends StudioData {
   StudioSource({required this.autopilotDir, this.gameDir, this.period = const Duration(seconds: 15), DateTime Function()? now}) : _now = now ?? DateTime.now;
 
   /// The Studio open now — for pages that look up a step's resources.
@@ -23,11 +39,14 @@ class StudioSource extends ChangeNotifier {
   final String autopilotDir;
 
   /// The game repo (roadmap, rules, concept); optional.
+  @override
   final String? gameDir;
   final Duration period;
   final DateTime Function() _now;
 
+  @override
   StudioSnapshot snapshot = StudioSnapshot.empty;
+  @override
   String? error;
   Timer? _timer;
 
@@ -45,6 +64,7 @@ class StudioSource extends ChangeNotifier {
     super.dispose();
   }
 
+  @override
   Future<void> refresh() async {
     try {
       snapshot = await read();
@@ -168,6 +188,7 @@ class StudioSource extends ChangeNotifier {
   }
 
   /// The last [lines] lines of a step's readable log, gzipped or not.
+  @override
   String stepLog(String lane, String step, {int lines = 200}) {
     final dir = p.join(autopilotDir, 'lane-$lane', 'logs');
     final plain = File(p.join(dir, 'step-$step.log'));
@@ -227,6 +248,7 @@ class StudioSource extends ChangeNotifier {
   StepResources resourcesForItem(RoadmapItem item) => itemResources(finderFor(null), item);
 
   /// A file of the game repo, or '' when there is none.
+  @override
   String gameFile(String rel) {
     if (gameDir == null) return '';
     final f = File(p.join(gameDir!, rel));
@@ -234,6 +256,7 @@ class StudioSource extends ChangeNotifier {
   }
 
   /// The game repo's `design/gdd/*.md`, sorted.
+  @override
   List<String> gddFiles() {
     if (gameDir == null) return const [];
     final d = Directory(p.join(gameDir!, 'design', 'gdd'));

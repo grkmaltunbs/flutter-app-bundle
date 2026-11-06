@@ -10,6 +10,8 @@ import '../screens/deck_tab.dart';
 import '../theme.dart';
 import 'studio_data.dart';
 import 'studio_plans.dart';
+import 'studio_media.dart';
+import 'studio_media_view.dart';
 import 'studio_schedule.dart';
 
 /// The orchestrator as a session of this app: K.A.T.Y.A's own Deck (chat,
@@ -271,14 +273,16 @@ Future<String> sendToOrchestrator(BridgeSession b, String text) async {
 
 /// The orchestrator tab: the autopilot's commands over the Deck.
 class OrchestratorTab extends StatelessWidget {
-  const OrchestratorTab({super.key, required this.bridge, required this.lanes});
+  const OrchestratorTab({super.key, required this.bridge, required this.lanes, this.media});
   final BridgeSession bridge;
   final List<Lane> lanes;
+  final StudioMedia? media;
 
   @override
   Widget build(BuildContext context) {
     return Column(children: [
       AutopilotBar(bridge: bridge, lanes: lanes, loop: StudioOrchestrator.loop),
+      if (media != null) MediaStrip(media: media!),
       Expanded(child: DeckTab(bridge: bridge, title: 'ORCHESTRATOR')),
     ]);
   }

@@ -194,6 +194,16 @@ void main() {
     }
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
     expect(m().storage[12], closeTo(x0 - 80, 0.6), reason: 'Shift + wheel pans sideways');
+
+    // Out, and out again: the zoom stops at its floor (30 %) — below 100 % the
+    // zoom is read from the x scale, not getMaxScaleOnAxis (which counts z).
+    for (final _ in [1, 2]) {
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 240)));
+      for (var i = 0; i < 60; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+    }
+    expect(m().storage[0], closeTo(0.3, 0.005));
     expect(m().getMaxScaleOnAxis(), closeTo(1, 0.01));
     expect(tester.takeException(), isNull);
   });

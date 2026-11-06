@@ -173,6 +173,18 @@ void main() {
     });
   }
 
+  testWidgets('a sideways drag on LANES pans the map — it does not change the tab', (tester) async {
+    await pumpStudio(tester, 1.0, size: const Size(400, 860));
+    await goTab(tester, 2);
+    final view = tester.widget<InteractiveViewer>(find.byType(InteractiveViewer)).transformationController!;
+    final x0 = view.value.storage[12];
+    await tester.drag(find.byKey(const Key('lane-sky')), const Offset(-200, 0));
+    await settle(tester);
+    expect(DefaultTabController.of(tester.element(find.byType(TabBarView))).index, 2, reason: 'still on LANES');
+    expect(view.value.storage[12], lessThan(x0 - 100), reason: 'the map moved instead');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('without an orchestrator folder the tab says how to set one', (tester) async {
     await pumpStudio(tester, 1.0);
     await goTab(tester, 1);
@@ -213,7 +225,7 @@ void main() {
 
   testWidgets('DOCS: the plan opens as its parts, one part at a time', (tester) async {
     await pumpStudio(tester, 1.0);
-    await goTab(tester, 5);
+    await goTab(tester, 6);
     expect(find.text('Production plan'), findsOneWidget);
     expect(find.text('Game overview'), findsOneWidget);
     await tester.tap(find.text('Production plan'));

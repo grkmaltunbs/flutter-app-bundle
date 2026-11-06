@@ -25,6 +25,10 @@ import 'studio_visuals.dart';
 
 const _sky = KitTokens.dark;
 
+/// The zoom of a pan/zoom matrix: its x scale. (getMaxScaleOnAxis also
+/// counts z, which our matrices never scale — it read 1 at any zoom below it.)
+double _scaleOf(Matrix4 m) => m.storage[0];
+
 /// The colour of the person's own pending changes on a graph.
 const kDraftColor = Color(0xFFC79BFF);
 
@@ -84,7 +88,7 @@ class _SkyPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final m = view.value;
-    final scale = m.getMaxScaleOnAxis();
+    final scale = _scaleOf(m);
     final tx = m.storage[12], ty = m.storage[13];
     final t = drift.value;
     canvas.drawRect(rect, Paint()..shader = const RadialGradient(center: Alignment(-0.2, -0.5), radius: 1.4, colors: [Color(0xFF0F1C30), Color(0xFF070B12)]).createShader(rect));
@@ -304,7 +308,7 @@ mixin _Sky<T extends StatefulWidget> on State<T> {
   }
 
   Matrix4 _zoomed(Matrix4 m, double f, Offset around) {
-    final s = m.getMaxScaleOnAxis();
+    final s = _scaleOf(m);
     final g = (s * f).clamp(_minScale, _maxScale) / s;
     final out = m.clone();
     out.storage[0] *= g;
@@ -318,7 +322,7 @@ mixin _Sky<T extends StatefulWidget> on State<T> {
   Matrix4 _clamped(Matrix4 m) {
     final vp = _viewport;
     if (vp == null) return m;
-    final s = m.getMaxScaleOnAxis();
+    final s = _scaleOf(m);
     final w = skyCanvas.width * s, h = skyCanvas.height * s;
     const keep = 120.0;
     final out = m.clone();
@@ -547,7 +551,11 @@ class _LaneConstellationState extends State<LaneConstellation> with WidgetsBindi
             ),
           ),
         ),
-        Positioned(left: 10, top: 10, child: _Legend(items: [('DEPENDS ON', _sky.accent, false), ('SUGGESTED', _sky.warn, true), ('LANE ORDER', _sky.lineStrong, false), if (widget.draft != null && !widget.draft!.isEmpty) ('YOUR CHANGES', kDraftColor, true)])),
+        // The legend wraps in the room the controls leave on the right.
+        Positioned(left: 10, top: 10, right: 250, child: Align(alignment: Alignment.topLeft, child: _Legend(items: [('DEPENDS ON', _sky.accent, false), ('SUGGESTED', _sky.warn, true), ('LANE ORDER', _sky.lineStrong, false), if (widget.draft != null && !widget.draft!.isEmpty) ('YOUR CHANGES', kDraftColor, true)]))),
+        // When the canvas's own lane names scroll out of sight, badges pinned
+        // to the left edge keep each row named.
+        Positioned(left: 0, top: 0, bottom: 0, width: 60, child: IgnorePointer(child: CustomPaint(painter: _LaneBadges(view: view, lanes: g.lanes)))),
         if (_linkFor != null)
           Positioned(
             top: 56,
@@ -591,7 +599,7 @@ class _LaneConstellationState extends State<LaneConstellation> with WidgetsBindi
                     final n = g.node(key);
                     if (n == null) return;
                     setState(() => _selected = key);
-                    focusOn(at(n), scale: view.value.getMaxScaleOnAxis());
+                    focusOn(at(n), scale: _scaleOf(view.value));
                   },
                 ),
               ),
@@ -942,7 +950,7 @@ class _Legend extends StatelessWidget {
           Row(mainAxisSize: MainAxisSize.min, children: [
             SizedBox(width: 18, height: 8, child: CustomPaint(painter: _LegendLine(color: color, dashed: dashed))),
             const SizedBox(width: 5),
-            Text(label, style: _sky.readout(9, color: _sky.ink2)),
+            Flexible(child: Text(label, style: _sky.readout(9, color: _sky.ink2))),
           ]),
       ]),
     );
@@ -1318,9 +1326,13 @@ class _RoadmapConstellationState extends State<RoadmapConstellation> with Widget
         Positioned(
           left: 10,
           top: 10,
-          child: _Legend(items: [
-            for (final s in [ItemStatus.done, ItemStatus.built, ItemStatus.inProgress, ItemStatus.notStarted]) (statusWord(s), statusColor(_sky, s), s == ItemStatus.notStarted),
-          ]),
+          right: 210,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: _Legend(items: [
+              for (final s in [ItemStatus.done, ItemStatus.built, ItemStatus.inProgress, ItemStatus.notStarted]) (statusWord(s), statusColor(_sky, s), s == ItemStatus.notStarted),
+            ]),
+          ),
         ),
         Positioned(right: 10, top: 10, child: _SkyControls(onZoom: zoom, onFit: () => fit(lay.size), extra: widget.extraControls)),
         if (_linkFor != null)
@@ -1356,7 +1368,7 @@ class _RoadmapConstellationState extends State<RoadmapConstellation> with Widget
                         final at = lay.items[id];
                         if (at == null) return;
                         setState(() => _item = id);
-                        focusOn(at.at, scale: view.value.getMaxScaleOnAxis());
+                        focusOn(at.at, scale: _scaleOf(view.value));
                       })
                     : _StarPanel(milestone: star!, current: star.key == lay.current, onClose: () => setState(() => _star = null)),
               ),
@@ -1963,4 +1975,36 @@ class _ResourceLine extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// Lane badges pinned to the left edge, following the rows through pan and
+/// zoom — drawn only while the canvas's own names are out of sight.
+class _LaneBadges extends CustomPainter {
+  _LaneBadges({required this.view, required this.lanes}) : super(repaint: view);
+  final TransformationController view;
+  final List<String> lanes;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final m = view.value;
+    final s = _scaleOf(m);
+    final tx = m.storage[12], ty = m.storage[13];
+    // The canvas's names sit at x 14–90: visible while tx > -14 * s.
+    if (tx > -20 * s) return;
+    for (final (row, id) in lanes.indexed) {
+      final y = ty + (_top + row * _rowH + _rowH / 2) * s;
+      if (y < -20 || y > size.height + 20) continue;
+      final r = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(26, y), width: 38, height: 26), const Radius.circular(8));
+      canvas.drawRRect(r, Paint()..color = _sky.surface.withValues(alpha: 0.92));
+      canvas.drawRRect(r, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = _sky.lineStrong);
+      final lp = _label(id.toUpperCase(), 13, _sky.ink, weight: FontWeight.w700, family: kDisplayFont);
+      lp.paint(canvas, Offset(26 - lp.width / 2, y - lp.height / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LaneBadges old) => old.lanes != lanes;
 }

@@ -7,6 +7,9 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import 'studio_desk.dart';
 import 'studio_draft.dart';
+import 'studio_media.dart';
+import 'studio_media_view.dart';
+import 'studio_source.dart';
 
 /// One step's thread with the step desk: every question asked about it and
 /// every answer, the live reply streaming in, a permission the desk asks for,
@@ -178,6 +181,7 @@ class _Row extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             if (parts.summary != null) _SummaryCard(text: parts.summary!),
             if (parts.prose.isNotEmpty) Md(parts.prose),
+            InlineMedia(paths: mediaPathsIn(parts.prose, resolve: StudioSource.current?.finderFor(null).resolve)),
             for (final o in parts.proposals) _ProposalCard(order: o, draft: draft),
           ]),
         );
