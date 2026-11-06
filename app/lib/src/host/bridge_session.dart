@@ -241,6 +241,10 @@ class BridgeSession extends ChangeNotifier {
   /// the same text `kit show` prints).
   String? Function(Map<String, Object?> about)? describeAbout;
 
+  /// Words a scoped message instead of [scopedPrompt] — the Studio's step
+  /// desk asks about lane steps and roadmap items, not about `plan/`.
+  String Function(String text, Map<String, Object?> about, String? shown)? promptForAbout;
+
   /// Rules the CLI wrote because an ask was answered Always. Persisted with
   /// the record; the Session tab lists and removes them.
   final List<AppliedRule> alwaysApplied = [];
@@ -858,7 +862,7 @@ class BridgeSession extends ChangeNotifier {
       cur.firstMessage = clipLine(t.isEmpty ? '(a file)' : t, 120);
       _writeRecord();
     }
-    var prompt = about == null ? t : scopedPrompt(t, about, describeAbout?.call(about));
+    var prompt = about == null ? t : (promptForAbout ?? scopedPrompt)(t, about, describeAbout?.call(about));
     final images = <InlineImage>[];
     final imagePaths = <String>[];
     final inline = <int>{};

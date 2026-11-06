@@ -16,6 +16,9 @@ import '../host/project_registry.dart';
 import '../plan_source.dart';
 import '../push/push_listener.dart';
 import '../relay.dart';
+import '../studio/studio_launcher.dart';
+import '../studio/studio_desk.dart';
+import '../studio/studio_orchestrator.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/quiet_hours_sheet.dart';
@@ -53,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }).catchError((Object _) {});
       ClaudeCli.version().then((v) => presence.cli = v);
       _exit = AppLifecycleListener(onExitRequested: () async {
-        await HostProjects.quitAll();
+        await Future.wait([HostProjects.quitAll(), StudioOrchestrator.quit(), StudioDesk.quit()]);
         await presence.stop();
         HostProjects.power.releaseAll();
         return AppExitResponse.exit;
@@ -123,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
+          if (isHost) TextButton.icon(onPressed: () => openStudio(context), icon: const Icon(Icons.dashboard_outlined), label: const Text('STUDIO')),
           IconButton(tooltip: 'Sign out', icon: const Icon(Icons.logout), onPressed: () => FirebaseAuth.instance.signOut()),
         ],
       ),

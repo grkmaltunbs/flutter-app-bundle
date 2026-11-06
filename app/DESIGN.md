@@ -937,3 +937,23 @@ selection also worked. After handling Codex's unchanged-settings optimization,
 two consecutive Astra replies were both confirmed and individually labelled.
 Dart runtime error sweep was clean. Original Scratch model choice restored,
 QA sessions stopped, and the user's login retained. Final host build installed.
+
+## Studio — the game autopilot in K.A.T.Y.A (2026-11-07)
+
+**The ask.** The user runs the Sivas game through a file-driven autopilot (`sivas-autopilot`: lanes A–D, each a loop of one-shot `claude -p` steps; a reviewer/orchestrator session; mail, flags and review files) and cannot keep up with it in markdown. The Studio puts it on one screen and lets the user steer it.
+
+**Read-only by design.** The Studio reads the autopilot folder and the game repo (`StudioSource`, a poll every 15 s; the loop writes plain files and announces nothing) and never writes either. Every change the user makes (link, unlink, add, edit, remove, move) is a **draft order** (`StudioDraft`, persisted in shared_preferences) sent as one message by **SEND TO ORCHESTRATOR**, the way the board's ticks wait for Send to Claude. The orchestrator applies each order the autopilot's way (edit the lane's list on its branch, or a `/autopilot-tell` note) and answers one line per order. Reason: the lane agents edit and commit those lists themselves; a second writer would collide with them.
+
+**Tabs.** NOW (what waits on the user, from the reviewer's digest; a card per lane) · ORCHESTRATOR (K.A.T.Y.A's Deck on a `claude -p` bridge plus a wrapped bar of the `/autopilot-*` commands) · LANES (the dependency graph) · ROADMAP (the milestone constellation) · INBOX (mail to the user, the reviewer's decisions, open issues) · DOCS (plan, timetable, rules, GDD, cut at `##`).
+
+**Dependencies are data.** The step lists had none (order only), so links are an explicit tag in a step's first line: `(after: lane-b/STEP-ID, OTHER-ID)` (`parseAfterTag`; a bare id is the same lane). Mentions like "lane C 468" are drawn as *suggested* links that the user accepts with one tap. Roadmap links come from "after M3.21"-style text. Steps naming roadmap ids (`M3.41`, `SR.6`) show under the item.
+
+**The graphs.** Every lane's NOW sits in one column; done steps to the left, open to the right; held items amber. Drawn on the Instrument night sky whatever the skin, in two layers (a still painter repainted on change, a light animated one) behind a full-window sky with parallax stars and drifting nebulae. Effects run on two slow timers (about 30 and 12 per second), not per frame, and stop when the app is not the active window or under reduce motion: the host is a game-development Mac. The mouse wheel zooms around the pointer, eased; Shift + wheel pans; InteractiveViewer's own wheel zoom is off (`scaleFactor: ∞`) and a pinch stays its. Hold-and-drag moves a step (a draft *move*).
+
+**The review loop.** `/autopilot-watch|afk` make a session cron (`/loop 20m /autopilot-review`), which a `-p` bridge has no way to run. The app runs it instead (`ReviewLoop`): every minute it checks that the loop is on, `review/mode` is present or afk, the last review is 20 min old and the session is between turns, then sends `/autopilot-review`. It never starts a session on its own. The orchestrator's brief says so.
+
+**The step desk.** Questions about a step go to a second session (`StudioDesk`, its bridge record under `~/.flutter_kit/studio-desk` so it never takes the orchestrator's place in the same folder), as scoped messages (`about: {step: 'a/ID'}` / `{item: 'M3.22'}`; `BridgeSession.promptForAbout` words them). Each step's rows are saved per thread under `~/.flutter_kit/studio/threads/` (`StudioThreads`), so a thread outlives the session. The desk never edits: a change it recommends comes back as a ```` ```studio-proposal ```` block that renders as a card with ADD TO DRAFT; EXPLAIN asks for a ```` ```studio-summary ```` block, shown as the step's "what it is for". The orchestrator keeps its conversation for orchestrating, and answers do not wait behind a review.
+
+**Resources.** A step's page gathers what belongs to it (`ResourceFinder`): pictures, folders of renders, videos and documents its text names (resolved in the lane's repo, the same repo under `~/StudioProjects` — the files carry the MacBook's paths — the game repo and the autopilot folder), mail that names it, its decision-log entries, and its log.
+
+**QA rig (Mac mini).** The real `/autopilot-*` skills run only inside `~/kit-scratch/orchestrator-qa/.claude/skills`, against a copy of the autopilot folder (`~/kit-scratch/autopilot-qa`) whose loop starters and SSH helpers are stand-ins, and a light shared clone of the game repo. Nothing there can start a lane.
