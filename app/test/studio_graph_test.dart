@@ -204,6 +204,17 @@ void main() {
       }
     }
     expect(m().storage[0], closeTo(0.3, 0.005));
+
+    // Zoomed all the way out, a drag moves the view by the drag — no snap
+    // back (InteractiveViewer clamped to a finite margin once the graph was
+    // smaller than the window: the jump the phone showed).
+    final before = m().storage[12];
+    await tester.dragFrom(at, const Offset(-150, 0));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(m().storage[12], closeTo(before - 150, 25), reason: 'the view follows the finger');
+    expect(m().storage[0], closeTo(0.3, 0.005), reason: 'and keeps its zoom');
     expect(m().getMaxScaleOnAxis(), closeTo(1, 0.01));
     expect(tester.takeException(), isNull);
   });

@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../host/bridge_session.dart';
 import '../host/host_projects.dart';
 import 'studio_desk.dart';
+import 'studio_desk_relay.dart';
 import 'studio_media.dart';
 import 'studio_draft.dart';
 import 'studio_orchestrator.dart';
@@ -50,10 +51,12 @@ class StudioHost {
     orchestrator = orchDir == null ? null : StudioOrchestrator.get(orchDir!, autopilotDir: autopilot);
     // The step desk works in the same folder, on its own record.
     desk = orchDir == null ? null : StudioDesk.get(orchDir!, autopilotDir: autopilot);
+    threads = desk == null ? null : DeskThreads(desk: desk!, threads: StudioDesk.threads);
     media = studioMediaFor(autopilot: autopilot, resolve: source.finderFor(null).resolve);
     if (orchestrator != null) media.watch(orchestrator!, source: 'orchestrator');
     if (desk != null) media.watch(desk!, source: 'desk');
     publisher = StudioPublisher(db: FirebaseFirestore.instance, source: source, machine: Platform.localHostname)..start();
+    if (desk != null) deskRelay = DeskRelay(db: FirebaseFirestore.instance, desk: desk!, threads: StudioDesk.threads)..start();
     // The orchestrator on the phone: its session published, the phone's commands carried out.
     if (orchestrator != null) {
       relay = OrchestratorRelay(db: FirebaseFirestore.instance, bridge: orchestrator!, machine: Platform.localHostname, dir: orchDir!, push: HostProjects.push, blobs: HostProjects.blobs, loop: StudioOrchestrator.loop, schedule: StudioOrchestrator.schedule)..start();
@@ -62,12 +65,18 @@ class StudioHost {
 
   OrchestratorRelay? relay;
 
+  /// The step desk on the phone: its threads and state published, the phone's questions carried out.
+  DeskRelay? deskRelay;
+
   final String autopilot;
   final String? game;
   final String? orchDir;
   late final StudioSource source;
   BridgeSession? orchestrator;
   BridgeSession? desk;
+
+  /// The desk's threads, for the Studio's panels and thread screens.
+  DeskThreads? threads;
   late final StudioMedia media;
   late final StudioPublisher publisher;
 
@@ -98,6 +107,7 @@ class StudioHost {
 
   void stop() {
     relay?.stop();
+    deskRelay?.stop();
     publisher.stop();
     source.dispose();
     media.stop();
@@ -118,7 +128,7 @@ Future<void> openStudio(BuildContext context) async {
   }
   final h = host;
   await Navigator.of(context).push(MaterialPageRoute<void>(
-    builder: (context) => StudioScreen(source: h.source, orchestrator: h.orchestrator, draft: studioDraft, desk: h.desk, threads: StudioDesk.threads, media: h.media, onSettings: () => _folders(context, h.autopilot, h.game, h.orchDir)),
+    builder: (context) => StudioScreen(source: h.source, orchestrator: h.orchestrator, draft: studioDraft, threads: h.threads, media: h.media, onSettings: () => _folders(context, h.autopilot, h.game, h.orchDir)),
   ));
 }
 

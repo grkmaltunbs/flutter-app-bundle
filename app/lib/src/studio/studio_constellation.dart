@@ -390,7 +390,7 @@ class LaneConstellation extends StatefulWidget {
   final void Function(String lane, StepItem item)? onExplain;
 
   /// The step desk's threads — the panel shows how many questions a step has.
-  final StudioThreads? threads;
+  final ThreadsApi? threads;
 
   /// Where [n]'s ring sits on the canvas (before pan and zoom).
   static Offset positionOf(LaneGraph g, LaneNode n) => Offset(_left + (n.col - g.minCol) * _colW + _colW / 2, _top + n.row * _rowH + _rowH / 2);
@@ -525,7 +525,10 @@ class _LaneConstellationState extends State<LaneConstellation> with WidgetsBindi
             constrained: false,
             minScale: 0.3,
             maxScale: 3,
-            boundaryMargin: const EdgeInsets.all(400),
+            // Unbounded: with a finite margin, InteractiveViewer pulls the view back
+            // inside it once the zoomed-out graph is smaller than the window — the
+            // jump. Our own glides keep a strip of the graph in sight.
+            boundaryMargin: const EdgeInsets.all(double.infinity),
             onInteractionStart: (_) => onGrab(),
             // Its own wheel zoom off (an infinite factor makes every wheel
             // step a scale of 1): the wheel is ours, smooth; a pinch stays its.
@@ -979,7 +982,7 @@ class _LegendLine extends CustomPainter {
 /// The selected step: what it is, what it waits on, what waits on it.
 class _StepPanel extends StatelessWidget {
   const _StepPanel({required this.node, required this.graph, required this.laneName, required this.onClose, required this.onJump, this.onAsk, this.draft, this.onLink, this.threads, this.onExplain});
-  final StudioThreads? threads;
+  final ThreadsApi? threads;
   final VoidCallback? onExplain;
   final LaneNode node;
   final LaneGraph graph;
@@ -1141,7 +1144,7 @@ class _StepPanel extends StatelessWidget {
 class RoadmapConstellation extends StatefulWidget {
   const RoadmapConstellation({super.key, required this.milestones, this.steps = const {}, this.onAskItem, this.onExplainItem, this.draft, this.threads, this.extraControls = const []});
   final void Function(RoadmapItem item)? onExplainItem;
-  final StudioThreads? threads;
+  final ThreadsApi? threads;
   final List<Milestone> milestones;
 
   /// Lane steps naming an item, by item id.
@@ -1282,7 +1285,7 @@ class _RoadmapConstellationState extends State<RoadmapConstellation> with Widget
             constrained: false,
             minScale: 0.3,
             maxScale: 3,
-            boundaryMargin: const EdgeInsets.all(500),
+            boundaryMargin: const EdgeInsets.all(double.infinity),
             onInteractionStart: (_) => onGrab(),
             // Its own wheel zoom off (an infinite factor makes every wheel
             // step a scale of 1): the wheel is ours, smooth; a pinch stays its.
@@ -1614,7 +1617,7 @@ class _RoadMoving extends CustomPainter {
 
 class _ItemPanel extends StatelessWidget {
   const _ItemPanel({required this.item, required this.steps, required this.onClose, required this.onJump, this.onAsk, this.draft, this.onLink, this.threads, this.onExplain});
-  final StudioThreads? threads;
+  final ThreadsApi? threads;
   final VoidCallback? onExplain;
   final StudioDraft? draft;
   final VoidCallback? onLink;
@@ -1827,7 +1830,7 @@ class _StepDialogState extends State<_StepDialog> {
 /// QUESTIONS (n) when the step has a thread, ASK A QUESTION when not.
 class _ThreadButton extends StatelessWidget {
   const _ThreadButton({required this.threads, required this.threadKey, required this.onPressed});
-  final StudioThreads? threads;
+  final ThreadsApi? threads;
   final String threadKey;
   final VoidCallback onPressed;
   @override
@@ -1842,7 +1845,7 @@ class _ThreadButton extends StatelessWidget {
 /// The latest answer in the step's thread, two lines of it.
 class _LastAnswer extends StatelessWidget {
   const _LastAnswer({required this.threads, required this.threadKey});
-  final StudioThreads threads;
+  final ThreadsApi threads;
   final String threadKey;
   @override
   Widget build(BuildContext context) {
@@ -1924,7 +1927,7 @@ class _RoadLiftPainter extends CustomPainter {
 /// WHAT IT IS FOR: the desk's summary, or EXPLAIN to have it written.
 class _ForLine extends StatelessWidget {
   const _ForLine({required this.threads, required this.threadKey, this.onExplain});
-  final StudioThreads? threads;
+  final ThreadsApi? threads;
   final String threadKey;
   final VoidCallback? onExplain;
   @override

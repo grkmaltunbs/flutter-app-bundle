@@ -124,7 +124,7 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 60));
     }
-    expect(find.textContaining('come to the phone in the next update'), findsOneWidget);
+    expect(find.textContaining('has not published the orchestrator'), findsOneWidget, reason: 'no orchestrator tab handed in');
     DefaultTabController.of(tester.element(find.byType(TabBarView))).animateTo(5);
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 60));

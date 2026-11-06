@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_kit/kit.dart' show DeckMessage, DeckRole;
 
-import '../host/bridge_session.dart';
 import '../screens/ask_card.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -16,15 +15,16 @@ import 'studio_source.dart';
 /// and the changes it proposes — each one tap from the draft. The composer
 /// asks the next question in the same conversation.
 class StepThreadScreen extends StatefulWidget {
-  const StepThreadScreen({super.key, required this.title, required this.about, required this.stepText, required this.desk, required this.threads, this.draft, this.subtitle});
+  const StepThreadScreen({super.key, required this.title, required this.about, required this.stepText, required this.threads, this.draft, this.subtitle});
   final String title;
   final String? subtitle;
   final Map<String, Object?> about;
 
   /// The step as its file holds it — shown to the desk with every question.
   final String stepText;
-  final BridgeSession desk;
-  final StudioThreads threads;
+
+  /// The desk and its threads — on the Mac, or through the relay on the phone.
+  final ThreadsApi threads;
   final StudioDraft? draft;
 
   @override
@@ -53,7 +53,8 @@ class _StepThreadScreenState extends State<StepThreadScreen> {
       _sending = true;
       _error = null;
     });
-    final err = await askDesk(widget.desk, widget.threads, about: widget.about, stepText: widget.stepText, text: text);
+    final err = await widget.threads.ask(widget.about, stepText: widget.stepText, text: text);
+    if (!mounted) return;
     if (err != null) {
       setState(() {
         _sending = false;
@@ -68,18 +69,6 @@ class _StepThreadScreenState extends State<StepThreadScreen> {
     });
   }
 
-  /// The saved rows, then this session's rows about the step that are not saved yet.
-  List<DeckMessage> _rows() {
-    final saved = widget.threads.rows(key);
-    final sid = widget.desk.sessionId ?? 'x';
-    final ids = {for (final r in saved) r.id};
-    final live = [
-      for (final m in widget.desk.transcript.messages)
-        if (threadKeyOf(m.about) == key && m.role != DeckRole.note && !ids.contains('$sid-${m.id}')) m,
-    ];
-    return [...saved, ...live];
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
@@ -89,13 +78,12 @@ class _StepThreadScreenState extends State<StepThreadScreen> {
         Text('STEP DESK · ASK ANYTHING ABOUT THIS STEP', style: t.readout(9, color: t.muted)),
       ])),
       body: ListenableBuilder(
-        listenable: Listenable.merge([widget.desk, widget.threads, if (widget.draft != null) widget.draft!]),
+        listenable: Listenable.merge([widget.threads, if (widget.draft != null) widget.draft!]),
         builder: (context, _) {
-          final rows = _rows();
-          final b = widget.desk;
-          final mine = b.transcript.messages.any((m) => threadKeyOf(m.about) == key);
-          final busyHere = b.transcript.turnOpen && mine && threadKeyOf(b.transcript.messages.lastOrNull?.about) == key;
-          final ask = b.transcript.pending;
+          final th = widget.threads;
+          final rows = th.rowsFor(key);
+          final busyHere = th.busy(key);
+          final ask = th.pendingAsk;
           return Column(children: [
             Expanded(
               child: ListView(
@@ -112,7 +100,7 @@ class _StepThreadScreenState extends State<StepThreadScreen> {
                   if (rows.isEmpty) const EmptyNote('No questions yet. Ask why it is next, what it waits on, what it changes — the desk reads the lane\'s files to answer.'),
                   for (final m in rows) _Row(message: m, draft: widget.draft),
                   if (busyHere) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Row(children: [ThinkingDots(color: t.accent), const SizedBox(width: 8), Text('the desk is reading', style: t.mono(11, color: t.muted))])),
-                  if (ask != null) Padding(padding: const EdgeInsets.only(top: 8), child: AskCard(ask: ask, onAnswer: (a, {bool remember = false}) => b.answer(a, remember: remember))),
+                  if (ask != null) Padding(padding: const EdgeInsets.only(top: 8), child: AskCard(ask: ask, onAnswer: (a, {bool remember = false}) => th.answer(a, remember: remember))),
                   if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: TextStyle(color: t.critical))),
                 ],
               ),

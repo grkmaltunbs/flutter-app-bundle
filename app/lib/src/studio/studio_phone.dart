@@ -4,6 +4,8 @@ import 'package:flutter/material.dart' hide Step, StepState;
 import '../blobs.dart';
 import '../screens/deck_tab.dart';
 import '../widgets/common.dart';
+import 'studio_desk_relay.dart';
+import 'studio_draft.dart';
 import 'studio_media_view.dart';
 import 'studio_orchestrator.dart';
 import 'studio_orchestrator_relay.dart';
@@ -15,18 +17,27 @@ import 'studio_screen.dart';
 Future<void> openPhoneStudio(BuildContext context, {int initialTab = 0}) async {
   final data = RemoteStudioData(FirebaseFirestore.instance)..start();
   final orch = RemoteOrchestrator(FirebaseFirestore.instance)..start();
+  final threads = RemoteThreads(FirebaseFirestore.instance)..start();
   await Navigator.of(context).push(MaterialPageRoute<void>(
     builder: (_) => StudioScreen(
       source: data,
       remote: true,
       initialTab: initialTab,
+      // Questions on a step, and the phone's own draft — sent through the Mac.
+      threads: threads,
+      draft: phoneDraft,
+      sendToOrchestrator: orch.send,
       orchestratorTab: PhoneOrchestratorTab(remote: orch, data: data),
       mediaTab: PhoneMediaScreen(db: FirebaseFirestore.instance, blobs: FirebaseBlobStore(), embedded: true),
     ),
   ));
   data.dispose();
   orch.dispose();
+  threads.dispose();
 }
+
+/// The phone's draft — kept on the phone across launches until sent.
+final StudioDraft phoneDraft = StudioDraft()..restore();
 
 /// The orchestrator on the phone: the same AUTOPILOT bar as on the Mac (its
 /// commands, the review loop, the schedule — carried out by the Mac) over the

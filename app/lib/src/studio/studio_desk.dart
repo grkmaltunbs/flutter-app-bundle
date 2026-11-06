@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_kit/kit.dart' show DeckMessage, DeckRole;
+import 'package:flutter_kit/kit.dart' show Ask, AskAnswer, DeckMessage, DeckRole;
 import 'package:path/path.dart' as p;
 
 import '../host/bridge_session.dart';
@@ -228,6 +228,9 @@ class StudioThreads extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Every thread with saved rows.
+  Iterable<String> get keys => _rows.keys;
+
   /// The saved rows of a thread, oldest first.
   List<DeckMessage> rows(String key) => List.unmodifiable(_rows[key] ?? const []);
 
@@ -260,4 +263,72 @@ class StudioThreads extends ChangeNotifier {
 
   /// Questions asked, not counting EXPLAIN.
   int realQuestions(String key) => (_rows[key] ?? const []).where((m) => m.role == DeckRole.user && !m.text.contains('] $kSummarize')).length;
+}
+
+/// What a step's thread screen and the graphs' panels need from the step
+/// desk — the Mac's desk and its saved threads ([DeskThreads]), or the
+/// phone's view of them through the relay.
+abstract class ThreadsApi implements Listenable {
+  /// The thread's rows, oldest first (saved, then live ones not saved yet).
+  List<DeckMessage> rowsFor(String key);
+  int questions(String key);
+  String? lastAnswer(String key);
+  String? summary(String key);
+
+  /// The desk is answering in this thread now.
+  bool busy(String key);
+
+  /// A permission or a question the desk waits on.
+  Ask? get pendingAsk;
+  void answer(AskAnswer a, {bool remember = false});
+
+  /// Asks the desk [text] about the step; returns an error to show, or null.
+  Future<String?> ask(Map<String, Object?> about, {required String stepText, required String text});
+}
+
+/// The Mac's threads: the desk session and the saved rows.
+class DeskThreads extends ChangeNotifier implements ThreadsApi {
+  DeskThreads({required this.desk, required this.threads}) {
+    desk.addListener(notifyListeners);
+    threads.addListener(notifyListeners);
+  }
+  final BridgeSession desk;
+  final StudioThreads threads;
+
+  @override
+  void dispose() {
+    desk.removeListener(notifyListeners);
+    threads.removeListener(notifyListeners);
+    super.dispose();
+  }
+
+  @override
+  List<DeckMessage> rowsFor(String key) {
+    final saved = threads.rows(key);
+    final sid = desk.sessionId ?? 'x';
+    final ids = {for (final r in saved) r.id};
+    final live = [
+      for (final m in desk.transcript.messages)
+        if (threadKeyOf(m.about) == key && m.role != DeckRole.note && !ids.contains('$sid-${m.id}')) m,
+    ];
+    return [...saved, ...live];
+  }
+
+  @override
+  int questions(String key) => threads.questions(key);
+  @override
+  String? lastAnswer(String key) => threads.lastAnswer(key);
+  @override
+  String? summary(String key) => threads.summary(key);
+
+  @override
+  bool busy(String key) => desk.transcript.turnOpen && threadKeyOf(desk.transcript.messages.lastOrNull?.about) == key;
+
+  @override
+  Ask? get pendingAsk => desk.transcript.pending;
+  @override
+  void answer(AskAnswer a, {bool remember = false}) => desk.answer(a, remember: remember);
+
+  @override
+  Future<String?> ask(Map<String, Object?> about, {required String stepText, required String text}) => askDesk(desk, threads, about: about, stepText: stepText, text: text);
 }

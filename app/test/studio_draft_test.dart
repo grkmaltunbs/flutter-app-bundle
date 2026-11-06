@@ -10,6 +10,7 @@ import 'package:kit_app/src/studio/studio_constellation.dart';
 import 'package:kit_app/src/studio/studio_data.dart';
 import 'package:kit_app/src/studio/studio_draft.dart';
 import 'package:kit_app/src/studio/studio_graph.dart';
+import 'package:kit_app/src/studio/studio_orchestrator.dart';
 import 'package:kit_app/src/studio/studio_plans.dart';
 import 'package:kit_app/src/studio/studio_screen.dart';
 import 'package:kit_app/src/theme.dart';
@@ -107,7 +108,7 @@ void main() {
     final bridge = fakeSession(fake, dir: proj.path, home: home.path);
     await tester.pumpWidget(MaterialApp(
       theme: kitTheme(KitTokens.light),
-      home: Scaffold(body: LaneConstellation(graph: g, lanes: const [], draft: draft), bottomNavigationBar: DraftBar(draft: draft, orchestrator: bridge)),
+      home: Scaffold(body: LaneConstellation(graph: g, lanes: const [], draft: draft), bottomNavigationBar: DraftBar(draft: draft, send: (text) => sendToOrchestrator(bridge, text))),
     ));
     await settle(tester);
     final sky = tester.renderObject<RenderBox>(find.byKey(const Key('lane-sky')));

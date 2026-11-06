@@ -96,7 +96,7 @@ text: |
     });
     await tester.pumpWidget(MaterialApp(
       theme: kitTheme(KitTokens.light),
-      home: StepThreadScreen(title: 'LANE A · R1', subtitle: 'one', about: stepAbout('a', 'R1'), stepText: '[ ] R1: one', desk: b, threads: threads, draft: draft),
+      home: StepThreadScreen(title: 'LANE A · R1', subtitle: 'one', about: stepAbout('a', 'R1'), stepText: '[ ] R1: one', threads: DeskThreads(desk: b, threads: threads), draft: draft),
     ));
     await tester.pump();
     expect(find.textContaining('No questions yet'), findsOneWidget);

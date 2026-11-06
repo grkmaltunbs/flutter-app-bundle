@@ -21,7 +21,7 @@ import 'studio_visuals.dart';
 /// the game's own documents. Read-only by design: it shows, the person
 /// decides, the orchestrator acts.
 class StudioScreen extends StatefulWidget {
-  const StudioScreen({super.key, required this.source, this.orchestrator, this.draft, this.desk, this.threads, this.media, this.mediaTab, this.orchestratorTab, this.initialTab = 0, this.remote = false, this.onSettings, DateTime Function()? now}) : _now = now ?? DateTime.now;
+  const StudioScreen({super.key, required this.source, this.orchestrator, this.draft, this.threads, this.sendToOrchestrator, this.media, this.mediaTab, this.orchestratorTab, this.initialTab = 0, this.remote = false, this.onSettings, DateTime Function()? now}) : _now = now ?? DateTime.now;
 
   /// The MEDIA tab's content when it is not the Mac's gallery (the phone's).
   final Widget? mediaTab;
@@ -37,9 +37,12 @@ class StudioScreen extends StatefulWidget {
   /// The pictures and videos gathered for the MEDIA tab and the strip.
   final StudioMedia? media;
 
-  /// The step desk that answers questions on a step, and its threads.
-  final BridgeSession? desk;
-  final StudioThreads? threads;
+  /// The step desk's threads — questions on a step, answers, proposals.
+  final ThreadsApi? threads;
+
+  /// How the draft reaches the orchestrator when there is no [orchestrator]
+  /// session here (the phone sends through the Mac).
+  final Future<String> Function(String text)? sendToOrchestrator;
 
   /// The changes made on the graphs, waiting for SEND TO ORCHESTRATOR.
   final StudioDraft? draft;
@@ -79,7 +82,9 @@ class _StudioScreenState extends State<StudioScreen> {
           ],
           bottom: TabBar(isScrollable: _scrollTabs(context), tabAlignment: _scrollTabs(context) ? TabAlignment.start : null, tabs: const [Tab(text: 'NOW'), Tab(text: 'ORCHESTRATOR'), Tab(text: 'LANES'), Tab(text: 'ROADMAP'), Tab(text: 'INBOX'), Tab(text: 'MEDIA'), Tab(text: 'DOCS')]),
         ),
-        bottomNavigationBar: widget.draft == null ? null : DraftBar(draft: widget.draft!, orchestrator: widget.orchestrator),
+        bottomNavigationBar: widget.draft == null
+            ? null
+            : DraftBar(draft: widget.draft!, send: widget.sendToOrchestrator ?? (widget.orchestrator == null ? null : (text) => sendToOrchestrator(widget.orchestrator!, text))),
         body: ListenableBuilder(
           listenable: widget.source,
           builder: (context, _) {
@@ -92,10 +97,10 @@ class _StudioScreenState extends State<StudioScreen> {
             return TabBarView(physics: const NeverScrollableScrollPhysics(), children: [
               _NowTab(snapshot: s, now: now, source: src),
               widget.orchestratorTab ?? (widget.orchestrator == null
-                  ? EmptyNote(widget.remote ? 'The orchestrator\'s chat and the autopilot commands come to the phone in the next update. For now they are on the Mac.' : 'Pick the orchestrator\'s folder under Folders (usually the game repo) to talk to it here.')
+                  ? EmptyNote(widget.remote ? 'The Mac has not published the orchestrator.' : 'Pick the orchestrator\'s folder under Folders (usually the game repo) to talk to it here.')
                   : OrchestratorTab(bridge: widget.orchestrator!, lanes: s.lanes, media: widget.media)),
-              _LanesTab(snapshot: s, now: now, source: src, orchestrator: widget.orchestrator, draft: widget.draft, desk: widget.desk, threads: widget.threads),
-              _RoadmapTab(snapshot: s, orchestrator: widget.orchestrator, draft: widget.draft, desk: widget.desk, threads: widget.threads),
+              _LanesTab(snapshot: s, now: now, source: src, orchestrator: widget.orchestrator, draft: widget.draft, threads: widget.threads),
+              _RoadmapTab(snapshot: s, orchestrator: widget.orchestrator, draft: widget.draft, threads: widget.threads),
               _InboxTab(snapshot: s),
               widget.mediaTab ?? (widget.media == null ? const EmptyNote('No media yet.') : MediaGallery(media: widget.media!)),
               _DocsTab(source: src),
@@ -327,9 +332,8 @@ class _LaneGrid extends StatelessWidget {
 /// LANES: the dependency graph of every lane, or the cards with their
 /// latest steps — a switch on the sky flips between them.
 class _LanesTab extends StatefulWidget {
-  const _LanesTab({required this.snapshot, required this.now, required this.source, this.orchestrator, this.draft, this.desk, this.threads});
-  final BridgeSession? desk;
-  final StudioThreads? threads;
+  const _LanesTab({required this.snapshot, required this.now, required this.source, this.orchestrator, this.draft, this.threads});
+  final ThreadsApi? threads;
   final StudioSnapshot snapshot;
   final DateTime now;
   final StudioData source;
@@ -359,9 +363,8 @@ class _LanesTabState extends State<_LanesTab> {
       lanes: s.lanes,
       draft: widget.draft,
       threads: widget.threads,
-      onExplain: widget.desk == null ? null : (lane, item) => explain(context, widget.desk, widget.threads, about: stepAbout(lane, item.id), stepText: [if (item.section != null) '(under "${item.section}")', '${item.done ? '[x]' : '[ ]'} ${item.text}'].join('\n')),
-      onAsk: widget.desk == null ? null : (lane, item) => openThread(context,
-          desk: widget.desk,
+      onExplain: widget.threads == null ? null : (lane, item) => explain(context, widget.threads, about: stepAbout(lane, item.id), stepText: [if (item.section != null) '(under "${item.section}")', '${item.done ? '[x]' : '[ ]'} ${item.text}'].join('\n')),
+      onAsk: widget.threads == null ? null : (lane, item) => openThread(context,
           threads: widget.threads,
           draft: widget.draft,
           title: '${laneLabel(lane)} · ${item.id}',
@@ -378,9 +381,8 @@ class _LanesTabState extends State<_LanesTab> {
 
 /// ROADMAP: the constellation, or the ladder.
 class _RoadmapTab extends StatefulWidget {
-  const _RoadmapTab({required this.snapshot, this.orchestrator, this.draft, this.desk, this.threads});
-  final BridgeSession? desk;
-  final StudioThreads? threads;
+  const _RoadmapTab({required this.snapshot, this.orchestrator, this.draft, this.threads});
+  final ThreadsApi? threads;
   final StudioSnapshot snapshot;
   final BridgeSession? orchestrator;
   final StudioDraft? draft;
@@ -411,9 +413,8 @@ class _RoadmapTabState extends State<_RoadmapTab> {
       steps: _steps,
       draft: widget.draft,
       threads: widget.threads,
-      onExplainItem: widget.desk == null ? null : (item) => explain(context, widget.desk, widget.threads, about: itemAbout(item.id), stepText: '${item.id} · ${item.task} · ${item.milestone}\nStatus: ${item.statusText}\n${item.summary}'),
-      onAskItem: widget.desk == null ? null : (item) => openThread(context,
-          desk: widget.desk,
+      onExplainItem: widget.threads == null ? null : (item) => explain(context, widget.threads, about: itemAbout(item.id), stepText: '${item.id} · ${item.task} · ${item.milestone}\nStatus: ${item.statusText}\n${item.summary}'),
+      onAskItem: widget.threads == null ? null : (item) => openThread(context,
           threads: widget.threads,
           draft: widget.draft,
           title: '${item.id} · ${item.task}',
@@ -734,9 +735,11 @@ class DocScreen extends StatelessWidget {
 /// SEND TO ORCHESTRATOR to send them as one message — then the draft clears.
 /// Hidden while there is nothing in the draft.
 class DraftBar extends StatelessWidget {
-  const DraftBar({super.key, required this.draft, this.orchestrator});
+  const DraftBar({super.key, required this.draft, this.send});
   final StudioDraft draft;
-  final BridgeSession? orchestrator;
+
+  /// Sends the draft's message to the orchestrator; null when there is none.
+  final Future<String> Function(String text)? send;
 
   @override
   Widget build(BuildContext context) {
@@ -756,9 +759,9 @@ class DraftBar extends StatelessWidget {
                 Container(width: 10, height: 10, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFC79BFF))),
                 const SizedBox(width: 8),
                 Expanded(child: Text('${draft.length} CHANGE${draft.length == 1 ? '' : 'S'} IN THE DRAFT', overflow: TextOverflow.ellipsis, style: t.readout(11, color: t.ink))),
-                TextButton(onPressed: () => showDraftSheet(context, draft, orchestrator), child: const Text('REVIEW')),
+                TextButton(onPressed: () => showDraftSheet(context, draft, send), child: const Text('REVIEW')),
                 const SizedBox(width: 4),
-                Flexible(child: FilledButton.icon(onPressed: () => sendDraft(context, draft, orchestrator), icon: const Icon(Icons.send, size: 16), label: const Text('SEND TO ORCHESTRATOR', overflow: TextOverflow.ellipsis))),
+                Flexible(child: FilledButton.icon(onPressed: () => sendDraft(context, draft, send), icon: const Icon(Icons.send, size: 16), label: const Text('SEND TO ORCHESTRATOR', overflow: TextOverflow.ellipsis))),
               ]),
             ),
           ),
@@ -769,16 +772,16 @@ class DraftBar extends StatelessWidget {
 }
 
 /// Sends the draft as one message and clears it; a toast says what came of it.
-Future<void> sendDraft(BuildContext context, StudioDraft draft, BridgeSession? orchestrator) async {
+Future<void> sendDraft(BuildContext context, StudioDraft draft, Future<String> Function(String text)? send) async {
   final messenger = ScaffoldMessenger.of(context);
-  if (orchestrator == null) {
+  if (send == null) {
     messenger.showSnackBar(const SnackBar(content: Text('Set the orchestrator folder under Folders first.')));
     return;
   }
   final text = draftPrompt(draft.orders);
   final n = draft.length;
-  final said = await sendToOrchestrator(orchestrator, text);
-  if (said.startsWith('The orchestrator did not start')) {
+  final said = await send(text);
+  if (said.startsWith('The orchestrator did not start') || said.startsWith('not running') || said.startsWith('failed')) {
     messenger.showSnackBar(SnackBar(content: Text(said)));
     return;
   }
@@ -787,7 +790,7 @@ Future<void> sendDraft(BuildContext context, StudioDraft draft, BridgeSession? o
 }
 
 /// The draft, one row per change, each with a bin; CLEAR and SEND below.
-Future<void> showDraftSheet(BuildContext context, StudioDraft draft, BridgeSession? orchestrator) {
+Future<void> showDraftSheet(BuildContext context, StudioDraft draft, Future<String> Function(String text)? send) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -825,7 +828,7 @@ Future<void> showDraftSheet(BuildContext context, StudioDraft draft, BridgeSessi
                       ? null
                       : () async {
                           Navigator.of(sheet).pop();
-                          await sendDraft(context, draft, orchestrator);
+                          await sendDraft(context, draft, send);
                         },
                   icon: const Icon(Icons.send, size: 16),
                   label: const Text('SEND TO ORCHESTRATOR'),
@@ -841,25 +844,24 @@ Future<void> showDraftSheet(BuildContext context, StudioDraft draft, BridgeSessi
 
 
 /// Opens a step's thread with the step desk.
-void openThread(BuildContext context, {required BridgeSession? desk, required StudioThreads? threads, required StudioDraft? draft, required String title, String? subtitle, required Map<String, Object?> about, required String stepText}) {
-  if (desk == null || threads == null) {
+void openThread(BuildContext context, {required ThreadsApi? threads, required StudioDraft? draft, required String title, String? subtitle, required Map<String, Object?> about, required String stepText}) {
+  if (threads == null) {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Set the orchestrator folder under Folders first — the step desk works there too.')));
     return;
   }
-  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => StepThreadScreen(title: title, subtitle: subtitle, about: about, stepText: stepText, desk: desk, threads: threads, draft: draft)));
+  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => StepThreadScreen(title: title, subtitle: subtitle, about: about, stepText: stepText, threads: threads, draft: draft)));
 }
-
 
 /// EXPLAIN: asks the step desk what a step is for; the summary lands in the
 /// step's thread and shows on its panel when it comes.
-Future<void> explain(BuildContext context, BridgeSession? desk, StudioThreads? threads, {required Map<String, Object?> about, required String stepText}) async {
+Future<void> explain(BuildContext context, ThreadsApi? threads, {required Map<String, Object?> about, required String stepText}) async {
   final messenger = ScaffoldMessenger.of(context);
-  if (desk == null || threads == null) {
+  if (threads == null) {
     messenger.showSnackBar(const SnackBar(content: Text('Set the orchestrator folder under Folders first — the step desk works there too.')));
     return;
   }
   messenger.showSnackBar(const SnackBar(content: Text('Asking the step desk — the summary shows here when it answers.')));
-  final err = await askDesk(desk, threads, about: about, stepText: stepText, text: kSummarize);
+  final err = await threads.ask(about, stepText: stepText, text: kSummarize);
   if (err != null) messenger.showSnackBar(SnackBar(content: Text(err)));
 }
 
