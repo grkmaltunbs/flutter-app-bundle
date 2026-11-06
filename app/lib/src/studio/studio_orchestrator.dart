@@ -10,6 +10,7 @@ import '../screens/deck_tab.dart';
 import '../theme.dart';
 import 'studio_data.dart';
 import 'studio_plans.dart';
+import 'studio_schedule.dart';
 
 /// The orchestrator as a session of this app: K.A.T.Y.A's own Deck (chat,
 /// asks, MODEL and EFFORT dials, sessions to resume) on a `claude -p` bridge
@@ -24,6 +25,9 @@ class StudioOrchestrator {
   /// The review loop that rides on the current session.
   static ReviewLoop? get loop => _loop;
 
+  /// Timed orders, sent through the current session.
+  static final StudioSchedule schedule = StudioSchedule()..load();
+
   /// The session for [dir] — made once; a different folder replaces it.
   static BridgeSession get(String dir, {required String autopilotDir}) {
     if (_bridge != null && _dir == dir) return _bridge!;
@@ -36,12 +40,16 @@ class StudioOrchestrator {
     _dir = dir;
     final b = _bridge = BridgeSession(dir: dir)..briefExtra = () => orchestratorBrief(autopilotDir: autopilotDir);
     _loop = ReviewLoop(bridge: b, autopilotDir: autopilotDir)..restore();
+    schedule
+      ..watch(b)
+      ..start();
     return b;
   }
 
   /// A clean quit: the session stopped, within the app's quit budget.
   static Future<void> quit() async {
     _loop?.stopTimer();
+    schedule.stop();
     final b = _bridge;
     if (b != null && b.running) await b.stop();
   }
@@ -55,7 +63,13 @@ The autopilot folder is $autopilotDir (its README.md describes the lanes, mail, 
 The Studio shows the lanes as step tracks and sends you orders about one step as a message that starts with "[Studio · lane <x> · <step id>]".
 For an order that changes a lane's plan (add, edit, remove, reorder or link a step), use the autopilot's own means — a /autopilot-tell note or mail to the lane, or an edit of the lane's step list committed on the lane's branch when the lane is not mid-step on that list — and say in one line what you changed and where.
 A step may carry a dependency tag in its line, `after: <lane>/<STEP-ID>` (comma-separated for several); keep the tags you are given exactly as written.
-The review loop is run by K.A.T.Y.A, not by a cron job in this session: while review/mode is present or afk and the Studio's loop is on, it sends /autopilot-review every 20 minutes when you are idle. When /autopilot-watch or /autopilot-afk says to make sure the loop exists, do not create a cron job or call the loop skill for /autopilot-review — say the Studio runs it. One-off timed tasks may still need a cron job; say plainly if this session cannot run one, so the user can set it another way.''';
+The review loop is run by K.A.T.Y.A, not by a cron job in this session: while review/mode is present or afk and the Studio's loop is on, it sends /autopilot-review every 20 minutes when you are idle. When /autopilot-watch or /autopilot-afk says to make sure the loop exists, do not create a cron job or call the loop skill for /autopilot-review — say the Studio runs it. For a timed task (once, or every day / weekdays at a time — e.g. pause lane C before the user's play session, continue it after), do not create a cron job: end your reply with this block and the Studio sends the `send:` line to you at that time, starting or resuming this session when needed (the user sees it in the schedule and can cancel it):
+```studio-timer
+at: YYYY-MM-DD HH:MM   (local time)
+repeat: once | daily | weekdays
+send: the command or message to receive then, e.g. /wait-at-the-next-stop c
+note: why, in a few words
+```''';
 
 /// The reviewer's 20-minute pass, run by the app instead of a cron job in
 /// the session (a `claude -p` bridge has no session cron). Each minute it
@@ -303,26 +317,42 @@ class _AutopilotBarState extends State<AutopilotBar> {
       decoration: BoxDecoration(color: t.surface, border: Border(bottom: BorderSide(color: t.line))),
       padding: const EdgeInsets.fromLTRB(12, 6, 4, 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Flexible(child: Text('AUTOPILOT', overflow: TextOverflow.ellipsis, style: t.readout(10, color: t.accent))),
-          const SizedBox(width: 10),
-          if (loop != null)
-            Flexible(
-              child: ListenableBuilder(
-                listenable: loop!,
-                builder: (context, _) => Tooltip(
-                  message: 'The app sends /autopilot-review every 20 minutes while the review mode is on — ${loop!.why}',
-                  child: FilterChip(
-                    avatar: Icon(Icons.autorenew, size: 16, color: loop!.on ? t.accent : t.muted),
-                    label: Text(loop!.on ? 'REVIEW LOOP · ON' : 'REVIEW LOOP · OFF', overflow: TextOverflow.ellipsis),
-                    selected: loop!.on,
-                    showCheckmark: false,
-                    onSelected: (v) => loop!.set(v),
+        // The title row: the label and the two switches wrap onto a second
+        // line when large text leaves no room; the fold stays at the end.
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              Text('AUTOPILOT', overflow: TextOverflow.ellipsis, style: t.readout(10, color: t.accent)),
+              if (loop != null)
+                ListenableBuilder(
+                  listenable: loop!,
+                  builder: (context, _) => Tooltip(
+                    message: 'The app sends /autopilot-review every 20 minutes while the review mode is on — ${loop!.why}',
+                    child: FilterChip(
+                      avatar: Icon(Icons.autorenew, size: 16, color: loop!.on ? t.accent : t.muted),
+                      label: Text(loop!.on ? 'REVIEW LOOP · ON' : 'REVIEW LOOP · OFF', overflow: TextOverflow.ellipsis),
+                      selected: loop!.on,
+                      showCheckmark: false,
+                      onSelected: (v) => loop!.set(v),
+                    ),
                   ),
                 ),
+              ListenableBuilder(
+                listenable: StudioOrchestrator.schedule,
+                builder: (context, _) {
+                  final n = StudioOrchestrator.schedule.upcoming;
+                  return Tooltip(
+                    message: 'Timed orders: send a command or message to the orchestrator at a time',
+                    child: ActionChip(
+                      avatar: Icon(Icons.alarm, size: 16, color: n > 0 ? t.accent : t.muted),
+                      label: Text(n == 0 ? 'SCHEDULE' : 'SCHEDULE · $n', overflow: TextOverflow.ellipsis),
+                      onPressed: () => showScheduleSheet(context, StudioOrchestrator.schedule, lanes: lanes, pickText: (ctx) => pickAutopilotCommand(ctx, lanes)),
+                    ),
+                  );
+                },
               ),
-            ),
-          const Spacer(),
+            ]),
+          ),
           IconButton(
             tooltip: open ? 'Fold the commands' : 'Show the commands',
             icon: Icon(open ? Icons.expand_less : Icons.expand_more),
@@ -440,4 +470,28 @@ class _CommandDialogState extends State<_CommandDialog> {
       ],
     );
   }
+}
+
+
+/// Lets the person pick one of the autopilot's commands (and what it needs)
+/// and returns its line — for a timed order.
+Future<String?> pickAutopilotCommand(BuildContext context, List<Lane> lanes) async {
+  final c = await showDialog<AutopilotCommand>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: const Text('Autopilot command'),
+      children: [
+        for (final c in kAutopilotCommands)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, c),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(c.command, style: context.tokens.mono(13, color: context.tokens.accent)),
+              Text(c.what, style: TextStyle(fontSize: 12, color: context.tokens.ink2)),
+            ]),
+          ),
+      ],
+    ),
+  );
+  if (c == null || !context.mounted) return null;
+  return askCommandText(context, c, lanes);
 }
