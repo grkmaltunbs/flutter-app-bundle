@@ -16,11 +16,8 @@ import '../host/project_registry.dart';
 import '../plan_source.dart';
 import '../push/push_listener.dart';
 import '../relay.dart';
-import '../blobs.dart';
 import '../studio/studio_launcher.dart';
-import '../studio/studio_media_view.dart';
-import '../studio/studio_relay.dart';
-import '../studio/studio_screen.dart';
+import '../studio/studio_phone.dart';
 import '../studio/studio_desk.dart';
 import '../studio/studio_orchestrator.dart';
 import '../theme.dart';
@@ -186,7 +183,8 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (context, snap) {
                 if (snap.hasError) return EmptyNote('Could not read the relay: ${snap.error}');
                 if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-                final projects = groupProjects(snap.data!.docs.map(ProjectSummary.fromDoc).toList());
+                // The orchestrator's document is the Studio's, not a project.
+                final projects = groupProjects(snap.data!.docs.where((d) => d.data()['studio'] != true).map(ProjectSummary.fromDoc).toList());
                 // The Studio leads the list once the Mac publishes it.
                 final studio = StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                   stream: FirebaseFirestore.instance.collection('studio').doc('main').snapshots(),
@@ -233,11 +231,3 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 
-/// The phone's Studio: the Mac's, as the relay has it.
-Future<void> openPhoneStudio(BuildContext context) async {
-  final data = RemoteStudioData(FirebaseFirestore.instance)..start();
-  await Navigator.of(context).push(MaterialPageRoute<void>(
-    builder: (_) => StudioScreen(source: data, remote: true, mediaTab: PhoneMediaScreen(db: FirebaseFirestore.instance, blobs: FirebaseBlobStore(), embedded: true)),
-  ));
-  data.dispose();
-}

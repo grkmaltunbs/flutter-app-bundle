@@ -97,6 +97,7 @@ class DeckView extends StatefulWidget {
     this.onSeen,
     this.autopilot,
     this.onAutopilot,
+    this.planControls = true,
     this.run,
     this.onRun,
     this.runLog,
@@ -222,6 +223,11 @@ class DeckView extends StatefulWidget {
   /// returns the one line to toast; null where the surface has no loop.
   final AutopilotState? autopilot;
   final Future<String?> Function({required bool on, int? budget, bool? nightShift})? onAutopilot;
+
+  /// The plan's own controls — the `/step` chips, the command palette, the
+  /// AUTOPILOT pill. Off for a session that is not a plan's (the Studio's
+  /// orchestrator has its own bar).
+  final bool planControls;
 
   /// The run bay — the app under test as the host reports it, the `run`
   /// command (start · reload · restart · stop · devices · reload_on_edit,
@@ -1077,7 +1083,7 @@ class _DeckViewState extends State<DeckView> with WidgetsBindingObserver, Single
                             _PendingFiles(files: _files, enabled: !_busy, onRemove: (f) => setState(() => _files.remove(f))),
                             const SizedBox(height: 8),
                           ],
-                          SingleChildScrollView(
+                          if (w.planControls) SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
                               children: [
@@ -1416,8 +1422,11 @@ class _Attachments extends StatelessWidget {
 
 /// The host's Deck: straight off its own bridge.
 class DeckTab extends StatelessWidget {
-  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.loadFile, this.onWriteFile, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog, this.mirrorHooks, this.builds = const [], this.buildOnFlip = false, this.onBuild, this.onSwitchSession, this.onDeleteSession, this.worktree, this.canAddWorktree = false});
+  const DeckTab({super.key, required this.bridge, this.title, this.nowSlot, this.pick, this.testPush, this.onChromeHidden, this.files, this.loadFile, this.onWriteFile, this.git, this.onGit, this.autopilot, this.onAutopilot, this.run, this.onRun, this.runLog, this.mirrorHooks, this.builds = const [], this.buildOnFlip = false, this.onBuild, this.onSwitchSession, this.onDeleteSession, this.worktree, this.canAddWorktree = false, this.planControls = true});
   final BridgeSession bridge;
+
+  /// See [DeckView.planControls].
+  final bool planControls;
 
   /// See [DeckView.worktree].
   final String? worktree;
@@ -1532,6 +1541,7 @@ class DeckTab extends StatelessWidget {
           onGit: onGit,
           autopilot: autopilot,
           onAutopilot: onAutopilot,
+          planControls: planControls,
           run: run,
           onRun: onRun,
           runLog: runLog,
@@ -1556,7 +1566,10 @@ class DeckTab extends StatelessWidget {
 
 /// The phone's Deck: the mirror in, commands out.
 class RemoteDeckTab extends StatefulWidget {
-  const RemoteDeckTab({super.key, required this.db, required this.slug, this.from = 'phone', this.title, this.nowSlot, this.pick, this.blobs, this.onChromeHidden, this.initialFiles = const [], this.initialText, this.installBuild, this.focusRowId});
+  const RemoteDeckTab({super.key, required this.db, required this.slug, this.from = 'phone', this.title, this.nowSlot, this.pick, this.blobs, this.onChromeHidden, this.initialFiles = const [], this.initialText, this.installBuild, this.focusRowId, this.planControls = true});
+
+  /// See [DeckView.planControls].
+  final bool planControls;
 
   /// What a share or a push opened this Deck with — see [DeckView.initialFiles].
   final List<PendingAttachment> initialFiles;
@@ -1703,6 +1716,7 @@ class _RemoteDeckTabState extends State<RemoteDeckTab> {
         installBuild: widget.installBuild,
         focusRowId: widget.focusRowId,
         autopilot: d.autopilot,
+        planControls: widget.planControls,
         onAutopilot: ({required on, budget, nightShift}) async {
           await d.setAutopilot(on: on, budget: budget, nightShift: nightShift);
           return on ? 'autopilot on — the Mac starts stepping' : 'autopilot off';
@@ -2000,7 +2014,7 @@ class _Header extends StatelessWidget {
                 ],
               ),
             ),
-          if (w.onAutopilot != null)
+          if (w.onAutopilot != null && w.planControls)
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: _AutopilotControl(view: w),

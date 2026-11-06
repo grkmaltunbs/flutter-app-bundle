@@ -12,6 +12,7 @@ import 'studio_desk.dart';
 import 'studio_media.dart';
 import 'studio_draft.dart';
 import 'studio_orchestrator.dart';
+import 'studio_orchestrator_relay.dart';
 import 'studio_relay.dart';
 import 'studio_screen.dart';
 import 'studio_source.dart';
@@ -53,7 +54,13 @@ class StudioHost {
     if (orchestrator != null) media.watch(orchestrator!, source: 'orchestrator');
     if (desk != null) media.watch(desk!, source: 'desk');
     publisher = StudioPublisher(db: FirebaseFirestore.instance, source: source, machine: Platform.localHostname)..start();
+    // The orchestrator on the phone: its session published, the phone's commands carried out.
+    if (orchestrator != null) {
+      relay = OrchestratorRelay(db: FirebaseFirestore.instance, bridge: orchestrator!, machine: Platform.localHostname, dir: orchDir!, push: HostProjects.push, blobs: HostProjects.blobs, loop: StudioOrchestrator.loop, schedule: StudioOrchestrator.schedule)..start();
+    }
   }
+
+  OrchestratorRelay? relay;
 
   final String autopilot;
   final String? game;
@@ -90,6 +97,7 @@ class StudioHost {
   }
 
   void stop() {
+    relay?.stop();
     publisher.stop();
     source.dispose();
     media.stop();

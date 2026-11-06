@@ -104,9 +104,21 @@ TimedOrder? parseTimer(String block, {required String id}) {
   return TimedOrder(id: id, at: at, text: send, repeat: repeat, by: 'orchestrator', note: f['note']);
 }
 
+/// What the schedule sheet needs — the Mac's schedule, or the phone's view
+/// of it (changed through commands).
+abstract class ScheduleApi implements Listenable {
+  List<TimedOrder> get orders;
+  List<TimedOrder> get sorted;
+  int get upcoming;
+  Duration get grace;
+  void add(TimedOrder o);
+  void cancel(String id);
+  void delete(String id);
+}
+
 /// The schedule: kept in a file, checked every [tick], sending through
 /// [bridge] (set by the orchestrator holder).
-class StudioSchedule extends ChangeNotifier {
+class StudioSchedule extends ChangeNotifier implements ScheduleApi {
   StudioSchedule({String? file, this.tick = const Duration(seconds: 30), this.grace = const Duration(minutes: 30), DateTime Function()? now})
       : file = file ?? p.join(Platform.environment['HOME'] ?? '.', '.flutter_kit', 'studio', 'schedule.json'),
         _now = now ?? DateTime.now;
@@ -115,21 +127,25 @@ class StudioSchedule extends ChangeNotifier {
   final Duration tick;
 
   /// How late an order may still be sent.
+  @override
   final Duration grace;
   final DateTime Function() _now;
 
+  @override
   final List<TimedOrder> orders = [];
   BridgeSession? bridge;
   Timer? _timer;
   final Set<String> _seenBlocks = {};
 
   /// Upcoming first, then the rest newest first.
+  @override
   List<TimedOrder> get sorted {
     final up = orders.where((o) => o.active).toList()..sort((a, b) => a.at.compareTo(b.at));
     final rest = orders.where((o) => !o.active).toList()..sort((a, b) => (b.lastRun ?? b.at).compareTo(a.lastRun ?? a.at));
     return [...up, ...rest];
   }
 
+  @override
   int get upcoming => orders.where((o) => o.active).length;
 
   void load() {
@@ -166,11 +182,13 @@ class StudioSchedule extends ChangeNotifier {
     _timer = null;
   }
 
+  @override
   void add(TimedOrder o) {
     orders.add(o);
     _save();
   }
 
+  @override
   void cancel(String id) {
     final o = orders.where((o) => o.id == id).firstOrNull;
     if (o == null) return;
@@ -178,6 +196,7 @@ class StudioSchedule extends ChangeNotifier {
     _save();
   }
 
+  @override
   void delete(String id) {
     orders.removeWhere((o) => o.id == id);
     _save();
@@ -259,7 +278,7 @@ String whenText(DateTime at, DateTime now) {
 
 /// The schedule as a sheet: upcoming first, each with CANCEL; finished ones
 /// below with what came of them; ADD at the top.
-Future<void> showScheduleSheet(BuildContext context, StudioSchedule schedule, {required List<Lane> lanes, required Future<String?> Function(BuildContext) pickText}) {
+Future<void> showScheduleSheet(BuildContext context, ScheduleApi schedule, {required List<Lane> lanes, required Future<String?> Function(BuildContext) pickText}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,

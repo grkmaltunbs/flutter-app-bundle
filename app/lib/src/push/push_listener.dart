@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import '../attachments.dart';
 import '../plan_source.dart';
 import '../relay.dart';
+import '../studio/studio_orchestrator_relay.dart';
+import '../studio/studio_phone.dart';
 import '../screens/project_screen.dart';
 import '../share_intake.dart';
 import 'local_notices.dart';
@@ -64,7 +66,7 @@ class _PushListenerState extends State<PushListener> {
   Future<void> _shared(Shared shared) async {
     final q = await FirebaseFirestore.instance.collection('projects').get();
     if (!mounted) return;
-    final projects = [for (final d in q.docs) ProjectSummary.fromDoc(d)];
+    final projects = [for (final d in q.docs) if (d.data()['studio'] != true) ProjectSummary.fromDoc(d)];
     if (projects.isEmpty) return;
     ProjectSummary? pick = projects.length == 1 ? projects.single : null;
     pick ??= await showDialog<ProjectSummary>(
@@ -83,6 +85,11 @@ class _PushListenerState extends State<PushListener> {
     // Back to the list, then into the project: no second copy of a
     // project screen that is already open.
     nav.popUntil((r) => r.isFirst);
+    // The orchestrator lives in the Studio: its pushes open it there.
+    if (slug == kOrchestratorSlug) {
+      unawaited(openPhoneStudio(context, initialTab: 1));
+      return;
+    }
     final source = RemotePlanSource(FirebaseFirestore.instance, slug)..start();
     nav.push(MaterialPageRoute<void>(builder: (_) => ProjectScreen.remote(source: source, slug: slug, initialFiles: initialFiles, initialText: initialText, installBuild: installBuild, focusRowId: focusRowId)));
   }

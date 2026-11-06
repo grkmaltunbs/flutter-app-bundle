@@ -21,10 +21,14 @@ import 'studio_visuals.dart';
 /// the game's own documents. Read-only by design: it shows, the person
 /// decides, the orchestrator acts.
 class StudioScreen extends StatefulWidget {
-  const StudioScreen({super.key, required this.source, this.orchestrator, this.draft, this.desk, this.threads, this.media, this.mediaTab, this.remote = false, this.onSettings, DateTime Function()? now}) : _now = now ?? DateTime.now;
+  const StudioScreen({super.key, required this.source, this.orchestrator, this.draft, this.desk, this.threads, this.media, this.mediaTab, this.orchestratorTab, this.initialTab = 0, this.remote = false, this.onSettings, DateTime Function()? now}) : _now = now ?? DateTime.now;
 
   /// The MEDIA tab's content when it is not the Mac's gallery (the phone's).
   final Widget? mediaTab;
+
+  /// The ORCHESTRATOR tab's content when it is not the Mac's (the phone's).
+  final Widget? orchestratorTab;
+  final int initialTab;
 
   /// The phone's Studio: read from the relay; the orchestrator's chat and
   /// editing come later.
@@ -57,6 +61,7 @@ class _StudioScreenState extends State<StudioScreen> {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 7,
+      initialIndex: widget.initialTab,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('STUDIO'),
@@ -86,9 +91,9 @@ class _StudioScreenState extends State<StudioScreen> {
             // pans the map; the tab bar changes tabs.
             return TabBarView(physics: const NeverScrollableScrollPhysics(), children: [
               _NowTab(snapshot: s, now: now, source: src),
-              widget.orchestrator == null
+              widget.orchestratorTab ?? (widget.orchestrator == null
                   ? EmptyNote(widget.remote ? 'The orchestrator\'s chat and the autopilot commands come to the phone in the next update. For now they are on the Mac.' : 'Pick the orchestrator\'s folder under Folders (usually the game repo) to talk to it here.')
-                  : OrchestratorTab(bridge: widget.orchestrator!, lanes: s.lanes, media: widget.media),
+                  : OrchestratorTab(bridge: widget.orchestrator!, lanes: s.lanes, media: widget.media)),
               _LanesTab(snapshot: s, now: now, source: src, orchestrator: widget.orchestrator, draft: widget.draft, desk: widget.desk, threads: widget.threads),
               _RoadmapTab(snapshot: s, orchestrator: widget.orchestrator, draft: widget.draft, desk: widget.desk, threads: widget.threads),
               _InboxTab(snapshot: s),

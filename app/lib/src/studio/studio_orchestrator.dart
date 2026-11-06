@@ -73,6 +73,14 @@ send: the command or message to receive then, e.g. /wait-at-the-next-stop c
 note: why, in a few words
 ```''';
 
+/// What the bar's REVIEW LOOP switch needs — the Mac's loop, or the phone's
+/// view of it.
+abstract class LoopApi implements Listenable {
+  bool get on;
+  String get why;
+  void set(bool value);
+}
+
 /// The reviewer's 20-minute pass, run by the app instead of a cron job in
 /// the session (a `claude -p` bridge has no session cron). Each minute it
 /// looks: the loop is on, `review/mode` is present or afk, the last review
@@ -80,7 +88,7 @@ note: why, in a few words
 /// between turns — then it sends `/autopilot-review`. It never starts a
 /// session on its own, so a second reviewer cannot appear behind the
 /// person's back.
-class ReviewLoop extends ChangeNotifier {
+class ReviewLoop extends ChangeNotifier implements LoopApi {
   ReviewLoop({required this.bridge, required this.autopilotDir, this.period = const Duration(minutes: 20), DateTime Function()? now}) : _now = now ?? DateTime.now;
 
   final BridgeSession bridge;
@@ -90,11 +98,13 @@ class ReviewLoop extends ChangeNotifier {
 
   static const _prefKey = 'studio.reviewLoop';
 
+  @override
   bool on = false;
   DateTime? lastSent;
   Timer? _timer;
 
   /// Why it did not send at the last look, for the bar's tooltip.
+  @override
   String why = 'off';
 
   Future<void> restore() async {
@@ -104,6 +114,7 @@ class ReviewLoop extends ChangeNotifier {
     } catch (_) {}
   }
 
+  @override
   void set(bool value, {bool persist = true}) {
     on = value;
     if (on) {
@@ -281,9 +292,9 @@ class OrchestratorTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      AutopilotBar(bridge: bridge, lanes: lanes, loop: StudioOrchestrator.loop),
+      AutopilotBar(send: (text) => sendToOrchestrator(bridge, text), lanes: lanes, loop: StudioOrchestrator.loop, schedule: StudioOrchestrator.schedule),
       if (media != null) MediaStrip(media: media!),
-      Expanded(child: DeckTab(bridge: bridge, title: 'ORCHESTRATOR')),
+      Expanded(child: DeckTab(bridge: bridge, title: 'ORCHESTRATOR', planControls: false)),
     ]);
   }
 }
@@ -293,10 +304,13 @@ class OrchestratorTab extends StatelessWidget {
 /// scroll sideways); a chevron folds them away to give the Deck the room.
 /// A tap asks what the command needs (lane, note, number) and sends it.
 class AutopilotBar extends StatefulWidget {
-  const AutopilotBar({super.key, required this.bridge, required this.lanes, this.loop});
-  final BridgeSession bridge;
+  const AutopilotBar({super.key, required this.send, required this.lanes, this.loop, this.schedule});
+
+  /// Sends a command line to the orchestrator; returns what came of it.
+  final Future<String> Function(String text) send;
   final List<Lane> lanes;
-  final ReviewLoop? loop;
+  final LoopApi? loop;
+  final ScheduleApi? schedule;
 
   @override
   State<AutopilotBar> createState() => _AutopilotBarState();
@@ -307,16 +321,17 @@ class _AutopilotBarState extends State<AutopilotBar> {
   /// large text would leave the Deck too little room.
   bool? _opened;
 
-  BridgeSession get bridge => widget.bridge;
   List<Lane> get lanes => widget.lanes;
-  ReviewLoop? get loop => widget.loop;
+  LoopApi? get loop => widget.loop;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
     const cs = kAutopilotCommands;
     final groups = <String>{for (final c in cs) c.group}.toList();
-    final open = _opened ?? MediaQuery.textScalerOf(context).scale(10) <= 15;
+    // Open by default; folded on a phone or with large text, where the
+    // commands would take the Deck's room.
+    final open = _opened ?? (MediaQuery.textScalerOf(context).scale(10) <= 15 && MediaQuery.sizeOf(context).width >= 600);
     return Container(
       decoration: BoxDecoration(color: t.surface, border: Border(bottom: BorderSide(color: t.line))),
       padding: const EdgeInsets.fromLTRB(12, 6, 4, 8),
@@ -341,20 +356,21 @@ class _AutopilotBarState extends State<AutopilotBar> {
                     ),
                   ),
                 ),
-              ListenableBuilder(
-                listenable: StudioOrchestrator.schedule,
-                builder: (context, _) {
-                  final n = StudioOrchestrator.schedule.upcoming;
-                  return Tooltip(
-                    message: 'Timed orders: send a command or message to the orchestrator at a time',
-                    child: ActionChip(
-                      avatar: Icon(Icons.alarm, size: 16, color: n > 0 ? t.accent : t.muted),
-                      label: Text(n == 0 ? 'SCHEDULE' : 'SCHEDULE · $n', overflow: TextOverflow.ellipsis),
-                      onPressed: () => showScheduleSheet(context, StudioOrchestrator.schedule, lanes: lanes, pickText: (ctx) => pickAutopilotCommand(ctx, lanes)),
-                    ),
-                  );
-                },
-              ),
+              if (widget.schedule != null)
+                ListenableBuilder(
+                  listenable: widget.schedule!,
+                  builder: (context, _) {
+                    final n = widget.schedule!.upcoming;
+                    return Tooltip(
+                      message: 'Timed orders: send a command or message to the orchestrator at a time',
+                      child: ActionChip(
+                        avatar: Icon(Icons.alarm, size: 16, color: n > 0 ? t.accent : t.muted),
+                        label: Text(n == 0 ? 'SCHEDULE' : 'SCHEDULE · $n', overflow: TextOverflow.ellipsis),
+                        onPressed: () => showScheduleSheet(context, widget.schedule!, lanes: lanes, pickText: (ctx) => pickAutopilotCommand(ctx, lanes)),
+                      ),
+                    );
+                  },
+                ),
             ]),
           ),
           IconButton(
@@ -387,7 +403,7 @@ class _AutopilotBarState extends State<AutopilotBar> {
     final text = await askCommandText(context, c, lanes);
     if (text == null || !context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    final said = await sendToOrchestrator(bridge, text);
+    final said = await widget.send(text);
     // Watching and away mode want the loop; stopping the watch ends it.
     if (c.command == '/autopilot-watch' || c.command == '/autopilot-afk') loop?.set(true);
     if (c.command == '/autopilot-watch-stop') loop?.set(false);

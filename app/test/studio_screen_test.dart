@@ -155,8 +155,8 @@ void main() {
       await goTab(tester, 1);
       expect(find.text('AUTOPILOT'), findsOneWidget);
       expect(find.text('ORCHESTRATOR'), findsWidgets);
-      if (scale > 1.5) {
-        expect(find.text('STATUS'), findsNothing, reason: 'folded at large text so the Deck keeps its room');
+      {
+        expect(find.text('STATUS'), findsNothing, reason: 'folded on a phone-width screen (and at large text) so the Deck keeps its room');
         await tester.tap(find.byTooltip('Show the commands'));
         await settle(tester);
       }
