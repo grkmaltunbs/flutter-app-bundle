@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../attachments.dart';
 import '../plan_source.dart';
 import '../relay.dart';
+import '../studio/studio_board.dart';
 import '../studio/studio_orchestrator_relay.dart';
 import '../studio/studio_phone.dart';
 import '../screens/project_screen.dart';
@@ -85,9 +86,13 @@ class _PushListenerState extends State<PushListener> {
     // Back to the list, then into the project: no second copy of a
     // project screen that is already open.
     nav.popUntil((r) => r.isFirst);
-    // The orchestrator lives in the Studio: its pushes open it there.
+    // The orchestrator and the board live in the Studio: their pushes open it there.
     if (slug == kOrchestratorSlug) {
       unawaited(openPhoneStudio(context, initialTab: 1));
+      return;
+    }
+    if (slug == kBoardSlug) {
+      unawaited(openPhoneStudio(context, initialTab: 4, inboxSegment: 1));
       return;
     }
     final source = RemotePlanSource(FirebaseFirestore.instance, slug)..start();
@@ -142,6 +147,11 @@ class _PushListenerState extends State<PushListener> {
   Future<void> _open(Map<String, Object?> data) async {
     final tap = PushTap.from(data);
     if (tap == null) return;
+    // The Studio's pushes have no project document of their own.
+    if (tap.slug == kOrchestratorSlug || tap.slug == kBoardSlug) {
+      _openProject(tap.slug);
+      return;
+    }
     final d = await FirebaseFirestore.instance.collection('projects').doc(tap.slug).get();
     if (!mounted || !d.exists) return;
     final s = ProjectSummary.fromDoc(d);

@@ -1,13 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart' hide Step, StepState;
+import 'package:flutter_kit/kit.dart' show Notice, NoticeKind;
 import 'package:path/path.dart' as p;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../host/bridge_session.dart';
 import '../host/host_projects.dart';
+import 'studio_board.dart';
 import 'studio_desk.dart';
 import 'studio_desk_relay.dart';
 import 'studio_media.dart';
@@ -45,7 +48,11 @@ final StudioDraft studioDraft = StudioDraft()..restore();
 /// not the Studio screen is open. Opening the Studio only shows it.
 class StudioHost {
   StudioHost._(this.autopilot, this.game, this.orchDir) {
-    source = StudioSource(autopilotDir: autopilot, gameDir: game)..start();
+    // The messaging board with Fırat's side, kept on this Mac; a new message
+    // to this side is a push.
+    board = game == null ? null : (BoardWatcher(gameDir: game!, onNew: _boardPush)..start());
+    source = StudioSource(autopilotDir: autopilot, gameDir: game, boardFile: board?.file)..start();
+    board?.addListener(source.refresh);
     StudioSource.current = source;
     // The orchestrator runs where the person says, else in the game repo.
     orchestrator = orchDir == null ? null : StudioOrchestrator.get(orchDir!, autopilotDir: autopilot);
@@ -72,6 +79,16 @@ class StudioHost {
   final String? game;
   final String? orchDir;
   late final StudioSource source;
+  BoardWatcher? board;
+
+  static void _boardPush(List<BoardMessage> fresh) {
+    final ps = HostProjects.push;
+    final first = fresh.first;
+    final body = first.text.replaceAll(RegExp(r'\*\*|`'), '');
+    unawaited(ps
+        .send(Notice(kind: NoticeKind.note, title: fresh.length == 1 ? "Fırat's board · ${first.from}" : "Fırat's board · ${fresh.length} new messages", body: body.length > 220 ? '${body.substring(0, 217)}…' : body), slug: kBoardSlug, project: 'Board')
+        .catchError((Object _) => 0));
+  }
   BridgeSession? orchestrator;
   BridgeSession? desk;
 
@@ -106,6 +123,7 @@ class StudioHost {
   }
 
   void stop() {
+    board?.stop();
     relay?.stop();
     deskRelay?.stop();
     publisher.stop();

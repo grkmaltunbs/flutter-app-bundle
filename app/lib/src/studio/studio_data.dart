@@ -1,3 +1,4 @@
+import 'studio_board.dart';
 import 'studio_plans.dart';
 
 // Studio: what the game's autopilot is doing, read from the files its loop
@@ -400,7 +401,11 @@ class StudioSnapshot {
     this.readAt,
     this.tracks = const {},
     this.roadmap = const [],
+    this.board = const [],
   });
+
+  /// The messaging board with Fırat's side, newest first.
+  final List<BoardMessage> board;
 
   /// Each lane's step track, by lane id.
   final Map<String, LaneTrack> tracks;

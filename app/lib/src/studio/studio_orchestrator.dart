@@ -209,32 +209,6 @@ Status: ${item.statusText}
 ${item.summary}
 --- end ---''';
 
-/// Asks the person for a question about [subject] and sends what [build]
-/// makes of it to the orchestrator; a toast says what came of it.
-Future<void> askOrchestrator(BuildContext context, BridgeSession? bridge, {required String subject, required String Function(String text) build}) async {
-  final messenger = ScaffoldMessenger.of(context);
-  if (bridge == null) {
-    messenger.showSnackBar(const SnackBar(content: Text('Set the orchestrator folder under Folders first.')));
-    return;
-  }
-  final ctrl = TextEditingController();
-  final text = await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('Ask about $subject'),
-      content: TextField(controller: ctrl, autofocus: true, minLines: 2, maxLines: 6, decoration: const InputDecoration(hintText: 'Why is this next? What does it wait on? …', border: OutlineInputBorder())),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-        FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('SEND')),
-      ],
-    ),
-  );
-  ctrl.dispose();
-  if (text == null || text.isEmpty) return;
-  final said = await sendToOrchestrator(bridge, build(text));
-  messenger.showSnackBar(SnackBar(content: Text('$said — the answer is on the ORCHESTRATOR tab')));
-}
-
 /// One autopilot command as a button: what it sends and whether it needs a
 /// lane, a note or a number first.
 class AutopilotCommand {

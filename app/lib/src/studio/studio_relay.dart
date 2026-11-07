@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart' show sha1;
 import 'package:path/path.dart' as p;
 
+import 'studio_board.dart';
 import 'studio_data.dart';
 import 'studio_plans.dart';
 import 'studio_source.dart';
@@ -109,6 +110,7 @@ class StudioPublisher {
         if (source.gameDir != null) 'plan': {'rel': 'production/production-plan.md', 'text': _fit(source.gameFile('production/production-plan.md'))},
         'mail': {'rel': 'mail/to-user', 'text': jsonEncode([for (final m in s.userMail.take(40)) {'file': m.file, 'body': m.body.length > 8000 ? '${m.body.substring(0, 8000)}\n…' : m.body}])},
         'decisions': {'rel': 'review/afk-decisions.md', 'text': _fit(_lastSections(_auto(p.join('review', 'afk-decisions.md')), 60), keepEnd: true)},
+        if (source.boardText.isNotEmpty) 'board': {'rel': 'messaging-board/MESSAGING_BOARD.md', 'text': _fit(source.boardText)},
         'issues': {'rel': 'review/open-issues.md', 'text': _fit([for (final i in s.openIssues.reversed) '- ${i.text}'].join('\n'), keepEnd: true)},
         if (source.gameDir != null)
           for (final rel in phoneDocs(source))
@@ -274,6 +276,7 @@ class RemoteStudioData extends StudioData {
       readAt: published is Timestamp ? published.toDate() : null,
       tracks: tracks,
       roadmap: plan.isEmpty ? const [] : _roadmapOf(plan),
+      board: _text('board').isEmpty ? const [] : parseBoard(_text('board')),
     );
     error = null;
     notifyListeners();

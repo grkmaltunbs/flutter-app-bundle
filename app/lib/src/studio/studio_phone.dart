@@ -14,7 +14,7 @@ import 'studio_screen.dart';
 
 /// The phone's Studio: the Mac's, as the relay has it — [initialTab] 1 opens
 /// on the orchestrator (a push about one of its asks lands there).
-Future<void> openPhoneStudio(BuildContext context, {int initialTab = 0}) async {
+Future<void> openPhoneStudio(BuildContext context, {int initialTab = 0, int inboxSegment = 0}) async {
   final data = RemoteStudioData(FirebaseFirestore.instance)..start();
   final orch = RemoteOrchestrator(FirebaseFirestore.instance)..start();
   final threads = RemoteThreads(FirebaseFirestore.instance)..start();
@@ -23,6 +23,7 @@ Future<void> openPhoneStudio(BuildContext context, {int initialTab = 0}) async {
       source: data,
       remote: true,
       initialTab: initialTab,
+      initialInboxSegment: inboxSegment,
       // Questions on a step, and the phone's own draft — sent through the Mac.
       threads: threads,
       draft: phoneDraft,

@@ -4,6 +4,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../host/bridge_session.dart';
 import 'studio_constellation.dart';
+import 'studio_board.dart';
 import 'studio_data.dart';
 import 'studio_desk.dart';
 import 'studio_media.dart';
@@ -21,7 +22,7 @@ import 'studio_visuals.dart';
 /// the game's own documents. Read-only by design: it shows, the person
 /// decides, the orchestrator acts.
 class StudioScreen extends StatefulWidget {
-  const StudioScreen({super.key, required this.source, this.orchestrator, this.draft, this.threads, this.sendToOrchestrator, this.media, this.mediaTab, this.orchestratorTab, this.initialTab = 0, this.remote = false, this.onSettings, DateTime Function()? now}) : _now = now ?? DateTime.now;
+  const StudioScreen({super.key, required this.source, this.orchestrator, this.draft, this.threads, this.sendToOrchestrator, this.media, this.mediaTab, this.orchestratorTab, this.initialTab = 0, this.initialInboxSegment = 0, this.remote = false, this.onSettings, DateTime Function()? now}) : _now = now ?? DateTime.now;
 
   /// The MEDIA tab's content when it is not the Mac's gallery (the phone's).
   final Widget? mediaTab;
@@ -29,6 +30,9 @@ class StudioScreen extends StatefulWidget {
   /// The ORCHESTRATOR tab's content when it is not the Mac's (the phone's).
   final Widget? orchestratorTab;
   final int initialTab;
+
+  /// Which INBOX list opens first: 0 mail, 1 the board, 2 decided, 3 issues.
+  final int initialInboxSegment;
 
   /// The phone's Studio: read from the relay; the orchestrator's chat and
   /// editing come later.
@@ -101,7 +105,7 @@ class _StudioScreenState extends State<StudioScreen> {
                   : OrchestratorTab(bridge: widget.orchestrator!, lanes: s.lanes, media: widget.media)),
               _LanesTab(snapshot: s, now: now, source: src, orchestrator: widget.orchestrator, draft: widget.draft, threads: widget.threads),
               _RoadmapTab(snapshot: s, orchestrator: widget.orchestrator, draft: widget.draft, threads: widget.threads),
-              _InboxTab(snapshot: s),
+              _InboxTab(snapshot: s, initialSegment: widget.initialInboxSegment, reply: widget.sendToOrchestrator ?? (widget.orchestrator == null ? null : (text) => sendToOrchestrator(widget.orchestrator!, text))),
               widget.mediaTab ?? (widget.media == null ? const EmptyNote('No media yet.') : MediaGallery(media: widget.media!)),
               _DocsTab(source: src),
             ]);
@@ -552,26 +556,31 @@ class LaneScreen extends StatelessWidget {
 // --- INBOX ----------------------------------------------------------------------
 
 class _InboxTab extends StatefulWidget {
-  const _InboxTab({required this.snapshot});
+  const _InboxTab({required this.snapshot, this.initialSegment = 0, this.reply});
   final StudioSnapshot snapshot;
+  final int initialSegment;
+
+  /// Sends the orchestrator a request to answer on the board; null when there is none.
+  final Future<String> Function(String text)? reply;
   @override
   State<_InboxTab> createState() => _InboxTabState();
 }
 
 class _InboxTabState extends State<_InboxTab> {
-  int _which = 0;
+  late int _which = widget.initialSegment;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
     final s = widget.snapshot;
-    final segments = [('MAIL', s.userMail.length), ('DECIDED', s.decisions.length), ('ISSUES', s.openIssues.length)];
+    final forYou = s.board.where((m) => m.forYou).length;
+    final segments = [('MAIL', s.userMail.length), ('BOARD', s.board.length), ('DECIDED', s.decisions.length), ('ISSUES', s.openIssues.length)];
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
         child: Wrap(spacing: 8, runSpacing: 8, children: [
           for (final (i, seg) in segments.indexed)
-            ChoiceChip(label: Text('${seg.$1} · ${seg.$2}'), selected: _which == i, onSelected: (_) => setState(() => _which = i), selectedColor: t.accentSoft),
+            ChoiceChip(label: Text(seg.$1 == 'BOARD' && forYou > 0 ? 'BOARD · ${seg.$2} · $forYou FROM FIRAT' : '${seg.$1} · ${seg.$2}'), selected: _which == i, onSelected: (_) => setState(() => _which = i), selectedColor: t.accentSoft),
         ]),
       ),
       Expanded(
@@ -580,7 +589,11 @@ class _InboxTabState extends State<_InboxTab> {
               final m = s.userMail[i];
               return _InboxRow(kicker: m.at == null ? m.file : whenLabel(m.at!, DateTime.now()), title: m.title, onTap: () => _open(context, m.title, m.body));
             }, 'No mail to you.'),
-          1 => _list(s.decisions.length, (i) {
+          1 => _list(s.board.length, (i) {
+              final m = s.board[i];
+              return _BoardRow(message: m, onTap: () => _openBoard(context, m));
+            }, 'No board yet — the Mac fetches the messaging-board branch every few minutes.'),
+          2 => _list(s.decisions.length, (i) {
               final d = s.decisions[i];
               return _InboxRow(kicker: d.at == null ? 'DECIDED' : 'DECIDED · ${whenLabel(d.at!, DateTime.now())}', title: d.title, onTap: () => _open(context, d.title, d.body));
             }, 'The reviewer decided nothing for you.'),
@@ -591,6 +604,38 @@ class _InboxTabState extends State<_InboxTab> {
         },
       ),
     ]);
+  }
+
+  void _openBoard(BuildContext context, BoardMessage m) {
+    final t = context.tokens;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (context) => Scaffold(
+        appBar: AppBar(title: Text('${m.from} → ${m.to}', maxLines: 1, overflow: TextOverflow.ellipsis)),
+        body: ListView(padding: const EdgeInsets.all(16), children: [
+          Text([if (m.at != null) whenLabel(m.at!, DateTime.now()), m.from, '→ ${m.to}'].join(' · ').toUpperCase(), style: t.readout(10, color: m.forYou ? t.warn : t.muted)),
+          const SizedBox(height: 12),
+          Md(m.text),
+          const SizedBox(height: 18),
+          if (widget.reply != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(icon: const Icon(Icons.reply, size: 18), label: const Text('REPLY'), onPressed: () => _reply(context, m)),
+            ),
+        ]),
+      ),
+    ));
+  }
+
+  /// REPLY: what the person wants said (or nothing, for the orchestrator to
+  /// draft), sent to the orchestrator to post with /send-team-message.
+  Future<void> _reply(BuildContext context, BoardMessage m) async {
+    final send = widget.reply;
+    if (send == null) return;
+    final note = await showDialog<String>(context: context, builder: (_) => const _ReplyDialog());
+    if (note == null || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final said = await send(boardReplyPrompt(m, note));
+    messenger.showSnackBar(SnackBar(content: Text('$said — the orchestrator answers on the board and says so on its tab')));
   }
 
   Widget _list(int n, Widget Function(int) row, String empty) {
@@ -869,3 +914,66 @@ Future<void> explain(BuildContext context, ThreadsApi? threads, {required Map<St
 /// Seven tabs fit side by side from about 760 px; narrower (a phone) or with
 /// large text, the tab bar scrolls so every name reads whole.
 bool _scrollTabs(BuildContext context) => MediaQuery.sizeOf(context).width < 760 || MediaQuery.textScalerOf(context).scale(10) > 15;
+
+
+/// The request REPLY sends the orchestrator.
+String boardReplyPrompt(BoardMessage m, String note) => [
+      '[Studio · board] Reply on the messaging board to this message, with /send-team-message:',
+      '',
+      '> ${m.at == null ? '' : '${m.at!.year}-${m.at!.month.toString().padLeft(2, '0')}-${m.at!.day.toString().padLeft(2, '0')} ${m.at!.hour.toString().padLeft(2, '0')}:${m.at!.minute.toString().padLeft(2, '0')} · '}${m.from} → ${m.to}: ${m.text}',
+      '',
+      note.isEmpty ? 'Draft the reply yourself from what you know; keep it short, as the board asks.' : 'The user wants it to say: $note',
+      'Then tell me in one line what you posted.',
+    ].join('\n');
+
+/// One board message: who to whom and when; Fırat's side to this one in amber.
+class _BoardRow extends StatelessWidget {
+  const _BoardRow({required this.message, required this.onTap});
+  final BoardMessage message;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final m = message;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        decoration: m.forYou ? BoxDecoration(border: Border(left: BorderSide(color: t.warn, width: 3))) : null,
+        padding: EdgeInsets.only(left: m.forYou ? 10 : 0, top: 10, bottom: 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text([if (m.at != null) whenLabel(m.at!, DateTime.now()), '${m.from} → ${m.to}'].join(' · ').toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: t.readout(10, color: m.forYou ? t.warn : t.muted)),
+          const SizedBox(height: 2),
+          Text(m.text.replaceAll(RegExp(r'\*\*|`'), ''), maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: t.ink, height: 1.35)),
+        ]),
+      ),
+    );
+  }
+}
+
+
+/// What to say on the board — its controller lives as long as the dialog
+/// (disposing it as the dialog closes trips the framework mid-animation).
+class _ReplyDialog extends StatefulWidget {
+  const _ReplyDialog();
+  @override
+  State<_ReplyDialog> createState() => _ReplyDialogState();
+}
+
+class _ReplyDialogState extends State<_ReplyDialog> {
+  final _ctrl = TextEditingController();
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Reply on the board'),
+        content: TextField(controller: _ctrl, autofocus: true, minLines: 2, maxLines: 6, decoration: const InputDecoration(hintText: 'What to say — or leave it empty and the orchestrator drafts the reply', border: OutlineInputBorder())),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          FilledButton(onPressed: () => Navigator.pop(context, _ctrl.text.trim()), child: const Text('SEND TO ORCHESTRATOR')),
+        ],
+      );
+}

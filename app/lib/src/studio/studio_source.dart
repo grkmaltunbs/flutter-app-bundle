@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'studio_board.dart';
 import 'studio_data.dart';
 import 'studio_plans.dart';
 import 'studio_resources.dart';
@@ -31,7 +32,10 @@ abstract class StudioData extends ChangeNotifier {
 /// Studio polls as the reviewer does. Read-only: the Studio never writes
 /// into the autopilot folder or the game repo.
 class StudioSource extends StudioData {
-  StudioSource({required this.autopilotDir, this.gameDir, this.period = const Duration(seconds: 15), DateTime Function()? now}) : _now = now ?? DateTime.now;
+  StudioSource({required this.autopilotDir, this.gameDir, this.boardFile, this.period = const Duration(seconds: 15), DateTime Function()? now}) : _now = now ?? DateTime.now;
+
+  /// The messaging board's copy on this Mac ([BoardWatcher.file]).
+  final String? boardFile;
 
   /// The Studio open now — for pages that look up a step's resources.
   static StudioSource? current;
@@ -141,8 +145,12 @@ class StudioSource extends StudioData {
       readAt: _now(),
       tracks: tracks,
       roadmap: roadmap,
+      board: boardText.isEmpty ? const [] : parseBoard(boardText),
     );
   }
+
+  /// The board's text, '' when there is no copy yet.
+  String get boardText => boardFile != null && File(boardFile!).existsSync() ? _decode(File(boardFile!).readAsBytesSync()) : '';
 
   /// Parsed files, kept until the file changes (the plan is 340 KB).
   final Map<String, ({DateTime modified, Object value})> _parsed = {};
